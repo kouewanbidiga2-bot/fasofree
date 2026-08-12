@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+  <defs>
+    <pattern id="diagonal-stripe" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="10" height="20" fill="currentColor" fill-opacity="0.1"/>
+      <rect x="10" width="10" height="20" fill="transparent"/>
+    </pattern>
+  </defs>
+  <rect width="100%" height="100%" fill="url(#diagonal-stripe)"/>
+</svg>
