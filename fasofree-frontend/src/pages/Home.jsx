@@ -3,7 +3,8 @@
  * Commerces proches via API /businesses/nearby (GPS réel)
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { Search, MapPin, ShoppingBag, RefreshCw, AlertCircle, Star, Clock, Bike } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';

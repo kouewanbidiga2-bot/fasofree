@@ -1,24 +1,18 @@
-/**
- * FasoFree — Auth Store (Zustand)
- * Gestion complète de l'authentification avec JWT réel
- * Persistance dans localStorage
- */
 import { create } from 'zustand';
 import { login as apiLogin, register as apiRegister, getMe } from '../services/authService';
+import { UserRole } from '../types/roles';
 
-// ─── Clés localStorage ──────────────────────────────────────────────────
 const TOKEN_KEY = 'fasofree_token';
 const USER_KEY = 'fasofree_user';
 
-// ─── Helpers persistance ────────────────────────────────────────────────
 const persistToken = (token) => localStorage.setItem(TOKEN_KEY, token);
 const persistUser = (user) => localStorage.setItem(USER_KEY, JSON.stringify(user));
+
 const clearStorage = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 };
 
-// ─── Hydratation initiale depuis localStorage ────────────────────────────
 const getInitialState = () => {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
@@ -27,31 +21,22 @@ const getInitialState = () => {
       const user = JSON.parse(userRaw);
       return { token, user, isAuthenticated: true };
     }
-  } catch {
+  } catch (e) {
     clearStorage();
   }
   return { token: null, user: null, isAuthenticated: false };
 };
 
-const useAuthStore = create((set, get) => ({
-  // ─── State ──────────────────────────────────────────────────────────
+// EXPORT NOMMÉ ET EXPORT PAR DÉFAUT (Règle le problème d'importation définitivement)
+export const useAuthStore = create((set, get) => ({
   ...getInitialState(),
   isLoading: false,
   error: null,
 
-  // ─── Actions ────────────────────────────────────────────────────────
-
-  /**
-   * Connexion avec email + password
-   * @param {string} email
-   * @param {string} password
-   * @returns {Promise<object>} User avec son rôle
-   */
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
       const data = await apiLogin(email, password);
-      // Le backend renvoie { access_token, user } ou { access_token, ...userFields }
       const token = data.access_token || data.token;
       const user = data.user || {
         id: data.id,
@@ -71,17 +56,10 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  /**
-   * Inscription
-   * @param {Object} data - { fullName, email, phone, password, role }
-   * @returns {Promise<object>}
-   */
   register: async (data) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiRegister(data);
-      // Après inscription, on peut auto-login ou demander une connexion
-      // Ici on stocke si le backend renvoie un token
       if (result.access_token) {
         const token = result.access_token;
         const user = result.user || { ...data, id: result.id };
@@ -98,9 +76,6 @@ const useAuthStore = create((set, get) => ({
     }
   },
 
-  /**
-   * Rafraîchir le profil depuis le backend
-   */
   refreshProfile: async () => {
     try {
       const user = await getMe();
@@ -108,27 +83,17 @@ const useAuthStore = create((set, get) => ({
       set({ user });
       return user;
     } catch {
-      // Si ça échoue (token invalide), on déconnecte
       get().logout();
     }
   },
 
-  /**
-   * Déconnexion
-   */
   logout: () => {
     clearStorage();
     set({ token: null, user: null, isAuthenticated: false, error: null });
   },
 
-  /**
-   * Effacer les erreurs
-   */
   clearError: () => set({ error: null }),
 
-  /**
-   * Mettre à jour les données utilisateur localement
-   */
   updateUser: (userData) =>
     set((state) => {
       const updated = { ...state.user, ...userData };
@@ -136,20 +101,16 @@ const useAuthStore = create((set, get) => ({
       return { user: updated };
     }),
 
-  // ─── Getters dérivés ────────────────────────────────────────────────
-  get role() {
-    return get().user?.role || null;
-  },
-  get isBusinessAdmin() {
+  getRole: () => get().user?.role || null,
+  isBusinessAdmin: () => {
     const role = get().user?.role;
-    return role === 'business_admin' || role === 'super_admin';
+    return role === UserRole.BUSINESS_ADMIN || role === UserRole.SUPER_ADMIN;
   },
-  get isDriver() {
-    return get().user?.role === 'driver';
+  isDriver: () => {
+    const role = get().user?.role;
+    return role === UserRole.DRIVER || role === UserRole.COURIER;
   },
-  get isSuperAdmin() {
-    return get().user?.role === 'super_admin';
-  },
+  isSuperAdmin: () => get().user?.role === UserRole.SUPER_ADMIN,
 }));
 
 export default useAuthStore;

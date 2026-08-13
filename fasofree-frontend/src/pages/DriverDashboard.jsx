@@ -3,7 +3,8 @@
  * Commandes assignées depuis l'API, mise à jour statut réelle
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import {
   MapPin, Phone, Package, LogOut, RefreshCw,
   CheckCircle, XCircle, Bike, Clock, Wallet,

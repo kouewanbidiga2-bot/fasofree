@@ -1,5 +1,6 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { Check, Download, Home, ArrowLeft } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';

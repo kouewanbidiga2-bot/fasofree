@@ -3,7 +3,8 @@
  * Affiche les informations de l'utilisateur, historique, reçus via API
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { User, MapPin, Phone, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Edit2, Check, ShieldCheck } from 'lucide-react';
 import Footer from '../components/Footer';
 import useAuthStore from '../store/authStore';

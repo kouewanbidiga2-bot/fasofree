@@ -3,7 +3,8 @@
  * Création de commande via API et initiation du paiement
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, MapPin, Phone, CreditCard, ShieldCheck, AlertCircle, Check } from 'lucide-react';
 import Footer from '../components/Footer';
 import useCartStore from '../store/cartStore';

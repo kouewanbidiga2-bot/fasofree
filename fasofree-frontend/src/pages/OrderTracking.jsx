@@ -3,7 +3,8 @@
  * Récupère le statut réel via l'API et affiche la progression
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { CheckCircle, Clock, Package, Truck, Home, ArrowLeft, MapPin, RefreshCw } from 'lucide-react';
 import Footer from '../components/Footer';
 import { getOrderById, ORDER_STATUS } from '../services/orderService';

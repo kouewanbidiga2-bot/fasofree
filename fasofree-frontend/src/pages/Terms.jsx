@@ -1,5 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, FileText, AlertCircle, CheckCircle, Scale } from 'lucide-react';
 
 const Terms = () => {

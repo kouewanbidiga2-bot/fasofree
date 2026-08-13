@@ -3,7 +3,8 @@
  * Affiche le catalogue d'un restaurant via l'API
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin, Search, AlertCircle, ShoppingBag } from 'lucide-react';
 import Footer from '../components/Footer';
 import { getBusinessById } from '../services/businessService';

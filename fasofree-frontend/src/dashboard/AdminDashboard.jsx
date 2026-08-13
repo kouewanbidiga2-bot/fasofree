@@ -3,7 +3,8 @@
  * Vue d'ensemble pour super_admin, admin, support_admin
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, LifeBuoy, Settings, LogOut, 
   TrendingUp, Activity, DollarSign, RefreshCw, 

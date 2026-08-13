@@ -1,52 +1,65 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Home from './pages/Home';
-import Restaurant from './pages/Restaurant';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Receipt from './pages/Receipt';
-import OrderTracking from './pages/OrderTracking';
-import OrderHistory from './pages/OrderHistory';
-import Profile from './pages/Profile';
-import PhoneAuth from './pages/PhoneAuth';
-import DriverDashboard from './pages/DriverDashboard';
-import Dashboard from './dashboard/Dashboard';
-import AdminDashboard from './dashboard/AdminDashboard';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Loading from './pages/Loading';
-import useAuthStore from './store/authStore';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuthStore } from './store/authStore';
 
-// Protected Route Component
-const ProtectedRoute = ({ children }) => {
+// 1. IMPORTS FIXES
+import PhoneAuth from './pages/PhoneAuth';
+import Loading from './pages/Loading';
+
+// 2. LAZY LOADING
+const Home = lazy(() => import('./pages/Home'));
+const Restaurant = lazy(() => import('./pages/Restaurant'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const Receipt = lazy(() => import('./pages/Receipt'));
+const OrderTracking = lazy(() => import('./pages/OrderTracking'));
+const OrderHistory = lazy(() => import('./pages/OrderHistory'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+
+const DashboardRouter = lazy(() => import('./dashboard/DashboardRouter'));
+
+// 3. LAYOUT PROTÉGÉ
+const ProtectedLayout = () => {
   const { isAuthenticated } = useAuthStore();
-  
+  const location = useLocation();
+
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
-  return children;
+
+  return <Outlet />;
 };
 
 function App() {
   return (
     <Router>
-      <Routes>
-        <Route path="/loading" element={<Loading />} />
-        <Route path="/auth" element={<PhoneAuth />} />
-        <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-        <Route path="/restaurant/:id" element={<ProtectedRoute><Restaurant /></ProtectedRoute>} />
-        <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-        <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-        <Route path="/receipt" element={<ProtectedRoute><Receipt /></ProtectedRoute>} />
-        <Route path="/order-tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
-        <Route path="/order-history" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/driver-dashboard" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/privacy" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
-        <Route path="/terms" element={<ProtectedRoute><Terms /></ProtectedRoute>} />
-      </Routes>
+      <Suspense fallback={<Loading />}>
+        <Routes>
+          {/* ROUTES PUBLIQUES */}
+          <Route path="/loading" element={<Loading />} />
+          <Route path="/auth" element={<PhoneAuth />} />
+
+          {/* ROUTES PROTÉGÉES */}
+          <Route element={<ProtectedLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/restaurant/:id" element={<Restaurant />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/receipt" element={<Receipt />} />
+            <Route path="/order-tracking" element={<OrderTracking />} />
+            <Route path="/order-history" element={<OrderHistory />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/dashboard" element={<DashboardRouter />} />
+          </Route>
+
+          {/* ROUTE PAR DÉFAUT */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }

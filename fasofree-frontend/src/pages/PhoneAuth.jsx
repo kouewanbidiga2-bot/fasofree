@@ -4,7 +4,8 @@
  * Connecté au backend via authStore → authService
  */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, ChevronRight } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 

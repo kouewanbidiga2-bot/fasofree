@@ -4,7 +4,8 @@
  * Onglets: Vue d'ensemble | Produits | Commandes | Paramètres
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+// ✅ CORRECT
+import { useNavigate, useLocation, useParams, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Package, ShoppingCart, Settings, LogOut,
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
@@ -266,16 +267,32 @@ const Dashboard = () => {
     }
   };
 
-  const handleProductSaved = (savedProduct) => {
-    setProducts(prev => {
-      const idx = prev.findIndex(p => p.id === savedProduct.id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = savedProduct;
-        return next;
+ 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name || !form.price) {
+      setError('Nom et prix requis');
+      return;
+    }
+    setLoading(true);
+    setError('');
+
+    try {
+      let result;
+      if (product?.id) {
+        // CORRECTION DU BUG DE SYNTAXE ICI
+        const { businessId: _, ...updateData } = form;
+        result = await updateProduct(product.id, updateData);
+      } else {
+        result = await createProduct({ ...form, price: Number(form.price) });
       }
-      return [savedProduct, ...prev];
-    });
+      onSave(result);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ─── Actions commandes ─────────────────────────────────────────────
