@@ -1,0 +1,11 @@
+npm test
+#!/bin/sh
+echo "🔍 Vérification de la qualité du code avant commit..."
+
+# 1. Vérification stricte des types TypeScript sur tout le projet
+npx tsc --noEmit || exit 1
+
+# 2. Correction automatique du Lint et Prettier sur les fichiers modifiés
+npx lint-staged || exit 1
+
+echo "✅ Code propre et validé ! Commit en cours..."
