@@ -66,4 +66,4 @@ src/
     ├── products/           # Catalogue de produits & catégories
     ├── orders/             # Cycle de vie des commandes & calcul des commissions
     ├── delivery/           # Assignation des coursier & géolocalisation
-    └── payments/           # Webhooks & intégration CinetPay / LigdiCash / Mobile Money
+    └── payments/           # Webhooks & intégration CinetPay / LigdiCash / Mobile Money              
