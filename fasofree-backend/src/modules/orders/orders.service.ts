@@ -1,0 +1,879 @@
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  Logger,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, DataSource } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+
+// Entités et DTOs
+import {
+  Order,
+  OrderStatus,
+  OrderType,
+  FulfillmentType,
+} from './entities/order.entity';
+import {
+  Transaction,
+  TransactionStatus,
+} from '../payments/entities/transaction.entity';
+import { CreateOrderDto } from './dto/create-order.dto';
+
+// Gateways et Services
+import { DispatchGateway } from '../dispatch/dispatch.gateway';
+import { DispatchService } from '../dispatch/dispatch.service';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { PayoutsService } from '../payments/payouts.service';
+import { UserRole } from '../users/entities/user-role.enum';
+import { BusinessesService } from '../businesses/businesses.service';
+import { PromotionsService } from '../promotions/promotions.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { SmsService } from '../notifications/sms.service';
+import { UsersService } from '../users/users.service';
+import { QrCodeService } from './qr-code.service';
+import { DistanceCalculatorService } from './services/distance-calculator.service';
+
+/**
+ * 📊 Structure du calcul financier interne
+ */
+export interface FinancialBreakdown {
+  productsSubtotal: number;
+  deliveryFee: number;
+  platformCommission: number;
+  totalAmount: number;
+  merchantPayoutAmount: number;
+  commissionPayer: 'CLIENT' | 'MERCHANT';
+}
+
+/**
+ * 🧾 DTO de réponse pour l'application Mobile Client
+ */
+export interface ClientInvoiceResponse {
+  orderId: string;
+  status: OrderStatus;
+  invoice: {
+    productsSubtotal: number;
+    deliveryFee: number;
+    totalToPay: number;
+    currency: string;
+  };
+  createdAt: Date;
+}
+
+@Injectable()
+export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
+    private readonly configService: ConfigService,
+    private readonly dispatchGateway: DispatchGateway,
+    private readonly dispatchService: DispatchService,
+    private readonly analyticsService: AnalyticsService,
+    private readonly payoutsService: PayoutsService,
+    private readonly businessesService: BusinessesService,
+    private readonly dataSource: DataSource,
+    @Inject(forwardRef(() => PromotionsService))
+    private readonly promotionsService: PromotionsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly smsService: SmsService,
+    private readonly usersService: UsersService,
+    private readonly qrCodeService: QrCodeService,
+    private readonly distanceCalculatorService: DistanceCalculatorService,
+  ) {}
+
+  /**
+   * 🧮 Moteur de calcul financier FasoFree
+   */
+  public calculateFinancials(
+    productsSubtotal: number,
+    requestedDeliveryFee: number,
+  ): FinancialBreakdown {
+    const commissionRate = this.configService.get<number>(
+      'FASOFREE_COMMISSION_RATE',
+      0.0085,
+    );
+    const payer = this.configService.get<'CLIENT' | 'MERCHANT'>(
+      'FASOFREE_COMMISSION_PAYER',
+      'CLIENT',
+    );
+
+    const deliveryFee = Number(requestedDeliveryFee) || 0;
+    const subtotal = Number(productsSubtotal) || 0;
+
+    const platformCommission = Math.round(subtotal * commissionRate);
+
+    let totalAmount = 0;
+    let merchantPayoutAmount = 0;
+
+    if (payer === 'CLIENT') {
+      totalAmount = subtotal + deliveryFee + platformCommission;
+      merchantPayoutAmount = subtotal;
+    } else {
+      totalAmount = subtotal + deliveryFee;
+      merchantPayoutAmount = subtotal - platformCommission;
+    }
+
+    return {
+      productsSubtotal: subtotal,
+      deliveryFee,
+      platformCommission,
+      totalAmount,
+      merchantPayoutAmount,
+      commissionPayer: payer,
+    };
+  }
+
+  /**
+   * 🛍️ 1. Création d'une commande + Transaction PENDING + Dispatch WebSockets
+   */
+  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order> {
+    const {
+      orderType,
+      fulfillmentType,
+      fulfillmentDetails,
+      deliveryLatitude,
+      deliveryLongitude,
+      deliveryFee,
+      totalAmount: rawSubtotal,
+      businessId,
+      pickupLocation,
+      dropoffLocation,
+      packageDetails,
+    } = dto;
+
+    // --- 🚚 GESTION P2P DELIVERY ---
+    if (orderType === OrderType.P2P_DELIVERY) {
+      return this.createP2POrder(clientId, dto);
+    }
+
+    // --- 🛍️ GESTION MERCHANT (flux existant) ---
+    const isDelivery = orderType === OrderType.DELIVERY;
+
+    if (!businessId) {
+      throw new BadRequestException(
+        'Le commerce (businessId) est obligatoire pour une commande marchand.',
+      );
+    }
+
+    const business = await this.businessesService.findOne(businessId);
+    if (!business.isOpen) {
+      throw new BadRequestException('Ce commerce est actuellement fermé');
+    }
+
+    if (
+      isDelivery &&
+      (deliveryLatitude === undefined || deliveryLongitude === undefined)
+    ) {
+      throw new BadRequestException(
+        'Les coordonnées de livraison (latitude, longitude) sont obligatoires pour ce type de commande.',
+      );
+    }
+
+    const effectiveDeliveryFee = isDelivery ? (deliveryFee ?? 500) : 0;
+    let promotionCode: string | null = null;
+    let promotionDiscount = 0;
+    let reservedPromotionId: string | null = null;
+    if (dto.promoCode) {
+      const quote = await this.promotionsService.quote(
+        dto.promoCode,
+        rawSubtotal,
+      );
+      await this.promotionsService.reserve(quote.promotion.id);
+      promotionCode = quote.promotion.code;
+      promotionDiscount = quote.discount;
+      reservedPromotionId = quote.promotion.id;
+    }
+
+    const financials = this.calculateFinancials(
+      Math.max(0, Number(rawSubtotal) - promotionDiscount),
+      effectiveDeliveryFee,
+    );
+
+    const deliveryLocation =
+      isDelivery &&
+      deliveryLatitude !== undefined &&
+      deliveryLongitude !== undefined
+        ? { latitude: deliveryLatitude, longitude: deliveryLongitude }
+        : undefined;
+
+    const order = this.orderRepository.create({
+      clientId,
+      businessId,
+      orderType,
+      fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
+      fulfillmentDetails,
+      productsSubtotal: financials.productsSubtotal,
+      deliveryFee: financials.deliveryFee,
+      platformCommission: financials.platformCommission,
+      totalAmount: financials.totalAmount,
+      merchantPayoutAmount: financials.merchantPayoutAmount,
+      commissionPayer: financials.commissionPayer,
+      promotionCode,
+      promotionDiscount,
+      deliveryLocation,
+      status: OrderStatus.PENDING,
+      deliveryPinCode: isDelivery ? this.generatePinCode() : null,
+      driverId: null,
+      driverValidatedAt: null,
+      clientValidatedAt: null,
+    });
+
+    let savedOrder: Order;
+    try {
+      savedOrder = await this.orderRepository.save(order);
+
+      // Générer un QR Code pour les commandes PICKUP ou DINE_IN
+      if (
+        order.fulfillmentType === FulfillmentType.PICKUP ||
+        order.fulfillmentType === FulfillmentType.DINE_IN
+      ) {
+        const qrCode = await this.qrCodeService.generateAndAssignQrCode(
+          savedOrder.id,
+        );
+        this.logger.log(
+          `[QR Code] Généré pour la commande #${savedOrder.id}: ${qrCode ?? ''}`,
+        );
+      }
+    } catch (error) {
+      if (reservedPromotionId) {
+        await this.promotionsService
+          .release(reservedPromotionId)
+          .catch(() => undefined);
+      }
+      throw error;
+    }
+    this.logger.log(
+      `[Order Created] #${savedOrder.id} - Total Client: ${savedOrder.totalAmount} FCFA (Commission: ${savedOrder.platformCommission} FCFA)`,
+    );
+
+    const transaction = this.transactionRepository.create({
+      orderId: savedOrder.id,
+      amount: financials.totalAmount,
+      commissionAmount: financials.platformCommission,
+      status: TransactionStatus.PENDING,
+    });
+
+    await this.transactionRepository.save(transaction);
+
+    try {
+      this.dispatchGateway.notifyNewOrderToBusiness(businessId, savedOrder);
+      if (isDelivery) {
+        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[WebSocket Error] Échec de la notification temps réel pour la commande #${savedOrder.id}`,
+        error.stack,
+      );
+    }
+
+    return this.findOne(savedOrder.id);
+  }
+
+  /**
+   * 🚚 Création d'une commande P2P (Course à la demande)
+   */
+  private async createP2POrder(
+    clientId: string,
+    dto: CreateOrderDto,
+  ): Promise<Order> {
+    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
+      dto;
+
+    // Validation des champs P2P
+    if (!pickupLocation || !dropoffLocation) {
+      throw new BadRequestException(
+        'Les lieux de ramassage et de livraison sont obligatoires pour une course P2P',
+      );
+    }
+
+    // Calcul du prix basé sur la distance
+    const deliveryCalculation =
+      this.distanceCalculatorService.calculateP2PDelivery(
+        pickupLocation.latitude,
+        pickupLocation.longitude,
+        dropoffLocation.latitude,
+        dropoffLocation.longitude,
+        packageDetails?.isFragile || false,
+        packageDetails?.weight || 0,
+      );
+
+    const commissionRate = this.configService.get<number>(
+      'FASOFREE_COMMISSION_RATE',
+      0.0085,
+    );
+
+    const platformCommission = Math.round(
+      deliveryCalculation.price * commissionRate,
+    );
+    const totalAmount = deliveryCalculation.price + platformCommission;
+
+    this.logger.log(
+      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Prix de base: ${deliveryCalculation.price} FCFA, Commission: ${platformCommission} FCFA, Total: ${totalAmount} FCFA`,
+    );
+
+    const order = this.orderRepository.create({
+      clientId,
+      businessId: undefined, // Pas de business pour P2P
+      orderType: OrderType.P2P_DELIVERY,
+      fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
+      fulfillmentDetails: {
+        notes: packageDetails?.description,
+      },
+      productsSubtotal: 0, // Pas de produits pour P2P
+      deliveryFee: deliveryCalculation.price,
+      platformCommission,
+      totalAmount,
+      merchantPayoutAmount: 0, // Pas de payout pour P2P
+      commissionPayer: 'CLIENT',
+      pickupLocation,
+      dropoffLocation,
+      packageDetails,
+      deliveryLocation: {
+        latitude: dropoffLocation.latitude,
+        longitude: dropoffLocation.longitude,
+      },
+      status: OrderStatus.PENDING,
+      deliveryPinCode: this.generatePinCode(),
+      driverId: null,
+      driverValidatedAt: null,
+      clientValidatedAt: null,
+    });
+
+    const savedOrder = await this.orderRepository.save(order);
+
+    this.logger.log(
+      `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km)`,
+    );
+
+    // Créer la transaction
+    const transaction = this.transactionRepository.create({
+      orderId: savedOrder.id,
+      amount: totalAmount,
+      commissionAmount: platformCommission,
+      status: TransactionStatus.PENDING,
+    });
+
+    await this.transactionRepository.save(transaction);
+
+    // Dispatch directement aux chauffeurs (pas de business pour P2P)
+    try {
+      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+    } catch (error) {
+      this.logger.error(
+        `[WebSocket Error] Échec du dispatch P2P pour la commande #${savedOrder.id}`,
+        error.stack,
+      );
+    }
+
+    return this.findOne(savedOrder.id);
+  }
+
+  public formatClientInvoiceResponse(order: Order): ClientInvoiceResponse {
+    return {
+      orderId: order.id,
+      status: order.status,
+      invoice: {
+        productsSubtotal: Number(order.productsSubtotal),
+        deliveryFee: Number(order.deliveryFee),
+        totalToPay: Number(order.totalAmount),
+        currency: 'FCFA',
+      },
+      createdAt: order.createdAt,
+    };
+  }
+
+  async findClientOrders(clientId: string): Promise<Order[]> {
+    // Si la table Transaction n'est pas liée formellement par un @OneToOne dans TypeORM,
+    // enlever "relations: { transaction: true }" pour éviter une erreur.
+    return await this.orderRepository.find({
+      where: { clientId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findAllByBusiness(businessId: string): Promise<Order[]> {
+    return await this.orderRepository.find({
+      where: { businessId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findOne(id: string): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`La commande #${id} est introuvable.`);
+    }
+
+    return order;
+  }
+
+  async findOneForUser(
+    id: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<Order> {
+    const order = await this.findOne(id);
+    if (role === UserRole.SUPER_ADMIN || order.clientId === userId)
+      return order;
+    await this.businessesService.assertManagedBy(
+      order.businessId,
+      userId,
+      role,
+    );
+    return order;
+  }
+
+  async markAsPaidAndDispatch(
+    orderId: string,
+    transactionId: string,
+  ): Promise<void> {
+    this.logger.log(
+      `[Order Paid] Validation de la commande ${orderId} (Tx: ${transactionId})`,
+    );
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Commande ${orderId} introuvable.`);
+      }
+
+      if (order.status === OrderStatus.PAID) {
+        this.logger.warn(
+          `La commande ${orderId} est déjà marquée comme payée.`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      order.status = OrderStatus.PAID;
+      order.paymentTransactionRef = transactionId; // CORRIGÉ : Correspond au nom dans l'entité
+      await queryRunner.manager.save(order);
+
+      const transaction = await queryRunner.manager.findOne(Transaction, {
+        where: { orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (transaction) {
+        transaction.status = TransactionStatus.SUCCESS;
+        transaction.paymentGatewayId = transactionId;
+        await queryRunner.manager.save(transaction);
+      }
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(
+        `[Dispatch] Recherche d'un livreur pour la commande ${orderId}`,
+      );
+      this.dispatchGateway.dispatchOrderToDrivers(order); // Ajout manquant
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Erreur lors de la validation de la commande ${orderId}: ${error.message}`,
+      );
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async markAsPaymentFailed(orderId: string): Promise<void> {
+    this.logger.warn(
+      `[Payment Failed] Annulation de la commande ${orderId} pour échec de paiement`,
+    );
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+    if (!order) {
+      this.logger.error(`Commande ${orderId} introuvable pour l'annulation.`);
+      return;
+    }
+
+    order.status = OrderStatus.FAILED;
+    await this.orderRepository.save(order);
+  }
+
+  async updateStatus(
+    id: string,
+    status: OrderStatus,
+    userId: string,
+    role: UserRole,
+  ): Promise<Order> {
+    const order = await this.orderRepository.findOne({ where: { id } });
+
+    if (!order) {
+      throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
+    }
+
+    await this.businessesService.assertManagedBy(
+      order.businessId,
+      userId,
+      role,
+    );
+
+    const previousStatus = order.status;
+    order.status = status;
+    const updatedOrder = await this.orderRepository.save(order);
+
+    if (
+      (status === OrderStatus.DELIVERED || status === OrderStatus.COMPLETED) &&
+      previousStatus !== OrderStatus.DELIVERED &&
+      previousStatus !== OrderStatus.COMPLETED
+    ) {
+      this.payoutsService
+        .processAutomaticPayout(updatedOrder.id)
+        .catch((err) => {
+          this.logger.error(
+            `Erreur arrière-plan lors du Payout #${updatedOrder.id}`,
+            err,
+          );
+        });
+    }
+
+    try {
+      await this.analyticsService.invalidateMerchantCache(order.businessId);
+    } catch (error) {
+      this.logger.warn(
+        `Échec invalidation cache analytics: ${error?.message || error}`,
+      );
+    }
+
+    // 🚀 Auto-Dispatch: Quand la commande est payée (confirmée) ou en préparation
+    if (
+      (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
+      previousStatus !== OrderStatus.PAID &&
+      previousStatus !== OrderStatus.IN_PREPARATION
+    ) {
+      this.logger.log(
+        `[Auto-Dispatch] Déclenchement du dispatch automatique pour la commande #${id}`,
+      );
+      this.dispatchService.autoDispatchOrder(id).catch((err) => {
+        this.logger.error(
+          `[Auto-Dispatch Error] Échec du dispatch pour la commande #${id}: ${err.message}`,
+        );
+      });
+    }
+
+    // 📱 Notifications FCM & WebSocket selon le statut
+    await this.sendStatusNotifications(updatedOrder, previousStatus);
+
+    return updatedOrder;
+  }
+
+  // ========================================================================
+  // 🔑 GÉNÉRATION DU CODE PIN (4 chiffres aléatoires)
+  // ========================================================================
+  private generatePinCode(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  }
+
+  // ========================================================================
+  // 🚚 VALIDATION PAR LE LIVREUR/COURSIER
+  // Le livreur signale qu'il a effectué la livraison
+  // ========================================================================
+  async driverValidateDelivery(
+    orderId: string,
+    driverId: string,
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driverId && order.driverId !== driverId) {
+      throw new ForbiddenException(
+        "Vous n'êtes pas le livreur assigné à cette commande",
+      );
+    }
+
+    if (order.driverValidatedAt) {
+      throw new BadRequestException(
+        'Vous avez déjà validé la livraison de cette commande',
+      );
+    }
+
+    if (
+      order.status !== OrderStatus.PAID &&
+      order.status !== OrderStatus.PROCESSING &&
+      order.status !== OrderStatus.IN_PREPARATION
+    ) {
+      throw new BadRequestException(
+        `Impossible de valider : la commande est au statut "${order.status}"`,
+      );
+    }
+
+    order.driverId = driverId;
+    order.driverValidatedAt = new Date();
+    order.status = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
+
+    const saved = await this.orderRepository.save(order);
+
+    this.logger.log(
+      `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente du Code PIN du client.`,
+    );
+
+    // Notifier le client en temps réel
+    try {
+      this.dispatchGateway.server
+        .to(`order_${orderId}`)
+        .emit('deliveryPendingConfirmation', {
+          message:
+            '📦 Le livreur a marqué votre commande comme livrée. Veuillez confirmer avec votre Code PIN.',
+          orderId,
+        });
+    } catch (e) {
+      this.logger.warn(`Notification WebSocket échouée: ${e?.message}`);
+    }
+
+    return saved;
+  }
+
+  // ========================================================================
+  // ✅ VALIDATION PAR LE CLIENT (avec Code PIN)
+  // Le client confirme la réception en saisissant son Code PIN
+  // ========================================================================
+  async clientValidateWithPin(
+    orderId: string,
+    clientId: string,
+    pinCode: string,
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.clientId !== clientId) {
+      throw new ForbiddenException('Cette commande ne vous appartient pas');
+    }
+
+    if (order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
+      throw new BadRequestException(
+        `La commande n'est pas en attente de confirmation (statut actuel: "${order.status}")`,
+      );
+    }
+
+    if (!order.deliveryPinCode || order.deliveryPinCode !== pinCode) {
+      throw new BadRequestException('Code PIN invalide. Veuillez réessayer.');
+    }
+
+    order.clientValidatedAt = new Date();
+    order.status = OrderStatus.COMPLETED;
+
+    const saved = await this.orderRepository.save(order);
+
+    this.logger.log(
+      `[Order Completed] ✅ Commande #${orderId} validée par le client avec Code PIN. Double validation réussie !`,
+    );
+
+    // Déclencher le Payout automatique au marchand
+    this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
+      this.logger.error(`Erreur Payout après validation PIN #${saved.id}`, err);
+    });
+
+    // Invalider le cache analytics
+    try {
+      await this.analyticsService.invalidateMerchantCache(order.businessId);
+    } catch (error) {
+      this.logger.warn(
+        `Échec invalidation cache analytics: ${error?.message || error}`,
+      );
+    }
+
+    return saved;
+  }
+
+  // ========================================================================
+  // ⚠️ LITIGE (DISPUTE)
+  // Le client conteste la livraison
+  // ========================================================================
+  async disputeOrder(
+    orderId: string,
+    clientId: string,
+    reason: string,
+  ): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.clientId !== clientId) {
+      throw new ForbiddenException('Cette commande ne vous appartient pas');
+    }
+
+    if (
+      order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
+      order.status !== OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        `Impossible d'ouvrir un litige : la commande est au statut "${order.status}"`,
+      );
+    }
+
+    order.status = OrderStatus.DISPUTED;
+    const saved = await this.orderRepository.save(order);
+
+    this.logger.warn(
+      `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,
+    );
+
+    return saved;
+  }
+
+  // ========================================================================
+  // 📱 Notifications FCM & WebSocket selon le statut de commande
+  // ========================================================================
+  private async sendStatusNotifications(
+    order: Order,
+    previousStatus: OrderStatus,
+  ): Promise<void> {
+    try {
+      // Récupérer le client pour son FCM token
+      const client = await this.usersService.findById(order.clientId);
+      const clientFcmToken = client?.fcmToken;
+
+      // Récupérer le livreur assigné pour son FCM token
+      let driverFcmToken: string | null = null;
+      if (order.driverId) {
+        const driver = await this.usersService.findById(order.driverId);
+        driverFcmToken = driver?.fcmToken ?? null;
+      }
+
+      // Notifier selon le nouveau statut
+      switch (order.status) {
+        case OrderStatus.PAID: {
+          // Client: "Votre commande a été confirmée par le restaurant"
+          const fcmSuccess = clientFcmToken
+            ? await this.notificationsService.sendToDevice(clientFcmToken, {
+                title: 'Commande confirmée ✅',
+                body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
+                data: { orderId: order.id, type: 'ORDER_CONFIRMED' },
+              })
+            : false;
+
+          // SMS fallback si FCM échoue ou pas de token
+          if (!fcmSuccess && client?.phone) {
+            await this.smsService.sendOrderConfirmationSms(
+              client.phone,
+              order.id,
+              order.totalAmount,
+            );
+          }
+          break;
+        }
+
+        case OrderStatus.IN_PREPARATION:
+          // Client: "Votre commande est en préparation"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'En préparation 🍳',
+              body: 'Votre commande est en cours de préparation.',
+              data: { orderId: order.id, type: 'ORDER_PREPARING' },
+            });
+          }
+          break;
+
+        case OrderStatus.PROCESSING: {
+          // Client: "Le livreur est en route avec votre repas"
+          const fcmEnRouteSuccess = clientFcmToken
+            ? await this.notificationsService.sendToDevice(clientFcmToken, {
+                title: 'Livreur en route 🛵',
+                body: 'Le livreur est en route avec votre repas. Il arrivera bientôt!',
+                data: { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
+              })
+            : false;
+
+          // SMS fallback si FCM échoue
+          if (!fcmEnRouteSuccess && client?.phone) {
+            await this.smsService.sendDeliveryNotificationSms(
+              client.phone,
+              order.id,
+            );
+          }
+          break;
+        }
+
+        case OrderStatus.DELIVERED:
+          // Client: "Le livreur est arrivé à destination"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Livreur arrivé 📍',
+              body: 'Le livreur est arrivé à destination. Prêt à récupérer votre commande!',
+              data: { orderId: order.id, type: 'DRIVER_ARRIVED' },
+            });
+          }
+          break;
+
+        case OrderStatus.COMPLETED:
+          // Client: "Commande livrée avec succès"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Commande livrée 🎉',
+              body: 'Votre commande a été livrée avec succès. Bon appétit!',
+              data: { orderId: order.id, type: 'ORDER_COMPLETED' },
+            });
+          }
+          break;
+      }
+
+      this.logger.log(
+        `[Notifications] Notifications envoyées pour la commande #${order.id} (statut: ${order.status})`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[Notifications Error] Échec de l'envoi des notifications pour la commande #${order.id}: ${error.message}`,
+      );
+    }
+  }
+
+  // ========================================================================
+  // ⏰ CRON : Auto-complétion des commandes après 24h sans action du client
+  // S'exécute toutes les heures
+  // ========================================================================
+  @Cron(CronExpression.EVERY_HOUR)
+  async autoCompleteStaleOrders(): Promise<void> {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const staleOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.status = :status', {
+        status: OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      })
+      .andWhere('order.driverValidatedAt < :cutoff', {
+        cutoff: twentyFourHoursAgo,
+      })
+      .getMany();
+
+    if (staleOrders.length === 0) return;
+
+    this.logger.log(
+      `[Auto-Complete Cron] ${staleOrders.length} commande(s) en attente depuis plus de 24h. Complétion automatique...`,
+    );
+
+    for (const order of staleOrders) {
+      order.status = OrderStatus.COMPLETED;
+      order.clientValidatedAt = new Date();
+      await this.orderRepository.save(order);
+
+      this.payoutsService.processAutomaticPayout(order.id).catch((err) => {
+        this.logger.error(`Erreur Payout auto-complete #${order.id}`, err);
+      });
+
+      this.logger.log(
+        `[Auto-Completed] Commande #${order.id} complétée automatiquement (24h sans action client).`,
+      );
+    }
+  }
+}

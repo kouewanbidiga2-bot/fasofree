@@ -106,6 +106,26 @@
         ]
       }
     },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_getMe",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Obtenir le profil utilisateur connecté",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/api/v1/businesses": {
       "post": {
         "operationId": "BusinessesController_create",
@@ -200,6 +220,43 @@
           }
         },
         "summary": "Obtenir un commerce et son catalogue",
+        "tags": [
+          "Businesses"
+        ]
+      },
+      "patch": {
+        "operationId": "BusinessesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour les paramètres d'un commerce",
         "tags": [
           "Businesses"
         ]
@@ -832,6 +889,122 @@
         ]
       }
     },
+    "/api/v1/disputes/{id}/assign-support": {
+      "post": {
+        "operationId": "DisputesController_assignToSupport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Assigner un litige à un agent support",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}/submit-recommendation": {
+      "post": {
+        "operationId": "DisputesController_submitRecommendation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Soumettre une recommandation de remboursement",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}/approve": {
+      "post": {
+        "operationId": "DisputesController_approveRefund",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Approuver et exécuter le remboursement (Admin only)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}/reject": {
+      "post": {
+        "operationId": "DisputesController_rejectDispute",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Rejeter un litige (Admin only)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
     "/api/v1/disputes/{id}/review": {
       "post": {
         "operationId": "DisputesController_review",
@@ -865,7 +1038,7 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Accepter un remboursement ou rejeter un litige",
+        "summary": "Réviser un litige (déprécié - utiliser approve/reject)",
         "tags": [
           "Disputes"
         ]
@@ -898,61 +1071,6 @@
         "summary": "Enregistrer le token FCM",
         "tags": [
           "Notifications"
-        ]
-      }
-    },
-    "/api/v1/promotions/quote": {
-      "get": {
-        "operationId": "PromotionsController_quote",
-        "parameters": [
-          {
-            "name": "code",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "amount",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Promotions"
-        ]
-      }
-    },
-    "/api/v1/promotions": {
-      "post": {
-        "operationId": "PromotionsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePromotionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Promotions"
         ]
       }
     },
@@ -1017,6 +1135,61 @@
         "summary": "Obtenir l’historique des transactions d’un portefeuille",
         "tags": [
           "Wallets"
+        ]
+      }
+    },
+    "/api/v1/promotions/quote": {
+      "get": {
+        "operationId": "PromotionsController_quote",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "amount",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/api/v1/promotions": {
+      "post": {
+        "operationId": "PromotionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromotionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Promotions"
         ]
       }
     },
@@ -1730,6 +1903,63 @@
           "longitude"
         ]
       },
+      "UpdateBusinessDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nom du commerce"
+          },
+          "address": {
+            "type": "string",
+            "description": "Adresse"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Téléphone"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "RESTAURANT",
+              "SUPERMARKET",
+              "PHARMACY",
+              "RETAIL",
+              "BAKERY",
+              "SERVICES"
+            ],
+            "description": "Catégorie du commerce"
+          },
+          "enableDelivery": {
+            "type": "boolean",
+            "description": "Activer la livraison"
+          },
+          "enablePickup": {
+            "type": "boolean",
+            "description": "Activer Click & Collect"
+          },
+          "enableDineIn": {
+            "type": "boolean",
+            "description": "Activer consommation sur place"
+          },
+          "hasOwnDrivers": {
+            "type": "boolean",
+            "description": "Utiliser ses propres livreurs"
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "Statut d'ouverture"
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude"
+          }
+        }
+      },
       "CreateProductDto": {
         "type": "object",
         "properties": {
@@ -1836,6 +2066,23 @@
               "RIDE",
               "EXPRESS"
             ]
+          },
+          "fulfillmentType": {
+            "type": "string",
+            "description": "Type de fulfillment (DELIVERY, PICKUP, DINE_IN)",
+            "enum": [
+              "DELIVERY",
+              "PICKUP",
+              "DINE_IN"
+            ]
+          },
+          "fulfillmentDetails": {
+            "type": "object",
+            "description": "Détails de fulfillment (tableNumber, reservationTime, numberOfGuests, notes)",
+            "example": {
+              "tableNumber": "5",
+              "numberOfGuests": 2
+            }
           },
           "deliveryFee": {
             "type": "number",
@@ -1976,6 +2223,10 @@
           "note": {
             "type": "string",
             "maxLength": 2000
+          },
+          "refundAmount": {
+            "type": "number",
+            "description": "Montant du remboursement (optionnel, défaut = montant total de la commande)"
           }
         },
         "required": [
