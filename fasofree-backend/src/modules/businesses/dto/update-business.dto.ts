@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsNumber,
   IsObject,
+  IsUUID,
 } from 'class-validator';
 import { BusinessCategory } from '../entities/business.entity';
 
@@ -67,4 +68,9 @@ export class UpdateBusinessDto {
   @IsNumber()
   @IsOptional()
   longitude?: number;
+
+  @ApiPropertyOptional({ description: 'Marque (Brand) de rattachement' })
+  @IsUUID()
+  @IsOptional()
+  brandId?: string;
 }

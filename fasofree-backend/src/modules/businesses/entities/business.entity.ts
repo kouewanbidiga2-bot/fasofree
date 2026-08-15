@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import type { Point } from 'typeorm'; // 💡 'import type' résout l'erreur TS1272
 import { Product } from '../../products/entities/product.entity';
+import { Brand } from '../../brands/entities/brand.entity';
 
 /**
  * 🏪 Catégories de commerces (Multi-Secteurs)
@@ -77,6 +80,17 @@ export class Business {
 
   @Column({ type: 'boolean', default: true })
   isOpen: boolean;
+
+  // 🏷️ Raccordement multi-agences : marque (Brand) à laquelle appartient l'agence
+  @Column({ type: 'uuid', nullable: true })
+  brandId: string | null;
+
+  @ManyToOne(() => Brand, (brand) => brand.businesses, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'brandId' })
+  brand: Brand;
 
   // Relation : Un Business possède plusieurs Produits
   @OneToMany(() => Product, (product) => product.business)

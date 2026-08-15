@@ -123,6 +123,43 @@ export class Order {
   })
   merchantPayoutAmount: number;
 
+  // --- 🧾 VENTILATION FINANCIÈRE (Modèle hybride FasoFree) ---
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => parseFloat(v) },
+  })
+  itemsTotal: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => parseFloat(v) },
+  })
+  serviceFee: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => parseFloat(v) },
+  })
+  merchantCommissionAmount: number;
+
+  @Column({
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    default: 0,
+    transformer: { to: (v) => v, from: (v) => parseFloat(v) },
+  })
+  driverCommissionAmount: number;
+
   @Column({ type: 'varchar', length: 32, nullable: true })
   promotionCode: string | null;
 

@@ -25,6 +25,7 @@ export class BusinessesService {
       address: dto.address,
       phone: dto.phone,
       ownerId,
+      brandId: dto.brandId ?? null,
       location: {
         type: 'Point',
         coordinates: [dto.longitude, dto.latitude], // ⚠️ Format GeoJSON : [Longitude, Latitude]
@@ -109,6 +110,7 @@ export class BusinessesService {
     if (dto.hasOwnDrivers !== undefined)
       business.hasOwnDrivers = dto.hasOwnDrivers;
     if (dto.isOpen !== undefined) business.isOpen = dto.isOpen;
+    if (dto.brandId !== undefined) business.brandId = dto.brandId;
 
     // Mise à jour de la géolocalisation si fournie
     if (dto.latitude !== undefined && dto.longitude !== undefined) {

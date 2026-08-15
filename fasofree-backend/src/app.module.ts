@@ -27,6 +27,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { BrandsModule } from './modules/brands/brands.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
 
 @Module({
@@ -77,6 +79,8 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     DisputesModule,
     KycModule,
     PromotionsModule,
+    SubscriptionsModule,
+    BrandsModule,
     CommandModule, // 👈 2. Ajouter le module Command
   ],
   controllers: [AppController],

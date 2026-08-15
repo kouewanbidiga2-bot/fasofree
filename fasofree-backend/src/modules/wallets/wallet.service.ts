@@ -228,6 +228,127 @@ export class WalletService {
   }
 
   /**
+   * 💳 Débit autorisant le passage en négatif (dette)
+   * Utilisé pour le "Pass Journée" (500 FCFA) du livreur : la course est payée
+   * même si le solde est insuffisant, le wallet passe alors en dette.
+   */
+  async debitWalletAllowNegative(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    reason: TransactionReason,
+    reference?: string,
+    description?: string,
+  ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: { userId, userRole },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}`,
+        );
+      }
+
+      wallet.balance = Number(wallet.balance) - Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      const transaction = queryRunner.manager.create(WalletTransaction, {
+        walletId: wallet.id,
+        type: TransactionType.DEBIT,
+        reason,
+        amount,
+        balanceAfter: wallet.balance,
+        reference,
+        description,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Debit (Negative)] -${amount} XOF pour ${userRole} ${userId}. Nouveau solde: ${wallet.balance}`,
+      );
+
+      return { wallet, transaction };
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+
+      const errorMessage =
+        error instanceof Error ? error.message : 'Erreur inconnue';
+      this.logger.error(`[Wallet Debit Error] ${errorMessage}`);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        'Une erreur inattendue est survenue lors du débit',
+      );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 🔍 Vérifie si une écriture au grand livre existe déjà (garde-fou d'idempotence)
+   * Ex: un crédit de gain de course, un débit de Pass, déjà enregistré pour une commande.
+   */
+  async hasLedgerEntry(
+    userId: string,
+    userRole: UserRole,
+    reference: string,
+    reason: TransactionReason,
+  ): Promise<boolean> {
+    if (!reference) return false;
+
+    const wallet = await this.walletRepository.findOne({
+      where: { userId, userRole },
+    });
+    if (!wallet) return false;
+
+    const existing = await this.transactionRepository.findOne({
+      where: { walletId: wallet.id, reference, reason },
+    });
+
+    return Boolean(existing);
+  }
+
+  /**
+   * 🕐 Le "Pass Journée" (500 FCFA) a-t-il déjà été débité aujourd'hui pour ce livreur ?
+   */
+  async hasDailyPassFeeBeenChargedToday(driverId: string): Promise<boolean> {
+    if (!driverId) return true;
+
+    const wallet = await this.walletRepository.findOne({
+      where: { userId: driverId, userRole: UserRole.DRIVER },
+    });
+    if (!wallet) return false;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const existing = await this.transactionRepository
+      .createQueryBuilder('tx')
+      .where('tx.walletId = :walletId', { walletId: wallet.id })
+      .andWhere('tx.reason = :reason', {
+        reason: TransactionReason.DAILY_PASS_FEE,
+      })
+      .andWhere('tx.createdAt >= :startOfDay', { startOfDay })
+      .getOne();
+
+    return Boolean(existing);
+  }
+
+  /**
    * Méthode requise par FinancialMonitoringService
    * Calcule le total du passif virtuel (la somme de l'argent dû à tous les livreurs et marchands)
    */

@@ -794,6 +794,160 @@
         ]
       }
     },
+    "/api/v1/financial/dashboard": {
+      "get": {
+        "operationId": "FinancialController_getDashboardSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir le résumé financier global",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/wallets/{userRole}/{userId}": {
+      "get": {
+        "operationId": "WalletController_getWallet",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userRole",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir ou créer le portefeuille d’un utilisateur",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{walletId}/transactions": {
+      "get": {
+        "operationId": "WalletController_getTransactions",
+        "parameters": [
+          {
+            "name": "walletId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir l’historique des transactions d’un portefeuille",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/payments/ligdicash/payin": {
+      "post": {
+        "operationId": "LigdiCashController_initiatePayin",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePayinDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Créer une demande de paiement LigdiCash",
+        "tags": [
+          "LigdiCash"
+        ]
+      }
+    },
+    "/api/v1/payments/ligdicash/topup": {
+      "post": {
+        "operationId": "LigdiCashController_initiateTopup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Recharger son portefeuille FasoFree (Mobile Money)",
+        "tags": [
+          "LigdiCash"
+        ]
+      }
+    },
+    "/api/v1/payments/ligdicash/webhook": {
+      "post": {
+        "operationId": "LigdiCashController_handleWebhook",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LigdiCashWebhookDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Recevoir le callback LigdiCash",
+        "tags": [
+          "LigdiCash"
+        ]
+      }
+    },
     "/api/v1/disputes/orders/{orderId}": {
       "post": {
         "operationId": "DisputesController_open",
@@ -1074,70 +1228,6 @@
         ]
       }
     },
-    "/api/v1/wallets/{userRole}/{userId}": {
-      "get": {
-        "operationId": "WalletController_getWallet",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userRole",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir ou créer le portefeuille d’un utilisateur",
-        "tags": [
-          "Wallets"
-        ]
-      }
-    },
-    "/api/v1/wallets/{walletId}/transactions": {
-      "get": {
-        "operationId": "WalletController_getTransactions",
-        "parameters": [
-          {
-            "name": "walletId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir l’historique des transactions d’un portefeuille",
-        "tags": [
-          "Wallets"
-        ]
-      }
-    },
     "/api/v1/promotions/quote": {
       "get": {
         "operationId": "PromotionsController_quote",
@@ -1359,71 +1449,6 @@
         "summary": "Vérifie l'état de santé de l'API et de la base de données",
         "tags": [
           "Health"
-        ]
-      }
-    },
-    "/api/v1/financial/dashboard": {
-      "get": {
-        "operationId": "FinancialController_getDashboardSummary",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir le résumé financier global",
-        "tags": [
-          "Financial"
-        ]
-      }
-    },
-    "/api/v1/payments/ligdicash/payin": {
-      "post": {
-        "operationId": "LigdiCashController_initiatePayin",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePayinDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Créer une demande de paiement LigdiCash",
-        "tags": [
-          "LigdiCash"
-        ]
-      }
-    },
-    "/api/v1/payments/ligdicash/webhook": {
-      "post": {
-        "operationId": "LigdiCashController_handleWebhook",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LigdiCashWebhookDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Recevoir le callback LigdiCash",
-        "tags": [
-          "LigdiCash"
         ]
       }
     },
@@ -1779,6 +1804,177 @@
           "KYC"
         ]
       }
+    },
+    "/api/v1/brands": {
+      "post": {
+        "operationId": "BrandsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Créer une marque (multi-agences)",
+        "tags": [
+          "Brands"
+        ]
+      },
+      "get": {
+        "operationId": "BrandsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Lister les marques",
+        "tags": [
+          "Brands"
+        ]
+      }
+    },
+    "/api/v1/brands/{id}": {
+      "get": {
+        "operationId": "BrandsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir une marque et ses agences",
+        "tags": [
+          "Brands"
+        ]
+      },
+      "patch": {
+        "operationId": "BrandsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBrandDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour une marque",
+        "tags": [
+          "Brands"
+        ]
+      },
+      "delete": {
+        "operationId": "BrandsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Supprimer une marque",
+        "tags": [
+          "Brands"
+        ]
+      }
+    },
+    "/api/v1/brands/{id}/nearest-business": {
+      "get": {
+        "operationId": "BrandsController_findNearestBusiness",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Routage par agence la plus proche (Brand -> Business enfants)",
+        "tags": [
+          "Brands"
+        ]
+      }
     }
   },
   "info": {
@@ -1893,6 +2089,10 @@
           "longitude": {
             "type": "number",
             "example": -1.5197
+          },
+          "brandId": {
+            "type": "string",
+            "description": "Marque (Brand) à laquelle rattacher cette agence"
           }
         },
         "required": [
@@ -1957,6 +2157,10 @@
           "longitude": {
             "type": "number",
             "description": "Longitude"
+          },
+          "brandId": {
+            "type": "string",
+            "description": "Marque (Brand) de rattachement"
           }
         }
       },
@@ -2032,12 +2236,102 @@
           }
         }
       },
+      "P2PLocationDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "Adresse complète",
+            "example": "123 Rue Principale, Ouagadougou"
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Latitude",
+            "example": 12.3714
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Longitude",
+            "example": -1.5197
+          },
+          "contactName": {
+            "type": "string",
+            "description": "Nom du contact",
+            "example": "Jean Dupont"
+          },
+          "contactPhone": {
+            "type": "string",
+            "description": "Téléphone du contact",
+            "example": "+22670123456"
+          },
+          "instructions": {
+            "type": "string",
+            "description": "Instructions spécifiques",
+            "example": "Sonnette à gauche"
+          }
+        },
+        "required": [
+          "address",
+          "latitude",
+          "longitude",
+          "contactName",
+          "contactPhone"
+        ]
+      },
+      "PackageDimensionsDto": {
+        "type": "object",
+        "properties": {
+          "length": {
+            "type": "number",
+            "description": "Longueur en cm",
+            "example": 30
+          },
+          "width": {
+            "type": "number",
+            "description": "Largeur en cm",
+            "example": 20
+          },
+          "height": {
+            "type": "number",
+            "description": "Hauteur en cm",
+            "example": 15
+          }
+        }
+      },
+      "PackageDetailsDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "description": "Description du colis",
+            "example": "Clés et documents importants"
+          },
+          "isFragile": {
+            "type": "boolean",
+            "description": "Le colis est fragile",
+            "example": false
+          },
+          "weight": {
+            "type": "number",
+            "description": "Poids du colis en kg",
+            "example": 0.5
+          },
+          "dimensions": {
+            "description": "Dimensions du colis",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PackageDimensionsDto"
+              }
+            ]
+          }
+        }
+      },
       "CreateOrderDto": {
         "type": "object",
         "properties": {
           "businessId": {
             "type": "string",
-            "description": "Identifiant UUID unique de la boutique / du commerce",
+            "description": "Identifiant UUID unique de la boutique / du commerce (optionnel pour P2P)",
             "format": "uuid",
             "example": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
           },
@@ -2061,6 +2355,8 @@
             "type": "string",
             "description": "Type de commande (ex: LIVRAISON, EMPORTER)",
             "enum": [
+              "MERCHANT",
+              "P2P_DELIVERY",
               "DELIVERY",
               "PICKUP",
               "RIDE",
@@ -2094,10 +2390,33 @@
             "type": "string",
             "description": "Code promotionnel contextuel appliqué à la commande",
             "example": "BIENVENUE10"
+          },
+          "pickupLocation": {
+            "description": "Lieu de ramassage pour livraison P2P",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/P2PLocationDto"
+              }
+            ]
+          },
+          "dropoffLocation": {
+            "description": "Lieu de livraison pour livraison P2P",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/P2PLocationDto"
+              }
+            ]
+          },
+          "packageDetails": {
+            "description": "Détails du colis pour livraison P2P",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PackageDetailsDto"
+              }
+            ]
           }
         },
         "required": [
-          "businessId",
           "totalAmount",
           "orderType"
         ]
@@ -2118,7 +2437,8 @@
               "COMPLETED",
               "CANCELLED",
               "FAILED",
-              "DISPUTED"
+              "DISPUTED",
+              "REFUNDED"
             ],
             "example": "PAID"
           }
@@ -2191,6 +2511,110 @@
           "paymentMethod"
         ]
       },
+      "CreatePayinDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "amount": {
+            "type": "number",
+            "example": 5000,
+            "minimum": 100
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Aminata Ouédraogo"
+          },
+          "customerEmail": {
+            "type": "string",
+            "example": "aminata@fasofree.bf",
+            "format": "email"
+          }
+        },
+        "required": [
+          "orderId",
+          "amount",
+          "customerName",
+          "customerEmail"
+        ]
+      },
+      "TopupDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 5000,
+            "minimum": 100
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Aminata Ouédraogo"
+          },
+          "customerEmail": {
+            "type": "string",
+            "example": "aminata@fasofree.bf",
+            "format": "email"
+          }
+        },
+        "required": [
+          "amount",
+          "customerName",
+          "customerEmail"
+        ]
+      },
+      "LigdiCashCustomData": {
+        "type": "object",
+        "properties": {}
+      },
+      "LigdiCashWebhookDto": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "response_code": {
+            "type": "string",
+            "example": "00"
+          },
+          "response_text": {
+            "type": "string"
+          },
+          "custom_data": {
+            "example": {
+              "orderId": "uuid"
+            },
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LigdiCashCustomData"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "pending"
+            ]
+          },
+          "operator_id": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "response_code",
+          "response_text",
+          "custom_data",
+          "status",
+          "transaction_id"
+        ]
+      },
       "CreateDisputeDto": {
         "type": "object",
         "properties": {
@@ -2249,78 +2673,6 @@
       "CreatePromotionDto": {
         "type": "object",
         "properties": {}
-      },
-      "CreatePayinDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "amount": {
-            "type": "number",
-            "example": 5000,
-            "minimum": 100
-          },
-          "customerName": {
-            "type": "string",
-            "example": "Aminata Ouédraogo"
-          },
-          "customerEmail": {
-            "type": "string",
-            "example": "aminata@fasofree.bf",
-            "format": "email"
-          }
-        },
-        "required": [
-          "orderId",
-          "amount",
-          "customerName",
-          "customerEmail"
-        ]
-      },
-      "LigdiCashWebhookDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "response_code": {
-            "type": "string",
-            "example": "00"
-          },
-          "response_text": {
-            "type": "string"
-          },
-          "custom_data": {
-            "type": "object",
-            "example": {
-              "orderId": "uuid"
-            }
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "completed",
-              "failed",
-              "pending"
-            ]
-          },
-          "operator_id": {
-            "type": "string"
-          },
-          "transaction_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "token",
-          "response_code",
-          "response_text",
-          "custom_data",
-          "status",
-          "transaction_id"
-        ]
       },
       "CreateReviewDto": {
         "type": "object",
@@ -2405,6 +2757,49 @@
           "reason": {
             "type": "string",
             "description": "Obligatoire en cas de rejet."
+          }
+        }
+      },
+      "CreateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Faso Délices"
+          },
+          "description": {
+            "type": "string",
+            "example": "Restaurants & livraison à Ouagadougou"
+          },
+          "logoUrl": {
+            "type": "string",
+            "example": "https://cdn.fasofree.com/logos/logo.png"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Propriétaire de la marque (optionnel, défaut : créateur)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "UpdateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Faso Délices"
+          },
+          "description": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Propriétaire de la marque"
           }
         }
       }

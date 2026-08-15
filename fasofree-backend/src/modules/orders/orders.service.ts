@@ -10,7 +10,6 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
 
 // Entités et DTOs
 import {
@@ -38,18 +37,8 @@ import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
-
-/**
- * 📊 Structure du calcul financier interne
- */
-export interface FinancialBreakdown {
-  productsSubtotal: number;
-  deliveryFee: number;
-  platformCommission: number;
-  totalAmount: number;
-  merchantPayoutAmount: number;
-  commissionPayer: 'CLIENT' | 'MERCHANT';
-}
+import { OrderPricingService } from '../financial/order-pricing.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
  * 🧾 DTO de réponse pour l'application Mobile Client
@@ -75,7 +64,6 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
-    private readonly configService: ConfigService,
     private readonly dispatchGateway: DispatchGateway,
     private readonly dispatchService: DispatchService,
     private readonly analyticsService: AnalyticsService,
@@ -89,48 +77,40 @@ export class OrdersService {
     private readonly usersService: UsersService,
     private readonly qrCodeService: QrCodeService,
     private readonly distanceCalculatorService: DistanceCalculatorService,
+    private readonly pricingService: OrderPricingService,
+    private readonly events: EventEmitter2,
   ) {}
 
   /**
-   * 🧮 Moteur de calcul financier FasoFree
+   * 🔔 Émet les événements de settlement financier à la livraison/complétion.
+   * - `order.delivered` : crédit gains livreur, Pass Journée / micro-commission
+   * - `order.completed` : crédit du wallet marchand (payout net)
+   * La double-validation par PIN peut passer par plusieurs statuts : les
+   * listeners sont rendus idempotents par `reference = order.id` dans le ledger.
    */
-  public calculateFinancials(
-    productsSubtotal: number,
-    requestedDeliveryFee: number,
-  ): FinancialBreakdown {
-    const commissionRate = this.configService.get<number>(
-      'FASOFREE_COMMISSION_RATE',
-      0.0085,
-    );
-    const payer = this.configService.get<'CLIENT' | 'MERCHANT'>(
-      'FASOFREE_COMMISSION_PAYER',
-      'CLIENT',
-    );
+  private emitOrderSettlementEvents(
+    order: Order,
+    previousStatus: OrderStatus,
+  ): void {
+    const deliveredStates: OrderStatus[] = [
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+    ];
 
-    const deliveryFee = Number(requestedDeliveryFee) || 0;
-    const subtotal = Number(productsSubtotal) || 0;
-
-    const platformCommission = Math.round(subtotal * commissionRate);
-
-    let totalAmount = 0;
-    let merchantPayoutAmount = 0;
-
-    if (payer === 'CLIENT') {
-      totalAmount = subtotal + deliveryFee + platformCommission;
-      merchantPayoutAmount = subtotal;
-    } else {
-      totalAmount = subtotal + deliveryFee;
-      merchantPayoutAmount = subtotal - platformCommission;
+    if (
+      deliveredStates.includes(order.status) &&
+      !deliveredStates.includes(previousStatus)
+    ) {
+      this.events.emit('order.delivered', order);
     }
 
-    return {
-      productsSubtotal: subtotal,
-      deliveryFee,
-      platformCommission,
-      totalAmount,
-      merchantPayoutAmount,
-      commissionPayer: payer,
-    };
+    if (
+      order.status === OrderStatus.COMPLETED &&
+      previousStatus !== OrderStatus.COMPLETED
+    ) {
+      this.events.emit('order.completed', order);
+    }
   }
 
   /**
@@ -194,9 +174,10 @@ export class OrdersService {
       reservedPromotionId = quote.promotion.id;
     }
 
-    const financials = this.calculateFinancials(
+    const financials = await this.pricingService.calculateFinancials(
       Math.max(0, Number(rawSubtotal) - promotionDiscount),
       effectiveDeliveryFee,
+      { clientId, businessId, orderType },
     );
 
     const deliveryLocation =
@@ -213,7 +194,11 @@ export class OrdersService {
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
       fulfillmentDetails,
       productsSubtotal: financials.productsSubtotal,
+      itemsTotal: financials.itemsTotal,
       deliveryFee: financials.deliveryFee,
+      serviceFee: financials.serviceFee,
+      merchantCommissionAmount: financials.merchantCommissionAmount,
+      driverCommissionAmount: financials.driverCommissionAmount,
       platformCommission: financials.platformCommission,
       totalAmount: financials.totalAmount,
       merchantPayoutAmount: financials.merchantPayoutAmount,
@@ -308,18 +293,16 @@ export class OrdersService {
         packageDetails?.weight || 0,
       );
 
-    const commissionRate = this.configService.get<number>(
-      'FASOFREE_COMMISSION_RATE',
-      0.0085,
+    const financials = await this.pricingService.calculateFinancials(
+      0,
+      deliveryCalculation.price,
+      { clientId, orderType: OrderType.P2P_DELIVERY },
     );
 
-    const platformCommission = Math.round(
-      deliveryCalculation.price * commissionRate,
-    );
-    const totalAmount = deliveryCalculation.price + platformCommission;
+    const totalAmount = financials.totalAmount;
 
     this.logger.log(
-      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Prix de base: ${deliveryCalculation.price} FCFA, Commission: ${platformCommission} FCFA, Total: ${totalAmount} FCFA`,
+      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Prix de base: ${deliveryCalculation.price} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
     );
 
     const order = this.orderRepository.create({
@@ -331,11 +314,15 @@ export class OrdersService {
         notes: packageDetails?.description,
       },
       productsSubtotal: 0, // Pas de produits pour P2P
-      deliveryFee: deliveryCalculation.price,
-      platformCommission,
+      itemsTotal: 0,
+      deliveryFee: financials.deliveryFee,
+      serviceFee: financials.serviceFee,
+      merchantCommissionAmount: 0,
+      driverCommissionAmount: 0,
+      platformCommission: financials.platformCommission,
       totalAmount,
       merchantPayoutAmount: 0, // Pas de payout pour P2P
-      commissionPayer: 'CLIENT',
+      commissionPayer: financials.commissionPayer,
       pickupLocation,
       dropoffLocation,
       packageDetails,
@@ -360,7 +347,7 @@ export class OrdersService {
     const transaction = this.transactionRepository.create({
       orderId: savedOrder.id,
       amount: totalAmount,
-      commissionAmount: platformCommission,
+      commissionAmount: financials.platformCommission,
       status: TransactionStatus.PENDING,
     });
 
@@ -537,6 +524,9 @@ export class OrdersService {
     order.status = status;
     const updatedOrder = await this.orderRepository.save(order);
 
+    // 🔔 Settlement financier : livreur (delivered) & marchand (completed)
+    this.emitOrderSettlementEvents(updatedOrder, previousStatus);
+
     if (
       (status === OrderStatus.DELIVERED || status === OrderStatus.COMPLETED) &&
       previousStatus !== OrderStatus.DELIVERED &&
@@ -621,11 +611,15 @@ export class OrdersService {
       );
     }
 
+    const previousStatus = order.status;
     order.driverId = driverId;
     order.driverValidatedAt = new Date();
     order.status = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
 
     const saved = await this.orderRepository.save(order);
+
+    // 🔔 Settlement livreur : crédit gains + Pass Journée / micro-commission
+    this.emitOrderSettlementEvents(saved, previousStatus);
 
     this.logger.log(
       `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente du Code PIN du client.`,
@@ -676,6 +670,12 @@ export class OrdersService {
     order.status = OrderStatus.COMPLETED;
 
     const saved = await this.orderRepository.save(order);
+
+    // 🔔 Settlement marchand : crédit du wallet (payout net de commission)
+    this.emitOrderSettlementEvents(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    );
 
     this.logger.log(
       `[Order Completed] ✅ Commande #${orderId} validée par le client avec Code PIN. Double validation réussie !`,
@@ -866,6 +866,12 @@ export class OrdersService {
       order.status = OrderStatus.COMPLETED;
       order.clientValidatedAt = new Date();
       await this.orderRepository.save(order);
+
+      // 🔔 Settlement marchand (cron auto-complétion 24h)
+      this.emitOrderSettlementEvents(
+        order,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
 
       this.payoutsService.processAutomaticPayout(order.id).catch((err) => {
         this.logger.error(`Erreur Payout auto-complete #${order.id}`, err);

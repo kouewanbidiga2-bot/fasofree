@@ -23,6 +23,8 @@ export enum TransactionReason {
   REFUND = 'REFUND',
   REFERRAL_REWARD = 'REFERRAL_REWARD',
   PAYOUT = 'PAYOUT',
+  DAILY_PASS_FEE = 'DAILY_PASS_FEE',
+  SERVICE_FEE = 'SERVICE_FEE',
 }
 
 @Entity('wallet_transactions')

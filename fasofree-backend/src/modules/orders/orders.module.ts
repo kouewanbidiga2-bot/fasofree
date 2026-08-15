@@ -19,6 +19,7 @@ import { DisputesModule } from '../disputes/disputes.module';
 import { PromotionsModule } from '../promotions/promotions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
+import { FinancialModule } from '../financial/financial.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => DispatchModule),
     forwardRef(() => AnalyticsModule),
     forwardRef(() => PaymentsModule),
+    forwardRef(() => FinancialModule),
     BusinessesModule,
     RedisModule,
     forwardRef(() => DisputesModule),
