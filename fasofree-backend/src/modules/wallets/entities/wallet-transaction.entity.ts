@@ -12,6 +12,13 @@ import { Wallet } from './wallet.entity';
 export enum TransactionType {
   CREDIT = 'CREDIT', // Rechargement, gain de course, vente
   DEBIT = 'DEBIT', // Retrait (Payout), commission, paiement commande
+  DEPOSIT = 'DEPOSIT', // Recharge de portefeuille (Mobile Money / Mock)
+}
+
+export enum TransactionStatus {
+  PENDING = 'PENDING',
+  COMPLETED = 'COMPLETED',
+  FAILED = 'FAILED',
 }
 
 export enum TransactionReason {
@@ -44,6 +51,9 @@ export class WalletTransaction {
 
   @Column({ type: 'enum', enum: TransactionType })
   type: TransactionType;
+
+  @Column({ type: 'enum', enum: TransactionStatus, default: TransactionStatus.COMPLETED })
+  status: TransactionStatus;
 
   @Column({ type: 'enum', enum: TransactionReason })
   reason: TransactionReason;

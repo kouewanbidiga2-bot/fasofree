@@ -6,6 +6,7 @@ import { Order } from '../orders/entities/order.entity';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
+import { ReceiptsService } from '../receipts/receipts.service';
 
 export const DAILY_PASS_FEE_AMOUNT = 500; // FCFA
 export const DRIVER_MICRO_COMMISSION_RATE = 0.01; // 1% sur les gains des courses suivantes
@@ -16,6 +17,7 @@ export class DriverFinancialService {
 
   constructor(
     private readonly walletService: WalletService,
+    private readonly receiptsService: ReceiptsService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
   ) {}
@@ -60,6 +62,13 @@ export class DriverFinancialService {
           TransactionReason.DELIVERY_FEE,
           orderId,
           `Gain course #${orderId.slice(-8)}`,
+        );
+
+        // 🧾 Reçu prestataire LIVREUR automatique
+        await this.receiptsService.createDriverOrderReceipt(
+          order,
+          driverId,
+          earnings,
         );
       }
 

@@ -8,10 +8,12 @@ import { FinancialAlertsCron } from './crons/financial-alerts.cron';
 import { PayoutRequest } from './entities/payout-request.entity';
 import { Wallet } from '../wallets/entities/wallet.entity';
 import { Order } from '../orders/entities/order.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 // Modules fournissant LigdiCashService et WalletService
 import { WalletModule } from '../wallets/wallet.module';
 import { LigdiCashModule } from '../payments/ligdicash.module';
+import { ReceiptsModule } from '../receipts/receipts.module';
 
 // Modèle financier hybride FasoFree (commissions ultra-basses / abonnements)
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -21,10 +23,11 @@ import { MerchantFinancialService } from './merchant-financial.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayoutRequest, Wallet, Order]),
+    TypeOrmModule.forFeature([PayoutRequest, Wallet, Order, Business]),
     WalletModule,
     LigdiCashModule,
     SubscriptionsModule,
+    ReceiptsModule,
   ],
   controllers: [FinancialController],
   providers: [

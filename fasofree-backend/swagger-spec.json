@@ -744,6 +744,66 @@
         ]
       }
     },
+    "/api/v1/payments/topup": {
+      "post": {
+        "operationId": "PaymentsController_topup",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopupDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Recharger son portefeuille (Mock ou Mobile Money)",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/mock/pay-order": {
+      "post": {
+        "operationId": "PaymentsController_mockPayOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Mock] Payer une commande et déclencher la livraison",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
     "/api/v1/payments/webhook/wave": {
       "post": {
         "operationId": "PaymentsController_handleWaveWebhook",
@@ -917,7 +977,7 @@
             "description": ""
           }
         },
-        "summary": "Recharger son portefeuille FasoFree (Mobile Money)",
+        "summary": "Recharger son portefeuille FasoFree (Mobile Money ou Mock)",
         "tags": [
           "LigdiCash"
         ]
@@ -1280,6 +1340,79 @@
         },
         "tags": [
           "Promotions"
+        ]
+      }
+    },
+    "/api/v1/receipts": {
+      "get": {
+        "operationId": "ReceiptsController_myReceipts",
+        "parameters": [
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "TOPUP",
+                "ORDER_PAYMENT",
+                "DELIVERY_FEE",
+                "PAYOUT"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max 50 (défaut)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mes reçus (client, marchand ou livreur)",
+        "tags": [
+          "Receipts"
+        ]
+      }
+    },
+    "/api/v1/receipts/{id}": {
+      "get": {
+        "operationId": "ReceiptsController_receiptById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Détail d’un reçu (vérifie l’appartenance)",
+        "tags": [
+          "Receipts"
         ]
       }
     },
@@ -2511,6 +2644,43 @@
           "paymentMethod"
         ]
       },
+      "TopupDto": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "example": 5000,
+            "minimum": 100
+          },
+          "customerName": {
+            "type": "string",
+            "example": "Aminata Ouédraogo"
+          },
+          "customerEmail": {
+            "type": "string",
+            "example": "aminata@fasofree.bf",
+            "format": "email"
+          }
+        },
+        "required": [
+          "amount",
+          "customerName",
+          "customerEmail"
+        ]
+      },
+      "PayOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderId": {
+            "type": "string",
+            "example": "a1b2c3d4-0000-4000-8000-000000000001",
+            "description": "ID de la commande à payer (simulation)"
+          }
+        },
+        "required": [
+          "orderId"
+        ]
+      },
       "CreatePayinDto": {
         "type": "object",
         "properties": {
@@ -2535,30 +2705,6 @@
         },
         "required": [
           "orderId",
-          "amount",
-          "customerName",
-          "customerEmail"
-        ]
-      },
-      "TopupDto": {
-        "type": "object",
-        "properties": {
-          "amount": {
-            "type": "number",
-            "example": 5000,
-            "minimum": 100
-          },
-          "customerName": {
-            "type": "string",
-            "example": "Aminata Ouédraogo"
-          },
-          "customerEmail": {
-            "type": "string",
-            "example": "aminata@fasofree.bf",
-            "format": "email"
-          }
-        },
-        "required": [
           "amount",
           "customerName",
           "customerEmail"

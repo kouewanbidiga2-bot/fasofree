@@ -20,6 +20,7 @@ import { PromotionsModule } from '../promotions/promotions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { FinancialModule } from '../financial/financial.module';
+import { ReceiptsModule } from '../receipts/receipts.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { FinancialModule } from '../financial/financial.module';
     PromotionsModule,
     NotificationsModule,
     UsersModule,
+    ReceiptsModule,
   ],
   controllers: [OrdersController],
   providers: [

@@ -29,6 +29,7 @@ import { KycModule } from './modules/kyc/kyc.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { BrandsModule } from './modules/brands/brands.module';
+import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
 
 @Module({
@@ -81,6 +82,7 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     PromotionsModule,
     SubscriptionsModule,
     BrandsModule,
+    ReceiptsModule,
     CommandModule, // 👈 2. Ajouter le module Command
   ],
   controllers: [AppController],

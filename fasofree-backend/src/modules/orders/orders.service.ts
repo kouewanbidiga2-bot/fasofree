@@ -38,6 +38,7 @@ import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
 import { OrderPricingService } from '../financial/order-pricing.service';
+import { ReceiptsService } from '../receipts/receipts.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 /**
@@ -78,6 +79,7 @@ export class OrdersService {
     private readonly qrCodeService: QrCodeService,
     private readonly distanceCalculatorService: DistanceCalculatorService,
     private readonly pricingService: OrderPricingService,
+    private readonly receiptsService: ReceiptsService,
     private readonly events: EventEmitter2,
   ) {}
 
@@ -243,6 +245,7 @@ export class OrdersService {
 
     const transaction = this.transactionRepository.create({
       orderId: savedOrder.id,
+      reference: this.generateTransactionReference(savedOrder.id),
       amount: financials.totalAmount,
       commissionAmount: financials.platformCommission,
       status: TransactionStatus.PENDING,
@@ -346,6 +349,7 @@ export class OrdersService {
     // Créer la transaction
     const transaction = this.transactionRepository.create({
       orderId: savedOrder.id,
+      reference: this.generateTransactionReference(savedOrder.id),
       amount: totalAmount,
       commissionAmount: financials.platformCommission,
       status: TransactionStatus.PENDING,
@@ -474,6 +478,15 @@ export class OrdersService {
         `[Dispatch] Recherche d'un livreur pour la commande ${orderId}`,
       );
       this.dispatchGateway.dispatchOrderToDrivers(order); // Ajout manquant
+
+      // 🧾 Reçu client automatique (ne bloque jamais le flux en cas d'échec)
+      try {
+        await this.receiptsService.createClientOrderReceipt(order);
+      } catch (receiptError) {
+        this.logger.warn(
+          `[Receipt] Échec reçu client pour ${orderId}: ${receiptError.message}`,
+        );
+      }
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(
@@ -577,6 +590,15 @@ export class OrdersService {
   // ========================================================================
   private generatePinCode(): string {
     return Math.floor(1000 + Math.random() * 9000).toString();
+  }
+
+  // ========================================================================
+  // 🆔 Référence interne unique de transaction (colonne NOT NULL / UNIQUE)
+  // ========================================================================
+  private generateTransactionReference(orderId: string): string {
+    const time = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `FSF-${orderId.slice(0, 8)}-${time.slice(-4)}${rand}`;
   }
 
   // ========================================================================

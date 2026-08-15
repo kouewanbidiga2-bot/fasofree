@@ -13,6 +13,7 @@ import {
   WalletTransaction,
   TransactionType,
   TransactionReason,
+  TransactionStatus,
 } from './entities/wallet-transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { ConfigService } from '@nestjs/config';
@@ -81,6 +82,7 @@ export class WalletService {
     reason: TransactionReason,
     reference?: string,
     description?: string,
+    transactionType: TransactionType = TransactionType.CREDIT,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
@@ -113,8 +115,9 @@ export class WalletService {
       // 3. Enregistrer l'écriture au grand livre (Ledger)
       const transaction = queryRunner.manager.create(WalletTransaction, {
         walletId: wallet.id,
-        type: TransactionType.CREDIT,
+        type: transactionType,
         reason,
+        status: TransactionStatus.COMPLETED,
         amount,
         balanceAfter: wallet.balance,
         reference,
@@ -193,6 +196,7 @@ export class WalletService {
         walletId: wallet.id,
         type: TransactionType.DEBIT,
         reason,
+        status: TransactionStatus.COMPLETED,
         amount,
         balanceAfter: wallet.balance,
         reference,
@@ -267,6 +271,7 @@ export class WalletService {
         walletId: wallet.id,
         type: TransactionType.DEBIT,
         reason,
+        status: TransactionStatus.COMPLETED,
         amount,
         balanceAfter: wallet.balance,
         reference,

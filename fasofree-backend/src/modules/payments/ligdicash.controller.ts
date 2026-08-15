@@ -11,14 +11,21 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { LigdiCashService } from './providers/ligdicash.service';
+import { MockPaymentService } from './providers/mock-payment.service';
 import { CreatePayinDto } from './dto/create-payin.dto';
 import { TopupDto } from './dto/topup.dto';
 import { LigdiCashWebhookDto } from './dto/ligdicash-webhook.dto';
 import { OrdersService } from '../orders/orders.service';
 import { WalletService } from '../wallets/wallet.service';
+import { ReceiptsService } from '../receipts/receipts.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
-import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
+import {
+  TransactionReason,
+  TransactionType,
+} from '../wallets/entities/wallet-transaction.entity';
+import { isMockProvider } from '../../config/payment.config';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 
@@ -33,8 +40,11 @@ export class LigdiCashController {
 
   constructor(
     private readonly ligdiCashService: LigdiCashService,
+    private readonly mockPaymentService: MockPaymentService,
+    private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
     private readonly walletService: WalletService,
+    private readonly receiptsService: ReceiptsService,
   ) {}
 
   /**
@@ -60,7 +70,7 @@ export class LigdiCashController {
   @Post('topup')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({
-    summary: 'Recharger son portefeuille FasoFree (Mobile Money)',
+    summary: 'Recharger son portefeuille FasoFree (Mobile Money ou Mock)',
   })
   async initiateTopup(
     @NestRequest() req: RequestWithUser,
@@ -70,6 +80,12 @@ export class LigdiCashController {
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
+
+    // 🧪 Mode Mock : crédit immédiat, sans appel LigdiCash
+    if (isMockProvider(this.configService)) {
+      return this.mockPaymentService.topup(userId, dto);
+    }
+
     return this.ligdiCashService.initiateTopup(userId, dto);
   }
 
@@ -118,14 +134,26 @@ export class LigdiCashController {
         return { status: 'success' };
       }
 
-      await this.walletService.creditWallet(
+      const { wallet, transaction } = await this.walletService.creditWallet(
         clientId,
         WalletUserRole.CUSTOMER,
         Number(amount),
         TransactionReason.TOPUP,
         payload.transaction_id,
         'Recharge portefeuille FasoFree via Mobile Money',
+        TransactionType.DEPOSIT,
       );
+
+      // 🧾 Reçu client automatique (recharge validée)
+      await this.receiptsService.createTopupReceipt({
+        clientUserId: clientId,
+        amount: Number(amount),
+        reference: payload.transaction_id,
+        walletTransactionId: transaction.id,
+        balanceAfter: Number(wallet.balance),
+        description: 'Recharge portefeuille FasoFree via Mobile Money',
+      });
+
       this.logger.log(
         `[Wallet Topup] +${amount} FCFA crédités au wallet ${clientId} (${payload.transaction_id})`,
       );
