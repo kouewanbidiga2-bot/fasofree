@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <linearGradient id="graffitiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4AF37;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#C9A961;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B7500;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background shape -->
+  <path d="M20 10 Q200 0 380 10 Q390 60 380 110 Q200 120 20 110 Q10 60 20 10" 
+        fill="#1E1E1E" stroke="#D4AF37" stroke-width="2" filter="url(#shadow)"/>
+  
+  <!-- Graffiti-style text FOOD -->
+  <text x="30" y="55" font-family="Playfair Display, serif" font-weight="700" font-size="28" 
+        fill="url(#graffitiGradient)" filter="url(#shadow)" 
+        style="letter-spacing: 2px; text-transform: uppercase;">
+    FOOD
+  </text>
+  
+  <!-- Graffiti-style text DELIVERY -->
+  <text x="30" y="85" font-family="Montserrat, sans-serif" font-weight="600" font-size="20" 
+        fill="#FFFFFF" filter="url(#shadow)"
+        style="letter-spacing: 3px; text-transform: uppercase;">
+    DELIVERY
+  </text>
+  
+  <!-- BF in graffiti style -->
+  <text x="280" y="75" font-family="Playfair Display, serif" font-weight="900" font-size="42" 
+        fill="url(#graffitiGradient)" filter="url(#shadow)"
+        style="letter-spacing: 4px; text-transform: uppercase;">
+    BF
+  </text>
+  
+  <!-- Decorative graffiti elements -->
+  <path d="M260 30 Q270 25 280 30 Q285 35 280 40 Q270 45 260 40 Q255 35 260 30" 
+        fill="#D4AF37" opacity="0.6"/>
+  <path d="M320 80 Q330 75 340 80 Q345 85 340 90 Q330 95 320 90 Q315 85 320 80" 
+        fill="#C9A961" opacity="0.4"/>
+  <path d="M240 70 Q245 65 250 70 Q255 75 250 80 Q245 85 240 80 Q235 75 240 70" 
+        fill="#8B7500" opacity="0.5"/>
+  
+  <!-- Spray paint effect -->
+  <circle cx="270" cy="50" r="3" fill="#D4AF37" opacity="0.3"/>
+  <circle cx="340" cy="60" r="2" fill="#C9A961" opacity="0.4"/>
+  <circle cx="250" cy="90" r="2.5" fill="#8B7500" opacity="0.3"/>
+</svg>

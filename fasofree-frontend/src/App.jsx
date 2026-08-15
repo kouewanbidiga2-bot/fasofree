@@ -1,63 +1,56 @@
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ProtectedRoute } from './guards';
 
-// 1. IMPORTS FIXES
-import PhoneAuth from './pages/PhoneAuth';
+// 1. DIRECT IMPORTS for critical components (eliminates lazy loading crashes)
 import Loading from './pages/Loading';
+import PhoneAuth from './pages/PhoneAuth';
 
-// 2. LAZY LOADING
-const Home = lazy(() => import('./pages/Home'));
-const Restaurant = lazy(() => import('./pages/Restaurant'));
-const Cart = lazy(() => import('./pages/Cart'));
-const Checkout = lazy(() => import('./pages/Checkout'));
-const Receipt = lazy(() => import('./pages/Receipt'));
-const OrderTracking = lazy(() => import('./pages/OrderTracking'));
-const OrderHistory = lazy(() => import('./pages/OrderHistory'));
-const Profile = lazy(() => import('./pages/Profile'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
-
-const DashboardRouter = lazy(() => import('./dashboard/DashboardRouter'));
-
-// 3. LAYOUT PROTÉGÉ
-const ProtectedLayout = () => {
-  const { isAuthenticated } = useAuthStore();
-  const location = useLocation();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" state={{ from: location }} replace />;
-  }
-
-  return <Outlet />;
-};
+// 2. LAZY LOADING for dashboards (non-critical pages)
+const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashboard'));
+const DriverDashboard = lazy(() => import('./dashboard/DriverDashboard'));
+const SuperAdminDashboard = lazy(() => import('./dashboard/SuperAdminDashboard'));
 
 function App() {
   return (
     <Router>
       <Suspense fallback={<Loading />}>
         <Routes>
-          {/* ROUTES PUBLIQUES */}
-          <Route path="/loading" element={<Loading />} />
-          <Route path="/auth" element={<PhoneAuth />} />
+          {/* ROUTE PAR DÉFAUT - redirige vers la connexion */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-          {/* ROUTES PROTÉGÉES */}
-          <Route element={<ProtectedLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/restaurant/:id" element={<Restaurant />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/receipt" element={<Receipt />} />
-            <Route path="/order-tracking" element={<OrderTracking />} />
-            <Route path="/order-history" element={<OrderHistory />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/dashboard" element={<DashboardRouter />} />
-          </Route>
+          {/* ROUTES D'AUTHENTIFICATION */}
+          <Route path="/login" element={<PhoneAuth />} />
+          <Route path="/register" element={<PhoneAuth />} />
+
+          {/* ROUTES PRIVÉES PAR RÔLE */}
+          <Route
+            path="/designer"
+            element={
+              <ProtectedRoute allowedRoles={['business_admin', 'business', 'merchant', 'restaurant']}>
+                <BusinessAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/livreur"
+            element={
+              <ProtectedRoute allowedRoles={['driver', 'courier', 'livreur']}>
+                <DriverDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/financier"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'superadmin']}>
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* ROUTE PAR DÉFAUT */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Suspense>
     </Router>

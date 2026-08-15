@@ -52,6 +52,14 @@ export const PAYMENT_METHODS = [
     requiresPhone: true,
   },
   {
+    id: 'ligdicash',
+    label: 'LigdiCash',
+    description: 'Paiement mobile LigdiCash',
+    color: '#8B5CF6',
+    icon: '💜',
+    requiresPhone: true,
+  },
+  {
     id: 'cash',
     label: 'Paiement à la livraison',
     description: 'Espèces à la livraison',

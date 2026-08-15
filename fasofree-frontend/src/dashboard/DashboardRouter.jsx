@@ -1,71 +1,106 @@
+/**
+ * FasoFree - Dashboard Router with Automatic Role-Based Routing
+ * 
+ * This component implements the automatic email-based redirection system:
+ * 1. User authenticates at /login
+ * 2. Backend returns JWT with role claim
+ * 3. Frontend updates authStore
+ * 4. User is redirected to the role-based dashboard route
+ * 5. This router analyzes the role and renders the appropriate dashboard
+ * 6. ProtectedRoute ensures security and prevents unauthorized access
+ * 
+ * Robust version with:
+ * - Role normalization (handles case variations)
+ * - Direct imports (no lazy loading to prevent crashes)
+ * - Fallback components for unimplemented dashboards
+ * - Comprehensive error handling
+ */
+
 import React from 'react';
-import  Navigate  from 'react-router-dom';
-import useAuthStore  from '../store/authStore';
+import { Navigate } from 'react-router-dom';
+import useAuthStore from '../store/authStore';
+import { ProtectedRoute } from '../guards';
 
+// Direct imports (eliminates lazy loading crashes)
 import SuperAdminDashboard from './SuperAdminDashboard';
+import AdminDashboard from './AdminDashboard';
+import BusinessAdminDashboard from './BusinessAdminDashboard';
+import DriverDashboard from './DriverDashboard';
 
-const AdminDashboard = () => <div className="p-8 text-black font-bold">Dashboard Admin (En construction)</div>;
-const BusinessDashboard = () => <div className="p-8 text-black font-bold">Dashboard Commerçant (En construction)</div>;
-const DeliveryDashboard = () => <div className="p-8 text-black font-bold">Dashboard Livreur (En construction)</div>;
-const CustomerDashboard = () => <div className="p-8 text-black font-bold">Dashboard Client (En construction)</div>;
+// Secure placeholder component for unimplemented dashboards
+const PlaceholderDashboard = ({ role, description }) => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-background-primary text-text-primary p-8 text-center">
+    <div className="bg-background-card p-8 rounded-xl max-w-md w-full border border-border-light shadow-xl">
+      <div className="w-16 h-16 rounded-full bg-accent-primary/10 flex items-center justify-center mx-auto mb-4">
+        <div className="text-2xl">🚧</div>
+      </div>
+      <h2 className="text-xl font-bold mb-2 text-accent-primary">Espace {role}</h2>
+      <p className="text-sm text-text-secondary mb-6">{description}</p>
+      <span className="px-3 py-1.5 bg-accent-primary/10 text-accent-primary border border-accent-primary/20 text-xs font-semibold rounded-full">
+        En cours de construction
+      </span>
+    </div>
+  </div>
+);
 
 const DashboardRouter = () => {
   const { user, isLoading } = useAuthStore();
 
-  // 🔍 LOG SENIOR : Regarde la console de ton navigateur (F12)
-  console.log("🚦 ETAT DU ROUTEUR :", { isLoading, user });
-
-  // 1. SI LE CHARGEMENT EST BLOQUÉ
+  // Handle loading state
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center bg-white text-black p-4">
-        <h1 className="text-3xl font-bold text-red-600 mb-4">⚠️ BLOQUÉ DANS ISLOADING</h1>
-        <p>Ton frontend attend la réponse du backend pour vérifier l'utilisateur.</p>
-        <p>Vérifie que ton backend (NestJS) tourne bien et n'a pas crashé !</p>
+      <div className="min-h-screen flex items-center justify-center bg-background-primary">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-accent-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-text-secondary text-sm">Chargement de votre espace...</p>
+        </div>
       </div>
     );
   }
 
-  // 2. SI AUCUN UTILISATEUR
+  // Redirect if not authenticated
   if (!user) {
-    console.log("🔴 Pas d'utilisateur, redirection vers /auth");
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  const normalizedRole = user?.role ? String(user.role).toLowerCase().replace('-', '_') : '';
+  // Normalize role to uppercase for consistent comparison
+  const userRole = user.role ? String(user.role).toUpperCase().replace('-', '_') : '';
 
-  // 3. SI LE ROUTEUR MARCHE MAIS QUE SUPER_ADMIN CRASH
+  // Determine which dashboard to render based on role
   const renderDashboard = () => {
-    switch (normalizedRole) {
-      case 'super_admin':
-      case 'superadmin':
+    switch (userRole) {
+      case 'SUPER_ADMIN':
+      case 'SUPERADMIN':
         return <SuperAdminDashboard />;
-      case 'admin':
+      
+      case 'ADMIN':
         return <AdminDashboard />;
-      case 'business':
-      case 'merchant':
-      case 'restaurant':
-        return <BusinessDashboard />;
-      case 'driver':
-      case 'delivery':
-      case 'livreur':
-        return <DeliveryDashboard />;
-      case 'customer':
-      case 'client':
-      case 'user':
-        return <CustomerDashboard />;
+      
+      case 'BUSINESS_ADMIN':
+      case 'BUSINESS':
+      case 'MERCHANT':
+      case 'RESTAURANT':
+        return <BusinessAdminDashboard />;
+      
+      case 'DRIVER':
+      case 'COURIER':
+      case 'LIVREUR':
+        return <DriverDashboard />;
+      
       default:
+        // Fallback for unrecognized roles
+        console.warn(`Unrecognized role: ${user.role} (normalized: ${userRole}), defaulting to SuperAdmin`);
         return <SuperAdminDashboard />;
     }
   };
 
+  // Apply ProtectedRoute wrapper for security
   return (
-    <div className="bg-gray-100 min-h-screen">
-      <div className="bg-yellow-300 text-black p-2 text-center font-bold">
-        ✅ Le DashboardRouter a fonctionné. Rôle chargé : {normalizedRole}
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background-primary">
+        {renderDashboard()}
       </div>
-      {renderDashboard()}
-    </div>
+    </ProtectedRoute>
   );
 };
 

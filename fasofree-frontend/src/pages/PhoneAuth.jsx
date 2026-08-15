@@ -23,8 +23,8 @@ const FasoFreeLogo = () => (
 );
 
 // ─── Rôles disponibles à l'inscription ──────────────────────────────────
+// Plateforme réservée au Dashboard (business_admin, driver, courier, super_admin)
 const ROLES = [
-  { id: 'client', label: 'Client', description: 'Commander des repas' },
   { id: 'driver', label: 'Livreur', description: 'Effectuer des livraisons' },
   { id: 'business_admin', label: 'Commerçant', description: 'Gérer mon commerce' },
 ];
@@ -98,18 +98,21 @@ const PhoneAuth = () => {
     return Object.keys(errs).length === 0;
   };
 
-  // ─── Redirection selon rôle après auth ─────────────────────────────
+  // ─── Redirection vers le Dashboard selon le rôle ─────────────────────────
   const redirectByRole = (user) => {
-    const role = user?.role;
-    if (role === 'super_admin' || role === 'admin' || role === 'support_admin') {
-      navigate('/admin-dashboard');
-    } else if (role === 'business_admin') {
-      navigate('/dashboard');
-    } else if (role === 'driver') {
-      navigate('/driver-dashboard');
-    } else {
-      navigate('/');
-    }
+    const role = (user?.role || '').toLowerCase().replace('-', '_');
+    const roleRoutes = {
+      'business_admin': '/designer',
+      'business': '/designer',
+      'merchant': '/designer',
+      'restaurant': '/designer',
+      'driver': '/livreur',
+      'courier': '/livreur',
+      'livreur': '/livreur',
+      'super_admin': '/financier',
+      'superadmin': '/financier',
+    };
+    navigate(roleRoutes[role] || '/login');
   };
 
   const handleLogin = async (e) => {
@@ -345,10 +348,7 @@ const PhoneAuth = () => {
 
         {/* Footer */}
         <p className="text-center text-text-tertiary text-xs mt-6">
-          En continuant, vous acceptez nos{' '}
-          <a href="/terms" className="text-text-secondary hover:text-accent-primary transition-colors">conditions d'utilisation</a>
-          {' '}et notre{' '}
-          <a href="/privacy" className="text-text-secondary hover:text-accent-primary transition-colors">politique de confidentialité</a>
+          Espace d'administration FasoFree — Dashboard
         </p>
       </div>
     </div>
