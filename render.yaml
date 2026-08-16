@@ -1,0 +1,81 @@
+# ============================================================
+# FasoFree - Blueprint Render (render.yaml)
+# Déploiement : API NestJS + Console Admin (Vite) + App Client (Vite)
+#
+# AU PREMIER DÉPLOIEMENT :
+#   1. Les variables marquées `sync: false` sont à saisir dans le dashboard
+#      Render (Service > Environment) AVANT la 1re build :
+#        - DATABASE_URL       (ex: postgres://...?sslmode=require  - Neon)
+#        - JWT_SECRET         (min 32 caractères)
+#        - FIREBASE_*         (projet, client_email, private_key)
+#        - REDIS_URL          (optionnel, Upstash recommandé)
+#   2. DB_SYNCHRONIZE=true + DB_MIGRATIONS_RUN=false : le schéma existant
+#      (déjà créé par le dev) est réparé de façon idempotente au boot.
+#      APRÈS un 1er démarrage réussi, basculez DB_SYNCHRONIZE=false.
+# ============================================================
+
+services:
+  # ---------------- API BACKEND (NestJS) ----------------
+  - type: web
+    name: fasofree-api
+    runtime: node
+    plan: free
+    rootDir: fasofree-backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "10000"
+      - key: CORS_ORIGIN
+        value: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
+      - key: DB_SYNCHRONIZE
+        value: "true"
+      - key: DB_MIGRATIONS_RUN
+        value: "false"
+      - key: PAYMENT_ENV
+        value: sandbox
+      - key: PAYMENT_PROVIDER
+        value: mock
+      - key: FASOFREE_COMMISSION_RATE
+        value: "0.0085"
+      - key: FASOFREE_COMMISSION_PAYER
+        value: CLIENT
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+
+  # ---------------- CONSOLE ADMIN (dashboard) ----------------
+  - type: web
+    name: fasofree-admin
+    runtime: node
+    plan: free
+    rootDir: fasofree-frontend
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l 10000
+    envVars:
+      - key: VITE_API_URL
+        value: https://fasofree-api.onrender.com/api/v1
+
+  # ---------------- APPLICATION CLIENT ----------------
+  - type: web
+    name: fasofree-client
+    runtime: node
+    plan: free
+    rootDir: fasofree-frontend-client
+    buildCommand: npm install && npm run build
+    startCommand: npx serve -s dist -l 10000
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://fasofree-api.onrender.com/api/v1
