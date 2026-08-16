@@ -14,7 +14,7 @@ import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
-  BadgeCheck, Radio, Ban, KeyRound
+  BadgeCheck, Radio, Ban, KeyRound, ClipboardList
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -573,6 +573,19 @@ const SuperAdminDashboard = () => {
               </button>
             );
           })}
+
+          <button
+            onClick={() => navigate('/dashboard/applications')}
+            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-status-info border border-status-info/30 mt-2 hover:bg-background-secondary"
+          >
+            <ClipboardList size={18} strokeWidth={1.5} />
+            <span className="flex-1 text-left">Candidatures (Onboarding)</span>
+            {kycPending.length > 0 && (
+              <span className="w-5 h-5 bg-status-error text-white text-xs rounded-full flex items-center justify-center font-bold">
+                {kycPending.length}
+              </span>
+            )}
+          </button>
 
           <button
             onClick={() => navigate('/dashboard/live-orders')}

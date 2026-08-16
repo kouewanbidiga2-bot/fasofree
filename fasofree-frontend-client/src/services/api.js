@@ -3,10 +3,17 @@ const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://unbridle-deferral-
 export async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');
 
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const defaultHeaders = {
-    'Content-Type': 'application/json',
     'Accept': 'application/json',
   };
+
+  // ⚠️ Ne PAS forcer Content-Type pour un FormData (multipart) :
+  // le navigateur pose automatiquement la bonne boundary.
+  if (!isFormData) {
+    defaultHeaders['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     defaultHeaders['Authorization'] = `Bearer ${token}`;
@@ -20,8 +27,8 @@ export async function apiFetch(endpoint, options = {}) {
     },
   };
 
-  // Stringify body if it's an object
-  if (config.body && typeof config.body === 'object') {
+  // Stringify body if it's an object (mais jamais un FormData)
+  if (!isFormData && config.body && typeof config.body === 'object') {
     config.body = JSON.stringify(config.body);
   }
 
@@ -45,6 +52,9 @@ export const api = {
   register: (data) => apiFetch('/auth/register', { method: 'POST', body: data }),
   login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
   getProfile: () => apiFetch('/auth/me', { method: 'GET' }),
+
+  // Candidature Marchand / Livreur (multipart, avec fichiers KYC)
+  apply: (formData) => apiFetch('/auth/apply', { method: 'POST', body: formData }),
   
   // Businesses
   getNearbyBusinesses: (lat, lng, radius = 10000, category = 'RESTAURANT') => 

@@ -3,10 +3,14 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { S3StorageProvider } from '../upload/providers/s3-storage.provider';
+import type {
+  IStorageDriver,
+} from '../upload/interfaces/storage-driver.interface';
+import { STORAGE_DRIVER } from '../upload/upload.module';
 import {
   KycDocument,
   KycDocumentType,
@@ -19,7 +23,8 @@ export class KycService {
     @InjectRepository(KycDocument)
     private readonly documents: Repository<KycDocument>,
     private readonly dataSource: DataSource,
-    private readonly storage: S3StorageProvider,
+    @Inject(STORAGE_DRIVER)
+    private readonly storage: IStorageDriver,
   ) {}
 
   async submit(

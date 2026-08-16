@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { KycModule } from '../kyc/kyc.module';
 
 function normalizeExpiresIn(
   raw?: string,
@@ -72,6 +73,7 @@ function normalizeExpiresIn(
       },
     }),
     SubscriptionsModule,
+    KycModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

@@ -13,6 +13,7 @@ import OrderHistory from './pages/OrderHistory';
 import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
 import Register from './pages/Register';
+import MerchantDashboard from './pages/MerchantDashboard';
 import PhoneAuth from './pages/PhoneAuth';
 import Auth from './pages/Auth';
 import Privacy from './pages/Privacy';
@@ -47,7 +48,9 @@ function App() {
         <Route path="/order-history" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
-        <Route path="/register" element={<ProtectedRoute><Register /></ProtectedRoute>} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/merchant-dashboard" element={<ProtectedRoute><MerchantDashboard /></ProtectedRoute>} />
+        <Route path="/driver-dashboard" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/privacy" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
         <Route path="/terms" element={<ProtectedRoute><Terms /></ProtectedRoute>} />
       </Routes>

@@ -21,3 +21,9 @@ export const rejectKyc = async (id, reason) => {
   const response = await api.post(`/kyc/admin/${id}/reject`, { reason });
   return response.data;
 };
+
+/** URL consultable d'un document KYC (admin/support ou propriétaire) */
+export const getKycDocumentUrl = async (id) => {
+  const response = await api.get(`/kyc/documents/${id}/url`);
+  return response.data.url;
+};

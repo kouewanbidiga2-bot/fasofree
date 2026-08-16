@@ -11,6 +11,7 @@ const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashb
 const DriverDashboard = lazy(() => import('./dashboard/DriverDashboard'));
 const SuperAdminDashboard = lazy(() => import('./dashboard/SuperAdminDashboard'));
 const LiveOrders = lazy(() => import('./dashboard/LiveOrders'));
+const ApplicationsDashboard = lazy(() => import('./dashboard/ApplicationsDashboard'));
 
 function App() {
   return (
@@ -54,6 +55,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
                 <LiveOrders />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard/applications"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
+                <ApplicationsDashboard />
               </ProtectedRoute>
             }
           />

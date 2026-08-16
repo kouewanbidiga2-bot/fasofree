@@ -41,6 +41,27 @@ export class User {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  // 🚦 ONBOARDING MARCHANDS & LIVREURS
+  // Compte candidat créé via POST /auth/apply puis examiné par l'administration.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  applicationStatus?: string | null; // PENDING_APPROVAL | APPROVED | REJECTED
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  applicationType?: string | null; // MERCHANT | DRIVER
+
+  // 📦 Données de candidature (profil commerce / véhicule) au format JSON
+  @Column({ type: 'jsonb', nullable: true })
+  applicationData?: Record<string, any> | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  reviewedBy?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  reviewedAt?: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason?: string | null;
+
   // 🚚 CHAMPS LIVREUR / COURSIER (DISPATCH)
   @Column({ type: 'float', nullable: true })
   latitude?: number;

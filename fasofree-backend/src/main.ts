@@ -3,6 +3,8 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { writeFileSync } from 'fs';
+import { join } from 'path';
+import * as express from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -29,6 +31,9 @@ async function bootstrap() {
       contentSecurityPolicy: false,
     }),
   );
+
+  // 3bis. Fichiers uploadés en mode local (fallback dev sans S3) — ex: documents KYC
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // 4. Stratégie CORS Intelligente (Dev Local + Prod)
   const isProduction = process.env.NODE_ENV === 'production';
@@ -137,6 +142,15 @@ async function bootstrap() {
 
   // 9. Démarrage du serveur (Adapté pour Render / Cloud / Ngrok)
   const port = Number(process.env.PORT) || 3000;
+
+  // 10. Résilience : une erreur réseau transitoire (ex: reset TLS du cache Redis
+  // Upstash dans cache-manager-redis-yet) ne doit pas tuer le process.
+  process.on('uncaughtException', (error) => {
+    logger.error('Uncaught Exception :', error?.message ?? error);
+  });
+  process.on('unhandledRejection', (reason) => {
+    logger.warn('Unhandled Rejection :', (reason as any)?.message ?? reason);
+  });
 
   // Binding sur '0.0.0.0' impératif pour Render / Docker / Tunnels
   await app.listen(port, '0.0.0.0');

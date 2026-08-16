@@ -26,6 +26,7 @@ import { AppController } from './app.controller';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DisputesModule } from './modules/disputes/disputes.module';
 import { KycModule } from './modules/kyc/kyc.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { BrandsModule } from './modules/brands/brands.module';
@@ -79,6 +80,7 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     UploadModule,
     DisputesModule,
     KycModule,
+    OnboardingModule,
     PromotionsModule,
     SubscriptionsModule,
     BrandsModule,

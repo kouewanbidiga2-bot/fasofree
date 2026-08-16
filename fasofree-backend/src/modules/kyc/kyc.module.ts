@@ -9,5 +9,6 @@ import { KycService } from './kyc.service';
   imports: [TypeOrmModule.forFeature([KycDocument]), UploadModule],
   controllers: [KycController],
   providers: [KycService],
+  exports: [KycService],
 })
 export class KycModule {}
