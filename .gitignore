@@ -1,7 +1,14 @@
 node_modules/
 .env
+.env.local
+.env.*.local
 dist/
 build/
+*.log
+*.out.log
+*.tmp.mjs
+vite.config.js.timestamp-*
+.DS_Store
 *.json
 !package.json
 !package-lock.json

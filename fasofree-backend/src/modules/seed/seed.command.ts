@@ -127,8 +127,8 @@ export class SeedCommand {
       -1.545,
     );
 
-    // 3. Abonnement Boost Pro (1.5%) sur l'agence principale ----------------
-    await this.ensureBoostProSubscription(agence1.id);
+    // 3. Abonnement Pro (1.5%) sur l'agence principale ----------------------
+    await this.ensureProSubscription(agence1.id);
 
     // 4. Wallet client : crédit de test 25 000 FCFA -------------------------
     await this.walletService.getOrCreateWallet(
@@ -158,10 +158,19 @@ export class SeedCommand {
       'Solde de test livreur (le Pass Journée 500 F sera débité à la 1ère course)',
     );
 
-    // 6. Wallet marchand pré-créé (agence principale) -----------------------
+    // 6. Wallet marchand pré-créé (agence principale) + crédit de test --------
+    //    (pour tester l'abonnement Pro payé par débit du portefeuille marchand)
     const merchantWallet = await this.walletService.getOrCreateWallet(
       agence1.id,
       WalletUserRole.MERCHANT,
+    );
+    const merchantCredit = await this.walletService.creditWallet(
+      agence1.id,
+      WalletUserRole.MERCHANT,
+      10000,
+      TransactionReason.TOPUP,
+      'seed:test-data:merchant',
+      'Crédit de test portefeuille marchand (pour l’abonnement Pro déductible)',
     );
 
     // 7. Produits -------------------------------------------------------------
@@ -181,7 +190,7 @@ export class SeedCommand {
       `🏪 MARCHAND : test.merchant@fasofree.bf (ID: ${merchantAdmin.id})`,
     );
     console.log(
-      `   Wallet MERCHANT (agence 1) : ${merchantWallet.balance} FCFA`,
+      `   Wallet MERCHANT (agence 1) : ${merchantCredit.wallet.balance} FCFA`,
     );
     console.log(`🏷️ MARQUE   : ${brand.name} (ID: ${brand.id})`);
     console.log(`   Agence 1 : ${agence1.id}`);
@@ -258,18 +267,18 @@ export class SeedCommand {
     return business;
   }
 
-  private async ensureBoostProSubscription(businessId: string): Promise<void> {
+  private async ensureProSubscription(businessId: string): Promise<void> {
     const existing = await this.subscriptionRepository.findOne({
       where: {
         subjectType: SubscriptionSubjectType.MERCHANT,
         subjectId: businessId,
-        plan: SubscriptionPlan.BOOST_PRO,
+        plan: SubscriptionPlan.PRO,
         isActive: true,
       },
     });
     if (existing) {
       console.log(
-        `ℹ️  Abonnement Boost Pro déjà actif sur l'agence ${businessId}`,
+        `ℹ️  Abonnement Pro déjà actif sur l'agence ${businessId}`,
       );
       return;
     }
@@ -282,7 +291,7 @@ export class SeedCommand {
       this.subscriptionRepository.create({
         subjectType: SubscriptionSubjectType.MERCHANT,
         subjectId: businessId,
-        plan: SubscriptionPlan.BOOST_PRO,
+        plan: SubscriptionPlan.PRO,
         startDate,
         endDate,
         isActive: true,
@@ -290,7 +299,7 @@ export class SeedCommand {
       }),
     );
     console.log(
-      `✅ Abonnement Boost Pro (5000 FCFA/mois, commission 1.5%) activé sur ${businessId}`,
+      `✅ Abonnement Pro (5000 FCFA/mois, commission 1.5%) activé sur ${businessId}`,
     );
   }
 

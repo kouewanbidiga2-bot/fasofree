@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone, CreditCard } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, CreditCard, Loader2 } from 'lucide-react';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { getRestaurantById } from '../services/data';
+import {
+  fetchQuote,
+  getCartSubtotal,
+  DEFAULT_DELIVERY_COORDS,
+} from '../services/pricingService';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -19,36 +24,68 @@ const Checkout = () => {
     notes: '',
   });
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
+  const [deliveryCoords, setDeliveryCoords] = useState(null);
 
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = restaurant ? restaurant.deliveryFee : 0;
-  const finalTotal = total + deliveryFee;
+  const subtotal = getCartSubtotal(items);
+
+  // 💬 Devis tarifaire : les frais viennent de l'API (livraison min 800 FCFA + plateforme 100 FCFA)
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setQuoteLoading(true);
+    fetchQuote({
+      restaurant,
+      items,
+      deliveryCoords: deliveryCoords ?? DEFAULT_DELIVERY_COORDS,
+    })
+      .then((result) => {
+        if (!cancelled) setQuote(result);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId, items, deliveryCoords, useCurrentLocation]);
+
+  const deliveryFee = quote?.deliveryFee ?? 0;
+  const platformFee = quote?.platformFee ?? 0;
+  const finalTotal = quote?.total ?? subtotal;
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const paymentMethod = e.target.payment?.value || 'Orange Money';
-    
+
     // Save order to authStore
     const orderId = 'FF' + Date.now().toString().slice(-8);
     addOrder({
       id: orderId,
       restaurant: restaurant?.name || 'Restaurant',
       items,
-      total: total + deliveryFee,
+      subtotal,
+      deliveryFee,
+      platformFee,
+      total: finalTotal,
       address: formData.address,
       phone: formData.phone,
       paymentMethod,
-      status: 'pending'
+      status: 'pending',
     });
-    
-    console.log('Order submitted:', { formData, items, total });
+
+    console.log('Order submitted:', { formData, items, quote });
     navigate('/receipt', {
       state: {
         items,
-        total,
+        subtotal,
+        deliveryFee,
+        platformFee,
+        total: finalTotal,
         paymentMethod,
-        orderId
-      }
+        orderId,
+      },
     });
   };
 
@@ -57,6 +94,10 @@ const Checkout = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          setDeliveryCoords({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
           setFormData({
             ...formData,
             address: 'Position actuelle (GPS)',
@@ -231,16 +272,32 @@ const Checkout = () => {
               <div className="border-t border-border-light pt-3 space-y-3">
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Sous-total</span>
-                  <span className="font-mono text-text-primary">{total.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">{subtotal.toLocaleString()} FCFA</span>
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Frais de livraison</span>
-                  <span className="font-mono text-text-primary">{deliveryFee.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm text-text-secondary">
+                  <span>Frais de service / Plateforme</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${platformFee.toLocaleString()} FCFA`}
+                  </span>
                 </div>
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
                   <span>Total</span>
-                  <span className="font-mono text-text-primary">{finalTotal.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${finalTotal.toLocaleString()} FCFA`}
+                  </span>
                 </div>
+                {quoteLoading && (
+                  <p className="flex items-center gap-2 text-xs text-text-secondary">
+                    <Loader2 size={14} className="animate-spin" strokeWidth={1.5} />
+                    Calcul du prix de livraison…
+                  </p>
+                )}
               </div>
             </div>
           </div>

@@ -13,12 +13,16 @@ export enum SubscriptionSubjectType {
 }
 
 export enum SubscriptionPlan {
-  VIP = 'VIP', // 1500 FCFA / mois - Frais de service offerts
-  BOOST_PRO = 'BOOST_PRO', // 5000 FCFA / mois - Commission réduite (1.5%)
+  STARTER = 'STARTER', // Gratuit - Commission standard (5%)
+  PRO = 'PRO', // 5000 FCFA / mois - Commission réduite (1.5%)
+  VIP = 'VIP', // 2500 FCFA / mois - Frais de service + livraison offerts
+  BOOST_PRO = 'BOOST_PRO', // ⚠️ Legacy (renommé PRO) - conservé pour compatibilité
 }
 
 export const SUBSCRIPTION_PRICES: Record<SubscriptionPlan, number> = {
-  [SubscriptionPlan.VIP]: 1500,
+  [SubscriptionPlan.STARTER]: 0,
+  [SubscriptionPlan.PRO]: 5000,
+  [SubscriptionPlan.VIP]: 2500,
   [SubscriptionPlan.BOOST_PRO]: 5000,
 };
 
@@ -34,8 +38,8 @@ export class Subscription {
   @Column({ type: 'varchar' })
   subjectId: string;
 
-  @Column({ type: 'enum', enum: SubscriptionPlan })
-  plan: SubscriptionPlan;
+  @Column({ type: 'varchar', length: 30 })
+  plan: string;
 
   @Column({ type: 'timestamp' })
   startDate: Date;

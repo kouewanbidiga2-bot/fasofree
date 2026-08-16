@@ -1,19 +1,44 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui';
 import Footer from '../components/Footer';
 import useCartStore from '../store/cartStore';
 import { getRestaurantById } from '../services/data';
+import { fetchQuote, getCartSubtotal } from '../services/pricingService';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { items, restaurantId, updateQuantity, removeItem, clearCart } = useCartStore();
   const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
+  const subtotal = getCartSubtotal(items);
 
-  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const deliveryFee = restaurant ? restaurant.deliveryFee : 0;
-  const finalTotal = total + deliveryFee;
+  // 💬 Devis tarifaire : les frais de livraison et plateforme viennent de l'API
+  const [quote, setQuote] = useState(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (items.length === 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    fetchQuote({ restaurant, items })
+      .then((result) => {
+        if (!cancelled) setQuote(result);
+      })
+      .finally(() => {
+        if (!cancelled) setQuoteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId, items]);
+
+  const deliveryFee = quote?.deliveryFee ?? 0;
+  const platformFee = quote?.platformFee ?? 0;
+  const finalTotal = quote?.total ?? subtotal;
 
   if (items.length === 0) {
     return (
@@ -129,19 +154,36 @@ const Cart = () => {
               <div className="space-y-3">
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Sous-total</span>
-                  <span className="font-mono text-text-primary">{total.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">{subtotal.toLocaleString()} FCFA</span>
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Frais de livraison</span>
-                  <span className="font-mono text-text-primary">{deliveryFee.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm text-text-secondary">
+                  <span>Frais de service / Plateforme</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${platformFee.toLocaleString()} FCFA`}
+                  </span>
                 </div>
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
                   <span>Total</span>
-                  <span className="font-mono text-text-primary">{finalTotal.toLocaleString()} FCFA</span>
+                  <span className="font-mono text-text-primary">
+                    {quoteLoading ? '…' : `${finalTotal.toLocaleString()} FCFA`}
+                  </span>
                 </div>
               </div>
 
-              {restaurant && total < restaurant.minOrder && (
+              {quoteLoading && (
+                <p className="mt-3 flex items-center gap-2 text-xs text-text-secondary">
+                  <Loader2 size={14} className="animate-spin" strokeWidth={1.5} />
+                  Calcul du prix de livraison…
+                </p>
+              )}
+
+              {restaurant && subtotal < restaurant.minOrder && (
                 <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 p-3">
                   <p className="text-xs text-warning">
                     Minimum de commande: {restaurant.minOrder.toLocaleString()} FCFA
@@ -151,7 +193,7 @@ const Cart = () => {
 
               <button
                 onClick={() => navigate('/checkout')}
-                disabled={restaurant && total < restaurant.minOrder}
+                disabled={restaurant && subtotal < restaurant.minOrder}
                 className="app-action w-full mt-6"
               >
                 Passer la commande

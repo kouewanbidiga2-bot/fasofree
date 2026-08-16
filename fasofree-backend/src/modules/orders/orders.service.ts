@@ -23,6 +23,7 @@ import {
   TransactionStatus,
 } from '../payments/entities/transaction.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { QuoteOrderDto } from './dto/quote-order.dto';
 
 // Gateways et Services
 import { DispatchGateway } from '../dispatch/dispatch.gateway';
@@ -37,9 +38,31 @@ import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
-import { OrderPricingService } from '../financial/order-pricing.service';
+import { DeliveryPricingService } from './delivery-pricing.service';
+import {
+  GeoDispatchService,
+  DriverLocation,
+  OrderTracePoint,
+} from './dispatch.service';
+import {
+  MIN_DELIVERY_FEE,
+  OrderPricingService,
+  PricingQuote,
+} from '../financial/order-pricing.service';
 import { ReceiptsService } from '../receipts/receipts.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ConfigService } from '@nestjs/config';
+
+/**
+ * 💬 Statuts terminaux : le canal de chat éphémère de la commande est archivé.
+ */
+const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
+  OrderStatus.FAILED,
+  OrderStatus.DISPUTED,
+  OrderStatus.REFUNDED,
+];
 
 /**
  * 🧾 DTO de réponse pour l'application Mobile Client
@@ -54,6 +77,29 @@ export interface ClientInvoiceResponse {
     currency: string;
   };
   createdAt: Date;
+}
+
+/**
+ * 🗺️ Payload de suivi live d'une commande (GPS + ETA).
+ */
+export interface OrderTrackingPayload {
+  orderId: string;
+  status: OrderStatus;
+  trackingActive: boolean;
+  driverId: string | null;
+  driverLocation: DriverLocation | null;
+  trace: OrderTracePoint[];
+  businessLocation: { latitude: number; longitude: number } | null;
+  pickupLocation: Order['pickupLocation'] | null;
+  deliveryLocation: Order['deliveryLocation'] | null;
+  eta: {
+    preparationMinutes: number;
+    remainingPreparationMinutes: number;
+    travelMinutes: number;
+    totalMinutes: number;
+    distanceKm: number;
+    arrivalAt: string;
+  };
 }
 
 @Injectable()
@@ -78,9 +124,12 @@ export class OrdersService {
     private readonly usersService: UsersService,
     private readonly qrCodeService: QrCodeService,
     private readonly distanceCalculatorService: DistanceCalculatorService,
+    private readonly deliveryPricingService: DeliveryPricingService,
     private readonly pricingService: OrderPricingService,
     private readonly receiptsService: ReceiptsService,
     private readonly events: EventEmitter2,
+    private readonly configService: ConfigService,
+    private readonly geoDispatchService: GeoDispatchService,
   ) {}
 
   /**
@@ -112,6 +161,24 @@ export class OrdersService {
       previousStatus !== OrderStatus.COMPLETED
     ) {
       this.events.emit('order.completed', order);
+    }
+  }
+
+  /**
+   * 💬 Archive le canal de chat éphémère dès qu'un statut terminal est atteint.
+   */
+  private notifyChatClosedIfTerminal(
+    order: Order,
+    previousStatus: OrderStatus,
+  ): void {
+    if (
+      CHAT_TERMINAL_STATUSES.includes(order.status) &&
+      !CHAT_TERMINAL_STATUSES.includes(previousStatus)
+    ) {
+      this.events.emit('order.chat.closed', {
+        orderId: order.id,
+        status: order.status,
+      });
     }
   }
 
@@ -161,7 +228,36 @@ export class OrdersService {
       );
     }
 
-    const effectiveDeliveryFee = isDelivery ? (deliveryFee ?? 500) : 0;
+    // 🧮 DELIVERY_FEE calculée côté serveur : max(distance GPS boutique→client, 800 FCFA).
+    // Le montant envoyé par le client (dto.deliveryFee) est ignoré pour les commandes livrées.
+    let effectiveDeliveryFee = 0;
+    if (isDelivery) {
+      const businessLat = business.latitude;
+      const businessLng = business.longitude;
+      const clientLat = deliveryLatitude;
+      const clientLng = deliveryLongitude;
+      if (
+        businessLat != null &&
+        businessLng != null &&
+        clientLat != null &&
+        clientLng != null
+      ) {
+        const distance = this.distanceCalculatorService.calculateDistance(
+          businessLat,
+          businessLng,
+          clientLat,
+          clientLng,
+        );
+        effectiveDeliveryFee =
+          this.deliveryPricingService.calculateDeliveryFee(distance);
+        this.logger.log(
+          `[Pricing] Livraison marchand calculée : ${distance} km → ${effectiveDeliveryFee} FCFA (min ${MIN_DELIVERY_FEE})`,
+        );
+      } else {
+        effectiveDeliveryFee = deliveryFee ?? MIN_DELIVERY_FEE;
+      }
+    }
+
     let promotionCode: string | null = null;
     let promotionDiscount = 0;
     let reservedPromotionId: string | null = null;
@@ -266,6 +362,68 @@ export class OrdersService {
     }
 
     return this.findOne(savedOrder.id);
+  }
+
+  /**
+   * 💬 Devis tarifaire (POST /orders/quote).
+   * Calcule et renvoie les montants exacts qui seront verrouillés lors du
+   * POST /orders : { subtotal, deliveryFee, platformFee, total }.
+   * DELIVERY_FEE = max(calcul distance GPS, 800 FCFA).
+   */
+  async quoteOrder(clientId: string, dto: QuoteOrderDto): Promise<PricingQuote> {
+    const subtotal = Math.max(0, Number(dto.subtotal) || 0);
+    let deliveryFee: number;
+
+    if (dto.orderType === OrderType.P2P_DELIVERY) {
+      if (!dto.pickupLocation || !dto.dropoffLocation) {
+        throw new BadRequestException(
+          'Les lieux de ramassage et de livraison sont obligatoires pour un devis P2P',
+        );
+      }
+      const calculation = this.distanceCalculatorService.calculateP2PDelivery(
+        dto.pickupLocation.latitude,
+        dto.pickupLocation.longitude,
+        dto.dropoffLocation.latitude,
+        dto.dropoffLocation.longitude,
+      );
+      deliveryFee = calculation.price;
+      this.logger.log(
+        `[Quote P2P] Distance: ${calculation.distance} km → livraison ${deliveryFee} FCFA`,
+      );
+    } else {
+      // Coordonnées boutique : businessId en base, sinon fallback fourni par le client
+      let businessLatitude: number | undefined = dto.businessLatitude;
+      let businessLongitude: number | undefined = dto.businessLongitude;
+      if (dto.businessId) {
+        const business = await this.businessesService.findOne(dto.businessId);
+        businessLatitude = business.latitude ?? undefined;
+        businessLongitude = business.longitude ?? undefined;
+      }
+
+      if (
+        businessLatitude !== undefined &&
+        businessLongitude !== undefined &&
+        dto.deliveryLatitude !== undefined &&
+        dto.deliveryLongitude !== undefined
+      ) {
+        const distance = this.distanceCalculatorService.calculateDistance(
+          businessLatitude,
+          businessLongitude,
+          dto.deliveryLatitude,
+          dto.deliveryLongitude,
+        );
+        deliveryFee = this.deliveryPricingService.calculateDeliveryFee(distance);
+      } else {
+        // Pas de coordonnées → tarif minimum garanti
+        deliveryFee = MIN_DELIVERY_FEE;
+      }
+    }
+
+    return this.pricingService.getQuoteBreakdown({
+      subtotal,
+      deliveryFee,
+      clientId,
+    });
   }
 
   /**
@@ -400,6 +558,33 @@ export class OrdersService {
     });
   }
 
+  /**
+   * 🎛️ Tour de contrôle : liste globale des commandes pour
+   * SUPER_ADMIN / ADMIN / SUPPORT. Attache la position live du livreur
+   * lorsqu'un coursier est assigné (pour l'affichage carte).
+   */
+  async findAllForAdmin(
+    options: { status?: OrderStatus } = {},
+  ): Promise<Order[]> {
+    const orders = await this.orderRepository.find({
+      where: options.status ? { status: options.status } : {},
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
+
+    for (const order of orders) {
+      if (order.driverId) {
+        const loc = await this.geoDispatchService.getDriverLocation(
+          order.driverId,
+        );
+        (order as Order & { driverLocation?: DriverLocation | null }).driverLocation =
+          loc;
+      }
+    }
+
+    return orders;
+  }
+
   async findOne(id: string): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id },
@@ -420,12 +605,145 @@ export class OrdersService {
     const order = await this.findOne(id);
     if (role === UserRole.SUPER_ADMIN || order.clientId === userId)
       return order;
+    // Livreur assigné : accès au suivi live et au chat (coursier de la course)
+    if (order.driverId === userId) return order;
+    if (!order.businessId)
+      throw new ForbiddenException("Vous n'avez pas accès à cette commande.");
     await this.businessesService.assertManagedBy(
       order.businessId,
       userId,
       role,
     );
     return order;
+  }
+
+  /**
+   * 🗺️ Suivi live de la commande : statut + dernière position GPS + tracé + ETA.
+   */
+  async getOrderTracking(
+    id: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<OrderTrackingPayload> {
+    const order = await this.findOneForUser(id, userId, role);
+
+    let driverLocation: DriverLocation | null = null;
+    if (order.driverId) {
+      driverLocation = await this.geoDispatchService.getDriverLocation(
+        order.driverId,
+      );
+    }
+
+    const trace = await this.geoDispatchService.getOrderTrace(order.id);
+
+    let businessLocation: { latitude: number; longitude: number } | null =
+      null;
+    if (order.businessId) {
+      try {
+        const business = await this.businessesService.findOne(order.businessId);
+        if (business?.latitude != null && business?.longitude != null) {
+          businessLocation = {
+            latitude: business.latitude,
+            longitude: business.longitude,
+          };
+        }
+      } catch {
+        // Commerce introuvable : pas de coordonnées marchand
+      }
+    }
+
+    return {
+      orderId: order.id,
+      status: order.status,
+      trackingActive: order.status === OrderStatus.PROCESSING,
+      driverId: order.driverId,
+      driverLocation,
+      trace,
+      businessLocation,
+      pickupLocation: order.pickupLocation ?? null,
+      deliveryLocation: order.deliveryLocation ?? null,
+      eta: this.computeEta(order, driverLocation, businessLocation),
+    };
+  }
+
+  /**
+   * ⏱️ Estimateur de temps : préparation marchand + trajet GPS.
+   */
+  private computeEta(
+    order: Order,
+    driverLocation: DriverLocation | null,
+    businessLocation: { latitude: number; longitude: number } | null,
+  ): OrderTrackingPayload['eta'] {
+    const prepTotal = Number(
+      this.configService.get('MERCHANT_PREP_TIME_MINUTES', 15),
+    );
+    const avgSpeedKmh = Number(
+      this.configService.get('DELIVERY_AVG_SPEED_KMH', 25),
+    );
+
+    // ⏳ Temps de préparation restant (dégressif pendant la préparation)
+    let remainingPrep = 0;
+    if (
+      order.status === OrderStatus.PAID ||
+      order.status === OrderStatus.IN_PREPARATION
+    ) {
+      const startedAt = order.createdAt?.getTime() ?? Date.now();
+      const elapsedMinutes = Math.max(0, (Date.now() - startedAt) / 60000);
+      remainingPrep = Math.max(0, Math.ceil(prepTotal - elapsedMinutes));
+    }
+
+    // 📍 Destination (livraison marchand ou point de dépôt P2P)
+    const dest = order.deliveryLocation
+      ? {
+          latitude: order.deliveryLocation.latitude,
+          longitude: order.deliveryLocation.longitude,
+        }
+      : order.dropoffLocation?.latitude != null &&
+        order.dropoffLocation?.longitude != null
+        ? {
+            latitude: order.dropoffLocation.latitude,
+            longitude: order.dropoffLocation.longitude,
+          }
+        : null;
+
+    // 📍 Origine du trajet : livreur (temps réel) > commerce > point de ramassage
+    const origin = driverLocation
+      ? {
+          latitude: driverLocation.latitude,
+          longitude: driverLocation.longitude,
+        }
+      : businessLocation
+        ? businessLocation
+        : order.pickupLocation?.latitude != null &&
+            order.pickupLocation?.longitude != null
+          ? {
+              latitude: order.pickupLocation.latitude,
+              longitude: order.pickupLocation.longitude,
+            }
+          : null;
+
+    let distanceKm = 0;
+    if (origin && dest) {
+      distanceKm = this.distanceCalculatorService.calculateDistance(
+        origin.latitude,
+        origin.longitude,
+        dest.latitude,
+        dest.longitude,
+      );
+    }
+
+    const travelMinutes =
+      distanceKm > 0 ? Math.ceil((distanceKm / avgSpeedKmh) * 60) : 0;
+    const totalMinutes = remainingPrep + travelMinutes;
+
+    return {
+      preparationMinutes: prepTotal,
+      remainingPreparationMinutes: remainingPrep,
+      travelMinutes,
+      totalMinutes,
+      distanceKm: Math.round(distanceKm * 100) / 100,
+      arrivalAt: new Date(Date.now() + totalMinutes * 60000).toISOString(),
+    };
   }
 
   async markAsPaidAndDispatch(
@@ -539,6 +857,8 @@ export class OrdersService {
 
     // 🔔 Settlement financier : livreur (delivered) & marchand (completed)
     this.emitOrderSettlementEvents(updatedOrder, previousStatus);
+    // 💬 Archivage du chat éphémère si la commande atteint un statut terminal
+    this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
 
     if (
       (status === OrderStatus.DELIVERED || status === OrderStatus.COMPLETED) &&
@@ -698,6 +1018,11 @@ export class OrdersService {
       saved,
       OrderStatus.DELIVERED_PENDING_CONFIRMATION,
     );
+    // 💬 Archivage du chat éphémère (commande COMPLETED)
+    this.notifyChatClosedIfTerminal(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    );
 
     this.logger.log(
       `[Order Completed] ✅ Commande #${orderId} validée par le client avec Code PIN. Double validation réussie !`,
@@ -746,6 +1071,9 @@ export class OrdersService {
 
     order.status = OrderStatus.DISPUTED;
     const saved = await this.orderRepository.save(order);
+
+    // 💬 Archivage du chat éphémère (commande DISPUTED = statut terminal)
+    this.notifyChatClosedIfTerminal(saved, OrderStatus.DELIVERED);
 
     this.logger.warn(
       `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,

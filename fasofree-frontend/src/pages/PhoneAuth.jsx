@@ -23,11 +23,9 @@ const FasoFreeLogo = () => (
 );
 
 // ─── Rôles disponibles à l'inscription ──────────────────────────────────
-// Plateforme réservée au Dashboard (business_admin, driver, courier, super_admin)
-const ROLES = [
-  { id: 'driver', label: 'Livreur', description: 'Effectuer des livraisons' },
-  { id: 'business_admin', label: 'Commerçant', description: 'Gérer mon commerce' },
-];
+// Depuis le verrouillage des rôles (Phase sécurité), l'inscription publique
+// crée exclusivement des comptes CLIENT. Les comptes commerçants, livreurs
+// et administrateurs sont créés par l'administration (Console → Gestion Utilisateurs).
 
 // ─── Composant champ input ───────────────────────────────────────────────
 const InputField = ({ label, type = 'text', placeholder, value, onChange, icon: Icon, error, rightEl }) => (
@@ -71,7 +69,6 @@ const PhoneAuth = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
-  const [regRole, setRegRole] = useState('client');
 
   // Erreurs locales
   const [localErrors, setLocalErrors] = useState({});
@@ -111,6 +108,8 @@ const PhoneAuth = () => {
       'livreur': '/livreur',
       'super_admin': '/financier',
       'superadmin': '/financier',
+      'admin': '/financier',
+      'support': '/financier',
     };
     navigate(roleRoutes[role] || '/login');
   };
@@ -137,7 +136,6 @@ const PhoneAuth = () => {
         email: regEmail,
         phone: regPhone,
         password: regPassword,
-        role: regRole,
       });
       redirectByRole(user);
     } catch {
@@ -295,30 +293,12 @@ const PhoneAuth = () => {
                 }
               />
 
-              {/* Sélection du rôle */}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-text-secondary mb-2 uppercase tracking-wider">
-                  Vous êtes
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {ROLES.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      onClick={() => setRegRole(r.id)}
-                      className={`p-3 rounded-md text-left border transition-all duration-150 ${
-                        regRole === r.id
-                          ? 'border-accent-primary bg-accent-glow'
-                          : 'border-border-light bg-background-secondary hover:border-border-medium'
-                      }`}
-                    >
-                      <p className={`text-xs font-semibold ${regRole === r.id ? 'text-accent-primary' : 'text-text-primary'}`}>
-                        {r.label}
-                      </p>
-                      <p className="text-text-tertiary text-xs mt-0.5 leading-tight">{r.description}</p>
-                    </button>
-                  ))}
-                </div>
+              {/* Sélection du rôle — inscription réservée aux clients */}
+              <div className="mb-5 p-3.5 bg-background-secondary border border-border-light rounded-md">
+                <p className="text-xs text-text-secondary leading-relaxed">
+                  L'inscription publique crée un compte <span className="font-bold text-text-primary">Client</span>. Les comptes
+                  commerçants, livreurs et administrateurs sont créés par l'administration.
+                </p>
               </div>
 
               <button

@@ -1,6 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
+  Param,
+  Patch,
+  Post,
   UseGuards,
   Request as NestRequest,
   UnauthorizedException,
@@ -10,11 +14,15 @@ import { UsersService } from './users.service';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from './entities/user-role.enum';
+import { User } from './entities/user.entity';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 
 type RequestWithUser = ExpressRequest & {
-  user?: { userId?: string };
+  user?: { userId?: string; role?: UserRole };
 };
 
 @ApiTags('Users')
@@ -35,12 +43,74 @@ export class UsersController {
     return this.usersService.findById(userId);
   }
 
-  // 🛡️ Route ultra-sécurisée : Réservée aux Super Admins
+  // 🛡️ Lister tous les utilisateurs (Super Admin)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Get()
   @ApiOperation({ summary: 'Lister les utilisateurs (super administrateur)' })
   async getAllUsers() {
     return this.usersService.findAll();
+  }
+
+  // 🛡️ Créer un utilisateur avec un rôle donné (réservé au Super Admin).
+  // C'est l'UNIQUE moyen de créer des comptes ADMIN / SUPPORT / SUPER_ADMIN.
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post()
+  @ApiOperation({
+    summary: 'Créer un utilisateur (SUPER_ADMIN) — seul moyen de créer un ADMIN/SUPPORT',
+  })
+  async createUser(
+    @Body() dto: CreateUserDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const operatorId = req.user?.userId;
+    if (!operatorId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    const operator = await this.usersService.findById(operatorId);
+    return this.usersService.create({
+      email: dto.email,
+      password: dto.password,
+      role: dto.role ?? UserRole.CLIENT,
+      fullName: dto.fullName,
+      phone: dto.phone,
+    });
+  }
+
+  // 🚫 Bannir / réactiver un compte
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Bannir ou réactiver un compte (SUPER_ADMIN)' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserStatusDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const operatorId = req.user?.userId;
+    if (!operatorId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    const operator = await this.usersService.findById(operatorId);
+    return this.usersService.setActiveStatus(operator, id, dto.isActive);
+  }
+
+  // 🔄 Changer le rôle d'un utilisateur
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/role')
+  @ApiOperation({ summary: 'Changer le rôle d’un utilisateur (SUPER_ADMIN)' })
+  async updateRole(
+    @Param('id') id: string,
+    @Body() dto: UpdateUserRoleDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const operatorId = req.user?.userId;
+    if (!operatorId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    const operator = await this.usersService.findById(operatorId);
+    return this.usersService.updateRole(operator, id, dto.role);
   }
 }

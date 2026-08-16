@@ -32,6 +32,7 @@ export enum TransactionReason {
   PAYOUT = 'PAYOUT',
   DAILY_PASS_FEE = 'DAILY_PASS_FEE',
   SERVICE_FEE = 'SERVICE_FEE',
+  SUBSCRIPTION_FEE = 'SUBSCRIPTION_FEE',
 }
 
 @Entity('wallet_transactions')

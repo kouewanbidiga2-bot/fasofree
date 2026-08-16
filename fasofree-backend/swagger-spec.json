@@ -54,6 +54,112 @@
         "tags": [
           "Users"
         ]
+      },
+      "post": {
+        "operationId": "UsersController_createUser",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Créer un utilisateur (SUPER_ADMIN) — seul moyen de créer un ADMIN/SUPPORT",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/status": {
+      "patch": {
+        "operationId": "UsersController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Bannir ou réactiver un compte (SUPER_ADMIN)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/role": {
+      "patch": {
+        "operationId": "UsersController_updateRole",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRoleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Changer le rôle d’un utilisateur (SUPER_ADMIN)",
+        "tags": [
+          "Users"
+        ]
       }
     },
     "/api/v1/auth/register": {
@@ -126,6 +232,326 @@
         ]
       }
     },
+    "/api/v1/subscriptions/plans": {
+      "post": {
+        "operationId": "SubscriptionsController_createPlan",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Admin] Créer un forfait",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "get": {
+        "operationId": "SubscriptionsController_getPlans",
+        "parameters": [
+          {
+            "name": "subjectType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les forfaits disponibles (catalogue)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/plans/{code}": {
+      "patch": {
+        "operationId": "SubscriptionsController_updatePlan",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePlanDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Admin] Modifier un forfait (prix, durée, commission, avantages)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions": {
+      "get": {
+        "operationId": "SubscriptionsController_listSubscriptions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Admin] Lister tous les abonnements",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/assign": {
+      "post": {
+        "operationId": "SubscriptionsController_assignSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Admin] Assigner ou renouveler un forfait à un commerce/client",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/renew": {
+      "post": {
+        "operationId": "SubscriptionsController_renewSubscription",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenewSubscriptionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "[Admin] Renouveler l’abonnement actif d’un sujet",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/me": {
+      "get": {
+        "operationId": "SubscriptionsController_getMyStatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mon statut premium (FasoFree Pass)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/subscribe": {
+      "post": {
+        "operationId": "SubscriptionsController_subscribe",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "S’abonner au FasoFree Pass (débit portefeuille)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/subscriptions/merchant/subscribe": {
+      "post": {
+        "operationId": "SubscriptionsController_subscribeMerchant",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MerchantSubscribeDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Abonner son commerce au plan Pro (débit portefeuille marchand)",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
+    "/api/v1/wallets/{userRole}/{userId}": {
+      "get": {
+        "operationId": "WalletController_getWallet",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userRole",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir ou créer le portefeuille d’un utilisateur",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{walletId}/transactions": {
+      "get": {
+        "operationId": "WalletController_getTransactions",
+        "parameters": [
+          {
+            "name": "walletId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir l’historique des transactions d’un portefeuille",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
     "/api/v1/businesses": {
       "post": {
         "operationId": "BusinessesController_create",
@@ -151,6 +577,24 @@
           }
         ],
         "summary": "Créer un commerce",
+        "tags": [
+          "Businesses"
+        ]
+      },
+      "get": {
+        "operationId": "BusinessesController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister tous les commerces (super administrateur)",
         "tags": [
           "Businesses"
         ]
@@ -412,6 +856,33 @@
       }
     },
     "/api/v1/orders": {
+      "get": {
+        "operationId": "OrdersController_findAllForAdmin",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste globale des commandes"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Tour de contrôle : toutes les commandes avec position live des livreurs (SUPER_ADMIN, ADMIN, SUPPORT)",
+        "tags": [
+          "Orders"
+        ]
+      },
       "post": {
         "operationId": "OrdersController_createOrder",
         "parameters": [],
@@ -442,6 +913,42 @@
           }
         ],
         "summary": "Créer une nouvelle commande",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/quote": {
+      "post": {
+        "operationId": "OrdersController_quoteOrder",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuoteOrderDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Devis calculé"
+          },
+          "400": {
+            "description": "Données de devis invalides"
+          },
+          "401": {
+            "description": "Utilisateur non authentifié"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Obtenir un devis : sous-total, frais de livraison (min 800 FCFA), frais plateforme (100 FCFA) et total",
         "tags": [
           "Orders"
         ]
@@ -500,6 +1007,41 @@
           }
         ],
         "summary": "Obtenir le détail d'une commande par son ID",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/tracking": {
+      "get": {
+        "operationId": "OrdersController_getOrderTracking",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Données de suivi récupérées"
+          },
+          "401": {
+            "description": "Utilisateur non authentifié ou rôle manquant"
+          },
+          "404": {
+            "description": "Commande introuvable"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Suivi live : statut, position GPS du livreur, tracé du parcours et ETA",
         "tags": [
           "Orders"
         ]
@@ -866,70 +1408,6 @@
         "summary": "Obtenir le résumé financier global",
         "tags": [
           "Financial"
-        ]
-      }
-    },
-    "/api/v1/wallets/{userRole}/{userId}": {
-      "get": {
-        "operationId": "WalletController_getWallet",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userRole",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir ou créer le portefeuille d’un utilisateur",
-        "tags": [
-          "Wallets"
-        ]
-      }
-    },
-    "/api/v1/wallets/{walletId}/transactions": {
-      "get": {
-        "operationId": "WalletController_getTransactions",
-        "parameters": [
-          {
-            "name": "walletId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir l’historique des transactions d’un portefeuille",
-        "tags": [
-          "Wallets"
         ]
       }
     },
@@ -1705,6 +2183,52 @@
         ]
       }
     },
+    "/api/v1/chat/{orderId}": {
+      "get": {
+        "operationId": "ChatController_getChatHistory",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historique récupéré"
+          },
+          "401": {
+            "description": "Utilisateur non authentifié"
+          },
+          "403": {
+            "description": "Non participant au canal"
+          },
+          "404": {
+            "description": "Commande introuvable"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Historique du chat éphémère d'une commande (canal merchant|driver)",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
     "/api/v1/tracking/calculate-fee": {
       "post": {
         "operationId": "TrackingController_calculateFee",
@@ -2135,16 +2659,16 @@
       }
     },
     "schemas": {
-      "RegisterDto": {
+      "CreateUserDto": {
         "type": "object",
         "properties": {
           "fullName": {
             "type": "string",
-            "example": "Aminata Ouédraogo"
+            "example": "Awa Diallo"
           },
           "email": {
             "type": "string",
-            "example": "aminata@fasofree.bf",
+            "example": "awa@fasofree.bf",
             "format": "email"
           },
           "phone": {
@@ -2167,7 +2691,70 @@
               "admin",
               "super_admin"
             ],
-            "example": "client"
+            "example": "support"
+          }
+        },
+        "required": [
+          "fullName",
+          "email",
+          "phone",
+          "password"
+        ]
+      },
+      "UpdateUserStatusDto": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean",
+            "example": false,
+            "description": "true = actif, false = banni"
+          }
+        },
+        "required": [
+          "isActive"
+        ]
+      },
+      "UpdateUserRoleDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "client",
+              "courier",
+              "driver",
+              "business_admin",
+              "support",
+              "admin",
+              "super_admin"
+            ],
+            "example": "admin"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "RegisterDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "Aminata Ouédraogo"
+          },
+          "email": {
+            "type": "string",
+            "example": "aminata@fasofree.bf",
+            "format": "email"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+22670000000"
+          },
+          "password": {
+            "type": "string",
+            "example": "MotDePasseFort123!",
+            "format": "password"
           },
           "referralCode": {
             "type": "string",
@@ -2198,6 +2785,223 @@
         "required": [
           "email",
           "password"
+        ]
+      },
+      "CreatePlanDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "VIP",
+            "description": "Code unique du forfait (majuscules)"
+          },
+          "name": {
+            "type": "string",
+            "example": "FasoFree Pass VIP"
+          },
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "MERCHANT"
+            ],
+            "example": "CUSTOMER"
+          },
+          "priceFcfa": {
+            "type": "number",
+            "example": 2500
+          },
+          "durationDays": {
+            "type": "number",
+            "example": 30
+          },
+          "commissionRate": {
+            "type": "object",
+            "example": 0.015,
+            "description": "Taux de commission préférentiel (ex: 0.015 = 1.5%), null = standard"
+          },
+          "freeServiceFee": {
+            "type": "boolean",
+            "default": false
+          },
+          "freeDelivery": {
+            "type": "boolean",
+            "default": false
+          },
+          "freeDeliveryMinSubtotal": {
+            "type": "number",
+            "default": 0,
+            "description": "Seuil de panier pour livraison gratuite"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "subjectType",
+          "priceFcfa"
+        ]
+      },
+      "UpdatePlanDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "VIP",
+            "description": "Code unique du forfait (majuscules)"
+          },
+          "name": {
+            "type": "string",
+            "example": "FasoFree Pass VIP"
+          },
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "MERCHANT"
+            ],
+            "example": "CUSTOMER"
+          },
+          "priceFcfa": {
+            "type": "number",
+            "example": 2500
+          },
+          "durationDays": {
+            "type": "number",
+            "example": 30
+          },
+          "commissionRate": {
+            "type": "object",
+            "example": 0.015,
+            "description": "Taux de commission préférentiel (ex: 0.015 = 1.5%), null = standard"
+          },
+          "freeServiceFee": {
+            "type": "boolean",
+            "default": false
+          },
+          "freeDelivery": {
+            "type": "boolean",
+            "default": false
+          },
+          "freeDeliveryMinSubtotal": {
+            "type": "number",
+            "default": 0,
+            "description": "Seuil de panier pour livraison gratuite"
+          },
+          "description": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "AssignSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "MERCHANT"
+            ],
+            "example": "MERCHANT"
+          },
+          "subjectId": {
+            "type": "string",
+            "description": "ID du Business (commerçant) ou du User (client)"
+          },
+          "planCode": {
+            "type": "string",
+            "example": "PRO"
+          },
+          "durationDays": {
+            "type": "number",
+            "description": "Durée en jours (défaut : durée du forfait)"
+          },
+          "autoRenew": {
+            "type": "boolean",
+            "default": true
+          },
+          "renew": {
+            "type": "boolean",
+            "default": false,
+            "description": "true = prolonger l’abonnement actif"
+          },
+          "debitWallet": {
+            "type": "boolean",
+            "default": false,
+            "description": "true = débiter le portefeuille marchand du prix du forfait (mode déductible)"
+          }
+        },
+        "required": [
+          "subjectType",
+          "subjectId",
+          "planCode"
+        ]
+      },
+      "RenewSubscriptionDto": {
+        "type": "object",
+        "properties": {
+          "subjectType": {
+            "type": "string",
+            "enum": [
+              "CUSTOMER",
+              "MERCHANT"
+            ]
+          },
+          "subjectId": {
+            "type": "string"
+          },
+          "durationDays": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "subjectType",
+          "subjectId"
+        ]
+      },
+      "SubscribeDto": {
+        "type": "object",
+        "properties": {
+          "planCode": {
+            "type": "string",
+            "default": "VIP",
+            "description": "Code du forfait client (ex: VIP)"
+          },
+          "autoRenew": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "MerchantSubscribeDto": {
+        "type": "object",
+        "properties": {
+          "businessId": {
+            "type": "string",
+            "description": "ID du commerce à abonner"
+          },
+          "planCode": {
+            "type": "string",
+            "default": "PRO",
+            "description": "Code du forfait marchand (ex: PRO)"
+          },
+          "autoRenew": {
+            "type": "boolean",
+            "default": true
+          }
+        },
+        "required": [
+          "businessId"
         ]
       },
       "CreateBusinessDto": {
@@ -2551,6 +3355,74 @@
         },
         "required": [
           "totalAmount",
+          "orderType"
+        ]
+      },
+      "QuoteOrderDto": {
+        "type": "object",
+        "properties": {
+          "orderType": {
+            "type": "string",
+            "description": "Type de commande à deviser : DELIVERY / MERCHANT (commerce) ou P2P_DELIVERY (course)",
+            "enum": [
+              "MERCHANT",
+              "P2P_DELIVERY",
+              "DELIVERY",
+              "PICKUP",
+              "RIDE",
+              "EXPRESS"
+            ],
+            "example": "DELIVERY"
+          },
+          "businessId": {
+            "type": "string",
+            "description": "Identifiant UUID de la boutique (optionnel si businessLatitude/businessLongitude fournis, inutile pour P2P)",
+            "format": "uuid"
+          },
+          "deliveryLatitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Latitude de livraison",
+            "example": 12.3714
+          },
+          "deliveryLongitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Longitude de livraison",
+            "example": -1.5197
+          },
+          "businessLatitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Latitude de la boutique (fallback si pas de businessId en base)",
+            "example": 12.3665
+          },
+          "businessLongitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Longitude de la boutique (fallback si pas de businessId en base)",
+            "example": -1.4807
+          },
+          "subtotal": {
+            "type": "number",
+            "description": "Sous-total des articles en FCFA (0 pour une course P2P). Le backend utilise ce montant dans le devis mais recompte TOUJOURS au POST /orders.",
+            "example": 7500,
+            "minimum": 0
+          },
+          "pickupLocation": {
+            "description": "Lieu de ramassage (obligatoire pour P2P_DELIVERY)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/P2PLocationDto"
+              }
+            ]
+          },
+          "dropoffLocation": {
+            "description": "Lieu de livraison (obligatoire pour P2P_DELIVERY)",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/P2PLocationDto"
+              }
+            ]
+          }
+        },
+        "required": [
           "orderType"
         ]
       },

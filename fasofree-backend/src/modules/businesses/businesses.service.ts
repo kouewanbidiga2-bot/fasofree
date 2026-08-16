@@ -72,6 +72,13 @@ export class BusinessesService {
       .getMany();
   }
 
+  // 🏪 2bis. Lister tous les commerces (Super Admin)
+  async findAll(): Promise<Business[]> {
+    return this.businessRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   // 🔍 3. Trouver un commerce par son ID
   async findOne(id: string): Promise<Business> {
     const business = await this.businessRepository.findOne({

@@ -5,10 +5,13 @@ import {
   HttpCode,
   HttpStatus,
   Get,
+  Request,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthGuard } from '@nestjs/passport';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 
 @ApiTags('Authentication')
@@ -33,9 +36,10 @@ export class AuthController {
 
   // 👤 Route protégée : GET /auth/me (Obtenir le profil utilisateur connecté)
   @Get('me')
+  @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Obtenir le profil utilisateur connecté' })
-  async getMe() {
-    return this.authService.getMe();
+  async getMe(@Request() req) {
+    return this.authService.getMe(req.user.userId);
   }
 }

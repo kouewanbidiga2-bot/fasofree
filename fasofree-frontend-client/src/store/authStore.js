@@ -27,10 +27,15 @@ const useAuthStore = create((set) => ({
       firstName: userData.firstName,
       lastName: userData.lastName,
       role: userData.role || 'CLIENT',
+      isPremium: !!userData.isPremium,
       createdAt: new Date().toISOString(),
     };
     set({ user, isAuthenticated: true });
   },
+  
+  setPremium: (isPremium) => set((state) => ({
+    user: state.user ? { ...state.user, isPremium: !!isPremium } : state.user,
+  })),
   
   updateUser: (userData) => set((state) => ({ 
     user: { ...state.user, ...userData } 

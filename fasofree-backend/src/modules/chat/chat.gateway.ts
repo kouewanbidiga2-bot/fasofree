@@ -4,23 +4,39 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import {
+  Logger,
+  UsePipes,
+  ValidationPipe,
+  Injectable,
+} from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { OnEvent } from '@nestjs/event-emitter';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ChatService, TERMINAL_STATUSES } from './chat.service';
+import { ChatChannel } from './entities/order-chat-message.entity';
+import { OrdersService } from '../orders/orders.service';
+import { Order, OrderStatus } from '../orders/entities/order.entity';
 
 type ChatSocket = Socket & { data: { user?: JwtPayload } };
+
+export const chatRoom = (orderId: string, channel: ChatChannel) =>
+  `order_chat_${orderId}:${channel}`;
 
 @WebSocketGateway({
   cors: { origin: '*' },
   namespace: '/chat',
 })
 @UsePipes(new ValidationPipe({ transform: true }))
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer()
   server: Server;
 
@@ -29,7 +45,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly chatService: ChatService,
+    private readonly ordersService: OrdersService,
   ) {}
+
+  afterInit(server: Server) {
+    this.server = server;
+    this.logger.log('[Chat Gateway] Initialisé (namespace /chat)');
+  }
 
   /**
    * 🔒 1. Authentification Zero-Trust du WebSocket Chat
@@ -74,89 +97,213 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
-   * 🚪 2. Rejoindre le salon éphémère d'une commande spécifique
+   * 👥 Vérifie que l'utilisateur est un participant légitime du canal.
+   */
+  private canAccessChannel(
+    order: Order | null,
+    userId: string,
+    role: string,
+    channel: ChatChannel,
+  ): Promise<boolean> {
+    return this.chatService.canAccessChannel(order, userId, role, channel);
+  }
+
+  private isTerminal(order: Order | null): boolean {
+    return !!order && TERMINAL_STATUSES.includes(order.status);
+  }
+
+  /**
+   * 🚪 2. Rejoindre le salon éphémère d'un canal de commande
    */
   @SubscribeMessage('joinOrderChat')
-  handleJoinOrderChat(
+  async handleJoinOrderChat(
     @ConnectedSocket() client: ChatSocket,
-    @MessageBody('orderId') orderId: string,
+    @MessageBody()
+    payload: { orderId: string; channel?: ChatChannel },
   ) {
+    const user = client.data.user;
+    if (!user) {
+      return { status: 'error', message: 'Utilisateur non authentifié.' };
+    }
+
+    const orderId = payload?.orderId;
     if (!orderId) {
       return { status: 'error', message: 'ID de commande requis.' };
     }
 
-    const user = client.data.user;
-    if (!user) {
-      return { status: 'error', message: 'Utilisateur non authentifié.' };
+    const channel: ChatChannel =
+      payload?.channel === ChatChannel.MERCHANT
+        ? ChatChannel.MERCHANT
+        : ChatChannel.DRIVER;
+
+    let order: Order | null = null;
+    try {
+      order = await this.ordersService.findOne(orderId);
+    } catch {
+      order = null;
     }
 
-    const roomName = `order_chat_${orderId}`;
+    if (this.isTerminal(order)) {
+      this.logger.log(
+        `[Chat Room] Canal fermé (commande ${orderId} = ${order?.status})`,
+      );
+      return { status: 'closed', message: 'Canal de discussion archivé.' };
+    }
+
+    if (!(await this.canAccessChannel(order, user.sub, user.role, channel))) {
+      this.logger.warn(
+        `[Chat Room] Accès refusé : ${user.sub} n'est pas participant du canal ${channel} de ${orderId}`,
+      );
+      return {
+        status: 'error',
+        message: 'Vous ne participez pas à ce canal de discussion.',
+      };
+    }
+
+    const roomName = chatRoom(orderId, channel);
     client.join(roomName);
+
+    // 📜 Historique du canal (archive consultable)
+    const history = await this.chatService.getHistory(orderId, channel);
 
     this.logger.log(
       `[Chat Room] User ${user.sub} a rejoint le salon ${roomName}`,
     );
-    return { status: 'ok', event: 'joinedChatRoom', room: roomName };
+    return {
+      status: 'ok',
+      room: roomName,
+      channel,
+      active: true,
+      history,
+    };
   }
 
   /**
-   * 💬 3. Envoi et diffusion instantanée d'un message dans la course
+   * 💬 4. Envoi et diffusion instantanée d'un message dans le canal
    */
   @SubscribeMessage('sendOrderMessage')
-  handleSendMessage(
+  async handleSendMessage(
     @ConnectedSocket() client: ChatSocket,
-    @MessageBody() payload: { orderId: string; message: string },
+    @MessageBody()
+    payload: { orderId: string; message: string; channel?: ChatChannel },
   ) {
     const user = client.data.user;
-
     if (!user) {
       return { status: 'error', message: 'Utilisateur non authentifié.' };
     }
 
-    if (!payload.orderId || !payload.message) {
+    if (!payload?.orderId || !payload?.message) {
       return { status: 'error', message: 'Payload incomplet.' };
     }
 
-    const roomName = `order_chat_${payload.orderId}`;
+    const channel: ChatChannel =
+      payload?.channel === ChatChannel.MERCHANT
+        ? ChatChannel.MERCHANT
+        : ChatChannel.DRIVER;
+
+    let order: Order | null = null;
+    try {
+      order = await this.ordersService.findOne(payload.orderId);
+    } catch {
+      order = null;
+    }
+
+    if (this.isTerminal(order)) {
+      this.logger.warn(
+        `[Chat Message] Refusé : commande ${payload.orderId} archivée (${order?.status})`,
+      );
+      return {
+        status: 'closed',
+        message: 'Le canal de discussion est fermé.',
+      };
+    }
+
+    if (!(await this.canAccessChannel(order, user.sub, user.role, channel))) {
+      return {
+        status: 'error',
+        message: 'Vous ne participez pas à ce canal de discussion.',
+      };
+    }
+
+    const roomName = chatRoom(payload.orderId, channel);
 
     const messagePacket = {
+      orderId: payload.orderId,
+      channel,
       senderId: user.sub,
       senderRole: user.role,
       message: payload.message.trim(),
       timestamp: new Date().toISOString(),
     };
 
-    // Diffusion du message à tous les participants du salon (Client + Livreur)
+    // 💾 Persistance (archive de la discussion)
+    await this.chatService.saveMessage(
+      payload.orderId,
+      user.sub,
+      user.role,
+      channel,
+      messagePacket.message,
+    );
+
+    // 📡 Diffusion à tous les participants du salon
     this.server.to(roomName).emit('newOrderMessage', messagePacket);
 
     this.logger.log(
-      `[Chat Message] Commande ${payload.orderId} | De ${user.sub} (${user.role})`,
+      `[Chat Message] Commande ${payload.orderId} [${channel}] | De ${user.sub} (${user.role})`,
     );
 
     return { status: 'sent', data: messagePacket };
   }
 
   /**
-   * 🧹 4. Destruction / Sortie du salon (Fin de course)
+   * 🧹 5. Sortie du salon
    */
   @SubscribeMessage('leaveOrderChat')
   handleLeaveOrderChat(
     @ConnectedSocket() client: ChatSocket,
-    @MessageBody('orderId') orderId: string,
+    @MessageBody() payload: { orderId: string; channel?: ChatChannel },
   ) {
-    if (!orderId) return;
+    if (!payload?.orderId) return;
 
-    const user = client.data.user;
-    if (!user) {
-      return { status: 'error', message: 'Utilisateur non authentifié.' };
-    }
+    const channel: ChatChannel =
+      payload?.channel === ChatChannel.MERCHANT
+        ? ChatChannel.MERCHANT
+        : ChatChannel.DRIVER;
 
-    const roomName = `order_chat_${orderId}`;
+    const roomName = chatRoom(payload.orderId, channel);
     client.leave(roomName);
 
     this.logger.log(
-      `[Chat Room] User ${user.sub} a quitté le salon ${roomName}`,
+      `[Chat Room] User ${client.data?.user?.sub} a quitté le salon ${roomName}`,
     );
     return { status: 'ok', room: roomName };
+  }
+
+  /**
+   * 🔒 6. Archivage : fermeture proactive du canal dès COMPLETED
+   * (ou tout autre statut terminal).
+   */
+  closeOrderChat(orderId: string, status?: OrderStatus): void {
+    if (!this.server) return;
+    [ChatChannel.MERCHANT, ChatChannel.DRIVER].forEach((channel) => {
+      this.server
+        .to(chatRoom(orderId, channel))
+        .emit('chatClosed', { orderId, channel, status });
+    });
+    this.logger.log(
+      `[Chat Archived] Canal de la commande ${orderId} fermé (${status ?? 'terminal'}).`,
+    );
+  }
+
+  @OnEvent('order.completed')
+  handleOrderCompleted(order: Order) {
+    this.closeOrderChat(order.id, OrderStatus.COMPLETED);
+  }
+
+  @OnEvent('order.chat.closed')
+  handleOrderChatClosed(payload: { orderId: string; status: OrderStatus }) {
+    if (payload?.orderId) {
+      this.closeOrderChat(payload.orderId, payload.status);
+    }
   }
 }

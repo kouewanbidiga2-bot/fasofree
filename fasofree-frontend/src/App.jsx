@@ -10,10 +10,11 @@ import PhoneAuth from './pages/PhoneAuth';
 const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashboard'));
 const DriverDashboard = lazy(() => import('./dashboard/DriverDashboard'));
 const SuperAdminDashboard = lazy(() => import('./dashboard/SuperAdminDashboard'));
+const LiveOrders = lazy(() => import('./dashboard/LiveOrders'));
 
 function App() {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* ROUTE PAR DÉFAUT - redirige vers la connexion */}
@@ -43,8 +44,16 @@ function App() {
           <Route
             path="/financier"
             element={
-              <ProtectedRoute allowedRoles={['super_admin', 'superadmin']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
                 <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard/live-orders"
+            element={
+              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
+                <LiveOrders />
               </ProtectedRoute>
             }
           />

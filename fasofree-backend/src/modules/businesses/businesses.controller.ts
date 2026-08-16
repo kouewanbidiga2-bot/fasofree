@@ -59,6 +59,16 @@ export class BusinessesController {
     });
   }
 
+  // 🏪 Gestion des commerces (Réservé au Super Admin) : liste complète
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Get()
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Lister tous les commerces (super administrateur)' })
+  async findAll() {
+    return this.businessesService.findAll();
+  }
+
   // 🔍 Route publique : Obtenir un commerce avec ses produits
   @Get(':id')
   @ApiOperation({ summary: 'Obtenir un commerce et son catalogue' })

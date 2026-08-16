@@ -48,6 +48,25 @@ export const updateDriverLocation = async (location) => {
   }
 };
 
+export const startDelivery = async (orderId) => {
+  try {
+    // IN_TRANSIT = PROCESSING côté backend
+    return await api.updateOrderStatus(orderId, 'PROCESSING');
+  } catch (error) {
+    console.error('Error starting delivery:', error);
+    throw error;
+  }
+};
+
+export const completeDelivery = async (orderId) => {
+  try {
+    return await api.driverValidateDelivery(orderId);
+  } catch (error) {
+    console.error('Error completing delivery:', error);
+    throw error;
+  }
+};
+
 export const getOrderStatus = async (orderId) => {
   try {
     return await api.getOrder(orderId);

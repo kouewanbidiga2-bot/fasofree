@@ -31,15 +31,28 @@ const Receipt = () => {
     paymentMethod: orderData.paymentMethod
   });
 
+  const items = orderData.items || [];
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : null);
+  const subtotal =
+    num(orderData.subtotal) ??
+    items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const deliveryFee = num(orderData.deliveryFee) ?? 800;
+  const platformFee = num(orderData.platformFee) ?? 100;
+  const total = num(orderData.total) ?? subtotal + deliveryFee + platformFee;
+
   // Save receipt to authStore on mount
   React.useEffect(() => {
     addReceipt({
       orderId: orderDetails.id,
-      items: orderData.items,
-      total: orderData.total + 1000, // including delivery fee
+      items,
+      subtotal,
+      deliveryFee,
+      platformFee,
+      total,
       paymentMethod: orderDetails.paymentMethod,
       status: orderDetails.status
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePrint = () => {
@@ -48,17 +61,12 @@ const Receipt = () => {
 
   const handleBackToHome = () => {
     clearCart();
-    navigate('/order-waiting', {
+    navigate('/order-tracking', {
       state: {
         orderId: orderDetails.id
       }
     });
   };
-
-  const items = orderData.items || [];
-  const subtotal = orderData.total || 0;
-  const deliveryFee = 1000;
-  const total = subtotal + deliveryFee;
 
   return (
     <div className="app-page">
@@ -138,6 +146,10 @@ const Receipt = () => {
             <div className="flex justify-between items-center">
               <span className="text-sm text-text-secondary">Frais de livraison</span>
               <span className="text-sm font-mono text-text-primary">{deliveryFee.toLocaleString()} FCFA</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-text-secondary">Frais de service / Plateforme</span>
+              <span className="text-sm font-mono text-text-primary">{platformFee.toLocaleString()} FCFA</span>
             </div>
             <div className="flex justify-between items-center pt-3 border-t border-border-light">
               <span className="text-base font-medium text-text-primary">Total</span>

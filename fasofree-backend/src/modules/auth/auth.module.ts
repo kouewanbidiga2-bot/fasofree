@@ -8,6 +8,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 function normalizeExpiresIn(
   raw?: string,
@@ -70,6 +71,7 @@ function normalizeExpiresIn(
         };
       },
     }),
+    SubscriptionsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

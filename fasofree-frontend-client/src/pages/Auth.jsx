@@ -33,20 +33,20 @@ const Auth = () => {
     try {
       const response = await api.login(loginForm.phoneOrEmail, loginForm.password);
       
-      if (response.accessToken) {
-        // Fetch user profile to get role
-        const userProfile = await api.getProfile();
-        
-        loginWithToken(response.accessToken, {
-          id: userProfile.id,
-          email: userProfile.email,
-          phone: userProfile.phone,
-          firstName: userProfile.firstName,
-          lastName: userProfile.lastName,
-          role: userProfile.role,
+      if (response.access_token) {
+        const user = response.user || {};
+        const nameParts = (user.fullName || '').split(' ');
+        loginWithToken(response.access_token, {
+          id: user.id,
+          email: user.email,
+          phone: user.phone,
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || '',
+          role: user.role,
+          isPremium: !!user.isPremium,
         });
-        
-        const normalizedRole = userProfile.role ? String(userProfile.role).toUpperCase() : 'CLIENT';
+
+        const normalizedRole = user.role ? String(user.role).toUpperCase() : 'CLIENT';
         if (['CLIENT', 'CUSTOMER', 'USER'].includes(normalizedRole)) {
           navigate('/');
         } else {
@@ -81,12 +81,11 @@ const Auth = () => {
 
     try {
       const response = await api.register({
-        firstName: registerForm.firstName,
-        lastName: registerForm.lastName,
+        fullName: `${registerForm.firstName} ${registerForm.lastName}`.trim(),
         phone: registerForm.phone,
         email: registerForm.email,
         password: registerForm.password,
-        role: 'CLIENT',
+        role: 'client',
       });
 
       if (response) {

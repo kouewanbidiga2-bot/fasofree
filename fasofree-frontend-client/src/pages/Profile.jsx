@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package } from 'lucide-react';
+import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown } from 'lucide-react';
 import Footer from '../components/Footer';
 import useAuthStore from '../store/authStore';
 
@@ -33,6 +33,7 @@ const Profile = () => {
   ];
 
   const menuItems = [
+    { icon: Crown, label: 'FasoFree Pass VIP', action: () => navigate('/vip-pass'), highlight: user?.isPremium },
     { icon: MapPin, label: 'Adresses de livraison', action: () => {} },
     { icon: CreditCard, label: 'Modes de paiement', action: () => {} },
     { icon: Bell, label: 'Notifications', action: () => {} },
@@ -77,7 +78,14 @@ const Profile = () => {
                   <User size={24} className="text-text-secondary" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h2 className="text-base font-medium text-text-primary">{formData.name}</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-medium text-text-primary">{formData.name}</h2>
+                    {user?.isPremium && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase flex items-center gap-1">
+                        <Crown size={10} /> VIP
+                      </span>
+                    )}
+                  </div>
                   <p className="text-text-secondary text-sm">{formData.email}</p>
                 </div>
               </div>
@@ -243,6 +251,11 @@ const Profile = () => {
                   >
                     <Icon size={16} strokeWidth={1.5} />
                     <span className="flex-1 text-left font-medium text-sm">{item.label}</span>
+                    {item.highlight && (
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase">
+                        VIP
+                      </span>
+                    )}
                   </button>
                 );
               })}

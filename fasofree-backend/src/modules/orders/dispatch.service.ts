@@ -20,6 +20,13 @@ export interface CandidateDriverMatch {
   distanceKm: number;
 }
 
+export interface OrderTracePoint {
+  latitude: number;
+  longitude: number;
+  heading?: number;
+  timestamp: string;
+}
+
 /**
  * 🛰️ Service de géolocalisation temps réel des livreurs (Redis Geo).
  *
@@ -32,6 +39,8 @@ export class GeoDispatchService {
   private readonly logger = new Logger(GeoDispatchService.name);
   private readonly DRIVERS_GEO_KEY = 'drivers:locations:geo';
   private readonly DRIVER_TTL_SECONDS = 300;
+  private readonly ORDER_TRACE_KEY_PREFIX = 'order:trace:';
+  private readonly ORDER_TRACE_MAX_POINTS = 50;
 
   constructor(
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
@@ -64,6 +73,77 @@ export class GeoDispatchService {
     );
 
     await pipeline.exec();
+  }
+
+  /**
+   * 📍 1b. Récupérer la dernière position connue d'un livreur (Redis).
+   */
+  async getDriverLocation(driverId: string): Promise<DriverLocation | null> {
+    try {
+      const raw = await this.redis.get(`driver:${driverId}:meta`);
+      if (!raw) return null;
+      const meta = JSON.parse(raw);
+      return {
+        driverId,
+        latitude: meta.latitude,
+        longitude: meta.longitude,
+        updatedAt: meta.updatedAt,
+      };
+    } catch (err) {
+      this.logger.warn(
+        `Lecture position livreur ${driverId} impossible: ${err.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * 🗺️ 1c. Enregistrer un point de tracé GPS pour une commande en cours (IN_TRANSIT).
+   */
+  async saveOrderTracePoint(
+    orderId: string,
+    latitude: number,
+    longitude: number,
+    heading?: number,
+  ): Promise<void> {
+    const key = `${this.ORDER_TRACE_KEY_PREFIX}${orderId}`;
+    const point: OrderTracePoint = {
+      latitude,
+      longitude,
+      heading,
+      timestamp: new Date().toISOString(),
+    };
+
+    const pipeline = this.redis.pipeline();
+    pipeline.rpush(key, JSON.stringify(point));
+    // Garder seulement les N derniers points pour ne pas faire grossir Redis
+    pipeline.ltrim(key, -this.ORDER_TRACE_MAX_POINTS, -1);
+    pipeline.expire(key, 60 * 60 * 24); // TTL 24h
+    await pipeline.exec();
+  }
+
+  /**
+   * 🗺️ 1d. Récupérer le tracé complet de la course.
+   */
+  async getOrderTrace(orderId: string): Promise<OrderTracePoint[]> {
+    try {
+      const raw = await this.redis.lrange(
+        `${this.ORDER_TRACE_KEY_PREFIX}${orderId}`,
+        0,
+        -1,
+      );
+      return raw.map((entry) => JSON.parse(entry) as OrderTracePoint);
+    } catch (err) {
+      this.logger.warn(`Lecture tracé ${orderId} impossible: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * 🗑️ 1e. Purger le tracé d'une commande (statut terminal).
+   */
+  async clearOrderTrace(orderId: string): Promise<void> {
+    await this.redis.del(`${this.ORDER_TRACE_KEY_PREFIX}${orderId}`);
   }
 
   /**

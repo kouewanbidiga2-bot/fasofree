@@ -43,8 +43,8 @@ export async function apiFetch(endpoint, options = {}) {
 export const api = {
   // Auth
   register: (data) => apiFetch('/auth/register', { method: 'POST', body: data }),
-  login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { phone: phoneOrEmail, password } }),
-  getProfile: () => apiFetch('/auth/profile', { method: 'GET' }),
+  login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
+  getProfile: () => apiFetch('/auth/me', { method: 'GET' }),
   
   // Businesses
   getNearbyBusinesses: (lat, lng, radius = 10000, category = 'RESTAURANT') => 
@@ -60,12 +60,30 @@ export const api = {
   
   // Orders
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
+  quoteOrder: (quoteData) => apiFetch('/orders/quote', { method: 'POST', body: quoteData }),
   getMyOrders: () => apiFetch('/orders/my-orders', { method: 'GET' }),
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
+  getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
   updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+  driverValidateDelivery: (id) => apiFetch(`/orders/${id}/driver-validate`, { method: 'POST' }),
+  clientValidateWithPin: (id, pinCode) => apiFetch(`/orders/${id}/client-validate`, { method: 'POST', body: { pinCode } }),
+
+  // Chat éphémère
+  getChatHistory: (orderId, channel = 'driver') => apiFetch(`/chat/${orderId}?channel=${channel}`, { method: 'GET' }),
   
   // Disputes
   openDispute: (orderId, data) => apiFetch(`/disputes/orders/${orderId}`, { method: 'POST', body: data }),
+
+  // FasoFree Pass VIP (abonnements)
+  getPlans: (subjectType) =>
+    apiFetch(`/subscriptions/plans${subjectType ? `?subjectType=${subjectType}` : ''}`, { method: 'GET' }),
+  getVipStatus: () => apiFetch('/subscriptions/me', { method: 'GET' }),
+  subscribeVip: (planCode = 'VIP', autoRenew = true) =>
+    apiFetch('/subscriptions/subscribe', { method: 'POST', body: { planCode, autoRenew } }),
+
+  // Portefeuille FasoFree
+  getWallet: (userId) => apiFetch(`/wallets/CUSTOMER/${userId}`, { method: 'GET' }),
+  topupWallet: (data) => apiFetch('/payments/topup', { method: 'POST', body: data }),
 };
 
 export default api;

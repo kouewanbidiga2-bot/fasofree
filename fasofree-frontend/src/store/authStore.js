@@ -116,6 +116,8 @@ export const useAuthStore = create((set, get) => ({
     const roleRoutes = {
       'super_admin': '/financier',
       'superadmin': '/financier',
+      'admin': '/financier',
+      'support': '/financier',
       'business_admin': '/designer',
       'business': '/designer',
       'merchant': '/designer',

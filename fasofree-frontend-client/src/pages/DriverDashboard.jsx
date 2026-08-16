@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, MapPin, Phone, Clock, Package, Home, LogOut } from 'lucide-react';
+import { Check, X, MapPin, Phone, Clock, Package, Home, LogOut, Navigation } from 'lucide-react';
+import { startDelivery, completeDelivery } from '../services/orderService';
+import { getDispatchSocket } from '../services/realtime';
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [gpsWatch, setGpsWatch] = useState(null);
+  const [liveGps, setLiveGps] = useState(null);
+  const gpsWatchRef = useRef(null);
+  const socketRef = useRef(null);
   const [orders, setOrders] = useState([
     {
       id: 'FF12345678',
@@ -52,7 +58,60 @@ const DriverDashboard = () => {
     ));
   };
 
-  const handleCompleteDelivery = (orderId) => {
+  const stopGps = () => {
+    if (gpsWatchRef.current != null) {
+      navigator.geolocation.clearWatch(gpsWatchRef.current);
+      gpsWatchRef.current = null;
+    }
+    setGpsWatch(null);
+  };
+
+  // 🛵 Émission GPS en continu pendant que la commande est IN_TRANSIT (PROCESSING)
+  const handleStartRide = async (orderId) => {
+    try {
+      await startDelivery(orderId); // passe la commande en PROCESSING (IN_TRANSIT)
+      setOrders(orders.map(order => 
+        order.id === orderId ? { ...order, status: 'delivering' } : order
+      ));
+
+      const socket = getDispatchSocket();
+      if (!socket.connected) socket.connect();
+      socketRef.current = socket;
+
+      if (navigator.geolocation) {
+        gpsWatchRef.current = navigator.geolocation.watchPosition(
+          (position) => {
+            const payload = {
+              orderId,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              heading: position.coords.heading || undefined,
+            };
+            socket.emit('updateDriverLocation', payload);
+            setLiveGps({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              timestamp: new Date().toISOString(),
+            });
+          },
+          () => setLiveGps({ error: 'Position indisponible' }),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        );
+        setGpsWatch(gpsWatchRef.current);
+      }
+    } catch (error) {
+      window.alert(error.message || 'Impossible de démarrer la course');
+    }
+  };
+
+  const handleCompleteDelivery = async (orderId) => {
+    stopGps();
+    setLiveGps(null);
+    try {
+      await completeDelivery(orderId); // DELIVERED_PENDING_CONFIRMATION (attente PIN client)
+    } catch (error) {
+      console.warn('Livraison complétée localement :', error.message);
+    }
     setOrders(orders.map(order => 
       order.id === orderId 
         ? { ...order, status: 'delivered' }
@@ -60,6 +119,9 @@ const DriverDashboard = () => {
     ));
     setSelectedOrder(null);
   };
+
+  // Nettoyage GPS au démontage du composant
+  useEffect(() => () => stopGps(), []);
 
   const handleRejectOrder = (orderId) => {
     if (window.confirm('Êtes-vous sûr de vouloir refuser cette commande ?')) {
@@ -191,25 +253,53 @@ const DriverDashboard = () => {
                 </div>
                 <p className="text-sm text-text-secondary mb-2">Temps estimé</p>
                 <p className="text-3xl font-mono font-bold text-text-primary">{selectedOrder.estimatedTime} min</p>
-                <button
-                  onClick={() => window.open(`https://maps.google.com/?q=${selectedOrder.coordinates.lat},${selectedOrder.coordinates.lng}`)}
-                  className="mt-4 px-4 py-2 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
-                  style={{ borderColor: '#C1652E' }}
-                >
-                  Ouvrir Maps
-                </button>
+                {gpsWatch != null ? (
+                  <div className="mt-4 w-full text-center">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: '#5C6B3C' }}>
+                      <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                      GPS diffusé en direct
+                    </span>
+                    {liveGps?.latitude && (
+                      <p className="text-[10px] text-text-secondary mt-1 font-mono">
+                        {liveGps.latitude.toFixed(5)}, {liveGps.longitude.toFixed(5)}
+                      </p>
+                    )}
+                    {liveGps?.error && (
+                      <p className="text-[10px] text-red-500 mt-1">{liveGps.error}</p>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => window.open(`https://maps.google.com/?q=${selectedOrder.coordinates.lat},${selectedOrder.coordinates.lng}`)}
+                    className="mt-4 px-4 py-2 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
+                    style={{ borderColor: '#C1652E' }}
+                  >
+                    Ouvrir Maps
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="flex gap-4 mt-6">
-              <button
-                onClick={() => handleCompleteDelivery(selectedOrder.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white transition-colors"
-                style={{ backgroundColor: '#5C6B3C' }}
-              >
-                <Check size={18} strokeWidth={1.5} />
-                <span className="text-sm font-medium">Confirmer la livraison</span>
-              </button>
+              {selectedOrder.status !== 'delivering' ? (
+                <button
+                  onClick={() => handleStartRide(selectedOrder.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white transition-colors"
+                  style={{ backgroundColor: '#C1652E' }}
+                >
+                  <Navigation size={18} strokeWidth={1.5} />
+                  <span className="text-sm font-medium">Démarrer la course (GPS)</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleCompleteDelivery(selectedOrder.id)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 text-white transition-colors"
+                  style={{ backgroundColor: '#5C6B3C' }}
+                >
+                  <Check size={18} strokeWidth={1.5} />
+                  <span className="text-sm font-medium">Confirmer la livraison</span>
+                </button>
+              )}
               <button
                 onClick={() => handleRejectOrder(selectedOrder.id)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-border-light text-text-secondary hover:border-red-500 hover:text-red-500 transition-colors"

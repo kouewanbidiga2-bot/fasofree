@@ -1,7 +1,26 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { OrderType } from '../orders/entities/order.entity';
-import { SubscriptionService } from '../subscriptions/subscription.service';
+import {
+  SERVICE_FEE_DEFAULT,
+  SubscriptionService,
+} from '../subscriptions/subscription.service';
+
+/**
+ * Tarification publique FasoFree (règles métier affichées au client).
+ * - MIN_DELIVERY_FEE : toute livraison (commerces ou P2P) est facturée au minimum 800 FCFA.
+ * - PLATFORM_FEE    : frais de plateforme fixes de 100 FCFA par commande (0 si client VIP).
+ * - Total = Sous-total articles + DELIVERY_FEE + PLATFORM_FEE.
+ */
+export const MIN_DELIVERY_FEE = 800;
+export const PLATFORM_FEE_DEFAULT = SERVICE_FEE_DEFAULT;
+
+export interface PricingQuote {
+  subtotal: number;
+  deliveryFee: number;
+  platformFee: number;
+  total: number;
+  currency: 'FCFA';
+}
 
 /**
  * 🧾 Ventilation financière complète d'une commande (modèle hybride FasoFree).
@@ -25,17 +44,17 @@ export interface OrderFinancialBreakdown {
 export class OrderPricingService {
   private readonly logger = new Logger(OrderPricingService.name);
 
-  constructor(
-    private readonly subscriptionService: SubscriptionService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly subscriptionService: SubscriptionService) {}
 
   /**
    * 🧮 Moteur de calcul financier FasoFree (modèle hybride) :
-   * - serviceFee : 100 FCFA, offert si le client est FasoFree VIP
-   * - merchantCommission : 5% (Starter) ou 1.5% (Boost Pro) selon le plan du commerce
-   * - P2P : itemsTotal = 0, commission marchand = 0 (prix distance + serviceFee)
+   * - DELIVERY_FEE = max(calcul distance GPS, MIN_DELIVERY_FEE=800), 0 si PICKUP/DINE_IN
+   * - serviceFee (frais plateforme) : 100 FCFA, offert si le client est FasoFree VIP
+   * - merchantCommission : 5% (Starter) ou 1.5% (Boost Pro) selon le plan du commerce,
+   *   prélevée sur le payout marchand (le client ne la voit jamais dans son total)
+   * - P2P : itemsTotal = 0, commission marchand = 0 (prix distance + frais plateforme)
    * - driverCommissionAmount : calculé à la livraison (micro-commission 1%)
+   * Total client (affiché panier/reçu) = Sous-total + DELIVERY_FEE + PLATFORM_FEE.
    */
   async calculateFinancials(
     productsSubtotal: number,
@@ -47,11 +66,11 @@ export class OrderPricingService {
     } = {},
   ): Promise<OrderFinancialBreakdown> {
     const subtotal = Math.max(0, Number(productsSubtotal) || 0);
-    const deliveryFee = Number(requestedDeliveryFee) || 0;
-    const payer = this.configService.get<'CLIENT' | 'MERCHANT'>(
-      'FASOFREE_COMMISSION_PAYER',
-      'CLIENT',
-    );
+    const rawDeliveryFee = Number(requestedDeliveryFee) || 0;
+    // DELIVERY_FEE = max(calcul, 800) ; 0 pour les commandes sans livraison (PICKUP/DINE_IN).
+    // ⚠️ Le client VIP bénéficie UNIQUEMENT des frais de service offerts (jamais de livraison gratuite).
+    const deliveryFee =
+      rawDeliveryFee > 0 ? Math.max(rawDeliveryFee, MIN_DELIVERY_FEE) : 0;
 
     const isP2P = options.orderType === OrderType.P2P_DELIVERY;
 
@@ -71,17 +90,11 @@ export class OrderPricingService {
     // Recette plateforme : commission marchand + frais de service (+ micro-commission livreur à la livraison)
     const platformCommission = merchantCommissionAmount + serviceFee;
 
-    let totalAmount: number;
-    let merchantPayoutAmount: number;
-
-    if (payer === 'CLIENT') {
-      totalAmount =
-        itemsTotal + deliveryFee + serviceFee + merchantCommissionAmount;
-      merchantPayoutAmount = itemsTotal; // le client paie la commission
-    } else {
-      totalAmount = itemsTotal + deliveryFee + serviceFee;
-      merchantPayoutAmount = itemsTotal - merchantCommissionAmount;
-    }
+    // Total client conforme à la règle publique : items + livraison + frais plateforme.
+    // La commission marchand est déduite du payout (le client ne la paie pas en direct).
+    const totalAmount = itemsTotal + deliveryFee + serviceFee;
+    const merchantPayoutAmount = itemsTotal - merchantCommissionAmount;
+    const payer: 'CLIENT' | 'MERCHANT' = 'MERCHANT';
 
     const breakdown: OrderFinancialBreakdown = {
       productsSubtotal: itemsTotal,
@@ -97,9 +110,41 @@ export class OrderPricingService {
     };
 
     this.logger.log(
-      `[Pricing] Total: ${breakdown.totalAmount} FCFA = items ${itemsTotal} + livraison ${deliveryFee} + service ${serviceFee} + commission ${merchantCommissionAmount}`,
+      `[Pricing] Total client: ${breakdown.totalAmount} FCFA = items ${itemsTotal} + livraison ${deliveryFee} + frais plateforme ${serviceFee} (commission marchand ${merchantCommissionAmount} sur payout)`,
     );
 
     return breakdown;
+  }
+
+  /**
+   * 💬 Devis public affiché au panier/checkout : renvoie exactement les montants
+   * qui seront verrouillés lors du POST /orders (Total = Sous-total + livraison + plateforme).
+   */
+  async getQuoteBreakdown(input: {
+    subtotal: number;
+    deliveryFee: number;
+    clientId?: string;
+  }): Promise<PricingQuote> {
+    const subtotal = Math.max(0, Number(input.subtotal) || 0);
+    const rawDeliveryFee = Number(input.deliveryFee) || 0;
+    const deliveryFee =
+      rawDeliveryFee > 0 ? Math.max(rawDeliveryFee, MIN_DELIVERY_FEE) : 0;
+    const platformFee = await this.subscriptionService.resolveServiceFee(
+      input.clientId ?? '',
+    );
+
+    const quote: PricingQuote = {
+      subtotal,
+      deliveryFee,
+      platformFee,
+      total: subtotal + deliveryFee + platformFee,
+      currency: 'FCFA',
+    };
+
+    this.logger.log(
+      `[Quote] Sous-total ${quote.subtotal} + livraison ${quote.deliveryFee} + plateforme ${quote.platformFee} = ${quote.total} FCFA`,
+    );
+
+    return quote;
   }
 }
