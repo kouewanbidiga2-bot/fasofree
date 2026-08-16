@@ -1,16 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-  ConflictException,
-  ForbiddenException,
-  Logger,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
+import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 
 /**
  * 🧑💼 Compte initial de la plateforme, créé uniquement s'il n'existe pas.
@@ -59,6 +53,47 @@ export class UsersService implements OnModuleInit {
   // 👤 Obtenir un utilisateur par son ID
   async updateFcmToken(userId: string, fcmToken: string): Promise<void> {
     await this.userRepository.update(userId, { fcmToken });
+  }
+
+  /**
+   * 🛵 Statut de disponibilité d'un livreur / coursier (online, GPS, véhicule).
+   * Réservé aux rôles DRIVER et COURIER.
+   */
+  async setDriverStatus(
+    userId: string,
+    dto: UpdateDriverStatusDto,
+  ): Promise<User> {
+    const user = await this.findById(userId);
+
+    if (user.role !== UserRole.DRIVER && user.role !== UserRole.COURIER) {
+      throw new ForbiddenException(
+        'Seuls les livreurs (DRIVER) et coursiers (COURIER) peuvent gérer leur disponibilité',
+      );
+    }
+
+    if (dto.isOnline !== undefined) user.isOnline = dto.isOnline;
+    if (dto.isAvailable !== undefined) user.isAvailable = dto.isAvailable;
+    if (dto.latitude !== undefined) user.latitude = dto.latitude;
+    if (dto.longitude !== undefined) user.longitude = dto.longitude;
+    if (dto.vehicleType !== undefined) user.vehicleType = dto.vehicleType;
+
+    return this.userRepository.save(user);
+  }
+
+  /**
+   * 🛵 Met à jour la position GPS persistée d'un livreur (appelé par le
+   * streaming socket `updateDriverLocation`, throttlé côté handler).
+   * Best-effort : n'échoue jamais le flux temps réel.
+   */
+  async updateDriverPosition(
+    driverId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<void> {
+    if (!driverId || latitude == null || longitude == null) return;
+    await this.userRepository
+      .update(driverId, { latitude, longitude })
+      .catch(() => undefined);
   }
 
   async updateUser(

@@ -5,16 +5,23 @@ import { GeoDispatchService } from '../../orders/dispatch.service';
 import { OrdersService } from '../../orders/orders.service';
 import { OrderStatus } from '../../orders/entities/order.entity';
 import { WsEvents, WsRooms } from '../constants/dispatch-events.enum';
+import { UsersService } from '../../users/users.service';
 
 @Injectable()
 export class LocationHandler {
   private readonly logger = new Logger(LocationHandler.name);
+
+  // ⏱️ Throttle de la persistance DB (position du livreur pour le scoring dispatch)
+  private readonly lastPersist = new Map<string, number>();
+  private static readonly PERSIST_INTERVAL_MS = 5000;
 
   constructor(
     @Inject(forwardRef(() => GeoDispatchService))
     private readonly dispatchService: GeoDispatchService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
   ) {}
 
   async handleDriverLocationUpdate(
@@ -32,6 +39,16 @@ export class LocationHandler {
       dto.latitude,
       dto.longitude,
     );
+
+    // 2. Persistance throttlée de la position dans l'entité User (scoring DispatchService)
+    const now = Date.now();
+    const last = this.lastPersist.get(driverId) ?? 0;
+    if (now - last >= LocationHandler.PERSIST_INTERVAL_MS) {
+      this.lastPersist.set(driverId, now);
+      this.usersService
+        .updateDriverPosition(driverId, dto.latitude, dto.longitude)
+        .catch(() => undefined);
+    }
 
     // 2. Suivi live : uniquement si la commande est en cours (IN_TRANSIT = PROCESSING)
     if (dto.orderId) {

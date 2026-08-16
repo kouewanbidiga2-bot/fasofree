@@ -31,12 +31,20 @@ const STATUS_STEP = {
   COMPLETED: 4,
 };
 
-const STEP_LABELS = [
+const STEP_LABELS_FOOD = [
   '',
   'Commande confirmée',
   'En préparation',
   'En route',
   'Livré',
+];
+
+const STEP_LABELS_RIDE = [
+  '',
+  'Course confirmée',
+  'Chauffeur assigné',
+  'En route',
+  'Arrivé',
 ];
 
 const STATUS_LABELS = {
@@ -62,6 +70,7 @@ const makeIcon = (color, label) =>
   });
 
 const BUSINESS_ICON = makeIcon('#6B7280', 'R');
+const PICKUP_ICON = makeIcon('#3B82F6', 'P');
 const DELIVERY_ICON = makeIcon('#5C6B3C', 'D');
 const DRIVER_ICON = makeIcon('#C1652E', 'L');
 
@@ -104,6 +113,8 @@ const OrderTracking = () => {
   const dispatchSocket = getDispatchSocket();
 
   const status = tracking?.status || 'PENDING';
+  const isRide = tracking?.orderType === 'RIDE';
+  const STEP_LABELS = isRide ? STEP_LABELS_RIDE : STEP_LABELS_FOOD;
   const step = STATUS_STEP[status] || 1;
   const progress = (step / 4) * 100;
   const trackingActive = tracking?.trackingActive === true;
@@ -224,7 +235,14 @@ const OrderTracking = () => {
 
   const mapPoints = useMemo(() => {
     const pts = [];
-    if (tracking?.businessLocation) {
+    if (isRide) {
+      if (tracking?.pickupLocation?.latitude != null) {
+        pts.push([
+          tracking.pickupLocation.latitude,
+          tracking.pickupLocation.longitude,
+        ]);
+      }
+    } else if (tracking?.businessLocation) {
       pts.push([
         tracking.businessLocation.latitude,
         tracking.businessLocation.longitude,
@@ -238,7 +256,7 @@ const OrderTracking = () => {
     }
     if (driverPos) pts.push(driverPos);
     return pts;
-  }, [tracking, driverPos]);
+  }, [tracking, driverPos, isRide]);
 
   const tracePath = useMemo(
     () => (liveTrace.length > 1 ? liveTrace : []),
@@ -353,7 +371,9 @@ const OrderTracking = () => {
                   />
                   <div className="flex-1">
                     <p className="text-text-secondary text-xs">
-                      Temps estimé (préparation + trajet)
+                      {isRide
+                        ? 'Temps de trajet estimé'
+                        : 'Temps estimé (préparation + trajet)'}
                     </p>
                     <p className="text-text-primary font-medium text-xl">
                       {eta.totalMinutes} min
@@ -366,8 +386,12 @@ const OrderTracking = () => {
                       </span>
                     </p>
                     <p className="text-xs text-text-secondary mt-1">
-                      Préparation {eta.remainingPreparationMinutes} min · Trajet{' '}
-                      {eta.travelMinutes} min ·{' '}
+                      {!isRide && (
+                        <>
+                          Préparation {eta.remainingPreparationMinutes} min ·{' '}
+                        </>
+                      )}
+                      Trajet {eta.travelMinutes} min ·{' '}
                       {eta.distanceKm.toLocaleString('fr-FR')} km
                     </p>
                   </div>
@@ -379,7 +403,7 @@ const OrderTracking = () => {
             <div className="border border-border-light p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-medium text-text-secondary">
-                  Position du livreur
+                  Position du {isRide ? 'chauffeur' : 'livreur'}
                 </h2>
                 {trackingActive ? (
                   <span className="flex items-center gap-1.5 text-xs text-success">
@@ -388,7 +412,9 @@ const OrderTracking = () => {
                   </span>
                 ) : (
                   <span className="text-xs text-text-secondary">
-                    Le livreur n'est pas encore en route
+                    {isRide
+                      ? "Le chauffeur n'est pas encore en route"
+                      : "Le livreur n'est pas encore en route"}
                   </span>
                 )}
               </div>
@@ -417,14 +443,26 @@ const OrderTracking = () => {
                       }}
                     />
                   )}
-                  {tracking?.businessLocation && (
-                    <Marker
-                      position={[
-                        tracking.businessLocation.latitude,
-                        tracking.businessLocation.longitude,
-                      ]}
-                      icon={BUSINESS_ICON}
-                    />
+                  {isRide ? (
+                    tracking?.pickupLocation?.latitude != null && (
+                      <Marker
+                        position={[
+                          tracking.pickupLocation.latitude,
+                          tracking.pickupLocation.longitude,
+                        ]}
+                        icon={PICKUP_ICON}
+                      />
+                    )
+                  ) : (
+                    tracking?.businessLocation && (
+                      <Marker
+                        position={[
+                          tracking.businessLocation.latitude,
+                          tracking.businessLocation.longitude,
+                        ]}
+                        icon={BUSINESS_ICON}
+                      />
+                    )
                   )}
                   {driverPos && <Marker position={driverPos} icon={DRIVER_ICON} />}
                   {tracking?.deliveryLocation && (
@@ -442,23 +480,25 @@ const OrderTracking = () => {
                 <span className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-full inline-block"
-                    style={{ backgroundColor: '#6B7280' }}
+                    style={{
+                      backgroundColor: isRide ? '#3B82F6' : '#6B7280',
+                    }}
                   />
-                  Marchand
+                  {isRide ? 'Départ' : 'Marchand'}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-full inline-block"
                     style={{ backgroundColor: '#C1652E' }}
                   />
-                  Livreur
+                  {isRide ? 'Chauffeur' : 'Livreur'}
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-full inline-block"
                     style={{ backgroundColor: '#5C6B3C' }}
                   />
-                  Livraison
+                  {isRide ? 'Arrivée' : 'Livraison'}
                 </span>
               </div>
             </div>
@@ -490,23 +530,25 @@ const OrderTracking = () => {
                     channel === 'driver' ? { backgroundColor: '#C1652E' } : {}
                   }
                 >
-                  Avec le livreur
+                  Avec le {isRide ? 'chauffeur' : 'livreur'}
                 </button>
-                <button
-                  onClick={() => setChannel('merchant')}
-                  className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
-                    channel === 'merchant'
-                      ? 'text-white'
-                      : 'border border-border-light text-text-secondary'
-                  }`}
-                  style={
-                    channel === 'merchant'
-                      ? { backgroundColor: '#C1652E' }
-                      : {}
-                  }
-                >
-                  Avec le marchand
-                </button>
+                {!isRide && (
+                  <button
+                    onClick={() => setChannel('merchant')}
+                    className={`flex-1 px-3 py-2 text-xs font-medium transition-colors ${
+                      channel === 'merchant'
+                        ? 'text-white'
+                        : 'border border-border-light text-text-secondary'
+                    }`}
+                    style={
+                      channel === 'merchant'
+                        ? { backgroundColor: '#C1652E' }
+                        : {}
+                    }
+                  >
+                    Avec le marchand
+                  </button>
+                )}
               </div>
 
               <div
@@ -594,7 +636,9 @@ const OrderTracking = () => {
                   strokeWidth={1.5}
                 />
                 <p className="text-success font-medium">
-                  Le livreur a marqué votre commande comme livrée.
+                  {isRide
+                    ? 'Le chauffeur est arrivé. Confirmez pour terminer votre course.'
+                    : 'Le livreur a marqué votre commande comme livrée.'}
                 </p>
                 <button
                   onClick={handleConfirmReceipt}

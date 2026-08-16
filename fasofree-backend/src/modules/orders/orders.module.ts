@@ -7,6 +7,7 @@ import { GeoDispatchService } from './dispatch.service';
 import { DeliveryPricingService } from './delivery-pricing.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
+import { RidePricingService } from './services/ride-pricing.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
@@ -21,6 +22,8 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { FinancialModule } from '../financial/financial.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
+import { WalletModule } from '../wallets/wallet.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -37,6 +40,8 @@ import { ReceiptsModule } from '../receipts/receipts.module';
     NotificationsModule,
     UsersModule,
     ReceiptsModule,
+    WalletModule,
+    SubscriptionsModule,
   ],
   controllers: [OrdersController],
   providers: [
@@ -45,6 +50,7 @@ import { ReceiptsModule } from '../receipts/receipts.module';
     DeliveryPricingService,
     QrCodeService,
     DistanceCalculatorService,
+    RidePricingService,
   ],
   exports: [
     OrdersService,
@@ -52,6 +58,7 @@ import { ReceiptsModule } from '../receipts/receipts.module';
     DeliveryPricingService,
     QrCodeService,
     DistanceCalculatorService,
+    RidePricingService,
   ],
 })
 export class OrdersModule {}

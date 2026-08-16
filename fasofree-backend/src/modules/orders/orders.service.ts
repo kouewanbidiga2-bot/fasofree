@@ -52,6 +52,10 @@ import {
 import { ReceiptsService } from '../receipts/receipts.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
+import { RidePricingService } from './services/ride-pricing.service';
+import { WalletService } from '../wallets/wallet.service';
+import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
+import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 
 /**
  * 💬 Statuts terminaux : le canal de chat éphémère de la commande est archivé.
@@ -84,6 +88,7 @@ export interface ClientInvoiceResponse {
  */
 export interface OrderTrackingPayload {
   orderId: string;
+  orderType: OrderType;
   status: OrderStatus;
   trackingActive: boolean;
   driverId: string | null;
@@ -130,6 +135,8 @@ export class OrdersService {
     private readonly events: EventEmitter2,
     private readonly configService: ConfigService,
     private readonly geoDispatchService: GeoDispatchService,
+    private readonly ridePricingService: RidePricingService,
+    private readonly walletService: WalletService,
   ) {}
 
   /**
@@ -203,6 +210,11 @@ export class OrdersService {
     // --- 🚚 GESTION P2P DELIVERY ---
     if (orderType === OrderType.P2P_DELIVERY) {
       return this.createP2POrder(clientId, dto);
+    }
+
+    // --- 🏍️ GESTION FASOFREE RIDE (VTC / moto-taxi) ---
+    if (orderType === OrderType.RIDE) {
+      return this.createRideOrder(clientId, dto);
     }
 
     // --- 🛍️ GESTION MERCHANT (flux existant) ---
@@ -390,6 +402,23 @@ export class OrdersService {
       this.logger.log(
         `[Quote P2P] Distance: ${calculation.distance} km → livraison ${deliveryFee} FCFA`,
       );
+    } else if (dto.orderType === OrderType.RIDE) {
+      if (!dto.pickupLocation || !dto.dropoffLocation) {
+        throw new BadRequestException(
+          'Les lieux de départ et de destination sont obligatoires pour un devis FasoFree Ride',
+        );
+      }
+      const estimate = await this.ridePricingService.estimate(
+        dto.pickupLocation.latitude,
+        dto.pickupLocation.longitude,
+        dto.dropoffLocation.latitude,
+        dto.dropoffLocation.longitude,
+        clientId,
+      );
+      deliveryFee = estimate.fare;
+      this.logger.log(
+        `[Quote Ride] Distance: ${estimate.distanceKm} km → course ${estimate.fare} FCFA (min 500 FCFA) + plateforme ${estimate.platformFee} FCFA`,
+      );
     } else {
       // Coordonnées boutique : businessId en base, sinon fallback fourni par le client
       let businessLatitude: number | undefined = dto.businessLatitude;
@@ -423,7 +452,144 @@ export class OrdersService {
       subtotal,
       deliveryFee,
       clientId,
+      orderType: dto.orderType,
     });
+  }
+
+  /**
+   * 🏍️ Création d'une commande FasoFree Ride (VTC / moto-taxi à la demande).
+   * Calquée sur le flux P2P mais avec un vrai séquestre : le wallet CLIENT est
+   * débité du total à la création (statut PAID), les gains livreur sont crédités
+   * à la livraison (event `order.delivered`), et la plateforme conserve sa part.
+   * Aucun remboursement client en cas d'imprévu (règles métier FasoFree).
+   */
+  private async createRideOrder(
+    clientId: string,
+    dto: CreateOrderDto,
+  ): Promise<Order> {
+    const { pickupLocation, dropoffLocation, fulfillmentType } = dto;
+
+    if (!pickupLocation || !dropoffLocation) {
+      throw new BadRequestException(
+        'Les lieux de départ et de destination sont obligatoires pour une course FasoFree Ride',
+      );
+    }
+
+    const estimate = await this.ridePricingService.estimate(
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+      dropoffLocation.latitude,
+      dropoffLocation.longitude,
+      clientId,
+    );
+
+    const financials = await this.pricingService.calculateFinancials(
+      0,
+      estimate.fare,
+      { clientId, orderType: OrderType.RIDE },
+    );
+
+    const totalAmount = financials.totalAmount;
+
+    this.logger.log(
+      `[Ride Order] Distance: ${estimate.distanceKm} km, Course: ${estimate.fare} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
+    );
+
+    const order = this.orderRepository.create({
+      clientId,
+      businessId: undefined, // Pas de business pour une course
+      orderType: OrderType.RIDE,
+      fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
+      fulfillmentDetails: {
+        notes: `Course FasoFree Ride - ${pickupLocation.address} → ${dropoffLocation.address}`,
+      },
+      productsSubtotal: 0,
+      itemsTotal: 0,
+      deliveryFee: financials.deliveryFee,
+      serviceFee: financials.serviceFee,
+      merchantCommissionAmount: 0,
+      driverCommissionAmount: 0,
+      platformCommission: financials.platformCommission,
+      totalAmount,
+      merchantPayoutAmount: 0, // Pas de payout marchand
+      commissionPayer: financials.commissionPayer,
+      pickupLocation,
+      dropoffLocation,
+      deliveryLocation: {
+        latitude: dropoffLocation.latitude,
+        longitude: dropoffLocation.longitude,
+      },
+      // 💳 Séquestre : le client est débité immédiatement → statut PAID (dispatch activé)
+      status: OrderStatus.PAID,
+      deliveryPinCode: this.generatePinCode(),
+      driverId: null,
+      driverValidatedAt: null,
+      clientValidatedAt: null,
+    });
+
+    const savedOrder = await this.orderRepository.save(order);
+
+    // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
+    // la commande est supprimée et l'erreur propagée → aucune course sans paiement.
+    try {
+      await this.walletService.debitWallet(
+        clientId,
+        WalletUserRole.CUSTOMER,
+        totalAmount,
+        TransactionReason.ORDER_PAYMENT,
+        `ESCROW-${savedOrder.id}`,
+        `Séquestre course FasoFree Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
+      );
+    } catch (error) {
+      await this.orderRepository.delete(savedOrder.id).catch(() => undefined);
+      this.logger.error(
+        `[Ride Order] Débit séquestre échoué pour la commande #${savedOrder.id}: ${error.message}`,
+      );
+      throw error;
+    }
+
+    this.logger.log(
+      `[Ride Order Created] #${savedOrder.id} - Total séquestré: ${totalAmount} FCFA (Distance: ${estimate.distanceKm} km)`,
+    );
+
+    const transaction = this.transactionRepository.create({
+      orderId: savedOrder.id,
+      reference: this.generateTransactionReference(savedOrder.id),
+      amount: totalAmount,
+      commissionAmount: financials.platformCommission,
+      status: TransactionStatus.SUCCESS,
+    });
+
+    await this.transactionRepository.save(transaction);
+
+    // 🧾 Reçu client automatique (non bloquant en cas d'échec)
+    try {
+      await this.receiptsService.createClientOrderReceipt(savedOrder);
+    } catch (receiptError) {
+      this.logger.warn(
+        `[Receipt] Échec reçu client pour ${savedOrder.id}: ${receiptError.message}`,
+      );
+    }
+
+    // 🚀 Dispatch aux chauffeurs : broadcast (tous les livreurs en ligne)
+    // puis offre ciblée aux meilleurs candidats (scoring distance + note).
+    try {
+      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+      this.dispatchService
+        .autoDispatchOrder(savedOrder.id)
+        .catch((err) => {
+          this.logger.error(
+            `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
+          );
+        });
+    } catch (error) {
+      this.logger.error(
+        `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
+        error.stack,
+      );
+    }
+
+    return this.findOne(savedOrder.id);
   }
 
   /**
@@ -526,6 +692,60 @@ export class OrdersService {
     }
 
     return this.findOne(savedOrder.id);
+  }
+
+  /**
+   * 🛵 Acceptation d'une course / livraison par un livreur (DRIVER) ou coursier (COURIER).
+   * Verrouille l'assignation : driverId fixé et statut → PROCESSING (le GPS est alors diffusé au client).
+   */
+  async acceptOrder(orderId: string, driverId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (order.driverId && order.driverId !== driverId) {
+      throw new ForbiddenException(
+        'Cette course a déjà été acceptée par un autre livreur',
+      );
+    }
+
+    if (order.driverId === driverId) {
+      return order;
+    }
+
+    if (
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PAID
+    ) {
+      throw new BadRequestException(
+        `Impossible d'accepter : la commande est au statut "${order.status}"`,
+      );
+    }
+
+    const previousStatus = order.status;
+    order.driverId = driverId;
+    order.status = OrderStatus.PROCESSING;
+
+    const saved = await this.orderRepository.save(order);
+
+    // 🔔 Notifier le client et le livreur en temps réel (room order_<id>)
+    try {
+      this.dispatchGateway.server
+        .to(`order_${orderId}`)
+        .emit('orderAccepted', {
+          message: '🛵 Un livreur a accepté votre course !',
+          orderId,
+          driverId,
+        });
+    } catch (error) {
+      this.logger.warn(
+        `Notification WebSocket échouée: ${error?.message || error}`,
+      );
+    }
+
+    this.logger.log(
+      `[Order Accepted] Commande #${orderId} acceptée par le livreur ${driverId} (${previousStatus} → PROCESSING)`,
+    );
+
+    return saved;
   }
 
   public formatClientInvoiceResponse(order: Order): ClientInvoiceResponse {
@@ -654,6 +874,7 @@ export class OrdersService {
 
     return {
       orderId: order.id,
+      orderType: order.orderType,
       status: order.status,
       trackingActive: order.status === OrderStatus.PROCESSING,
       driverId: order.driverId,

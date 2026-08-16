@@ -69,8 +69,14 @@ export class OrderPricingService {
     const rawDeliveryFee = Number(requestedDeliveryFee) || 0;
     // DELIVERY_FEE = max(calcul, 800) ; 0 pour les commandes sans livraison (PICKUP/DINE_IN).
     // ⚠️ Le client VIP bénéficie UNIQUEMENT des frais de service offerts (jamais de livraison gratuite).
+    // 🏍️ RIDE : tarif course (distance × 200 FCFA/km, minimum 500 FCFA) SANS plancher de livraison.
+    const isRide = options.orderType === OrderType.RIDE;
     const deliveryFee =
-      rawDeliveryFee > 0 ? Math.max(rawDeliveryFee, MIN_DELIVERY_FEE) : 0;
+      rawDeliveryFee > 0
+        ? isRide
+          ? Math.max(1, Math.round(rawDeliveryFee))
+          : Math.max(rawDeliveryFee, MIN_DELIVERY_FEE)
+        : 0;
 
     const isP2P = options.orderType === OrderType.P2P_DELIVERY;
 
@@ -82,10 +88,9 @@ export class OrderPricingService {
         options.businessId ?? '',
       );
 
-    const itemsTotal = isP2P ? 0 : subtotal;
-    const merchantCommissionAmount = isP2P
-      ? 0
-      : Math.round(itemsTotal * commissionRate);
+    const itemsTotal = isP2P || isRide ? 0 : subtotal;
+    const merchantCommissionAmount =
+      isP2P || isRide ? 0 : Math.round(itemsTotal * commissionRate);
 
     // Recette plateforme : commission marchand + frais de service (+ micro-commission livreur à la livraison)
     const platformCommission = merchantCommissionAmount + serviceFee;
@@ -124,11 +129,18 @@ export class OrderPricingService {
     subtotal: number;
     deliveryFee: number;
     clientId?: string;
+    orderType?: OrderType;
   }): Promise<PricingQuote> {
     const subtotal = Math.max(0, Number(input.subtotal) || 0);
     const rawDeliveryFee = Number(input.deliveryFee) || 0;
+    // 🏍️ RIDE : pas de plancher de livraison (800 FCFA) — tarif course (min 500 FCFA).
+    const isRide = input.orderType === OrderType.RIDE;
     const deliveryFee =
-      rawDeliveryFee > 0 ? Math.max(rawDeliveryFee, MIN_DELIVERY_FEE) : 0;
+      rawDeliveryFee > 0
+        ? isRide
+          ? Math.max(1, Math.round(rawDeliveryFee))
+          : Math.max(rawDeliveryFee, MIN_DELIVERY_FEE)
+        : 0;
     const platformFee = await this.subscriptionService.resolveServiceFee(
       input.clientId ?? '',
     );

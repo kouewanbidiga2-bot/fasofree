@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, ShoppingBag, Package } from 'lucide-react';
+import { Search, MapPin, Bell, ShoppingBag, Package, Car } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
@@ -140,6 +140,15 @@ const Home = () => {
               Commandez auprès des meilleurs établissements à Ouagadougou
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => navigate('/ride')}
+            className="app-action gap-2"
+            style={{ marginRight: '0.5rem' }}
+          >
+            <Car size={16} strokeWidth={2} />
+            FasoFree Ride
+          </button>
           <button
             type="button"
             onClick={() => navigate('/p2p-delivery')}

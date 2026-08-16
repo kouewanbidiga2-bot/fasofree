@@ -8,6 +8,7 @@ import { Business } from '../businesses/entities/business.entity';
 import {
   Order,
   OrderStatus,
+  OrderType,
   FulfillmentType,
 } from '../orders/entities/order.entity';
 import { DispatchGateway } from './dispatch.gateway';
@@ -106,10 +107,13 @@ export class DispatchService {
 
   /**
    * 🔍 Trouver les livreurs disponibles et les scorer
+   * @param orderType Si RIDE : les livreurs à vélo (BICYCLE) sont pénalisés
+   * (une moto/VTC est préférée pour une course de personnes).
    */
   private async findAndScoreDrivers(
-    businessLat: number,
-    businessLng: number,
+    originLat: number,
+    originLng: number,
+    orderType?: OrderType,
   ): Promise<DriverScore[]> {
     // 1. Récupérer tous les livreurs actifs et disponibles
     const drivers = await this.userRepository.find({
@@ -145,8 +149,8 @@ export class DispatchService {
       }
 
       const distanceKm = this.calculateDistance(
-        businessLat,
-        businessLng,
+        originLat,
+        originLng,
         driver.latitude,
         driver.longitude,
       );
@@ -172,12 +176,24 @@ export class DispatchService {
 
       const score = this.calculateDriverScore(distanceKm, averageRating);
 
+      // 🏍️ RIDE : pénalité si le livreur se déplace à vélo / à pied (préférer moto/VTC)
+      const isRide = orderType === OrderType.RIDE;
+      const vehicle = String(driver.vehicleType || '').toUpperCase();
+      if (isRide && (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')) {
+        this.logger.debug(
+          `[Dispatch] Livreur ${driver.id} à vélo (${vehicle}) pénalisé pour une course RIDE`,
+        );
+      }
+
       scoredDrivers.push({
         driverId: driver.id,
         driver,
         distanceKm,
         averageRating,
-        score,
+        score: isRide &&
+          (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')
+          ? score + 0.5
+          : score,
       });
     }
 
@@ -257,6 +273,7 @@ export class DispatchService {
     const scoredDrivers = await this.findAndScoreDrivers(
       originLatitude,
       originLongitude,
+      order.orderType,
     );
 
     if (scoredDrivers.length === 0) {
@@ -303,12 +320,18 @@ export class DispatchService {
     this.dispatchGateway.notifyCandidateDrivers(driverIds, {
       type: 'NEW_ORDER_OFFER',
       orderId: order.id,
+      orderType: order.orderType,
       businessName: business?.name || 'Course à la demande',
       businessAddress: business?.address || order.pickupLocation?.address,
+      pickupAddress:
+        order.pickupLocation?.address || business?.address || null,
+      pickupLatitude: order.pickupLocation?.latitude,
+      pickupLongitude: order.pickupLocation?.longitude,
       deliveryAddress,
       deliveryLatitude: order.deliveryLocation?.latitude,
       deliveryLongitude: order.deliveryLocation?.longitude,
       earningXOF: order.deliveryFee,
+      totalAmount: order.totalAmount,
       estimatedDistanceKm: topCandidates[0].distanceKm,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
     });
@@ -354,18 +377,29 @@ export class DispatchService {
           (c) => c.driverId,
         );
 
-        // Récupérer les candidats à nouveau
-        const business = await this.businessRepository.findOne({
-          where: { id: order.businessId },
-        });
+        // Récupérer les coordonnées de référence (commerce OU point de ramassage RIDE/P2P)
+        const business = order.businessId
+          ? await this.businessRepository.findOne({
+              where: { id: order.businessId },
+            })
+          : null;
 
-        if (!business || !business.latitude || !business.longitude) {
+        const originLatitude =
+          business?.latitude ?? order.pickupLocation?.latitude;
+        const originLongitude =
+          business?.longitude ?? order.pickupLocation?.longitude;
+
+        if (!originLatitude || !originLongitude) {
+          this.logger.warn(
+            `[Dispatch Timeout] Commande #${order.id} sans coordonnées GPS de référence — réassignation ignorée`,
+          );
           continue;
         }
 
         const scoredDrivers = await this.findAndScoreDrivers(
-          business.latitude,
-          business.longitude,
+          originLatitude,
+          originLongitude,
+          order.orderType,
         );
 
         // Filtrer les candidats déjà notifiés
@@ -403,12 +437,19 @@ export class DispatchService {
         this.dispatchGateway.notifyCandidateDrivers([nextCandidate.driverId], {
           type: 'NEW_ORDER_OFFER',
           orderId: order.id,
-          businessName: business.name,
-          businessAddress: business.address,
-          deliveryAddress: order.dropoffLocation?.address || business.address,
+          orderType: order.orderType,
+          businessName: business?.name || 'Course à la demande',
+          businessAddress: business?.address || order.pickupLocation?.address,
+          pickupAddress:
+            order.pickupLocation?.address || business?.address || null,
+          pickupLatitude: order.pickupLocation?.latitude,
+          pickupLongitude: order.pickupLocation?.longitude,
+          deliveryAddress:
+            order.dropoffLocation?.address || business?.address,
           deliveryLatitude: order.deliveryLocation?.latitude,
           deliveryLongitude: order.deliveryLocation?.longitude,
           earningXOF: order.deliveryFee,
+          totalAmount: order.totalAmount,
           estimatedDistanceKm: nextCandidate.distanceKm,
           expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
         });

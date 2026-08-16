@@ -65,8 +65,10 @@ export const api = {
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
   getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
   updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+  acceptOrder: (id) => apiFetch(`/orders/${id}/accept`, { method: 'POST' }),
   driverValidateDelivery: (id) => apiFetch(`/orders/${id}/driver-validate`, { method: 'POST' }),
   clientValidateWithPin: (id, pinCode) => apiFetch(`/orders/${id}/client-validate`, { method: 'POST', body: { pinCode } }),
+  updateDriverStatus: (data) => apiFetch('/users/me/driver-status', { method: 'PATCH', body: data }),
 
   // Chat éphémère
   getChatHistory: (orderId, channel = 'driver') => apiFetch(`/chat/${orderId}?channel=${channel}`, { method: 'GET' }),

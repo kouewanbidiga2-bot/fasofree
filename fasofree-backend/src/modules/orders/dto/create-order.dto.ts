@@ -31,7 +31,11 @@ export class CreateOrderDto {
     required: false,
   })
   @IsUUID()
-  @ValidateIf((o) => o.orderType !== OrderType.P2P_DELIVERY)
+  @ValidateIf(
+    (o) =>
+      o.orderType !== OrderType.P2P_DELIVERY &&
+      o.orderType !== OrderType.RIDE,
+  )
   businessId?: string;
 
   @ApiProperty({

@@ -57,6 +57,11 @@ export class User {
   @Column({ type: 'float', nullable: true })
   averageRating?: number;
 
+  // 🏍️ Type de véhicule du livreur (MOTO, SCOOTER, VTC, BICYCLE, FOOT, ...)
+  // Utilisé par le dispatch pour préférer une moto/VTC sur les courses FasoFree Ride.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  vehicleType?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

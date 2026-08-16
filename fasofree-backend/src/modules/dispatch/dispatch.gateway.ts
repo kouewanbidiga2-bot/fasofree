@@ -71,10 +71,11 @@ export class DispatchGateway
         `[WS Authenticated] Socket: ${client.id} | User: ${userId} | Role: ${role}`,
       );
 
-      if (role === 'DRIVER' || role === 'COURIER') {
+      const normalizedRole = String(role).toUpperCase();
+      if (normalizedRole === 'DRIVER' || normalizedRole === 'COURIER') {
         client.join(WsRooms.AVAILABLE_DRIVERS);
         client.join(`${WsRooms.DRIVER_PREFIX}${userId}`);
-      } else if (role === 'BUSINESS' && payload.businessId) {
+      } else if (normalizedRole === 'BUSINESS' && payload.businessId) {
         client.join(`${WsRooms.BUSINESS_PREFIX}${payload.businessId}`);
       }
     } catch (error) {
@@ -140,7 +141,15 @@ export class DispatchGateway
       .emit(WsEvents.DELIVERY_OPPORTUNITY, {
         message: '🛵 Nouvelle livraison disponible !',
         orderId: order.id,
+        orderType: order.orderType,
         earningXOF: order.deliveryFee,
+        totalAmount: order.totalAmount,
+        pickupAddress: order.pickupLocation?.address ?? null,
+        pickupLatitude: order.pickupLocation?.latitude ?? null,
+        pickupLongitude: order.pickupLocation?.longitude ?? null,
+        dropoffAddress: order.dropoffLocation?.address ?? null,
+        dropoffLatitude: order.deliveryLocation?.latitude ?? null,
+        dropoffLongitude: order.deliveryLocation?.longitude ?? null,
       });
   }
 

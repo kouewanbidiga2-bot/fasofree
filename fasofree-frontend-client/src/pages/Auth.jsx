@@ -47,7 +47,9 @@ const Auth = () => {
         });
 
         const normalizedRole = user.role ? String(user.role).toUpperCase() : 'CLIENT';
-        if (['CLIENT', 'CUSTOMER', 'USER'].includes(normalizedRole)) {
+        if (['DRIVER', 'COURIER'].includes(normalizedRole)) {
+          navigate('/driver');
+        } else if (['CLIENT', 'CUSTOMER', 'USER'].includes(normalizedRole)) {
           navigate('/');
         } else {
           navigate('/dashboard');

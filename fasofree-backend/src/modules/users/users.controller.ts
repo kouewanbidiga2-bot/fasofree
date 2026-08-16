@@ -18,6 +18,7 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 
@@ -41,6 +42,24 @@ export class UsersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.usersService.findById(userId);
+  }
+
+  // 🛵 Statut de disponibilité du livreur/coursier (DRIVER / COURIER)
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('me/driver-status')
+  @ApiOperation({
+    summary:
+      'Mettre à jour son statut de livreur (en ligne, position GPS, véhicule)',
+  })
+  async setDriverStatus(
+    @Body() dto: UpdateDriverStatusDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.usersService.setDriverStatus(userId, dto);
   }
 
   // 🛡️ Lister tous les utilisateurs (Super Admin)

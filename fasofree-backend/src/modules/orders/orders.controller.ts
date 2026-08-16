@@ -193,6 +193,31 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto.status, userId, role);
   }
 
+  // 🛵 Un livreur/coursier accepte une course (FOOD / P2P / RIDE)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Post(':id/accept')
+  @ApiOperation({
+    summary:
+      'Le livreur/coursier accepte une course (assignation driverId + statut PROCESSING)',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Course acceptée — le GPS du livreur est diffusé au client',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Non autorisé (rôle DRIVER/COURIER requis) ou course déjà acceptée',
+  })
+  @ApiResponse({ status: 400, description: 'Statut incompatible avec une acceptation' })
+  async acceptOrder(@Param('id') id: string, @NestRequest() req: RequestWithUser) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.ordersService.acceptOrder(id, userId);
+  }
+
   // ========================================================================
   // 🚚 VALIDATION DU LIVREUR/COURSIER
   // Le livreur signale qu'il a effectué la livraison

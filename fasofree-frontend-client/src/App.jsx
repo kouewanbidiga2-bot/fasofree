@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
+import RideBooking from './pages/RideBooking';
+import DriverDashboard from './pages/DriverDashboard';
 import Restaurant from './pages/Restaurant';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
@@ -34,6 +36,8 @@ function App() {
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/" element={<Home />} />
+        <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
+        <Route path="/driver" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/p2p-delivery" element={<P2PDelivery />} />
         <Route path="/restaurant/:id" element={<ProtectedRoute><Restaurant /></ProtectedRoute>} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
