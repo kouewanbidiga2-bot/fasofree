@@ -15,6 +15,7 @@ const Profile = () => {
     email: user?.email || '',
     phone: user?.phone || '',
     address: '',
+    preferredNotificationChannel: 'EMAIL',
   });
 
   useEffect(() => {
@@ -27,6 +28,7 @@ const Profile = () => {
           name,
           email: me.email || '',
           phone: me.phone || '',
+          preferredNotificationChannel: me.preferredNotificationChannel || 'EMAIL',
         }));
         updateUser({ name, email: me.email, phone: me.phone, id: me.id });
       } catch {
@@ -69,6 +71,7 @@ const Profile = () => {
         fullName: formData.name,
         email: formData.email,
         phone: formData.phone,
+        preferredNotificationChannel: formData.preferredNotificationChannel,
       });
       const name = updated.fullName || updated.name || formData.name;
       updateUser({ name, email: updated.email, phone: updated.phone });
@@ -169,6 +172,18 @@ const Profile = () => {
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
                   />
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Canal de notification préféré</label>
+                  <select
+                    value={formData.preferredNotificationChannel}
+                    onChange={(e) => setFormData({ ...formData, preferredNotificationChannel: e.target.value })}
+                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
+                  >
+                    <option value="EMAIL">Email</option>
+                    <option value="WHATSAPP">WhatsApp</option>
+                    <option value="SMS">SMS</option>
+                  </select>
                 </div>
                 <button onClick={handleSave} className="w-full px-4 py-3 text-sm font-medium text-white transition-colors" style={{ backgroundColor: '#C1652E' }} disabled={loading}>
                   {loading ? 'Enregistrement…' : 'Enregistrer'}

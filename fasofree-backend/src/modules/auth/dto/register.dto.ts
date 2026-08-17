@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   Matches,
   MinLength,
 } from 'class-validator';
+import { NotificationChannel } from '../../users/entities/user.entity';
 
 export class RegisterDto {
   @ApiProperty({ example: 'Aminata Ouédraogo' })
@@ -27,4 +29,9 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
+
+  @ApiPropertyOptional({ enum: NotificationChannel, example: 'EMAIL' })
+  @IsOptional()
+  @IsEnum(NotificationChannel)
+  preferredNotificationChannel?: NotificationChannel;
 }

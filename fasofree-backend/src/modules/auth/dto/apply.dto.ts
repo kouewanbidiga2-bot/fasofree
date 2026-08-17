@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsIn,
   IsLatitude,
   IsLongitude,
@@ -10,6 +11,7 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
+import { NotificationChannel } from '../../users/entities/user.entity';
 
 export const APPLICANT_ROLES = ['MERCHANT', 'DRIVER'] as const;
 
@@ -91,4 +93,9 @@ export class ApplyDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
+
+  @ApiPropertyOptional({ enum: NotificationChannel, example: 'EMAIL', description: 'Canal de notification préféré' })
+  @IsOptional()
+  @IsEnum(NotificationChannel)
+  preferredNotificationChannel?: NotificationChannel;
 }

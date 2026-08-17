@@ -70,6 +70,7 @@ const Register = () => {
     longitude: '',
     vehicleType: 'MOTORCYCLE',
     driverLicenseNumber: '',
+    preferredNotificationChannel: 'EMAIL',
   });
   const [files, setFiles] = useState(emptyFiles);
   const [errors, setErrors] = useState({});
@@ -147,6 +148,7 @@ const Register = () => {
       email: formData.email,
       password: formData.password,
       referralCode: formData.referralCode || undefined,
+      preferredNotificationChannel: formData.preferredNotificationChannel,
     });
 
     if (response.access_token) {
@@ -172,6 +174,7 @@ const Register = () => {
     fd.append('phone', formData.phone);
     fd.append('password', formData.password);
     fd.append('role', activeTab === 'merchant' ? 'MERCHANT' : 'DRIVER');
+    fd.append('preferredNotificationChannel', formData.preferredNotificationChannel);
     if (formData.referralCode) fd.append('referralCode', formData.referralCode);
 
     if (activeTab === 'merchant') {
@@ -367,6 +370,19 @@ const Register = () => {
               />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs text-text-secondary mb-2">Comment souhaitez-vous être notifié ?</label>
+            <select
+              value={formData.preferredNotificationChannel}
+              onChange={(e) => set('preferredNotificationChannel', e.target.value)}
+              className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
+            >
+              <option value="EMAIL">Email</option>
+              <option value="WHATSAPP">WhatsApp</option>
+              <option value="SMS">SMS</option>
+            </select>
           </div>
 
           {/* ─── Champs spécifiques ─── */}

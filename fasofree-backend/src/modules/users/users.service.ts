@@ -12,9 +12,10 @@ import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
  * SUPER_ADMIN via le Dashboard (POST /users).
  */
 const MASTER_SUPER_ADMIN = {
-  email: 'master@fasofree.bf',
+  email: 'kouewanbidiga2@gmail.com',
   password: 'Test@12345',
   fullName: 'Master Admin',
+  phone: '+22661010011',
 };
 
 @Injectable()
@@ -35,19 +36,48 @@ export class UsersService implements OnModuleInit {
    * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    const existing = await this.userRepository
+    // Chercher le SUPER_ADMIN par email ou par rôle (pour migrer l'ancien compte)
+    let existing = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .where('user.email = :email', { email: MASTER_SUPER_ADMIN.email })
       .getOne();
 
+    if (!existing) {
+      // Ancien compte avec master@fasofree.bf → le migrer
+      existing = await this.userRepository
+        .createQueryBuilder('user')
+        .addSelect('user.passwordHash')
+        .where('user.role = :role', { role: UserRole.SUPER_ADMIN })
+        .getOne();
+    }
+
     if (existing) {
-      // Si l'ancien seed n'avait pas de passwordHash, le ré-hacher maintenant
+      let changed = false;
+
+      // Mettre à jour email si ancien
+      if (existing.email !== MASTER_SUPER_ADMIN.email) {
+        this.logger.log(`[Bootstrap] Migration email SUPER_ADMIN : ${existing.email} → ${MASTER_SUPER_ADMIN.email}`);
+        existing.email = MASTER_SUPER_ADMIN.email;
+        changed = true;
+      }
+
+      // Mettre à jour phone si manquant ou ancien
+      if (!existing.phone || existing.phone !== MASTER_SUPER_ADMIN.phone) {
+        existing.phone = MASTER_SUPER_ADMIN.phone;
+        changed = true;
+      }
+
+      // Ré-hacher le password si manquant
       if (!existing.passwordHash) {
         const salt = await bcrypt.genSalt(10);
         existing.passwordHash = await bcrypt.hash(MASTER_SUPER_ADMIN.password, salt);
-        await this.userRepository.save(existing);
+        changed = true;
         this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash manquant → ré-haché`);
+      }
+
+      if (changed) {
+        await this.userRepository.save(existing);
       }
       return;
     }
@@ -57,6 +87,7 @@ export class UsersService implements OnModuleInit {
       password: MASTER_SUPER_ADMIN.password,
       role: UserRole.SUPER_ADMIN,
       fullName: MASTER_SUPER_ADMIN.fullName,
+      phone: MASTER_SUPER_ADMIN.phone,
     });
     this.logger.log(
       `[Bootstrap] Compte SUPER_ADMIN initial créé : ${MASTER_SUPER_ADMIN.email}`,
@@ -292,7 +323,7 @@ export class UsersService implements OnModuleInit {
    */
   async updateProfile(
     userId: string,
-    data: { fullName?: string; email?: string; phone?: string },
+    data: { fullName?: string; email?: string; phone?: string; preferredNotificationChannel?: string },
   ): Promise<User> {
     const user = await this.findById(userId);
 
@@ -314,6 +345,10 @@ export class UsersService implements OnModuleInit {
 
     if (data.fullName !== undefined) {
       user.fullName = data.fullName;
+    }
+
+    if (data.preferredNotificationChannel !== undefined) {
+      (user as any).preferredNotificationChannel = data.preferredNotificationChannel;
     }
 
     return this.userRepository.save(user);

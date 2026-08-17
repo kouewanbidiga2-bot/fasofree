@@ -7,6 +7,12 @@ import {
 } from 'typeorm';
 import { UserRole } from './user-role.enum';
 
+export enum NotificationChannel {
+  EMAIL = 'EMAIL',
+  WHATSAPP = 'WHATSAPP',
+  SMS = 'SMS',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -23,6 +29,13 @@ export class User {
 
   @Column({ nullable: true })
   fcmToken?: string;
+
+  @Column({
+    type: 'enum',
+    enum: NotificationChannel,
+    default: NotificationChannel.EMAIL,
+  })
+  preferredNotificationChannel: NotificationChannel;
 
   @Column({ type: 'varchar', length: 16, unique: true, nullable: true })
   referralCode: string | null;

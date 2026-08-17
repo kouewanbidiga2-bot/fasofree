@@ -85,8 +85,8 @@ export class OnboardingService {
 
     await this.userRepository.save(user);
 
-    // 🎉 Envoi des identifiants de bienvenue (console.log en attendant le canal réel)
-    await this.notificationsService.sendWelcomeCredentials(user, tempPassword);
+    // 🎉 Envoi multi-canal selon la préférence de l'utilisateur
+    await this.notificationsService.sendApprovalNotification(user, tempPassword);
 
     this.logger.log(
       `[Onboarding] Candidature ${applicationType} approuvée : ${user.email}`,
@@ -115,6 +115,9 @@ export class OnboardingService {
     // isActive reste false : le compte ne peut pas se connecter.
 
     await this.userRepository.save(user);
+
+    // ❌ Notification de refus multi-canal
+    await this.notificationsService.sendRejectionNotification(user, reason);
 
     this.logger.log(
       `[Onboarding] Candidature rejetée : ${user.email} — ${reason}`,

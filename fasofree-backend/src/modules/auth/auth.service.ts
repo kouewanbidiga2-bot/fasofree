@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
-import { User } from '../users/entities/user.entity';
+import { User, NotificationChannel } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -63,6 +63,7 @@ export class AuthService {
       phone: dto.phone,
       passwordHash,
       role: UserRole.CLIENT,
+      preferredNotificationChannel: dto.preferredNotificationChannel || NotificationChannel.EMAIL,
       referralCode: `${dto.fullName
         .replace(/[^A-Za-z]/g, '')
         .slice(0, 6)
@@ -150,6 +151,7 @@ export class AuthService {
       applicationStatus: 'PENDING_APPROVAL',
       applicationType: dto.role,
       applicationData,
+      preferredNotificationChannel: dto.preferredNotificationChannel || NotificationChannel.EMAIL,
       referralCode: `${dto.fullName
         .replace(/[^A-Za-z]/g, '')
         .slice(0, 6)
