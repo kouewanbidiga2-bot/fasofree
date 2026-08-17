@@ -334,7 +334,7 @@ const BusinessAdminDashboard = () => {
     try {
       await api.patch(`/businesses/${businessId}`, businessSettings);
       // Reload business data to confirm
-      const updatedBusiness = await getBusinessById(businessId);
+      const updatedBusiness = (await api.get(`/businesses/${businessId}`)).data;
       setBusinessSettings({
         enableDelivery: updatedBusiness.enableDelivery ?? true,
         enablePickup: updatedBusiness.enablePickup ?? true,

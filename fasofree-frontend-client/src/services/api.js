@@ -96,6 +96,33 @@ export const api = {
   // Portefeuille FasoFree
   getWallet: (userId) => apiFetch(`/wallets/CUSTOMER/${userId}`, { method: 'GET' }),
   topupWallet: (data) => apiFetch('/payments/topup', { method: 'POST', body: data }),
+
+  // KYC
+  uploadKycDocument: (type, formData) => apiFetch(`/kyc/documents/${type}`, { method: 'POST', body: formData }),
+  getMyKyc: () => apiFetch('/kyc/me', { method: 'GET' }),
+  getKycDocumentUrl: (id) => apiFetch(`/kyc/documents/${id}/url`, { method: 'GET' }),
+
+  // Reviews
+  submitReview: (data) => apiFetch('/reviews', { method: 'POST', body: data }),
+  getTargetReviews: (targetId) => apiFetch(`/reviews/target/${targetId}`, { method: 'GET' }),
+  getTargetAverage: (targetId) => apiFetch(`/reviews/target/${targetId}/average`, { method: 'GET' }),
+  getOrderReview: (orderId) => apiFetch(`/reviews/order/${orderId}`, { method: 'GET' }),
+
+  // Disputes
+  getMyDispute: (id) => apiFetch(`/disputes/me/${id}`, { method: 'GET' }),
+
+  // Promotions
+  getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'GET', body: data }),
+
+  // Subscriptions marchand
+  subscribeMerchant: (planCode) => apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { planCode } }),
+
+  // Orders
+  cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED', reason } }),
+  disputeOrder: (id, data) => apiFetch(`/disputes/orders/${id}`, { method: 'POST', body: data }),
+
+  // Notifications
+  registerFcmToken: (token) => apiFetch('/notifications/fcm-token', { method: 'POST', body: { fcmToken: token } }),
 };
 
 export default api;

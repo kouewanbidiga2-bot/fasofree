@@ -141,7 +141,7 @@ async function bootstrap() {
   });
 
   // 9. Démarrage du serveur (Adapté pour Render / Cloud / Ngrok)
-  const port = Number(process.env.PORT) || 3000;
+  const port = Number(process.env.PORT) || 3100;
 
   // 10. Résilience : une erreur réseau transitoire (ex: reset TLS du cache Redis
   // Upstash dans cache-manager-redis-yet) ne doit pas tuer le process.

@@ -1,16 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, ShoppingBag, Package, Car } from 'lucide-react';
+import { Search, MapPin, Bell, ShoppingBag, Package, Car, UserPlus } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
-import { restaurants } from '../services/data';
+import { restaurants as mockRestaurants } from '../services/data';
+import api from '../services/api';
+
+const mapBusinessToRestaurant = (b) => ({
+  id: b.id,
+  name: b.name,
+  tagline: b.category || 'Restaurant',
+  description: b.name,
+  logo: b.logo || '/src/assets/cesar.jpeg',
+  coverImage: b.coverImage || '/src/assets/cesar.jpeg',
+  rating: b.rating ?? 4.0,
+  deliveryTime: b.deliveryTime || '25-40 min',
+  deliveryFee: b.deliveryFee ?? 500,
+  minOrder: b.minOrder ?? 1500,
+  latitude: b.latitude ?? b.location?.coordinates?.[1] ?? 12.37,
+  longitude: b.longitude ?? b.location?.coordinates?.[0] ?? -1.52,
+  location: b.address || 'Ouagadougou',
+  phone: b.phone || '',
+  cuisineType: b.category || 'Fast Food',
+  promo: b.promo || null,
+  categories: b.categories || [],
+  menu: b.menu || [],
+});
 
 const Home = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [filteredRestaurants, setFilteredRestaurants] = useState(restaurants);
+  const [allRestaurants, setAllRestaurants] = useState(mockRestaurants);
+  const [filteredRestaurants, setFilteredRestaurants] = useState(mockRestaurants);
+
+  useEffect(() => {
+    const loadBusinesses = async () => {
+      try {
+        const { data } = await api.get('/businesses/nearby', { params: { latitude: 12.37, longitude: -1.52 } });
+        if (Array.isArray(data) && data.length > 0) {
+          const mapped = data.map(mapBusinessToRestaurant);
+          setAllRestaurants(mapped);
+          setFilteredRestaurants(mapped);
+        }
+      } catch {
+        // Keep mock data on failure
+      }
+    };
+    loadBusinesses();
+  }, []);
 
   const categories = ['all', 'Fast Food', 'Poulet Frit', 'Cuisine Internationale'];
 
@@ -25,7 +64,7 @@ const Home = () => {
   };
 
   const filterRestaurants = (query, category) => {
-    let filtered = restaurants;
+    let filtered = allRestaurants;
 
     if (category !== 'all') {
       filtered = filtered.filter((r) => r.cuisineType === category);
@@ -92,6 +131,15 @@ const Home = () => {
 
             {/* Boutons d'action */}
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Créer un compte"
+                onClick={() => navigate('/register')}
+                className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+              >
+                <UserPlus size={18} strokeWidth={1.8} />
+                <span className="hidden sm:inline">Compte</span>
+              </button>
               <button aria-label="Notifications" className="rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
                 <Bell size={18} strokeWidth={1.8} />
               </button>
@@ -177,7 +225,7 @@ const Home = () => {
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
-                setFilteredRestaurants(restaurants);
+                setFilteredRestaurants(allRestaurants);
               }}
             >
               Réinitialiser les filtres

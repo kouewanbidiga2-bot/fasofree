@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
@@ -14,7 +14,8 @@ export class PromotionsController {
     @Query('code') code: string,
     @Query('amount') amount: string,
   ) {
-    return this.promotions.quote(code, Number(amount));
+    if (!code || !code.trim()) throw new BadRequestException('Le parametre code est requis');
+    return this.promotions.quote(code, Number(amount || 0));
   }
   @Post()
   @UseGuards(RolesGuard)

@@ -52,10 +52,15 @@ export class OnboardingController {
       'Approuver une candidature : active le compte, crée le profil Business/Livreur + portefeuille, envoie les identifiants',
   })
   async approve(@Param('id') id: string, @Request() req: AuthRequest) {
-    return this.onboardingService.approve(id, {
+    const result = await this.onboardingService.approve(id, {
       userId: req.user?.userId as string,
       role: req.user?.role as UserRole,
     });
+    // Return both user and temporary password for admin display
+    return {
+      user: result.user,
+      tempPassword: result.tempPassword,
+    };
   }
 
   // ❌ Rejeter une candidature (motif obligatoire)

@@ -64,7 +64,7 @@ export class OnboardingService {
   async approve(
     applicationId: string,
     moderator: Moderator,
-  ): Promise<User> {
+  ): Promise<{ user: User; tempPassword: string }> {
     const user = await this.findPendingApplication(applicationId);
 
     const tempPassword = `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
@@ -92,7 +92,7 @@ export class OnboardingService {
       `[Onboarding] Candidature ${applicationType} approuvée : ${user.email}`,
     );
 
-    return user;
+    return { user, tempPassword };
   }
 
   /**

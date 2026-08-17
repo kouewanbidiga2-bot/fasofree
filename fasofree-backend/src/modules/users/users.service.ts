@@ -13,7 +13,7 @@ import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
  */
 const MASTER_SUPER_ADMIN = {
   email: 'master@fasofree.bf',
-  password: 'Master@2024',
+  password: 'Test@12345',
   fullName: 'Master Admin',
 };
 

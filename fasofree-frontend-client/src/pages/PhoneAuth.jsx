@@ -235,6 +235,16 @@ const PhoneAuth = () => {
         <p className="text-center text-xs text-text-secondary mt-6">
           En continuant, vous acceptez nos conditions d'utilisation
         </p>
+
+        {/* Lien vers l'inscription avec choix de rôle */}
+        <div className="text-center mt-4">
+          <button
+            onClick={() => navigate('/register')}
+            className="text-sm text-accent-primary hover:text-accent-secondary font-medium transition-colors"
+          >
+            Créer un compte (Client, Marchand ou Livreur) →
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -210,7 +210,7 @@ const DriverDashboard = () => {
     setAcceptingJob(jobId);
     try {
       const job = availableJobs.find(j => j.id === jobId);
-      await acceptJob(job.orderId);
+      await acceptOrder(job.orderId);
       setCurrentJob(job);
       setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
     } catch (err) {

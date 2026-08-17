@@ -215,14 +215,36 @@ export class SeedCommand {
   ): Promise<User> {
     let user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
-      user = await this.usersService.create({
-        email,
-        password: SEED_PASSWORD,
-        role,
-        fullName,
-        phone,
-      });
-      console.log(`✅ Utilisateur créé : ${email} (${role})`);
+      // Try to create user, if it fails due to duplicate phone, find by phone instead
+      try {
+        user = await this.usersService.create({
+          email,
+          password: SEED_PASSWORD,
+          role,
+          fullName,
+          phone,
+        });
+        console.log(`✅ Utilisateur créé : ${email} (${role})`);
+      } catch (error) {
+        // If duplicate phone error, find existing user by phone
+        if (error.message?.includes('duplicate key') || error?.message?.includes('already exists')) {
+          const existingUser = await this.userRepository.findOne({ where: { phone } });
+          if (existingUser) {
+            user = existingUser;
+            console.log(`ℹ️  Utilisateur existant (par téléphone) : ${phone} (${role})`);
+            // Update password to known test password
+            const bcrypt = require('bcrypt');
+            const salt = await bcrypt.genSalt(10);
+            user.passwordHash = await bcrypt.hash(SEED_PASSWORD, salt);
+            await this.userRepository.save(user);
+            console.log(`🔐 Mot de passe réinitialisé à : ${SEED_PASSWORD}`);
+          } else {
+            throw new Error(`Utilisateur avec téléphone ${phone} non trouvé`);
+          }
+        } else {
+          throw error;
+        }
+      }
     } else {
       console.log(`ℹ️  Utilisateur existant : ${email}`);
     }

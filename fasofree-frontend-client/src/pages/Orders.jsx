@@ -1,40 +1,46 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import OrderItem from '../components/OrderItem';
-import Loading from '../components/Loading';
-import Error from '../components/Error';
-import { orderService } from '../services/orderService';
+import { Link, useNavigate } from 'react-router-dom';
+import { Package, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import Loading from './Loading';
+import Footer from '../components/Footer';
+import { api } from '../services/api';
+
+const STATUS_CONFIG = {
+  PENDING: { label: 'En attente', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
+  CONFIRMED: { label: 'Confirmée', color: 'text-blue-600', bg: 'bg-blue-50', icon: CheckCircle },
+  PAID: { label: 'Payée', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: CheckCircle },
+  PREPARING: { label: 'En préparation', color: 'text-orange-600', bg: 'bg-orange-50', icon: Package },
+  READY: { label: 'Prête', color: 'text-teal-600', bg: 'bg-teal-50', icon: CheckCircle },
+  OUT_FOR_DELIVERY: { label: 'En livraison', color: 'text-purple-600', bg: 'bg-purple-50', icon: Package },
+  DELIVERED: { label: 'Livrée', color: 'text-green-600', bg: 'bg-green-50', icon: CheckCircle },
+  CANCELLED: { label: 'Annulée', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
+};
 
 const Orders = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
+  useEffect(() => { loadOrders(); }, []);
 
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await orderService.getMyOrders();
+      const data = await api.getMyOrders();
       setOrders(data.data || data);
       setError(null);
     } catch (err) {
       setError('Impossible de charger vos commandes');
-      console.error('Error loading orders:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    if (filter === 'all') return true;
-    return order.status === filter;
-  });
+  const filteredOrders = orders.filter((o) => filter === 'all' || o.status === filter);
 
-  const statusFilters = [
+  const filters = [
     { value: 'all', label: 'Toutes' },
     { value: 'PENDING', label: 'En attente' },
     { value: 'CONFIRMED', label: 'Confirmées' },
@@ -45,23 +51,22 @@ const Orders = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6">Mes Commandes</h1>
+    <div className="min-h-screen bg-[#FAF6F1] font-sans">
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-semibold text-[#2D2A26] mb-6">Mes Commandes</h1>
 
-        {/* Filter tabs */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {statusFilters.map((status) => (
+          {filters.map((s) => (
             <button
-              key={status.value}
-              onClick={() => setFilter(status.value)}
-              className={`px-4 py-2 rounded-full transition ${
-                filter === status.value
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-orange-50'
+              key={s.value}
+              onClick={() => setFilter(s.value)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                filter === s.value
+                  ? 'bg-[#C1652E] text-white'
+                  : 'bg-white text-[#70645C] border border-[#E8E0D8] hover:border-[#C1652E]'
               }`}
             >
-              {status.label}
+              {s.label}
             </button>
           ))}
         </div>
@@ -69,29 +74,53 @@ const Orders = () => {
         {loading ? (
           <Loading text="Chargement des commandes..." />
         ) : error ? (
-          <Error message={error} onRetry={loadOrders} />
+          <div className="text-center py-12 bg-white rounded-xl border border-[#E8E0D8]">
+            <p className="text-[#70645C] mb-4">{error}</p>
+            <button onClick={loadOrders} className="px-6 py-2 bg-[#C1652E] text-white rounded-lg text-sm font-medium">Réessayer</button>
+          </div>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500 text-lg mb-4">
-              {filter === 'all' 
-                ? 'Vous n\'avez aucune commande pour le moment' 
-                : `Aucune commande ${filter.toLowerCase()}`}
+          <div className="text-center py-12 bg-white rounded-xl border border-[#E8E0D8]">
+            <Package size={48} className="mx-auto text-[#C4B8AA] mb-4" />
+            <p className="text-[#70645C] text-lg mb-2">
+              {filter === 'all' ? "Aucune commande pour le moment" : `Aucune commande ${filter.toLowerCase()}`}
             </p>
-            <Link
-              to="/"
-              className="inline-block px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition"
-            >
-              Passer une commande
+            <Link to="/" className="inline-block px-6 py-2 bg-[#C1652E] text-white rounded-lg text-sm font-medium mt-2">
+              Commander
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredOrders.map((order) => (
-              <OrderItem key={order.id} order={order} />
-            ))}
+          <div className="space-y-3">
+            {filteredOrders.map((order) => {
+              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+              const Icon = cfg.icon;
+              return (
+                <button
+                  key={order.id}
+                  onClick={() => navigate(`/order-tracking?id=${order.id}`)}
+                  className="w-full flex items-center gap-4 bg-white rounded-xl border border-[#E8E0D8] p-4 text-left hover:border-[#C1652E] transition"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>
+                    <Icon size={18} className={cfg.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#2D2A26] truncate">
+                      Commande #{order.id?.slice(0, 8)}
+                    </p>
+                    <p className="text-xs text-[#70645C] mt-0.5">
+                      {cfg.label} &middot; {new Date(order.createdAt).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-[#2D2A26]">{order.totalAmount?.toLocaleString()} F</p>
+                  </div>
+                  <ChevronRight size={16} className="text-[#C4B8AA]" />
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
+      <Footer />
     </div>
   );
 };

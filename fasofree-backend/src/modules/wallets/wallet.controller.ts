@@ -21,28 +21,9 @@ import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
-  @Get(':userRole/:userId')
-  @ApiOperation({
-    summary: 'Obtenir ou créer le portefeuille d’un utilisateur',
-  })
-  async getWallet(
-    @Request()
-    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
-    @Param('userId') userId: string,
-    @Param('userRole', new ParseEnumPipe(UserRole)) userRole: UserRole,
-  ) {
-    const user = req.user;
-    if (user?.role !== AppUserRole.SUPER_ADMIN && user?.userId !== userId) {
-      throw new ForbiddenException(
-        'Vous ne pouvez consulter que votre portefeuille',
-      );
-    }
-    return this.walletService.getOrCreateWallet(userId, userRole);
-  }
-
   @Get(':walletId/transactions')
   @ApiOperation({
-    summary: 'Obtenir l’historique des transactions d’un portefeuille',
+    summary: 'Historique des transactions d\'un portefeuille',
   })
   async getTransactions(
     @Request()
@@ -57,5 +38,24 @@ export class WalletController {
       user?.role === AppUserRole.SUPER_ADMIN,
       limit ? Number(limit) : 20,
     );
+  }
+
+  @Get(':userRole/:userId')
+  @ApiOperation({
+    summary: 'Obtenir ou creer le portefeuille d\'un utilisateur',
+  })
+  async getWallet(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('userId') userId: string,
+    @Param('userRole', new ParseEnumPipe(UserRole)) userRole: UserRole,
+  ) {
+    const user = req.user;
+    if (user?.role !== AppUserRole.SUPER_ADMIN && user?.userId !== userId) {
+      throw new ForbiddenException(
+        'Vous ne pouvez consulter que votre portefeuille',
+      );
+    }
+    return this.walletService.getOrCreateWallet(userId, userRole);
   }
 }

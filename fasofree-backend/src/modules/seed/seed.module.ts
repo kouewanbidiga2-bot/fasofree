@@ -19,6 +19,9 @@ import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
 import { SeedCommand } from './seed.command';
+import { GetCredentialsCommand } from './get-credentials';
+import { DiagnoseDbCommand } from './diagnose-db';
+import { ResetSuperAdminCommand } from './reset-super-admin.command';
 
 /**
  * Module isolé pour la CLI de seeding (npm run command seed:test-data).
@@ -52,6 +55,11 @@ import { SeedCommand } from './seed.command';
     BrandsModule,
     SubscriptionsModule,
   ],
-  providers: [SeedCommand],
+  providers: [
+    SeedCommand,
+    GetCredentialsCommand,
+    DiagnoseDbCommand,
+    ResetSuperAdminCommand,
+  ],
 })
 export class SeedModule {}

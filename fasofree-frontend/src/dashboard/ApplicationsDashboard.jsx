@@ -15,12 +15,13 @@ import {
   ExternalLink,
   ClipboardList,
   Loader2,
+  X,
 } from 'lucide-react';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getApplications, approveApplication, rejectApplication } from '../services/onboardingService';
 import { getKycPending, getKycDocumentUrl } from '../services/kycService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100/api/v1';
 const API_ORIGIN = API_URL.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 const resolveFileUrl = (u) => (u && !u.startsWith('http') ? `${API_ORIGIN}${u}` : u);
 
@@ -45,6 +46,8 @@ const ApplicationsDashboard = () => {
   const [selected, setSelected] = useState(null);
   const [kycDocs, setKycDocs] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
+  const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: null, title: '' });
+  const [successModal, setSuccessModal] = useState({ isOpen: false, tempPassword: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,8 +98,14 @@ const ApplicationsDashboard = () => {
     setBusy(app.id);
     setMsg(null);
     try {
-      await approveApplication(app.id);
+      const response = await approveApplication(app.id);
       setMsg({ type: 'success', text: `Candidature de ${app.fullName} approuvée. Identifiants envoyés.` });
+      
+      // Show success modal with temporary password if returned
+      if (response && response.tempPassword) {
+        setSuccessModal({ isOpen: true, tempPassword: response.tempPassword });
+      }
+      
       if (selected?.id === app.id) setSelected(null);
       await load();
     } catch (err) {
@@ -405,14 +414,12 @@ const ApplicationsDashboard = () => {
                       <li key={doc.id} className="flex items-center justify-between bg-background-secondary rounded-lg px-4 py-3">
                         <span className="text-sm text-text-primary">{KYC_LABELS[doc.type] || doc.type}</span>
                         {doc.url ? (
-                          <a
-                            href={doc.url}
-                            target="_blank"
-                            rel="noreferrer"
+                          <button
+                            onClick={() => setImageModal({ isOpen: true, imageUrl: doc.url, title: KYC_LABELS[doc.type] || doc.type })}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-accent-primary hover:underline"
                           >
-                            Ouvrir <ExternalLink size={12} />
-                          </a>
+                            <Eye size={12} /> Voir
+                          </button>
                         ) : (
                           <span className="text-xs text-text-tertiary">Indisponible</span>
                         )}
@@ -448,6 +455,75 @@ const ApplicationsDashboard = () => {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Modal for KYC Documents */}
+      {imageModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4" onClick={() => setImageModal({ isOpen: false, imageUrl: null, title: '' })}>
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-lg font-semibold text-text-primary">{imageModal.title}</h3>
+              <button
+                onClick={() => setImageModal({ isOpen: false, imageUrl: null, title: '' })}
+                className="p-2 hover:bg-background-secondary rounded-lg transition-colors"
+              >
+                <X size={20} className="text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-background-secondary min-h-[400px]">
+              {imageModal.imageUrl ? (
+                <img
+                  src={imageModal.imageUrl}
+                  alt={imageModal.title}
+                  className="max-w-full max-h-[70vh] object-contain rounded"
+                  onError={(e) => {
+                    e.target.src = '/placeholder-image.png';
+                    e.target.alt = 'Image non disponible';
+                  }}
+                />
+              ) : (
+                <p className="text-text-secondary">Image non disponible</p>
+              )}
+            </div>
+            <div className="p-4 border-t bg-background-card">
+              <button
+                onClick={() => setImageModal({ isOpen: false, imageUrl: null, title: '' })}
+                className="w-full py-2 text-center text-text-secondary hover:text-text-primary transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal with Temporary Password */}
+      {successModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4" onClick={() => setSuccessModal({ isOpen: false, tempPassword: '' })}>
+          <div className="bg-white rounded-lg max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle size={32} className="text-success" />
+              </div>
+              <h3 className="text-xl font-bold text-text-primary mb-2">Compte approuvé !</h3>
+              <p className="text-text-secondary text-sm mb-4">
+                Voici le mot de passe temporaire à transmettre au partenaire :
+              </p>
+              <div className="bg-background-secondary rounded-lg p-4 mb-4">
+                <code className="text-lg font-mono font-bold text-accent-primary">{successModal.tempPassword}</code>
+              </div>
+              <p className="text-xs text-text-secondary mb-6">
+                Le partenaire pourra changer ce mot de passe après sa première connexion.
+              </p>
+              <button
+                onClick={() => setSuccessModal({ isOpen: false, tempPassword: '' })}
+                className="w-full py-3 bg-accent-primary text-white rounded-lg font-semibold hover:bg-accent-secondary transition-colors"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>

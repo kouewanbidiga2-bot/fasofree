@@ -36,6 +36,36 @@
         ]
       }
     },
+    "/api/v1/users/me/driver-status": {
+      "patch": {
+        "operationId": "UsersController_setDriverStatus",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDriverStatusDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour son statut de livreur (en ligne, position GPS, véhicule)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
     "/api/v1/users": {
       "get": {
         "operationId": "UsersController_getAllUsers",
@@ -182,6 +212,31 @@
           }
         },
         "summary": "Créer un compte utilisateur",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/apply": {
+      "post": {
+        "operationId": "AuthController_apply",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Candidater comme Marchand ou Livreur (KYC). Le compte est créé en attente d'approbation.",
         "tags": [
           "Authentication"
         ]
@@ -488,38 +543,6 @@
         ]
       }
     },
-    "/api/v1/wallets/{userRole}/{userId}": {
-      "get": {
-        "operationId": "WalletController_getWallet",
-        "parameters": [
-          {
-            "name": "userId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "userRole",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "summary": "Obtenir ou créer le portefeuille d’un utilisateur",
-        "tags": [
-          "Wallets"
-        ]
-      }
-    },
     "/api/v1/wallets/{walletId}/transactions": {
       "get": {
         "operationId": "WalletController_getTransactions",
@@ -546,9 +569,244 @@
             "description": ""
           }
         },
-        "summary": "Obtenir l’historique des transactions d’un portefeuille",
+        "summary": "Historique des transactions d'un portefeuille",
         "tags": [
           "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/{userRole}/{userId}": {
+      "get": {
+        "operationId": "WalletController_getWallet",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userRole",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir ou creer le portefeuille d'un utilisateur",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/kyc/documents/{type}": {
+      "post": {
+        "operationId": "KycController_submit",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/kyc/me": {
+      "get": {
+        "operationId": "KycController_mine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/kyc/documents/{id}/url": {
+      "get": {
+        "operationId": "KycController_signedUrl",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/kyc/admin/pending": {
+      "get": {
+        "operationId": "KycController_listPending",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/kyc/admin/{id}/approve": {
+      "post": {
+        "operationId": "KycController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/kyc/admin/{id}/reject": {
+      "post": {
+        "operationId": "KycController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewKycDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "KYC"
+        ]
+      }
+    },
+    "/api/v1/uploads/image": {
+      "post": {
+        "operationId": "UploadController_uploadImage",
+        "parameters": [
+          {
+            "name": "folder",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploadée"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Uploader une image",
+        "tags": [
+          "Uploads"
         ]
       }
     },
@@ -1090,6 +1348,41 @@
           }
         ],
         "summary": "Mettre à jour le statut d'une commande",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/accept": {
+      "post": {
+        "operationId": "OrdersController_acceptOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Course acceptée — le GPS du livreur est diffusé au client"
+          },
+          "400": {
+            "description": "Statut incompatible avec une acceptation"
+          },
+          "403": {
+            "description": "Non autorisé (rôle DRIVER/COURIER requis) ou course déjà acceptée"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Le livreur/coursier accepte une course (assignation driverId + statut PROCESSING)",
         "tags": [
           "Orders"
         ]
@@ -2259,106 +2552,33 @@
         ]
       }
     },
-    "/api/v1/uploads/image": {
-      "post": {
-        "operationId": "UploadController_uploadImage",
+    "/api/v1/users/applications": {
+      "get": {
+        "operationId": "OnboardingController_list",
         "parameters": [
           {
-            "name": "folder",
+            "name": "status",
             "required": false,
             "in": "query",
-            "schema": {}
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_APPROVAL",
+                "APPROVED",
+                "REJECTED"
+              ]
             }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Image uploadée"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Uploader une image",
-        "tags": [
-          "Uploads"
-        ]
-      }
-    },
-    "/api/v1/kyc/documents/{type}": {
-      "post": {
-        "operationId": "KycController_submit",
-        "parameters": [
+          },
           {
             "name": "type",
-            "required": true,
-            "in": "path",
+            "required": false,
+            "in": "query",
             "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "tags": [
-          "KYC"
-        ]
-      }
-    },
-    "/api/v1/kyc/me": {
-      "get": {
-        "operationId": "KycController_mine",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "tags": [
-          "KYC"
-        ]
-      }
-    },
-    "/api/v1/kyc/documents/{id}/url": {
-      "get": {
-        "operationId": "KycController_signedUrl",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
+              "type": "string",
+              "enum": [
+                "MERCHANT",
+                "DRIVER"
+              ]
             }
           }
         ],
@@ -2372,33 +2592,15 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Lister les candidatures marchands & livreurs (statut, type, recherche)",
         "tags": [
-          "KYC"
+          "Onboarding"
         ]
       }
     },
-    "/api/v1/kyc/admin/pending": {
-      "get": {
-        "operationId": "KycController_listPending",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "tags": [
-          "KYC"
-        ]
-      }
-    },
-    "/api/v1/kyc/admin/{id}/approve": {
+    "/api/v1/users/applications/{id}/approve": {
       "post": {
-        "operationId": "KycController_approve",
+        "operationId": "OnboardingController_approve",
         "parameters": [
           {
             "name": "id",
@@ -2419,14 +2621,15 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Approuver une candidature : active le compte, crée le profil Business/Livreur + portefeuille, envoie les identifiants",
         "tags": [
-          "KYC"
+          "Onboarding"
         ]
       }
     },
-    "/api/v1/kyc/admin/{id}/reject": {
+    "/api/v1/users/applications/{id}/reject": {
       "post": {
-        "operationId": "KycController_reject",
+        "operationId": "OnboardingController_reject",
         "parameters": [
           {
             "name": "id",
@@ -2442,7 +2645,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReviewKycDto"
+                "$ref": "#/components/schemas/RejectApplicationDto"
               }
             }
           }
@@ -2457,8 +2660,9 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Rejeter une candidature avec motif",
         "tags": [
-          "KYC"
+          "Onboarding"
         ]
       }
     },
@@ -2659,6 +2863,36 @@
       }
     },
     "schemas": {
+      "UpdateDriverStatusDto": {
+        "type": "object",
+        "properties": {
+          "isOnline": {
+            "type": "boolean",
+            "description": "Le livreur est-il en ligne (prêt à recevoir des courses) ?",
+            "example": true
+          },
+          "isAvailable": {
+            "type": "boolean",
+            "description": "Le livreur accepte-t-il les courses actuellement ?",
+            "example": true
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Latitude",
+            "example": 12.3714
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Coordonnée GPS Longitude",
+            "example": -1.5197
+          },
+          "vehicleType": {
+            "type": "string",
+            "description": "Type de véhicule : MOTO, SCOOTER, VTC, BICYCLE, FOOT",
+            "example": "MOTO"
+          }
+        }
+      },
       "CreateUserDto": {
         "type": "object",
         "properties": {
@@ -2766,6 +3000,82 @@
           "email",
           "phone",
           "password"
+        ]
+      },
+      "ApplyDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "Aminata Ouédraogo"
+          },
+          "email": {
+            "type": "string",
+            "example": "marchand@fasofree.bf"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+22670000000"
+          },
+          "password": {
+            "type": "string",
+            "example": "MotDePasseFort123!"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "MERCHANT",
+              "DRIVER"
+            ],
+            "example": "MERCHANT"
+          },
+          "businessName": {
+            "type": "string",
+            "example": "Restaurant Faso Délices"
+          },
+          "businessAddress": {
+            "type": "string",
+            "example": "Avenue Kwame Nkrumah, Ouagadougou"
+          },
+          "businessCategory": {
+            "type": "string",
+            "enum": [
+              "RESTAURANT",
+              "SUPERMARKET",
+              "PHARMACY",
+              "RETAIL",
+              "BAKERY",
+              "SERVICES"
+            ],
+            "example": "RESTAURANT"
+          },
+          "latitude": {
+            "type": "number",
+            "example": 12.3714
+          },
+          "longitude": {
+            "type": "number",
+            "example": -1.5197
+          },
+          "vehicleType": {
+            "type": "string",
+            "example": "MOTO"
+          },
+          "driverLicenseNumber": {
+            "type": "string",
+            "example": "BF123456"
+          },
+          "referralCode": {
+            "type": "string",
+            "example": "AMINATA-7F3A"
+          }
+        },
+        "required": [
+          "fullName",
+          "email",
+          "phone",
+          "password",
+          "role"
         ]
       },
       "LoginDto": {
@@ -3003,6 +3313,15 @@
         "required": [
           "businessId"
         ]
+      },
+      "ReviewKycDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Obligatoire en cas de rejet."
+          }
+        }
       },
       "CreateBusinessDto": {
         "type": "object",
@@ -3769,14 +4088,17 @@
           "destinationLongitude"
         ]
       },
-      "ReviewKycDto": {
+      "RejectApplicationDto": {
         "type": "object",
         "properties": {
           "reason": {
             "type": "string",
-            "description": "Obligatoire en cas de rejet."
+            "example": "Pièce d'identité illisible"
           }
-        }
+        },
+        "required": [
+          "reason"
+        ]
       },
       "CreateBrandDto": {
         "type": "object",

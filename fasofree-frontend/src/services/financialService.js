@@ -24,8 +24,17 @@ export const getPendingDisputes = async (status) => {
 };
 
 /**
- * Obtenir la santé du système (float Mobile Money, etc.)
- * @returns {Promise<object>} État de santé
+ * Obtenir l'historique des transactions d'un portefeuille
+ * @param {string} walletId - ID du portefeuille
+ * @param {number} limit - Nombre max de transactions
+ */
+export const getWalletTransactions = async (walletId, limit = 50) => {
+  const response = await api.get(`/wallets/${walletId}/transactions`, { params: { limit } });
+  return response.data;
+};
+
+/**
+ * Obtenir la santé du système
  */
 export const getSystemHealth = async () => {
   const response = await api.get('/health');
