@@ -105,7 +105,7 @@ const Register = () => {
   };
 
   const validateForm = () => {
-    if (activeTab === 'client') return validateCommon(6);
+    if (activeTab === 'client') return validateCommon(8);
 
     const newErrors = validateCommon(8);
     if (activeTab === 'merchant') {

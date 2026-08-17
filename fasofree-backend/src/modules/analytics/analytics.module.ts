@@ -21,24 +21,27 @@ import { Transaction } from '../payments/entities/transaction.entity';
       ? [
           CacheModule.registerAsync({
             useFactory: async () => {
-              const redisUrl =
-                process.env.REDIS_URL ||
-                (process.env.REDIS_PASSWORD
-                  ? `rediss://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
-                  : undefined);
+              try {
+                const redisUrl =
+                  process.env.REDIS_URL ||
+                  (process.env.REDIS_PASSWORD
+                    ? `rediss://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+                    : undefined);
 
-              const store = await redisStore(
-                redisUrl
-                  ? { url: redisUrl }
-                  : {
-                      socket: {
-                        host: process.env.REDIS_HOST || 'localhost',
-                        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+                const store = await redisStore(
+                  redisUrl
+                    ? { url: redisUrl }
+                    : {
+                        socket: {
+                          host: process.env.REDIS_HOST || 'localhost',
+                          port: parseInt(process.env.REDIS_PORT || '6379', 10),
+                        },
                       },
-                    },
-              );
-
-              return { store };
+                );
+                return { store };
+              } catch {
+                return {};
+              }
             },
           }),
         ]
