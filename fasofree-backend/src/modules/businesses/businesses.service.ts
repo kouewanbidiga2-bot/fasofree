@@ -50,26 +50,44 @@ export class BusinessesService {
     return business;
   }
 
-  // 📍 2. Recherche spatiale PostGIS : Commerces dans un rayon donné
+  // 📍 2. Recherche spatiale : Commerces dans un rayon donné
+  // Essaie PostGIS d'abord, fallback Haversine si l'extension n'est pas dispo.
   async findNearby(dto: FindNearbyDto): Promise<Business[]> {
     const radiusMeters = (dto.radiusInKm || 5) * 1000;
 
-    return this.businessRepository
-      .createQueryBuilder('business')
-      .where(
-        `ST_DWithin(
-          business.location::geography,
-          ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
-          :radius
-        )`,
-        {
-          longitude: dto.longitude,
-          latitude: dto.latitude,
-          radius: radiusMeters,
-        },
-      )
-      .andWhere('business.isOpen = true')
-      .getMany();
+    try {
+      return await this.businessRepository
+        .createQueryBuilder('business')
+        .where(
+          `ST_DWithin(
+            business.location::geography,
+            ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography,
+            :radius
+          )`,
+          {
+            longitude: dto.longitude,
+            latitude: dto.latitude,
+            radius: radiusMeters,
+          },
+        )
+        .andWhere('business.isOpen = true')
+        .getMany();
+    } catch {
+      // PostGIS indisponible → fallback Haversine sur les colonnes lat/lng
+      const all = await this.businessRepository.find({ where: { isOpen: true } });
+      return all.filter((b) => {
+        if (b.latitude == null || b.longitude == null) return false;
+        const R = 6371e3;
+        const dLat = ((b.latitude - dto.latitude) * Math.PI) / 180;
+        const dLon = ((b.longitude - dto.longitude) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos((dto.latitude * Math.PI) / 180) *
+            Math.cos((b.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) ** 2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= radiusMeters;
+      });
+    }
   }
 
   // 🏪 2bis. Lister tous les commerces (Super Admin)

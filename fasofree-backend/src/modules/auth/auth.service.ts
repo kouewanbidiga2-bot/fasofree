@@ -70,10 +70,15 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
-    this.events.emit(USER_REGISTERED, {
-      userId: user.id,
-      referralCode: dto.referralCode,
-    });
+
+    try {
+      this.events.emit(USER_REGISTERED, {
+        userId: user.id,
+        referralCode: dto.referralCode,
+      });
+    } catch (err) {
+      this.logger.warn(`Event USER_REGISTERED emit failed: ${(err as Error).message}`);
+    }
 
     // Retourner un token d'accès directement après l'inscription
     return this.generateToken(user);
@@ -240,8 +245,13 @@ export class AuthService {
 
   // 💎 Client abonné FasoFree Pass VIP ? (frais de plateforme offerts)
   private async resolveIsPremium(user: User): Promise<boolean> {
-    if (!user || user.role !== 'client') return false;
-    return this.subscriptionService.isVipActive(user.id);
+    try {
+      if (!user || user.role !== 'client') return false;
+      return await this.subscriptionService.isVipActive(user.id);
+    } catch (err) {
+      this.logger.warn(`resolveIsPremium failed for ${user?.id}: ${(err as Error).message}`);
+      return false;
+    }
   }
 
   // 🔑 5. Demande de réinitialisation du mot de passe
@@ -280,20 +290,25 @@ export class AuthService {
 
   // 🎟️ 4. Génération du Jeton JWT avec format frontend-compatible
   private async generateToken(user: User) {
-    const payload = { sub: user.id, role: user.role };
-    const accessToken = this.jwtService.sign(payload);
+    try {
+      const payload = { sub: user.id, role: user.role };
+      const accessToken = this.jwtService.sign(payload);
 
-    return {
-      access_token: accessToken,
-      user: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-        isActive: user.isActive,
-        isPremium: await this.resolveIsPremium(user),
-      },
-    };
+      return {
+        access_token: accessToken,
+        user: {
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          isActive: user.isActive,
+          isPremium: await this.resolveIsPremium(user),
+        },
+      };
+    } catch (err) {
+      this.logger.error(`generateToken FAILED for user ${user?.id}: ${(err as Error).message}`, (err as Error).stack);
+      throw err;
+    }
   }
 }

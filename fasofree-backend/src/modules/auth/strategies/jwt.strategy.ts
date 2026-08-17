@@ -1,10 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import { User } from '../../users/entities/user.entity';
 
 export interface JwtPayload {
@@ -14,27 +14,32 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private static resolveSecret(configService: ConfigService): string {
+    let secret = configService.get<string>('JWT_SECRET');
+    if (secret && secret.length >= 32) return secret;
+
+    const isProd = configService.get<string>('NODE_ENV') === 'production';
+    const logger = new Logger('JwtStrategy');
+
+    if (isProd) {
+      const dbUrl = configService.get<string>('DATABASE_URL') || '';
+      secret = createHash('sha256')
+        .update(dbUrl + 'fasofree-jwt-fallback-2024')
+        .digest('hex');
+      logger.warn('⚠️  JWT_SECRET non défini — secret dérivé de DATABASE_URL (JwtStrategy)');
+    } else {
+      secret = randomBytes(48).toString('hex');
+      logger.warn('⚠️ JWT_SECRET absent — clé temporaire dev (JwtStrategy)');
+    }
+    return secret;
+  }
+
   constructor(
     configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {
-    let secret = configService.get<string>('JWT_SECRET');
-    if (!secret || secret.length < 32) {
-      if (configService.get<string>('NODE_ENV') === 'production') {
-        throw new Error(
-          'JWT_SECRET doit être défini et contenir au moins 32 caractères',
-        );
-      }
-
-      const fallback = randomBytes(48).toString('hex');
-
-      console.warn(
-        `⚠️ JWT_SECRET absent ou trop court — génération d'une clé temporaire pour le dev`,
-      );
-      secret = fallback;
-    }
-
+    const secret = JwtStrategy.resolveSecret(configService);
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -42,9 +47,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // 🛡️ Exécuté automatiquement après validation mathématique du token.
-  // Re-vérifie l'utilisateur en base : un compte banni ou désactivé est
-  // immédiatement rejeté, même si son token n'a pas encore expiré.
   async validate(payload: JwtPayload) {
     if (!payload.sub) {
       throw new UnauthorizedException("Jeton d'accès invalide");
@@ -60,8 +62,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Ce compte est désactivé');
     }
 
-    // Le rôle renvoyé provient de la base (pas du token) : un changement de
-    // rôle effectué par un SUPER_ADMIN est pris en compte immédiatement.
     return { userId: user.id, role: user.role };
   }
 }

@@ -4,6 +4,7 @@ import { ArrowLeft, Star, Clock, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
 import { getRestaurantById } from '../services/data';
 import useCartStore from '../store/cartStore';
+import api from '../services/api';
 
 const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -28,10 +29,55 @@ const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) =
 const Restaurant = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const restaurant = getRestaurantById(id);
+  const [restaurant, setRestaurant] = useState(getRestaurantById(id));
+  const [loading, setLoading] = useState(!getRestaurantById(id));
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { addItem, getTotalItems } = useCartStore();
+
+  useEffect(() => {
+    if (restaurant) return;
+    const loadBusiness = async () => {
+      try {
+        setLoading(true);
+        const business = await api.getBusiness(id);
+        const menu = (business.products || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          price: p.price,
+          category: p.category || 'Général',
+          image: p.imageUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600',
+          available: p.isAvailable !== false,
+        }));
+        setRestaurant({
+          id: business.id,
+          name: business.name,
+          tagline: business.category || 'Restaurant',
+          description: business.name,
+          logo: business.logo || '/src/assets/cesar.jpeg',
+          coverImage: business.coverImage || '/src/assets/cesar.jpeg',
+          rating: business.rating ?? 4.0,
+          deliveryTime: business.deliveryTime || '25-40 min',
+          deliveryFee: business.deliveryFee ?? 500,
+          minOrder: business.minOrder ?? 1500,
+          latitude: business.latitude ?? business.location?.coordinates?.[1] ?? 12.37,
+          longitude: business.longitude ?? business.location?.coordinates?.[0] ?? -1.52,
+          location: business.address || 'Ouagadougou',
+          phone: business.phone || '',
+          cuisineType: business.category || 'Fast Food',
+          promo: business.promo || null,
+          categories: [...new Set(menu.map((m) => m.category))],
+          menu,
+        });
+      } catch {
+        setRestaurant(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadBusiness();
+  }, [id, restaurant]);
 
   const getRestaurantColor = (name) => {
     const lowerName = name.toLowerCase();
@@ -43,6 +89,14 @@ const Restaurant = () => {
   };
 
   const restaurantColor = restaurant ? getRestaurantColor(restaurant.name) : '#C1652E';
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background-primary flex items-center justify-center">
+        <p className="text-text-secondary">Chargement du restaurant...</p>
+      </div>
+    );
+  }
 
   if (!restaurant) {
     return (

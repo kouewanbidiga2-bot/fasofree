@@ -5,7 +5,7 @@
  */
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3100/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
