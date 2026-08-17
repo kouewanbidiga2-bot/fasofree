@@ -1,28 +1,28 @@
 # ============================================================
 # FasoFree - Blueprint Render (render.yaml)
-# Déploiement : API NestJS + Console Admin (Vite) + App Client (Vite)
+# Déploiement : API NestJS (Docker) + Console Admin (Vite) + App Client (Vite)
 #
 # AU PREMIER DÉPLOIEMENT :
-#   1. Les variables marquées `sync: false` sont à saisir dans le dashboard
+#   1. Créez les 3 services via "New > Blueprint" dans Render
+#   2. Les variables marquées `sync: false` sont à saisir dans le dashboard
 #      Render (Service > Environment) AVANT la 1re build :
 #        - DATABASE_URL       (ex: postgres://...?sslmode=require  - Neon)
 #        - JWT_SECRET         (min 32 caractères)
 #        - FIREBASE_*         (projet, client_email, private_key)
 #        - REDIS_URL          (optionnel, Upstash recommandé)
-#   2. DB_SYNCHRONIZE=true + DB_MIGRATIONS_RUN=false : le schéma existant
-#      (déjà créé par le dev) est réparé de façon idempotente au boot.
+#   3. DB_SYNCHRONIZE=true + DB_MIGRATIONS_RUN=false : le schéma existant
+#      est réparé de façon idempotente au boot.
 #      APRÈS un 1er démarrage réussi, basculez DB_SYNCHRONIZE=false.
 # ============================================================
 
 services:
-  # ---------------- API BACKEND (NestJS) ----------------
+  # ---------------- API BACKEND (NestJS via Docker) ----------------
   - type: web
     name: fasofree-api
-    runtime: node
+    runtime: docker
     plan: free
-    rootDir: fasofree-backend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
+    dockerfilePath: ./fasofree-backend/Dockerfile
+    dockerContext: ./fasofree-backend
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
