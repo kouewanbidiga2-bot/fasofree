@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -131,5 +132,22 @@ export class UsersController {
     }
     const operator = await this.usersService.findById(operatorId);
     return this.usersService.updateRole(operator, id, dto.role);
+  }
+
+  // 🗑️ Supprimer définitivement un compte (Super Admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Delete(':id')
+  @ApiOperation({ summary: 'Supprimer définitivement un utilisateur (SUPER_ADMIN)' })
+  async deleteUser(
+    @Param('id') id: string,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const operatorId = req.user?.userId;
+    if (!operatorId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    const operator = await this.usersService.findById(operatorId);
+    return this.usersService.deleteUser(operator, id);
   }
 }

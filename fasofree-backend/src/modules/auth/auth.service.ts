@@ -1,10 +1,4 @@
-import {
-  Injectable,
-  ConflictException,
-  UnauthorizedException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
@@ -20,6 +14,7 @@ import { USER_REGISTERED } from '../promotions/events/promotion.events';
 import { SubscriptionService } from '../subscriptions/subscription.service';
 import { KycService } from '../kyc/kyc.service';
 import { KycDocumentType } from '../kyc/entities/kyc-document.entity';
+import { UsersService } from '../users/users.service';
 
 /** Champs fichiers KYC acceptés dans la candidature multipart */
 const KYC_FILE_FIELDS: Record<string, KycDocumentType> = {
@@ -30,6 +25,8 @@ const KYC_FILE_FIELDS: Record<string, KycDocumentType> = {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -37,6 +34,7 @@ export class AuthService {
     private readonly events: EventEmitter2,
     private readonly subscriptionService: SubscriptionService,
     private readonly kycService: KycService,
+    private readonly usersService: UsersService,
   ) {}
 
   // 📝 1. Inscription d'un nouvel utilisateur
@@ -244,6 +242,40 @@ export class AuthService {
   private async resolveIsPremium(user: User): Promise<boolean> {
     if (!user || user.role !== 'client') return false;
     return this.subscriptionService.isVipActive(user.id);
+  }
+
+  // 🔑 5. Demande de réinitialisation du mot de passe
+  async forgotPassword(email: string): Promise<void> {
+    const result = await this.usersService.generatePasswordResetToken(email);
+    if (result) {
+      // TODO: envoyer un email avec le lien de réinitialisation
+      // Pour l'instant, on log le token pour le dev
+      this.logger.log(`🔑 Token de réinitialisation pour ${email}: ${result.token}`);
+      console.log(`🔑 RESET LINK: /reset-password?token=${result.token}`);
+    }
+    // Ne jamais révéler si l'email existe ou non
+  }
+
+  // 🔑 6. Réinitialiser le mot de passe avec le token
+  async resetPassword(token: string, newPassword: string) {
+    if (!token || !newPassword) {
+      throw new BadRequestException('Token et nouveau mot de passe requis');
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères');
+    }
+    return this.usersService.resetPassword(token, newPassword);
+  }
+
+  // 🔑 7. Changer le mot de passe (utilisateur connecté)
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    if (!currentPassword || !newPassword) {
+      throw new BadRequestException('Mot de passe actuel et nouveau mot de passe requis');
+    }
+    if (newPassword.length < 8) {
+      throw new BadRequestException('Le nouveau mot de passe doit contenir au moins 8 caractères');
+    }
+    return this.usersService.changePassword(userId, currentPassword, newPassword);
   }
 
   // 🎟️ 4. Génération du Jeton JWT avec format frontend-compatible

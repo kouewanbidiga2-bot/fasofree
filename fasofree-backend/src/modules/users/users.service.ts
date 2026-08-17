@@ -176,7 +176,104 @@ export class UsersService implements OnModuleInit {
     return user;
   }
 
-  // 🛡️ Lister tous les utilisateurs (Admin)
+  /**
+   * 🗑️ Supprimer définitivement un compte utilisateur.
+   * Interdit de supprimer un autre SUPER_ADMIN.
+   */
+  async deleteUser(
+    operator: User,
+    targetUserId: string,
+  ): Promise<{ message: string }> {
+    const targetUser = await this.findById(targetUserId);
+    await this.assertCanModify(operator, targetUser);
+
+    if (targetUser.id === operator.id) {
+      throw new ForbiddenException('Vous ne pouvez pas supprimer votre propre compte');
+    }
+
+    await this.userRepository.remove(targetUser);
+    return { message: `Utilisateur ${targetUser.email} supprimé définitivement` };
+  }
+
+  /**
+   * 🔑 Réinitialisation du mot de passe : générer un token de réinitialisation.
+   */
+  async generatePasswordResetToken(email: string): Promise<{ token: string } | null> {
+    const user = await this.userRepository.findOne({ where: { email } });
+    if (!user) {
+      // Ne pas révéler si l'email existe ou non (sécurité)
+      return null;
+    }
+
+    const token = require('crypto').randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000); // 1 heure
+
+    (user as any).passwordResetToken = token;
+    (user as any).passwordResetExpires = expires;
+    await this.userRepository.save(user);
+
+    return { token };
+  }
+
+  /**
+   * 🔑 Réinitialiser le mot de passe avec un token valide.
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('user."passwordResetToken" = :token', { token })
+      .getOne();
+
+    if (!user) {
+      throw new ForbiddenException('Token de réinitialisation invalide');
+    }
+
+    if (
+      !(user as any).passwordResetExpires ||
+      new Date((user as any).passwordResetExpires) < new Date()
+    ) {
+      throw new ForbiddenException('Token de réinitialisation expiré');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    (user as any).passwordHash = hashedPassword;
+    (user as any).passwordResetToken = null;
+    (user as any).passwordResetExpires = null;
+    await this.userRepository.save(user);
+
+    return { message: 'Mot de passe réinitialisé avec succès' };
+  }
+
+  /**
+   * 🔑 Changer le mot de passe d'un utilisateur connecté.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('Utilisateur introuvable');
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, (user as any).passwordHash);
+    if (!isPasswordValid) {
+      throw new ForbiddenException('Mot de passe actuel incorrect');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    (user as any).passwordHash = hashedPassword;
+    await this.userRepository.save(user);
+
+    return { message: 'Mot de passe changé avec succès' };
+  }
+
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }

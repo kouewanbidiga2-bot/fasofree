@@ -52,6 +52,8 @@ export const api = {
   register: (data) => apiFetch('/auth/register', { method: 'POST', body: data }),
   login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
   getProfile: () => apiFetch('/auth/me', { method: 'GET' }),
+  forgotPassword: (email) => apiFetch('/auth/forgot-password', { method: 'POST', body: { email } }),
+  resetPassword: (token, newPassword) => apiFetch('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
 
   // Candidature Marchand / Livreur (multipart, avec fichiers KYC)
   apply: (formData) => apiFetch('/auth/apply', { method: 'POST', body: formData }),

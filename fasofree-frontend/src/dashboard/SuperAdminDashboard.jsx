@@ -14,7 +14,7 @@ import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
-  BadgeCheck, Radio, Ban, KeyRound, ClipboardList
+  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -33,6 +33,7 @@ import {
   createUser,
   updateUserStatus,
   updateUserRole,
+  deleteUser,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 
@@ -286,6 +287,21 @@ const SuperAdminDashboard = () => {
     try {
       await updateUserRole(id, role);
       setUsersMsg({ type: 'success', text: 'Rôle mis à jour.' });
+      await loadUsers();
+    } catch (err) {
+      setUsersMsg({ type: 'error', text: err.message });
+    } finally {
+      setUsersBusy(null);
+    }
+  };
+
+  const handleDeleteUser = async (id, email) => {
+    if (!window.confirm(`Supprimer définitivement le compte ${email} ? Cette action est irréversible.`)) return;
+    setUsersBusy(id);
+    setUsersMsg(null);
+    try {
+      await deleteUser(id);
+      setUsersMsg({ type: 'success', text: 'Compte supprimé définitivement.' });
       await loadUsers();
     } catch (err) {
       setUsersMsg({ type: 'error', text: err.message });
@@ -1389,6 +1405,20 @@ const SuperAdminDashboard = () => {
                                   }
                                 >
                                   <Ban size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(u.id, u.email)}
+                                  disabled={usersBusy === u.id || isSelf || isProtected}
+                                  className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-40 disabled:cursor-not-allowed"
+                                  title={
+                                    isSelf
+                                      ? 'Impossible sur votre propre compte'
+                                      : isProtected
+                                        ? 'Super Admin protégé'
+                                        : 'Supprimer définitivement'
+                                  }
+                                >
+                                  <Trash2 size={14} />
                                 </button>
                               </div>
                             </td>

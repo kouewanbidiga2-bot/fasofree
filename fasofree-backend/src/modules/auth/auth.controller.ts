@@ -67,4 +67,38 @@ export class AuthController {
   async getMe(@Request() req) {
     return this.authService.getMe(req.user.userId);
   }
+
+  // 🔑 Demande de réinitialisation du mot de passe
+  @HttpCode(HttpStatus.OK)
+  @Post('forgot-password')
+  @ApiOperation({ summary: 'Demander un lien de réinitialisation du mot de passe' })
+  async forgotPassword(@Body('email') email: string) {
+    await this.authService.forgotPassword(email);
+    return { message: 'Si cet email existe, un lien de réinitialisation a été envoyé.' };
+  }
+
+  // 🔑 Réinitialiser le mot de passe avec le token
+  @HttpCode(HttpStatus.OK)
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe avec le token reçu' })
+  async resetPassword(
+    @Body('token') token: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.resetPassword(token, newPassword);
+  }
+
+  // 🔑 Changer le mot de passe (utilisateur connecté)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Changer son mot de passe (connecté)' })
+  async changePassword(
+    @Request() req,
+    @Body('currentPassword') currentPassword: string,
+    @Body('newPassword') newPassword: string,
+  ) {
+    return this.authService.changePassword(req.user.userId, currentPassword, newPassword);
+  }
 }

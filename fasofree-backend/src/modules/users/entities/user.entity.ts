@@ -83,6 +83,13 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true })
   vehicleType?: string;
 
+  // 🔑 RÉINITIALISATION MOT DE PASSE
+  @Column({ type: 'varchar', nullable: true, select: false })
+  passwordResetToken?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true, select: false })
+  passwordResetExpires?: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

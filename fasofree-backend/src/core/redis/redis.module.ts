@@ -36,35 +36,45 @@ function createNoopRedis(logger: Logger): Redis {
           return createNoopRedis(logger);
         }
 
-        let client: Redis;
+        try {
+          let client: Redis;
 
-        if (redisUrl) {
-          client = new Redis(redisUrl, {
-            connectTimeout: 10000,
-            maxRetriesPerRequest: 3,
-            tls: { rejectUnauthorized: false },
+          if (redisUrl) {
+            client = new Redis(redisUrl, {
+              connectTimeout: 5000,
+              maxRetriesPerRequest: 0,
+              enableOfflineQueue: false,
+              retryStrategy: () => null,
+              tls: { rejectUnauthorized: false },
+            });
+          } else {
+            client = new Redis({
+              host,
+              port: Number(configService.get<number>('REDIS_PORT')) || 6379,
+              password: configService.get<string>('REDIS_PASSWORD'),
+              connectTimeout: 5000,
+              maxRetriesPerRequest: 0,
+              enableOfflineQueue: false,
+              retryStrategy: () => null,
+              tls: isTls
+                ? { servername: host, rejectUnauthorized: false }
+                : undefined,
+            });
+          }
+
+          client.on('connect', () =>
+            logger.log('⚡ Connexion Redis etablie avec succes'),
+          );
+          client.on('error', (err) => {
+            logger.warn(`Redis indisponible (${(err as any).code || err.message}) — fallback noop`);
+            try { client.disconnect(); } catch {}
           });
-        } else {
-          client = new Redis({
-            host,
-            port: Number(configService.get<number>('REDIS_PORT')) || 6379,
-            password: configService.get<string>('REDIS_PASSWORD'),
-            connectTimeout: 10000,
-            maxRetriesPerRequest: 3,
-            tls: isTls
-              ? { servername: host, rejectUnauthorized: false }
-              : undefined,
-          });
+
+          return client;
+        } catch (err) {
+          logger.warn(`Redis impossible a creer — fallback noop: ${err.message}`);
+          return createNoopRedis(logger);
         }
-
-        client.on('connect', () =>
-          logger.log('⚡ Connexion Redis etablie avec succes'),
-        );
-        client.on('error', (err) =>
-          logger.error('❌ Erreur Redis :', err.message),
-        );
-
-        return client;
       },
       inject: [ConfigService],
     },
