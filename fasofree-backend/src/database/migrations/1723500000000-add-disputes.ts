@@ -8,12 +8,17 @@ export class AddDisputes1723500000000 implements MigrationInterface {
     await queryRunner.query(`DO $$ BEGIN
       CREATE TYPE "disputes_resolution_enum" AS ENUM ('REFUND','REJECT');
     EXCEPTION WHEN duplicate_object THEN NULL; END $$`);
-    await queryRunner.query(
-      `ALTER TYPE "merchant_payouts_status_enum" ADD VALUE IF NOT EXISTS 'BLOCKED'`,
-    );
-    await queryRunner.query(
-      `ALTER TYPE "transactions_status_enum" ADD VALUE IF NOT EXISTS 'refund_pending'`,
-    );
+
+    // Ajouter 'BLOCKED' a l'enum merchant_payouts si le type existe
+    await queryRunner.query(`DO $$ BEGIN
+      ALTER TYPE "merchant_payouts_status_enum" ADD VALUE IF NOT EXISTS 'BLOCKED';
+    EXCEPTION WHEN undefined_object THEN NULL; END $$`);
+
+    // Ajouter 'refund_pending' a l'enum transactions si le type existe
+    await queryRunner.query(`DO $$ BEGIN
+      ALTER TYPE "transactions_status_enum" ADD VALUE IF NOT EXISTS 'refund_pending';
+    EXCEPTION WHEN undefined_object THEN NULL; END $$`);
+
     await queryRunner.query(`CREATE TABLE IF NOT EXISTS "disputes" (
       "id" uuid NOT NULL DEFAULT uuid_generate_v4(),
       "orderId" uuid NOT NULL,

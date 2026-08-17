@@ -14,19 +14,25 @@ export const getDatabaseConfig = (
 ): TypeOrmModuleOptions => {
   const syncOverride = envBool(configService, 'DB_SYNCHRONIZE');
   const migrationsOverride = envBool(configService, 'DB_MIGRATIONS_RUN');
+  const isProd = configService.get<string>('NODE_ENV') === 'production';
+
+  // synchronize et migrationsRun sont mutuellement exclusifs :
+  // synchronize=true → migrationsRun=false (TypeORM gère le schema)
+  // synchronize=false → migrationsRun=true en prod (les migrations gèrent le schema)
+  const synchronize = syncOverride ?? !isProd;
+  const migrationsRun = synchronize ? false : (migrationsOverride ?? isProd);
+
   return {
     type: 'postgres',
     url: configService.get<string>('DATABASE_URL'),
     autoLoadEntities: true,
-    synchronize:
-      syncOverride ?? configService.get<string>('NODE_ENV') !== 'production',
+    synchronize,
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
-    migrationsRun:
-      migrationsOverride ?? configService.get<string>('NODE_ENV') === 'production',
+    migrationsRun,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : true,
     logging: configService.get<string>('NODE_ENV') === 'development',
     extra: {
-      max: 20, // Nombre maximum de connexions simultanées dans le pool
+      max: 20,
       connectionTimeoutMillis: 5000,
     },
   };
