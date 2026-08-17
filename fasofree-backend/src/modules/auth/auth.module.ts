@@ -72,7 +72,7 @@ function normalizeExpiresIn(
 
         return {
           secret,
-          signOptions: { expiresIn },
+          ...(expiresIn !== undefined ? { signOptions: { expiresIn } } : {}),
         };
       },
     }),
