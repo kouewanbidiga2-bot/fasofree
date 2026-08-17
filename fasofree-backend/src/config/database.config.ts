@@ -23,7 +23,7 @@ export const getDatabaseConfig = (
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
     migrationsRun:
       migrationsOverride ?? configService.get<string>('NODE_ENV') === 'production',
-    ssl: true,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : true,
     logging: configService.get<string>('NODE_ENV') === 'development',
     extra: {
       max: 20, // Nombre maximum de connexions simultanées dans le pool

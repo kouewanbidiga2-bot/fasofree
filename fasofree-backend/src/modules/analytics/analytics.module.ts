@@ -16,30 +16,33 @@ import { Transaction } from '../payments/entities/transaction.entity';
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem, Product, Transaction]),
 
-    // 🚀 Configuration Redis universelle (Upstash TLS & Local)
-    CacheModule.registerAsync({
-      useFactory: async () => {
-        // Construction dynamique de l'URL TLS si REDIS_URL n'est pas explicite
-        const redisUrl =
-          process.env.REDIS_URL ||
-          (process.env.REDIS_PASSWORD
-            ? `rediss://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
-            : undefined);
+    // Cache: Redis si configuré, sinon in-memory (par défaut)
+    ...(process.env.REDIS_URL || process.env.REDIS_HOST
+      ? [
+          CacheModule.registerAsync({
+            useFactory: async () => {
+              const redisUrl =
+                process.env.REDIS_URL ||
+                (process.env.REDIS_PASSWORD
+                  ? `rediss://default:${process.env.REDIS_PASSWORD}@${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || 6379}`
+                  : undefined);
 
-        const store = await redisStore(
-          redisUrl
-            ? { url: redisUrl }
-            : {
-                socket: {
-                  host: process.env.REDIS_HOST || 'localhost',
-                  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-                },
-              },
-        );
+              const store = await redisStore(
+                redisUrl
+                  ? { url: redisUrl }
+                  : {
+                      socket: {
+                        host: process.env.REDIS_HOST || 'localhost',
+                        port: parseInt(process.env.REDIS_PORT || '6379', 10),
+                      },
+                    },
+              );
 
-        return { store };
-      },
-    }),
+              return { store };
+            },
+          }),
+        ]
+      : []),
   ],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],

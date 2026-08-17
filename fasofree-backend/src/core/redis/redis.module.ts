@@ -4,6 +4,23 @@ import Redis from 'ioredis';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
+function createNoopRedis(logger: Logger): Redis {
+  logger.warn('⚠️  Aucune variable REDIS/REDIS_HOST definie — Redis desactive (fonctionnement sans cache)');
+  const noop = async () => null;
+  const noopPipeline = () => ({
+    set: noop, get: noop, del: noop, expire: noop, ttl: noop,
+    lrange: async () => [], rpush: noop, lpush: noop, ltrim: noop,
+    geosearch: async () => [], geoadd: noop, zadd: noop, zrem: noop,
+    zrange: async () => [], smembers: async () => [], sadd: noop,
+    hset: noop, hget: async () => null, hgetall: async () => ({}),
+    exec: async () => [],
+  });
+  return { set: noop, get: noop, del: noop, expire: noop, ttl: noop,
+    pipeline: noopPipeline, disconnect: noop, quit: noop,
+    on: () => ({} as any),
+  } as unknown as Redis;
+}
+
 @Global()
 @Module({
   providers: [
@@ -15,19 +32,19 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
         const host = configService.get<string>('REDIS_HOST');
         const isTls = configService.get<string>('REDIS_TLS') === 'true';
 
+        if (!redisUrl && !host) {
+          return createNoopRedis(logger);
+        }
+
         let client: Redis;
 
         if (redisUrl) {
-          // 🚀 Méthode recommandée pour Upstash : Utilisation de l'URL rediss://
           client = new Redis(redisUrl, {
-            connectTimeout: 10000, // 10 secondes de délai de connexion
+            connectTimeout: 10000,
             maxRetriesPerRequest: 3,
-            tls: {
-              rejectUnauthorized: false, // Évite les blocages de certificats TLS en dev local
-            },
+            tls: { rejectUnauthorized: false },
           });
         } else {
-          // 🔄 Fallback sur les variables hôte / port / mot de passe
           client = new Redis({
             host,
             port: Number(configService.get<number>('REDIS_PORT')) || 6379,
@@ -35,16 +52,13 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
             connectTimeout: 10000,
             maxRetriesPerRequest: 3,
             tls: isTls
-              ? {
-                  servername: host, // 👈 Obligatoire pour le SNI d'Upstash Cloud
-                  rejectUnauthorized: false,
-                }
+              ? { servername: host, rejectUnauthorized: false }
               : undefined,
           });
         }
 
         client.on('connect', () =>
-          logger.log('⚡ Connexion Redis établie avec succès'),
+          logger.log('⚡ Connexion Redis etablie avec succes'),
         );
         client.on('error', (err) =>
           logger.error('❌ Erreur Redis :', err.message),
