@@ -33,11 +33,13 @@ export const getProduct = async (productId) => {
  */
 export const createProduct = async (productData) => {
   const response = await api.post('/products', {
-    ...productData,
-    // Ensure inventory fields are properly set
-    trackInventory: productData.trackInventory ?? true,
-    stockQuantity: productData.stockQuantity ?? 0,
-    minStockAlert: productData.minStockAlert ?? 5,
+    name: productData.name,
+    description: productData.description,
+    price: productData.price,
+    imageUrl: productData.imageUrl,
+    category: productData.category,
+    isAvailable: productData.isAvailable ?? true,
+    businessId: productData.businessId,
   });
   return response.data;
 };

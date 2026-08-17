@@ -146,7 +146,6 @@ const Register = () => {
       phone: formData.phone,
       email: formData.email,
       password: formData.password,
-      role: 'client',
       referralCode: formData.referralCode || undefined,
     });
 

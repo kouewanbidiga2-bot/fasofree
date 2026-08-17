@@ -173,14 +173,24 @@ export class AuthService {
     };
   }
 
-  // 🔑 2. Connexion
+  // 🔑 2. Connexion (email OU téléphone)
   async login(dto: LoginDto) {
-    // 💡 On utilise addSelect('user.passwordHash') car il est masqué par défaut dans l'entité
-    const user = await this.userRepository
+    const identifier = dto.email.trim();
+
+    // Détecter si c'est un téléphone (commence par + ou contient 8+ chiffres)
+    const isPhone = /^\+?\d{8,}$/.test(identifier.replace(/\s/g, ''));
+
+    const qb = this.userRepository
       .createQueryBuilder('user')
-      .addSelect('user.passwordHash')
-      .where('LOWER(user.email) = LOWER(:email)', { email: dto.email.trim() })
-      .getOne();
+      .addSelect('user.passwordHash');
+
+    if (isPhone) {
+      qb.where('user.phone = :identifier', { identifier });
+    } else {
+      qb.where('LOWER(user.email) = LOWER(:identifier)', { identifier });
+    }
+
+    const user = await qb.getOne();
 
     if (!user) {
       throw new UnauthorizedException('Identifiants invalides');

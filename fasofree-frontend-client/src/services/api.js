@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://unbridle-deferral-staleness.ngrok-free.dev/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
 
 export async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');
@@ -115,10 +115,11 @@ export const api = {
   getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'GET', body: data }),
 
   // Subscriptions marchand
-  subscribeMerchant: (planCode) => apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { planCode } }),
+  subscribeMerchant: (businessId, planCode = 'PRO', autoRenew = true) =>
+    apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { businessId, planCode, autoRenew } }),
 
   // Orders
-  cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED', reason } }),
+  cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED' } }),
   disputeOrder: (id, data) => apiFetch(`/disputes/orders/${id}`, { method: 'POST', body: data }),
 
   // Notifications

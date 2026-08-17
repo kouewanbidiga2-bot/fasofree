@@ -89,7 +89,6 @@ const Auth = () => {
         phone: registerForm.phone,
         email: registerForm.email,
         password: registerForm.password,
-        role: 'client',
       });
 
       if (response) {
