@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, ShoppingBag, Package, Car, UserPlus } from 'lucide-react';
+import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
+import UserMenu from '../components/UserMenu';
 import { restaurants as mockRestaurants } from '../services/data';
 import api from '../services/api';
+import useAuthStore from '../store/authStore';
 
 const mapBusinessToRestaurant = (b) => ({
   id: b.id,
@@ -30,6 +32,7 @@ const mapBusinessToRestaurant = (b) => ({
 
 const Home = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [allRestaurants, setAllRestaurants] = useState(mockRestaurants);
@@ -131,15 +134,19 @@ const Home = () => {
 
             {/* Boutons d'action */}
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                aria-label="Créer un compte"
-                onClick={() => navigate('/register')}
-                className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
-              >
-                <UserPlus size={18} strokeWidth={1.8} />
-                <span className="hidden sm:inline">Compte</span>
-              </button>
+              {isAuthenticated ? (
+                <UserMenu />
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Se connecter"
+                  onClick={() => navigate('/auth')}
+                  className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-4 py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+                >
+                  <LogIn size={16} strokeWidth={1.8} />
+                  <span className="sm:inline">Connexion</span>
+                </button>
+              )}
               <button aria-label="Notifications" className="rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
                 <Bell size={18} strokeWidth={1.8} />
               </button>

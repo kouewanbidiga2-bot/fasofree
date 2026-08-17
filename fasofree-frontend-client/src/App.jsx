@@ -40,7 +40,7 @@ function App() {
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
         <Route path="/driver" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/p2p-delivery" element={<P2PDelivery />} />
-        <Route path="/restaurant/:id" element={<ProtectedRoute><Restaurant /></ProtectedRoute>} />
+        <Route path="/restaurant/:id" element={<Restaurant />} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
         <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
         <Route path="/receipt" element={<ProtectedRoute><Receipt /></ProtectedRoute>} />
