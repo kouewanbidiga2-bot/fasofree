@@ -43,7 +43,12 @@ async function bootstrap() {
         .filter(Boolean)
     : [];
 
-  // En Dev : Autorise automatiquement Vite (3001/5173), Next.js (3000) et Mobile
+  // Patterns regex autorises en prod (*.vercel.app, *.onrender.com)
+  const allowedRegexPatterns = [
+    /\.vercel\.app$/,
+    /\.onrender\.com$/,
+  ];
+
   const localDevOrigins = [
     'http://localhost:3000',
     'http://localhost:3001',
@@ -53,18 +58,22 @@ async function bootstrap() {
     'http://127.0.0.1:5173',
   ];
 
+  const isOriginAllowed = (origin: string) => {
+    if (envOrigins.includes(origin)) return true;
+    return allowedRegexPatterns.some((re) => re.test(origin));
+  };
+
   const allowedOrigins = isProduction
     ? envOrigins
     : [...localDevOrigins, ...envOrigins];
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Autorise les requêtes sans origine (Mobile Apps, Postman, Curl) ou validées
-      if (!origin || !isProduction || allowedOrigins.includes(origin)) {
+      if (!origin || !isProduction || isOriginAllowed(origin)) {
         callback(null, true);
       } else {
-        logger.warn(`🛑 Origine CORS bloquée : ${origin}`);
-        callback(new Error(`CORS non autorisé pour : ${origin}`));
+        logger.warn(`CORS bloquee : ${origin}`);
+        callback(new Error(`CORS non autorise pour : ${origin}`));
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
