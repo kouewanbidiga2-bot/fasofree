@@ -1,8 +1,19 @@
 import { create } from 'zustand';
 
+const loadInitial = () => {
+  try {
+    const token = localStorage.getItem('access_token');
+    const userRaw = localStorage.getItem('fasofree_user');
+    if (token && userRaw) {
+      return { user: JSON.parse(userRaw), isAuthenticated: true };
+    }
+  } catch {}
+  return { user: null, isAuthenticated: false };
+};
+
 const useAuthStore = create((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: loadInitial().user,
+  isAuthenticated: loadInitial().isAuthenticated,
   isLoading: false,
   orders: [],
   receipts: [],
@@ -15,6 +26,7 @@ const useAuthStore = create((set) => ({
       role: userData.role || 'CLIENT',
       createdAt: new Date().toISOString(),
     };
+    localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
   },
   
@@ -30,6 +42,7 @@ const useAuthStore = create((set) => ({
       isPremium: !!userData.isPremium,
       createdAt: new Date().toISOString(),
     };
+    localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
   },
   
@@ -37,12 +50,15 @@ const useAuthStore = create((set) => ({
     user: state.user ? { ...state.user, isPremium: !!isPremium } : state.user,
   })),
   
-  updateUser: (userData) => set((state) => ({ 
-    user: { ...state.user, ...userData } 
-  })),
+  updateUser: (userData) => set((state) => { 
+    const updated = { ...state.user, ...userData };
+    localStorage.setItem('fasofree_user', JSON.stringify(updated));
+    return { user: updated };
+  }),
   
   logout: () => {
     localStorage.removeItem('access_token');
+    localStorage.removeItem('fasofree_user');
     set({ user: null, isAuthenticated: false, orders: [], receipts: [] });
   },
   

@@ -36,7 +36,7 @@ function App() {
       <Routes>
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />
-        <Route path="/" element={<Navigate to="/register" replace />} />
+        <Route path="/" element={<Home />} />
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
         <Route path="/driver" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/p2p-delivery" element={<P2PDelivery />} />
