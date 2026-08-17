@@ -849,12 +849,25 @@ export class OrdersService {
 
     let driverLocation: DriverLocation | null = null;
     if (order.driverId) {
-      driverLocation = await this.geoDispatchService.getDriverLocation(
-        order.driverId,
-      );
+      try {
+        driverLocation = await this.geoDispatchService.getDriverLocation(
+          order.driverId,
+        );
+      } catch {
+        this.logger.warn(
+          `Impossible de récupérer la position du livreur ${order.driverId} pour la commande ${id}`,
+        );
+      }
     }
 
-    const trace = await this.geoDispatchService.getOrderTrace(order.id);
+    let trace: OrderTracePoint[] = [];
+    try {
+      trace = await this.geoDispatchService.getOrderTrace(order.id);
+    } catch {
+      this.logger.warn(
+        `Impossible de récupérer le tracé GPS de la commande ${id}`,
+      );
+    }
 
     let businessLocation: { latitude: number; longitude: number } | null =
       null;
@@ -868,8 +881,26 @@ export class OrdersService {
           };
         }
       } catch {
-        // Commerce introuvable : pas de coordonnées marchand
+        this.logger.warn(
+          `Commerce ${order.businessId} introuvable pour le tracking de la commande ${id}`,
+        );
       }
+    }
+
+    let eta: OrderTrackingPayload['eta'] = {
+      preparationMinutes: 0,
+      remainingPreparationMinutes: 0,
+      travelMinutes: 0,
+      totalMinutes: 0,
+      distanceKm: 0,
+      arrivalAt: new Date().toISOString(),
+    };
+    try {
+      eta = this.computeEta(order, driverLocation, businessLocation);
+    } catch {
+      this.logger.warn(
+        `Impossible de calculer l'ETA pour la commande ${id}`,
+      );
     }
 
     return {
@@ -877,13 +908,13 @@ export class OrdersService {
       orderType: order.orderType,
       status: order.status,
       trackingActive: order.status === OrderStatus.PROCESSING,
-      driverId: order.driverId,
+      driverId: order.driverId ?? null,
       driverLocation,
       trace,
       businessLocation,
       pickupLocation: order.pickupLocation ?? null,
       deliveryLocation: order.deliveryLocation ?? null,
-      eta: this.computeEta(order, driverLocation, businessLocation),
+      eta,
     };
   }
 

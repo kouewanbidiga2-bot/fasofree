@@ -78,6 +78,12 @@ export class Business {
   @Column({ type: 'float', nullable: true })
   longitude?: number;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  logo: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  coverImage: string | null;
+
   @Column({ type: 'boolean', default: true })
   isOpen: boolean;
 

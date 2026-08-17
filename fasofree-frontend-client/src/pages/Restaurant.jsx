@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
+import ImageWithFallback from '../components/ImageWithFallback';
 import { getRestaurantById } from '../services/data';
 import useCartStore from '../store/cartStore';
 import api from '../services/api';
@@ -140,7 +141,7 @@ const Restaurant = () => {
       {/* Restaurant Info */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32">
         <div className="app-panel mb-6 flex flex-col gap-6 rounded-xl p-5 sm:flex-row sm:items-start">
-          <img
+          <ImageWithFallback
             src={restaurant.logo}
             alt={restaurant.name}
             className="w-32 h-32 object-cover rounded-photo"
@@ -275,7 +276,7 @@ const MenuItemCard = ({ item, onAddToCart, restaurantColor }) => {
   return (
     <div className="app-panel mb-4 flex gap-4 rounded-lg p-4">
       <div className="w-28 h-28 flex-shrink-0 overflow-hidden">
-        <img
+        <ImageWithFallback
           src={item.image}
           alt={item.name}
           className="w-full h-full object-cover rounded-photo"

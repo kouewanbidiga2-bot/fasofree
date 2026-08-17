@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowUpRight, Clock, Star } from 'lucide-react';
+import ImageWithFallback from './ImageWithFallback';
 
 const getRestaurantTheme = (name) => ({ cesar: '#B5502E', chitir: '#7A2E1A', gusto: '#5C6B3C', belchiken: '#B8862E' }[name.toLowerCase()] || '#B95B2B');
 
@@ -8,7 +9,7 @@ const RestaurantCard = ({ restaurant, onClick }) => {
   return (
     <article className="restaurant-card group cursor-pointer" onClick={onClick}>
       <div className="restaurant-image-wrap">
-        <img src={restaurant.logo} alt={restaurant.name} className="restaurant-image" />
+        <ImageWithFallback src={restaurant.logo} alt={restaurant.name} className="restaurant-image" />
         <span className="restaurant-open" style={{ color: themeColor }}>Ouvert</span>
         <span className="restaurant-arrow" aria-hidden="true"><ArrowUpRight size={19} strokeWidth={2} /></span>
       </div>
