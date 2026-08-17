@@ -20,6 +20,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 
@@ -36,13 +37,28 @@ export class UsersController {
   // 👤 Route protégée : Récupérer son propre profil
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  @ApiOperation({ summary: 'Obtenir le profil de l’utilisateur connecté' })
+  @ApiOperation({ summary: "Obtenir le profil de l'utilisateur connecté" })
   async getProfile(@NestRequest() req: RequestWithUser) {
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.usersService.findById(userId);
+  }
+
+  // 👤 Route protégée : Mettre à jour son propre profil
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('me')
+  @ApiOperation({ summary: "Mettre à jour le profil de l'utilisateur connecté" })
+  async updateProfile(
+    @Body() dto: UpdateProfileDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.usersService.updateProfile(userId, dto);
   }
 
   // 🛵 Statut de disponibilité du livreur/coursier (DRIVER / COURIER)

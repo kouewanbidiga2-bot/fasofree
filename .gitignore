@@ -16,3 +16,5 @@ $null
 !tsconfig.json
 !nest-cli.json
 !swagger-spec.json
+!vercel.json
+!manifest.json

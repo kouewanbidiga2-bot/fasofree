@@ -1,19 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown } from 'lucide-react';
 import Footer from '../components/Footer';
 import useAuthStore from '../store/authStore';
+import { api } from '../services/api';
 
 const Profile = () => {
   const navigate = useNavigate();
   const { user, orders, receipts, logout, updateUser } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     address: '',
   });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const me = await api.getProfile();
+        const name = me.fullName || me.name || '';
+        setFormData((prev) => ({
+          ...prev,
+          name,
+          email: me.email || '',
+          phone: me.phone || '',
+        }));
+        updateUser({ name, email: me.email, phone: me.phone, id: me.id });
+      } catch {
+        // silent — keep local defaults
+      }
+    };
+    loadProfile();
+  }, []);
 
   const favoriteItems = [
     {
@@ -41,9 +62,23 @@ const Profile = () => {
     { icon: LogOut, label: 'Déconnexion', action: handleLogout, variant: 'danger' },
   ];
 
-  const handleSave = () => {
-    updateUser({ name: formData.name, email: formData.email });
-    setIsEditing(false);
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const updated = await api.updateProfile({
+        fullName: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+      });
+      const name = updated.fullName || updated.name || formData.name;
+      updateUser({ name, email: updated.email, phone: updated.phone });
+      setFormData((prev) => ({ ...prev, name, email: updated.email, phone: updated.phone }));
+      setIsEditing(false);
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la mise à jour du profil.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -135,8 +170,8 @@ const Profile = () => {
                     className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
                   />
                 </div>
-                <button onClick={handleSave} className="w-full px-4 py-3 text-sm font-medium text-white transition-colors" style={{ backgroundColor: '#C1652E' }}>
-                  Enregistrer
+                <button onClick={handleSave} className="w-full px-4 py-3 text-sm font-medium text-white transition-colors" style={{ backgroundColor: '#C1652E' }} disabled={loading}>
+                  {loading ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
               </div>
             ) : (

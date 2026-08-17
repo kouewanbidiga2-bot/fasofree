@@ -18,9 +18,31 @@ import {
   Min,
   Max,
   ValidateNested,
+  IsArray,
 } from 'class-validator';
 import { P2PLocationDto } from './p2p-location.dto';
 import { PackageDetailsDto } from './package-details.dto';
+
+export class OrderItemDto {
+  @ApiProperty({ description: 'UUID du produit', format: 'uuid' })
+  @IsUUID()
+  productId: string;
+
+  @ApiProperty({ description: 'Nom du produit (pour le reçu)' })
+  @IsString()
+  @IsNotEmpty()
+  productName: string;
+
+  @ApiProperty({ description: 'Quantité commandée', example: 2, minimum: 1 })
+  @Type(() => Number)
+  @IsPositive()
+  quantity: number;
+
+  @ApiProperty({ description: 'Prix unitaire en FCFA', example: 2500 })
+  @Type(() => Number)
+  @IsPositive()
+  unitPrice: number;
+}
 
 export class CreateOrderDto {
   @ApiProperty({
@@ -46,6 +68,16 @@ export class CreateOrderDto {
   @Type(() => Number)
   @IsPositive()
   totalAmount: number;
+
+  @ApiPropertyOptional({
+    description: 'Articles de la commande (pour les commandes MERCHANT)',
+    type: [OrderItemDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items?: OrderItemDto[];
 
   @ApiPropertyOptional({
     description: 'Coordonnée GPS Latitude de livraison à Ouagadougou',

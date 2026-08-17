@@ -7,13 +7,15 @@ import { api } from '../services/api';
 
 const STATUS_CONFIG = {
   PENDING: { label: 'En attente', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-  CONFIRMED: { label: 'Confirmée', color: 'text-blue-600', bg: 'bg-blue-50', icon: CheckCircle },
   PAID: { label: 'Payée', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: CheckCircle },
-  PREPARING: { label: 'En préparation', color: 'text-orange-600', bg: 'bg-orange-50', icon: Package },
+  IN_PREPARATION: { label: 'En préparation', color: 'text-orange-600', bg: 'bg-orange-50', icon: Package },
+  PROCESSING: { label: 'En livraison', color: 'text-purple-600', bg: 'bg-purple-50', icon: Package },
   READY: { label: 'Prête', color: 'text-teal-600', bg: 'bg-teal-50', icon: CheckCircle },
-  OUT_FOR_DELIVERY: { label: 'En livraison', color: 'text-purple-600', bg: 'bg-purple-50', icon: Package },
+  DELIVERED_PENDING_CONFIRMATION: { label: 'Arrivée', color: 'text-blue-600', bg: 'bg-blue-50', icon: CheckCircle },
   DELIVERED: { label: 'Livrée', color: 'text-green-600', bg: 'bg-green-50', icon: CheckCircle },
+  COMPLETED: { label: 'Terminée', color: 'text-green-700', bg: 'bg-green-50', icon: CheckCircle },
   CANCELLED: { label: 'Annulée', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
+  FAILED: { label: 'Échouée', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
 };
 
 const Orders = () => {
@@ -43,10 +45,11 @@ const Orders = () => {
   const filters = [
     { value: 'all', label: 'Toutes' },
     { value: 'PENDING', label: 'En attente' },
-    { value: 'CONFIRMED', label: 'Confirmées' },
-    { value: 'PREPARING', label: 'En préparation' },
-    { value: 'OUT_FOR_DELIVERY', label: 'En livraison' },
+    { value: 'PAID', label: 'Payées' },
+    { value: 'IN_PREPARATION', label: 'En préparation' },
+    { value: 'PROCESSING', label: 'En livraison' },
     { value: 'DELIVERED', label: 'Livrées' },
+    { value: 'COMPLETED', label: 'Terminées' },
     { value: 'CANCELLED', label: 'Annulées' },
   ];
 
@@ -96,7 +99,7 @@ const Orders = () => {
               return (
                 <button
                   key={order.id}
-                  onClick={() => navigate(`/order-tracking?id=${order.id}`)}
+                  onClick={() => navigate('/order-tracking', { state: { orderId: order.id } })}
                   className="w-full flex items-center gap-4 bg-white rounded-xl border border-[#E8E0D8] p-4 text-left hover:border-[#C1652E] transition"
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>

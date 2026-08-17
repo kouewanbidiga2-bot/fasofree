@@ -51,7 +51,8 @@ export const api = {
   // Auth
   register: (data) => apiFetch('/auth/register', { method: 'POST', body: data }),
   login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
-  getProfile: () => apiFetch('/auth/me', { method: 'GET' }),
+  getProfile: () => apiFetch('/users/me', { method: 'GET' }),
+  updateProfile: (data) => apiFetch('/users/me', { method: 'PATCH', body: data }),
   forgotPassword: (email) => apiFetch('/auth/forgot-password', { method: 'POST', body: { email } }),
   resetPassword: (token, newPassword) => apiFetch('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
 

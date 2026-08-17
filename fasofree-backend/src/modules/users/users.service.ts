@@ -287,6 +287,38 @@ export class UsersService implements OnModuleInit {
     return { message: 'Mot de passe changé avec succès' };
   }
 
+  /**
+   * 👤 Mettre à jour le profil de l'utilisateur connecté (nom, email, téléphone).
+   */
+  async updateProfile(
+    userId: string,
+    data: { fullName?: string; email?: string; phone?: string },
+  ): Promise<User> {
+    const user = await this.findById(userId);
+
+    if (data.email && data.email !== user.email) {
+      const existing = await this.userRepository.findOne({ where: { email: data.email } });
+      if (existing) {
+        throw new ConflictException(`L'adresse email ${data.email} est déjà utilisée.`);
+      }
+      user.email = data.email;
+    }
+
+    if (data.phone && data.phone !== user.phone) {
+      const existing = await this.userRepository.findOne({ where: { phone: data.phone } });
+      if (existing) {
+        throw new ConflictException(`Le numéro ${data.phone} est déjà utilisé.`);
+      }
+      user.phone = data.phone;
+    }
+
+    if (data.fullName !== undefined) {
+      user.fullName = data.fullName;
+    }
+
+    return this.userRepository.save(user);
+  }
+
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }

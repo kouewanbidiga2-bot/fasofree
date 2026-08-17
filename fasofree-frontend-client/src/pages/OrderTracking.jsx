@@ -25,7 +25,9 @@ const STATUS_STEP = {
   PENDING: 1,
   PAID: 1,
   IN_PREPARATION: 2,
+  PREPARING: 2,
   PROCESSING: 3,
+  READY: 3,
   DELIVERED_PENDING_CONFIRMATION: 4,
   DELIVERED: 4,
   COMPLETED: 4,
@@ -96,6 +98,7 @@ const OrderTracking = () => {
 
   const orderId =
     location.state?.orderId ||
+    new URLSearchParams(location.search).get('id') ||
     new URLSearchParams(location.search).get('orderId');
 
   const [tracking, setTracking] = useState(null);

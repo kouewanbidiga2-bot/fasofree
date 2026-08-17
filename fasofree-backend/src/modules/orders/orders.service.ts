@@ -18,6 +18,7 @@ import {
   OrderType,
   FulfillmentType,
 } from './entities/order.entity';
+import { OrderItem } from './entities/order-item.entity';
 import {
   Transaction,
   TransactionStatus,
@@ -114,6 +115,8 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(OrderItem)
+    private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
     private readonly dispatchGateway: DispatchGateway,
@@ -326,6 +329,22 @@ export class OrdersService {
     let savedOrder: Order;
     try {
       savedOrder = await this.orderRepository.save(order);
+
+      // Sauvegarder les articles de la commande (OrderItems)
+      if (dto.items && dto.items.length > 0) {
+        const orderItems = dto.items.map((item) => {
+          const oi = this.orderItemRepository.create({
+            orderId: savedOrder.id,
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.quantity * item.unitPrice,
+          });
+          return oi;
+        });
+        await this.orderItemRepository.save(orderItems);
+      }
 
       // Générer un QR Code pour les commandes PICKUP ou DINE_IN
       if (
@@ -763,10 +782,9 @@ export class OrdersService {
   }
 
   async findClientOrders(clientId: string): Promise<Order[]> {
-    // Si la table Transaction n'est pas liée formellement par un @OneToOne dans TypeORM,
-    // enlever "relations: { transaction: true }" pour éviter une erreur.
     return await this.orderRepository.find({
       where: { clientId },
+      relations: { items: true },
       order: { createdAt: 'DESC' },
     });
   }
@@ -806,8 +824,13 @@ export class OrdersService {
   }
 
   async findOne(id: string): Promise<Order> {
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRe.test(id)) {
+      throw new NotFoundException(`La commande #${id} est introuvable.`);
+    }
     const order = await this.orderRepository.findOne({
       where: { id },
+      relations: { items: true },
     });
 
     if (!order) {

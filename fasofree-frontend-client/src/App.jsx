@@ -9,7 +9,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Receipt from './pages/Receipt';
 import OrderTracking from './pages/OrderTracking';
-import OrderHistory from './pages/OrderHistory';
+import OrderHistory from './pages/Orders';
 import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
 import Register from './pages/Register';

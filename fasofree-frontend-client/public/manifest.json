@@ -1,0 +1,18 @@
+{
+  "name": "FasoFree — Marketplace & Livraison",
+  "short_name": "FasoFree",
+  "description": "Commandez vos plats préférés et faites livrer à Ouagadougou.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F3",
+  "theme_color": "#B95B2B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

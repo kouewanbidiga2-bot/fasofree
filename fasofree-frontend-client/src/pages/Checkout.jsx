@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
-import { getRestaurantById } from '../services/data';
+import { api } from '../services/api';
 import {
   fetchQuote,
   getCartSubtotal,
@@ -55,38 +55,71 @@ const Checkout = () => {
   const platformFee = quote?.platformFee ?? 0;
   const finalTotal = quote?.total ?? subtotal;
 
-  const handleSubmit = (e) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const isUUID = (v) =>
+    typeof v === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const paymentMethod = e.target.payment?.value || 'Orange Money';
+    if (submitting) return;
 
-    // Save order to authStore
-    const orderId = 'FF' + Date.now().toString().slice(-8);
-    addOrder({
-      id: orderId,
-      restaurant: restaurant?.name || 'Restaurant',
-      items,
-      subtotal,
-      deliveryFee,
-      platformFee,
-      total: finalTotal,
-      address: formData.address,
-      phone: formData.phone,
-      paymentMethod,
-      status: 'pending',
-    });
+    const paymentMethod = e.target.payment?.value || 'ORANGE_MONEY';
+    const businessId = isUUID(restaurantId) ? restaurantId : undefined;
+    const coords = deliveryCoords || DEFAULT_DELIVERY_COORDS;
 
-    console.log('Order submitted:', { formData, items, quote });
-    navigate('/receipt', {
-      state: {
+    setSubmitting(true);
+    try {
+      const orderItems = items.map((item) => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: item.quantity,
+        unitPrice: item.price,
+      }));
+
+      const order = await api.createOrder({
+        businessId,
+        totalAmount: subtotal,
+        items: orderItems,
+        deliveryLatitude: coords.latitude,
+        deliveryLongitude: coords.longitude,
+        orderType: 'MERCHANT',
+        fulfillmentDetails: { notes: formData.notes || undefined },
+      });
+
+      addOrder({
+        id: order.id,
+        restaurant: restaurant?.name || 'Restaurant',
         items,
         subtotal,
         deliveryFee,
         platformFee,
         total: finalTotal,
+        address: formData.address,
+        phone: formData.phone,
         paymentMethod,
-        orderId,
-      },
-    });
+        status: order.status || 'pending',
+      });
+
+      navigate('/receipt', {
+        state: {
+          orderId: order.id,
+          items,
+          subtotal,
+          deliveryFee,
+          platformFee,
+          total: finalTotal,
+          paymentMethod,
+          status: order.status,
+        },
+      });
+    } catch (err) {
+      console.error('Order creation failed:', err);
+      alert(err.message || 'Erreur lors de la commande. Veuillez réessayer.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleGetCurrentLocation = () => {
@@ -231,8 +264,15 @@ const Checkout = () => {
                 </div>
               </div>
 
-              <button type="submit" className="app-action w-full mt-6">
-                Confirmer la commande
+              <button type="submit" className="app-action w-full mt-6" disabled={submitting}>
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 size={18} className="animate-spin" strokeWidth={1.5} />
+                    Envoi en cours…
+                  </span>
+                ) : (
+                  'Confirmer la commande'
+                )}
               </button>
             </form>
           </div>
