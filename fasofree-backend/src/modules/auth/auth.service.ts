@@ -195,7 +195,7 @@ export class AuthService {
 
     const user = await qb.getOne();
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Identifiants invalides');
     }
 

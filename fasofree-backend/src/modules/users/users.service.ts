@@ -32,12 +32,25 @@ export class UsersService implements OnModuleInit {
 
   /**
    * 🌱 Création idempotente du compte SUPER_ADMIN initial.
+   * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    const existing = await this.userRepository.findOne({
-      where: { email: MASTER_SUPER_ADMIN.email },
-    });
-    if (existing) return;
+    const existing = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.email = :email', { email: MASTER_SUPER_ADMIN.email })
+      .getOne();
+
+    if (existing) {
+      // Si l'ancien seed n'avait pas de passwordHash, le ré-hacher maintenant
+      if (!existing.passwordHash) {
+        const salt = await bcrypt.genSalt(10);
+        existing.passwordHash = await bcrypt.hash(MASTER_SUPER_ADMIN.password, salt);
+        await this.userRepository.save(existing);
+        this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash manquant → ré-haché`);
+      }
+      return;
+    }
 
     await this.create({
       email: MASTER_SUPER_ADMIN.email,
