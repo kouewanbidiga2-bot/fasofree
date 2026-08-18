@@ -26,6 +26,7 @@ export class NotificationsService {
 
   /**
    * Envoie une notification via le canal préféré de l'utilisateur.
+   * Si fcmToken présent, push FCM envoyé en parallèle (toujours).
    * Fallback : si le canal principal échoue, essaie les autres.
    */
   async sendNotification(
@@ -34,46 +35,59 @@ export class NotificationsService {
     message: string,
   ): Promise<boolean> {
     const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
+    let channelOk = false;
 
+    // 1. Canal principal
     switch (channel) {
-      case NotificationChannel.EMAIL:
+      case NotificationChannel.PUSH: {
+        if (user.fcmToken) {
+          channelOk = await this.sendToDevice(user.fcmToken, { title: subject, body: message });
+        }
+        if (!channelOk && user.email) {
+          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
+        }
+        break;
+      }
+      case NotificationChannel.EMAIL: {
         if (user.email) {
-          const ok = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-          if (ok) return true;
+          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
         }
-        // Fallback → SMS
+        if (!channelOk && user.phone) {
+          channelOk = await this.smsService.sendSms(user.phone, `${subject}: ${message}`);
+        }
+        break;
+      }
+      case NotificationChannel.WHATSAPP: {
         if (user.phone) {
-          return this.smsService.sendSms(user.phone, `${subject}: ${message}`);
+          channelOk = await this.whatsappService.sendTextMessage(user.phone, `*${subject}*\n\n${message}`);
         }
-        return false;
-
-      case NotificationChannel.WHATSAPP:
-        if (user.phone) {
-          const ok = await this.whatsappService.sendTextMessage(user.phone, `*${subject}*\n\n${message}`);
-          if (ok) return true;
+        if (!channelOk && user.email) {
+          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
         }
-        // Fallback → Email
-        if (user.email) {
-          return this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-        }
-        return false;
-
+        break;
+      }
       case NotificationChannel.SMS:
-      default:
+      default: {
         if (user.phone) {
-          const ok = await this.smsService.sendSms(user.phone, `${subject}: ${message}`);
-          if (ok) return true;
+          channelOk = await this.smsService.sendSms(user.phone, `${subject}: ${message}`);
         }
-        // Fallback → Email
-        if (user.email) {
-          return this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
+        if (!channelOk && user.email) {
+          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
         }
-        return false;
+        break;
+      }
     }
+
+    // 2. Push FCM en parallèle (complément, non bloquant) — sauf si le canal principal EST déjà PUSH
+    if (channel !== NotificationChannel.PUSH && user.fcmToken) {
+      this.sendToDevice(user.fcmToken, { title: subject, body: message }).catch(() => {});
+    }
+
+    return channelOk;
   }
 
   /**
-   * Notifications d'approvision : envoie via le canal préféré + push FCM.
+   * Notifications d'approbation : envoie via le canal préféré + push FCM.
    */
   async sendApprovalNotification(
     user: User,
@@ -81,27 +95,32 @@ export class NotificationsService {
   ): Promise<void> {
     const roleLabel = user.applicationType === 'DRIVER' ? 'Livreur' : 'Marchand';
     const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
-
     const userName = user.fullName || 'Utilisateur';
     const appType = user.applicationType || 'MERCHANT';
 
     // 1. Canal préféré
     switch (channel) {
+      case NotificationChannel.PUSH: {
+        if (user.fcmToken) {
+          await this.sendToDevice(user.fcmToken, {
+            title: `Compte ${roleLabel} approuvé !`,
+            body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
+            data: { type: 'ONBOARDING_APPROVED', role: appType, tempPassword },
+          });
+        }
+        break;
+      }
       case NotificationChannel.EMAIL: {
         const email = user.email;
         if (email) {
-          await this.emailService.sendApprovalEmail(
-            email, userName, appType, tempPassword,
-          );
+          await this.emailService.sendApprovalEmail(email, userName, appType, tempPassword);
         }
         break;
       }
       case NotificationChannel.WHATSAPP: {
         const phone = user.phone;
         if (phone) {
-          await this.whatsappService.sendApprovalMessage(
-            phone, userName, appType, tempPassword,
-          );
+          await this.whatsappService.sendApprovalMessage(phone, userName, appType, tempPassword);
         }
         break;
       }
@@ -118,17 +137,18 @@ export class NotificationsService {
       }
     }
 
-    // 2. Push FCM en complément
-    if (user.fcmToken) {
+    // 2. Push FCM en complément (sauf si le canal principal EST déjà PUSH)
+    if (channel !== NotificationChannel.PUSH && user.fcmToken) {
       await this.sendToDevice(user.fcmToken, {
-        title: `🎉 Compte ${roleLabel} approuvé !`,
+        title: `Compte ${roleLabel} approuvé !`,
         body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
+        data: { type: 'ONBOARDING_APPROVED', role: appType },
       });
     }
   }
 
   /**
-   * Notifications de refus : envoie via le canal préféré.
+   * Notifications de refus : envoie via le canal préféré + push FCM.
    */
   async sendRejectionNotification(
     user: User,
@@ -140,21 +160,27 @@ export class NotificationsService {
     const appType = user.applicationType || 'MERCHANT';
 
     switch (channel) {
+      case NotificationChannel.PUSH: {
+        if (user.fcmToken) {
+          await this.sendToDevice(user.fcmToken, {
+            title: `Candidature ${roleLabel} refusée`,
+            body: reason,
+            data: { type: 'ONBOARDING_REJECTED', role: appType, reason },
+          });
+        }
+        break;
+      }
       case NotificationChannel.EMAIL: {
         const email = user.email;
         if (email) {
-          await this.emailService.sendRejectionEmail(
-            email, userName, appType, reason,
-          );
+          await this.emailService.sendRejectionEmail(email, userName, appType, reason);
         }
         break;
       }
       case NotificationChannel.WHATSAPP: {
         const phone = user.phone;
         if (phone) {
-          await this.whatsappService.sendRejectionMessage(
-            phone, userName, appType, reason,
-          );
+          await this.whatsappService.sendRejectionMessage(phone, userName, appType, reason);
         }
         break;
       }
@@ -171,54 +197,72 @@ export class NotificationsService {
       }
     }
 
-    // Push FCM
-    if (user.fcmToken) {
+    // Push FCM en complément
+    if (channel !== NotificationChannel.PUSH && user.fcmToken) {
       await this.sendToDevice(user.fcmToken, {
         title: `Candidature ${roleLabel} refusée`,
         body: reason,
+        data: { type: 'ONBOARDING_REJECTED', role: appType },
       });
     }
   }
 
-  // ─── PUSH FCM (EXISTANT) ───────────────────────────────────────────────────
+  // ─── PUSH FCM ───────────────────────────────────────────────────────────────
 
   async sendWelcomeCredentials(
     user: User,
     tempPassword: string,
   ): Promise<void> {
-    // Rediriger vers le nouveau système multi-canaux
     await this.sendApprovalNotification(user, tempPassword);
   }
 
+  /**
+   * Envoie un push FCM à un device unique via son token.
+   * Gère les tokens invalides/expirés (nettoyage automatique par FCM).
+   */
   async sendToDevice(fcmToken: string, payload: PushPayload): Promise<boolean> {
     if (!fcmToken) return false;
+
     try {
-      if (getApps().length > 0) {
-        await getMessaging().send({
-          token: fcmToken,
-          notification: { title: payload.title, body: payload.body },
-          data: payload.data || {},
-        });
+      if (getApps().length === 0) {
+        this.logger.warn('[Push] Firebase Admin non initialisé — push ignoré');
+        return false;
       }
+
+      await getMessaging().send({
+        token: fcmToken,
+        notification: { title: payload.title, body: payload.body },
+        data: payload.data || {},
+        webpush: {
+          fcmOptions: { link: payload.data?.orderId ? `/order-tracking?id=${payload.data.orderId}` : '/' },
+        },
+      });
+
+      this.logger.debug(`[Push] Envoyé à ${fcmToken.slice(0, 12)}…`);
       return true;
-    } catch (error) {
-      this.logger.error("Échec d'envoi notification FCM:", error);
+    } catch (error: any) {
+      // Tokens invalides/expirés : FCM rejette avec ces codes
+      const invalidCodes = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'];
+      if (invalidCodes.includes(error?.code)) {
+        this.logger.warn(`[Push] Token FCM invalide/expiré: ${fcmToken.slice(0, 12)}… — suppression recommandée`);
+      } else {
+        this.logger.error(`[Push] Échec envoi: ${error.message}`);
+      }
       return false;
     }
   }
 
   async sendToTopic(topic: string, payload: PushPayload): Promise<boolean> {
     try {
-      if (getApps().length > 0) {
-        await getMessaging().send({
-          topic,
-          notification: { title: payload.title, body: payload.body },
-          data: payload.data || {},
-        });
-      }
+      if (getApps().length === 0) return false;
+      await getMessaging().send({
+        topic,
+        notification: { title: payload.title, body: payload.body },
+        data: payload.data || {},
+      });
       return true;
     } catch (error) {
-      this.logger.error(`Échec d'envoi vers le topic ${topic}:`, error);
+      this.logger.error(`[Push] Échec envoi topic ${topic}:`, error);
       return false;
     }
   }

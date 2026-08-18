@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
@@ -20,6 +20,8 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Loading from './pages/Loading';
 import useAuthStore from './store/authStore';
+import { registerFcmTokenOnLogin } from './services/pushRegistration';
+import { initFirebase, onForegroundMessage } from './services/firebase';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
@@ -31,6 +33,25 @@ const ProtectedRoute = ({ children }) => {
 };
 
 function App() {
+  const { isAuthenticated } = useAuthStore();
+
+  // Initialiser Firebase + demander permission push au chargement
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    initFirebase();
+    registerFcmTokenOnLogin();
+
+    // Écouter les notifications push en premier plan
+    const unsubscribe = onForegroundMessage((payload) => {
+      console.info('[FCM Foreground]', payload.title, payload.body);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [isAuthenticated]);
+
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>

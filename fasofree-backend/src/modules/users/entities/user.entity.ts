@@ -11,6 +11,7 @@ export enum NotificationChannel {
   EMAIL = 'EMAIL',
   WHATSAPP = 'WHATSAPP',
   SMS = 'SMS',
+  PUSH = 'PUSH',
 }
 
 @Entity('users')
