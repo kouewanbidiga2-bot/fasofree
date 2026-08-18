@@ -16,7 +16,7 @@ import {
   CreditCard,
 } from 'lucide-react';
 import { api } from '../services/api';
-import useAuthStore from '../store/authStore';
+import useAuthStore, { getHomeRoute } from '../store/authStore';
 
 const ACCENT = '#C1652E';
 
@@ -163,7 +163,7 @@ const Register = () => {
         role: user.role,
         isPremium: !!user.isPremium,
       });
-      navigate('/');
+      navigate(getHomeRoute(user.role), { replace: true });
     }
   };
 

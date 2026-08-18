@@ -14,7 +14,6 @@ import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
-import PhoneAuth from './pages/PhoneAuth';
 import Auth from './pages/Auth';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
@@ -57,6 +56,7 @@ function App() {
       <Routes>
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/" element={<Home />} />
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
         <Route path="/driver" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />

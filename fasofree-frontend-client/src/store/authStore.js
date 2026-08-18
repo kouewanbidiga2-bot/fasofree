@@ -11,13 +11,23 @@ const loadInitial = () => {
   return { user: null, isAuthenticated: false };
 };
 
+const ADMIN_APP_URL = 'https://fasofree-admin.onrender.com';
+
+export const getHomeRoute = (role) => {
+  const r = String(role || '').toUpperCase();
+  if (['DRIVER', 'COURIER'].includes(r)) return '/driver-dashboard';
+  if (['BUSINESS_ADMIN', 'MERCHANT'].includes(r)) return '/merchant-dashboard';
+  if (['ADMIN', 'SUPER_ADMIN'].includes(r)) return ADMIN_APP_URL;
+  return '/';
+};
+
 const useAuthStore = create((set) => ({
   user: loadInitial().user,
   isAuthenticated: loadInitial().isAuthenticated,
   isLoading: false,
   orders: [],
   receipts: [],
-  
+
   loginWithPhone: (phone, userData = {}) => {
     const user = {
       phone,
@@ -29,7 +39,7 @@ const useAuthStore = create((set) => ({
     localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
   },
-  
+
   loginWithToken: (token, userData = {}) => {
     localStorage.setItem('access_token', token);
     const user = {
@@ -45,29 +55,29 @@ const useAuthStore = create((set) => ({
     localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
   },
-  
+
   setPremium: (isPremium) => set((state) => ({
     user: state.user ? { ...state.user, isPremium: !!isPremium } : state.user,
   })),
-  
-  updateUser: (userData) => set((state) => { 
+
+  updateUser: (userData) => set((state) => {
     const updated = { ...state.user, ...userData };
     localStorage.setItem('fasofree_user', JSON.stringify(updated));
     return { user: updated };
   }),
-  
+
   logout: () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('fasofree_user');
     set({ user: null, isAuthenticated: false, orders: [], receipts: [] });
   },
-  
+
   setLoading: (isLoading) => set({ isLoading }),
-  
+
   addOrder: (order) => set((state) => ({
     orders: [...state.orders, { ...order, createdAt: new Date().toISOString() }]
   })),
-  
+
   addReceipt: (receipt) => set((state) => ({
     receipts: [...state.receipts, { ...receipt, createdAt: new Date().toISOString() }]
   })),
