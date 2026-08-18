@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { STORAGE_DRIVER } from '../upload/upload.module';
+import { STORAGE_DRIVER } from '../upload/upload.tokens';
 import {
   KycDocument,
   KycDocumentType,

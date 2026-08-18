@@ -21,7 +21,7 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { STORAGE_DRIVER } from './upload.module';
+import { STORAGE_DRIVER } from './upload.tokens';
 import type { UploadedFileResult } from './interfaces/storage-driver.interface';
 
 @ApiTags('Uploads')

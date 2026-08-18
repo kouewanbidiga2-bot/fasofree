@@ -4,15 +4,8 @@ import { UploadController } from './upload.controller';
 import { S3StorageProvider } from './providers/s3-storage.provider';
 import { LocalStorageProvider } from './providers/local-storage.provider';
 import { CloudinaryStorageProvider } from './providers/cloudinary-storage.provider';
-import { IStorageDriver } from './interfaces/storage-driver.interface';
-
-/**
- * Token d'injection du driver de stockage "intelligent" :
- * 1. Cloudinary si CLOUDINARY_CLOUD_NAME configuré (production)
- * 2. S3 si les identifiants AWS sont configurés
- * 3. Disque local sinon (développement / fallback)
- */
-export const STORAGE_DRIVER = 'STORAGE_DRIVER';
+import type { IStorageDriver } from './interfaces/storage-driver.interface';
+import { STORAGE_DRIVER } from './upload.tokens';
 
 const storageDriverProvider: Provider = {
   provide: STORAGE_DRIVER,
