@@ -22,7 +22,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { STORAGE_DRIVER } from './upload.module';
-import { IStorageDriver, UploadedFileResult } from './interfaces/storage-driver.interface';
+import type { UploadedFileResult } from './interfaces/storage-driver.interface';
 
 @ApiTags('Uploads')
 @ApiBearerAuth('JWT-auth')
@@ -31,7 +31,8 @@ import { IStorageDriver, UploadedFileResult } from './interfaces/storage-driver.
 export class UploadController {
   constructor(
     @Inject(STORAGE_DRIVER)
-    private readonly storageDriver: IStorageDriver,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly storageDriver: any,
   ) {}
 
   @Post('image')

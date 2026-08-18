@@ -31,7 +31,6 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { STORAGE_DRIVER } from '../upload/upload.module';
-import { IStorageDriver } from '../upload/interfaces/storage-driver.interface';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: UserRole };
@@ -44,7 +43,8 @@ export class UsersController {
   constructor(
     private readonly usersService: UsersService,
     @Inject(STORAGE_DRIVER)
-    private readonly storageDriver: IStorageDriver,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly storageDriver: any,
   ) {}
 
   // 👤 Route protégée : Récupérer son propre profil

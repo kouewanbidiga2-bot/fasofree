@@ -17,12 +17,10 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 @Injectable()
-export class CloudinaryStorageProvider extends IStorageDriver implements OnModuleInit {
+export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
   private readonly logger = new Logger(CloudinaryStorageProvider.name);
 
-  constructor(private readonly configService: ConfigService) {
-    super();
-  }
+  constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
     const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');

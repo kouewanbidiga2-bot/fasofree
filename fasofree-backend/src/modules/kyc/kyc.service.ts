@@ -7,7 +7,6 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
-import { IStorageDriver } from '../upload/interfaces/storage-driver.interface';
 import { STORAGE_DRIVER } from '../upload/upload.module';
 import {
   KycDocument,
@@ -22,7 +21,8 @@ export class KycService {
     private readonly documents: Repository<KycDocument>,
     private readonly dataSource: DataSource,
     @Inject(STORAGE_DRIVER)
-    private readonly storage: IStorageDriver,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private readonly storage: any,
   ) {}
 
   async submit(
