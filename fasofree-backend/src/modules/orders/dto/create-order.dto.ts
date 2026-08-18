@@ -9,7 +9,6 @@ import {
   IsPositive,
   IsString,
   Length,
-  IsUUID,
   IsObject,
   IsNumber,
   ValidateIf,
@@ -24,8 +23,9 @@ import { P2PLocationDto } from './p2p-location.dto';
 import { PackageDetailsDto } from './package-details.dto';
 
 export class OrderItemDto {
-  @ApiProperty({ description: 'UUID du produit', format: 'uuid' })
-  @IsUUID()
+  @ApiProperty({ description: 'Identifiant du produit' })
+  @IsString()
+  @IsNotEmpty()
   productId: string;
 
   @ApiProperty({ description: 'Nom du produit (pour le reçu)' })
@@ -47,12 +47,12 @@ export class OrderItemDto {
 export class CreateOrderDto {
   @ApiProperty({
     description:
-      'Identifiant UUID unique de la boutique / du commerce (optionnel pour P2P)',
-    format: 'uuid',
+      'Identifiant du commerce (optionnel pour P2P)',
     example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
     required: false,
   })
-  @IsUUID()
+  @IsString()
+  @IsOptional()
   @ValidateIf(
     (o) =>
       o.orderType !== OrderType.P2P_DELIVERY &&

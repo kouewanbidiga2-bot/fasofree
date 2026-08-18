@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone, CreditCard, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils } from 'lucide-react';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import useCartStore from '../store/cartStore';
@@ -13,6 +13,12 @@ import {
   DEFAULT_DELIVERY_COORDS,
 } from '../services/pricingService';
 
+const FULFILLMENT_OPTIONS = [
+  { id: 'DELIVERY', label: 'Me faire livrer', icon: Truck, description: 'Livraison à votre adresse' },
+  { id: 'PICKUP', label: 'Venir récupérer', icon: ShoppingBag, description: 'À emporter' },
+  { id: 'DINE_IN', label: 'Manger sur place', icon: Utensils, description: 'Consommation au restaurant' },
+];
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
@@ -23,17 +29,24 @@ const Checkout = () => {
     phone: '',
     address: '',
     notes: '',
+    tableNumber: '',
+    numberOfGuests: '',
   });
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [deliveryCoords, setDeliveryCoords] = useState(null);
+  const [fulfillmentType, setFulfillmentType] = useState('DELIVERY');
 
   const subtotal = getCartSubtotal(items);
+  const isDelivery = fulfillmentType === 'DELIVERY';
 
-  // 💬 Devis tarifaire : les frais viennent de l'API (livraison min 800 FCFA + plateforme 100 FCFA)
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
 
   useEffect(() => {
+    if (!isDelivery) {
+      setQuote({ deliveryFee: 0, platformFee: 100, total: subtotal + 100 });
+      return;
+    }
     let cancelled = false;
     setQuoteLoading(true);
     fetchQuote({
@@ -47,12 +60,10 @@ const Checkout = () => {
       .finally(() => {
         if (!cancelled) setQuoteLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [restaurantId, items, deliveryCoords, useCurrentLocation]);
+    return () => { cancelled = true; };
+  }, [restaurantId, items, deliveryCoords, useCurrentLocation, isDelivery, subtotal]);
 
-  const deliveryFee = quote?.deliveryFee ?? 0;
+  const deliveryFee = isDelivery ? (quote?.deliveryFee ?? 0) : 0;
   const platformFee = quote?.platformFee ?? 0;
   const finalTotal = quote?.total ?? subtotal;
 
@@ -79,15 +90,27 @@ const Checkout = () => {
         unitPrice: item.price,
       }));
 
-      const order = await api.createOrder({
+      const payload = {
         businessId,
         totalAmount: subtotal,
         items: orderItems,
-        deliveryLatitude: coords.latitude,
-        deliveryLongitude: coords.longitude,
         orderType: 'MERCHANT',
+        fulfillmentType,
         fulfillmentDetails: { notes: formData.notes || undefined },
-      });
+      };
+
+      if (isDelivery) {
+        payload.deliveryLatitude = coords.latitude;
+        payload.deliveryLongitude = coords.longitude;
+      }
+      if (fulfillmentType === 'DINE_IN' && formData.tableNumber) {
+        payload.fulfillmentDetails.tableNumber = formData.tableNumber;
+      }
+      if (fulfillmentType === 'DINE_IN' && formData.numberOfGuests) {
+        payload.fulfillmentDetails.numberOfGuests = Number(formData.numberOfGuests);
+      }
+
+      const order = await api.createOrder(payload);
 
       addOrder({
         id: order.id,
@@ -97,9 +120,10 @@ const Checkout = () => {
         deliveryFee,
         platformFee,
         total: finalTotal,
-        address: formData.address,
+        address: isDelivery ? formData.address : 'À récupérer',
         phone: formData.phone,
         paymentMethod,
+        fulfillmentType,
         status: order.status || 'pending',
       });
 
@@ -113,6 +137,7 @@ const Checkout = () => {
           total: finalTotal,
           paymentMethod,
           status: order.status,
+          fulfillmentType,
         },
       });
     } catch (err) {
@@ -132,10 +157,7 @@ const Checkout = () => {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           });
-          setFormData({
-            ...formData,
-            address: 'Position actuelle (GPS)',
-          });
+          setFormData({ ...formData, address: 'Position actuelle (GPS)' });
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -147,7 +169,6 @@ const Checkout = () => {
 
   return (
     <div className="app-page">
-      {/* Header */}
       <header className="app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center gap-4">
@@ -164,46 +185,143 @@ const Checkout = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit}>
-              {/* Delivery Address */}
+              {/* Fulfillment Type */}
               <div className="app-panel rounded-lg p-5 mb-6">
-                <h2 className="text-sm font-medium text-text-secondary mb-6 flex items-center gap-2">
-                  <MapPin size={16} className="text-accent-primary" strokeWidth={1.5} />
-                  Adresse de livraison
-                </h2>
-
-                <button
-                  className="app-action-secondary w-full mb-4"
-                  onClick={handleGetCurrentLocation}
-                >
-                  Utiliser ma position actuelle
-                </button>
-
-                <div className="mb-4">
-                  <label className="block text-xs text-text-secondary mb-2">Adresse complète</label>
-                  <input
-                    type="text"
-                    placeholder="Quartier, rue, numéro..."
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    required
-                    className="app-input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">Instructions de livraison (optionnel)</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Sonnette en panne, code d'accès..."
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="app-input"
-                  />
+                <h2 className="text-sm font-medium text-text-secondary mb-4">Comment souhaitez-vous votre commande ?</h2>
+                <div className="grid grid-cols-3 gap-3">
+                  {FULFILLMENT_OPTIONS.map((opt) => {
+                    const Icon = opt.icon;
+                    const isActive = fulfillmentType === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setFulfillmentType(opt.id)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${
+                          isActive
+                            ? 'border-accent-primary bg-accent-primary/5'
+                            : 'border-border-light bg-background-secondary hover:border-border-medium'
+                        }`}
+                      >
+                        <Icon size={24} className={isActive ? 'text-accent-primary' : 'text-text-secondary'} strokeWidth={1.5} />
+                        <span className={`text-sm font-medium ${isActive ? 'text-accent-primary' : 'text-text-primary'}`}>
+                          {opt.label}
+                        </span>
+                        <span className="text-xs text-text-tertiary text-center">{opt.description}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Delivery Address — only for DELIVERY */}
+              {isDelivery && (
+                <div className="app-panel rounded-lg p-5 mb-6">
+                  <h2 className="text-sm font-medium text-text-secondary mb-6 flex items-center gap-2">
+                    <MapPin size={16} className="text-accent-primary" strokeWidth={1.5} />
+                    Adresse de livraison
+                  </h2>
+
+                  <button
+                    className="app-action-secondary w-full mb-4"
+                    onClick={handleGetCurrentLocation}
+                    type="button"
+                  >
+                    Utiliser ma position actuelle
+                  </button>
+
+                  <div className="mb-4">
+                    <label className="block text-xs text-text-secondary mb-2">Adresse complète</label>
+                    <input
+                      type="text"
+                      placeholder="Quartier, rue, numéro..."
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      required
+                      className="app-input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-2">Instructions de livraison (optionnel)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Sonnette en panne, code d'accès..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="app-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Pickup info */}
+              {fulfillmentType === 'PICKUP' && (
+                <div className="app-panel rounded-lg p-5 mb-6">
+                  <h2 className="text-sm font-medium text-text-secondary mb-4 flex items-center gap-2">
+                    <ShoppingBag size={16} className="text-accent-primary" strokeWidth={1.5} />
+                    Récupération
+                  </h2>
+                  <p className="text-sm text-text-secondary mb-3">
+                    Récupérez votre commande au restaurant. Un code QR vous sera fourni.
+                  </p>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-2">Instructions (optionnel)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Je arrive dans 15 min..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="app-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Dine-in info */}
+              {fulfillmentType === 'DINE_IN' && (
+                <div className="app-panel rounded-lg p-5 mb-6">
+                  <h2 className="text-sm font-medium text-text-secondary mb-6 flex items-center gap-2">
+                    <Utensils size={16} className="text-accent-primary" strokeWidth={1.5} />
+                    Sur place
+                  </h2>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-xs text-text-secondary mb-2">Numéro de table (optionnel)</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 5"
+                        value={formData.tableNumber}
+                        onChange={(e) => setFormData({ ...formData, tableNumber: e.target.value })}
+                        className="app-input"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-text-secondary mb-2">Nombre de convives</label>
+                      <input
+                        type="number"
+                        placeholder="Ex: 2"
+                        min="1"
+                        value={formData.numberOfGuests}
+                        onChange={(e) => setFormData({ ...formData, numberOfGuests: e.target.value })}
+                        className="app-input"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-text-secondary mb-2">Demande spéciale (optionnel)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Alliance d'allergie, chaise bébé..."
+                      value={formData.notes}
+                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                      className="app-input"
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Contact Info */}
               <div className="app-panel rounded-lg p-5 mb-6">
@@ -297,7 +415,17 @@ const Checkout = () => {
                 </div>
               )}
 
-              <div className="space-y-3 mb-4">
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 text-xs font-medium bg-accent-primary/10 text-accent-primary rounded">
+                  {FULFILLMENT_OPTIONS.find(o => o.id === fulfillmentType)?.icon && React.createElement(
+                    FULFILLMENT_OPTIONS.find(o => o.id === fulfillmentType).icon,
+                    { size: 12, strokeWidth: 1.5 }
+                  )}
+                  {FULFILLMENT_OPTIONS.find(o => o.id === fulfillmentType)?.label}
+                </span>
+              </div>
+
+              <div className="space-y-3 mb-4 mt-3">
                 {items.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
                     <span className="text-text-secondary">
@@ -315,14 +443,16 @@ const Checkout = () => {
                   <span>Sous-total</span>
                   <span className="font-mono text-text-primary">{subtotal.toLocaleString()} FCFA</span>
                 </div>
+                {isDelivery && (
+                  <div className="flex justify-between text-sm text-text-secondary">
+                    <span>Frais de livraison</span>
+                    <span className="font-mono text-text-primary">
+                      {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Frais de livraison</span>
-                  <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Frais de service / Plateforme</span>
+                  <span>Frais de service</span>
                   <span className="font-mono text-text-primary">
                     {quoteLoading ? '…' : `${platformFee.toLocaleString()} FCFA`}
                   </span>
@@ -336,7 +466,7 @@ const Checkout = () => {
                 {quoteLoading && (
                   <p className="flex items-center gap-2 text-xs text-text-secondary">
                     <Loader2 size={14} className="animate-spin" strokeWidth={1.5} />
-                    Calcul du prix de livraison…
+                    Calcul du prix…
                   </p>
                 )}
               </div>

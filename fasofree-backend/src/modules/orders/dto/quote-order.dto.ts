@@ -6,7 +6,7 @@ import {
   IsLatitude,
   IsLongitude,
   IsOptional,
-  IsUUID,
+  IsString,
   ValidateNested,
   Min,
 } from 'class-validator';
@@ -29,12 +29,11 @@ export class QuoteOrderDto {
 
   @ApiPropertyOptional({
     description:
-      'Identifiant UUID de la boutique (optionnel si businessLatitude/businessLongitude fournis, inutile pour P2P)',
-    format: 'uuid',
+      'Identifiant du boutique (optionnel si businessLatitude/businessLongitude fournis)',
     required: false,
   })
   @IsOptional()
-  @IsUUID()
+  @IsString()
   businessId?: string;
 
   @ApiPropertyOptional({

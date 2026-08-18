@@ -16,7 +16,7 @@ export class OrderItem {
   @Column({ type: 'uuid' })
   orderId: string;
 
-  @Column({ type: 'uuid' })
+  @Column({ type: 'varchar' })
   productId: string;
 
   @Column({ type: 'varchar', length: 255 })
