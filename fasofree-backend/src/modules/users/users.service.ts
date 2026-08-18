@@ -354,6 +354,12 @@ export class UsersService implements OnModuleInit {
     return this.userRepository.save(user);
   }
 
+  async updateAvatar(userId: string, avatarUrl: string): Promise<User> {
+    const user = await this.findById(userId);
+    user.avatarUrl = avatarUrl;
+    return this.userRepository.save(user);
+  }
+
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }

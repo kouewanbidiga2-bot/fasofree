@@ -31,6 +31,9 @@ export class User {
   @Column({ nullable: true })
   fcmToken?: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  avatarUrl?: string | null;
+
   @Column({
     type: 'enum',
     enum: NotificationChannel,

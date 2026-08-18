@@ -7,6 +7,8 @@ import {
   HttpStatus,
   UseGuards,
   Query,
+  Inject,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
@@ -19,18 +21,21 @@ import {
   ApiBearerAuth,
   ApiQuery,
 } from '@nestjs/swagger';
-import { S3StorageProvider } from './providers/s3-storage.provider';
-import { UploadedFileResult } from './interfaces/storage-driver.interface';
+import { STORAGE_DRIVER } from './upload.module';
+import type { IStorageDriver, UploadedFileResult } from './interfaces/storage-driver.interface';
 
 @ApiTags('Uploads')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(AuthGuard('jwt'))
 @Controller('uploads')
 export class UploadController {
-  constructor(private readonly storageProvider: S3StorageProvider) {}
+  constructor(
+    @Inject(STORAGE_DRIVER)
+    private readonly storageDriver: IStorageDriver,
+  ) {}
 
   @Post('image')
-  @ApiOperation({ summary: 'Uploader une image' })
+  @ApiOperation({ summary: 'Uploader une image (JPEG, PNG, WebP — max 5 Mo)' })
   @ApiQuery({ name: 'folder', required: false })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -41,18 +46,36 @@ export class UploadController {
       },
     },
   })
-  @ApiResponse({ status: 201, description: 'Image uploadée' })
-  @UseInterceptors(FileInterceptor('file'))
+  @ApiResponse({ status: 201, description: 'Image uploadée avec succès' })
+  @ApiResponse({ status: 400, description: 'Type non supporté ou fichier trop volumineux' })
+  @UseInterceptors(FileInterceptor('file', { storage: undefined }))
   async uploadImage(
     @UploadedFile(
       new ParseFilePipeBuilder()
-        .addFileTypeValidator({ fileType: /(jpg|jpeg|png|webp)$/i })
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png|webp)$/i,
+        })
         .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
-        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+        .build({
+          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+          exceptionFactory: (errorMsg) => {
+            if (errorMsg.includes('file type')) {
+              throw new BadRequestException(
+                'Type de fichier non supporté. Formats acceptés: JPEG, PNG, WebP',
+              );
+            }
+            if (errorMsg.includes('size')) {
+              throw new BadRequestException(
+                'Fichier trop volumineux. Taille maximale: 5 Mo',
+              );
+            }
+            throw new BadRequestException(errorMsg);
+          },
+        }),
     )
     file: Express.Multer.File,
     @Query('folder') folder = 'general',
   ): Promise<UploadedFileResult> {
-    return this.storageProvider.uploadFile(file, folder);
+    return this.storageDriver.uploadFile(file, folder);
   }
 }

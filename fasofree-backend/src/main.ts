@@ -3,8 +3,6 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { writeFileSync } from 'fs';
-import { join } from 'path';
-import * as express from 'express';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
@@ -32,8 +30,7 @@ async function bootstrap() {
     }),
   );
 
-  // 3bis. Fichiers uploadés en mode local (fallback dev sans S3) — ex: documents KYC
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  // 3bis. Stockage local supprimé — tous les fichiers vont sur Cloudinary/S3
 
   // 4. Stratégie CORS Intelligente (Dev Local + Prod)
   const isProduction = process.env.NODE_ENV === 'production';

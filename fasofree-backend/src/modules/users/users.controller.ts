@@ -7,9 +7,16 @@ import {
   Patch,
   Post,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipeBuilder,
+  HttpStatus,
   Request as NestRequest,
   UnauthorizedException,
+  Inject,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { RolesGuard } from '../../core/security/roles.guard';
@@ -21,8 +28,10 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
+import { STORAGE_DRIVER } from '../upload/upload.module';
+import type { IStorageDriver } from '../upload/interfaces/storage-driver.interface';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: UserRole };
@@ -32,7 +41,11 @@ type RequestWithUser = ExpressRequest & {
 @ApiBearerAuth('JWT-auth')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    @Inject(STORAGE_DRIVER)
+    private readonly storageDriver: IStorageDriver,
+  ) {}
 
   // 👤 Route protégée : Récupérer son propre profil
   @UseGuards(AuthGuard('jwt'))
@@ -59,6 +72,41 @@ export class UsersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.usersService.updateProfile(userId, dto);
+  }
+
+  // 📸 Mettre à jour l'avatar de profil (upload vers Cloudinary)
+  @UseGuards(AuthGuard('jwt'))
+  @Post('me/avatar')
+  @ApiOperation({ summary: "Uploader un avatar de profil (JPEG, PNG, WebP — max 5 Mo)" })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('avatar'))
+  async uploadAvatar(
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png|webp)$/i,
+        })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({
+          errorHttpStatusCode: HttpStatus.BAD_REQUEST,
+          exceptionFactory: () => {
+            throw new BadRequestException(
+              'Avatar: type non supporté ou fichier trop volumineux (max 5 Mo, JPEG/PNG/WebP)',
+            );
+          },
+        }),
+    )
+    file: Express.Multer.File,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+
+    const result = await this.storageDriver.uploadFile(file, 'avatars');
+    await this.usersService.updateAvatar(userId, result.url);
+    return { avatarUrl: result.url };
   }
 
   // 🛵 Statut de disponibilité du livreur/coursier (DRIVER / COURIER)
