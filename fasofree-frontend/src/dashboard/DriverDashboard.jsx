@@ -19,9 +19,9 @@ import {
   Calendar, History, Package, Route
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
-import { getAvailableOrders, acceptOrder, confirmDelivery, updateDriverLocation } from '../services/orderService';
-import { getWallet } from '../services/walletService';
+import { StatCard, LoadingSkeleton, EmptyState } from './components/StatCard';
+import { getMyOrders, acceptOrder, confirmDelivery } from '../services/orderService';
+import { getWallet, getWalletTransactions } from '../services/walletService';
 import { DriverStatus } from '../types';
 
 const DriverDashboard = () => {
@@ -29,17 +29,15 @@ const DriverDashboard = () => {
   const { user, logout } = useAuthStore();
   const [activeTab, setActiveTab] = useState('jobs');
 
-  // Driver status
   const [driverStatus, setDriverStatus] = useState(DriverStatus.OFFLINE);
   const [currentLocation, setCurrentLocation] = useState(null);
 
-  // Available jobs
   const [availableJobs, setAvailableJobs] = useState([]);
   const [currentJob, setCurrentJob] = useState(null);
   const [acceptingJob, setAcceptingJob] = useState(null);
 
-  // Earnings and wallet
   const [wallet, setWallet] = useState(null);
+  const [walletTransactions, setWalletTransactions] = useState([]);
   const [earnings, setEarnings] = useState({
     today: 0,
     week: 0,
@@ -48,12 +46,10 @@ const DriverDashboard = () => {
     averageRating: 0,
   });
 
-  // Delivery history
   const [deliveryHistory, setDeliveryHistory] = useState([]);
 
-  // UI states
   const [loading, setLoading] = useState({
-    jobs: true,
+    jobs: false,
     wallet: true,
     history: true,
     earnings: true,
@@ -63,121 +59,116 @@ const DriverDashboard = () => {
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
   const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
 
-  // ─── Load Available Jobs ─────────────────────────────────────────────
   const loadAvailableJobs = useCallback(async () => {
     if (driverStatus !== DriverStatus.ONLINE) return;
     setLoad('jobs', true);
     try {
-      // Mock data - replace with actual API call
-      setTimeout(() => {
-        setAvailableJobs([
-          {
-            id: 'JOB-001',
-            orderId: 'ORD-1234',
-            pickupAddress: 'Maquis Le 20, Patte d\'Oie',
-            pickupCoords: { lat: 12.3714, lng: -1.5196 },
-            deliveryAddress: 'Quartier Patte d\'Oie, Rue 23',
-            deliveryCoords: { lat: 12.3744, lng: -1.5226 },
-            customerName: 'Jean Kabore',
-            customerPhone: '+226 70 00 00 00',
-            businessName: 'Maquis Le 20',
-            estimatedTime: 15,
-            distance: 2.3,
-            deliveryFee: 1500,
-            items: ['2x Poulet bicyclette', '1x Riz gras'],
-          },
-          {
-            id: 'JOB-002',
-            orderId: 'ORD-1235',
-            pickupAddress: 'Pharmacie Centrale, Centre-ville',
-            pickupCoords: { lat: 12.3584, lng: -1.5356 },
-            deliveryAddress: 'Koulouba, Villa 45',
-            deliveryCoords: { lat: 12.3624, lng: -1.5416 },
-            customerName: 'Aisha Sanou',
-            customerPhone: '+226 76 11 22 33',
-            businessName: 'Pharmacie Centrale',
-            estimatedTime: 25,
-            distance: 4.1,
-            deliveryFee: 2200,
-            items: ['Médicaments ordonnance'],
-          },
-        ]);
-        setLoad('jobs', false);
-      }, 600);
+      const data = await getMyOrders({ status: 'PAID', limit: 20 });
+      const orders = Array.isArray(data) ? data : data?.data || [];
+      const jobs = orders.map(o => ({
+        id: o.id,
+        orderId: o.id,
+        pickupAddress: o.pickupAddress || o.pickupLocation?.address || '—',
+        pickupCoords: o.pickupLocation ? { lat: o.pickupLocation.latitude, lng: o.pickupLocation.longitude } : null,
+        deliveryAddress: o.deliveryAddress || o.deliveryLocation?.address || '—',
+        deliveryCoords: o.deliveryLocation ? { lat: o.deliveryLocation.latitude, lng: o.deliveryLocation.longitude } : null,
+        customerName: o.customerName || o.user?.firstName || 'Client',
+        customerPhone: o.customerPhone || o.user?.phone || '',
+        businessName: o.businessName || o.business?.name || '',
+        estimatedTime: o.estimatedTime || null,
+        distance: o.distance || null,
+        deliveryFee: o.deliveryFee || o.totalAmount || 0,
+        items: o.items || [],
+      }));
+      setAvailableJobs(jobs);
     } catch (err) {
-      setError('jobs', err.message);
+      setAvailableJobs([]);
+    } finally {
       setLoad('jobs', false);
     }
   }, [driverStatus]);
 
-  // ─── Load Wallet and Earnings ───────────────────────────────────────
   const loadWallet = useCallback(async () => {
     if (!user?.id) return;
     setLoad('wallet', true);
     try {
       const data = await getWallet('driver', user.id);
       setWallet(data);
-      setLoad('wallet', false);
-    } catch (err) {
-      setError('wallet', err.message);
+      if (data?.id) {
+        try {
+          const txData = await getWalletTransactions(data.id, 50);
+          setWalletTransactions(Array.isArray(txData) ? txData : txData?.data || []);
+        } catch {
+          setWalletTransactions([]);
+        }
+      }
+    } catch {
+      setWallet(null);
+      setWalletTransactions([]);
+    } finally {
       setLoad('wallet', false);
     }
   }, [user?.id]);
 
   const loadEarnings = useCallback(async () => {
+    if (!user?.id) return;
     setLoad('earnings', true);
     try {
-      // Mock data - replace with actual API call
-      setTimeout(() => {
-        setEarnings({
-          today: 12500,
-          week: 67800,
-          month: 245000,
-          totalDeliveries: 156,
-          averageRating: 4.7,
-        });
-        setLoad('earnings', false);
-      }, 500);
-    } catch (err) {
-      setError('earnings', err.message);
+      const data = await getMyOrders({ status: 'COMPLETED', limit: 200 });
+      const orders = Array.isArray(data) ? data : data?.data || [];
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startOfWeek = new Date(startOfDay);
+      startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let todaySum = 0, weekSum = 0, monthSum = 0;
+      let totalDeliveries = orders.length;
+      let ratingSum = 0, ratingCount = 0;
+
+      orders.forEach(o => {
+        const fee = o.deliveryFee || 0;
+        const created = new Date(o.createdAt || o.updatedAt);
+        if (created >= startOfDay) todaySum += fee;
+        if (created >= startOfWeek) weekSum += fee;
+        if (created >= startOfMonth) monthSum += fee;
+        if (o.rating) { ratingSum += o.rating; ratingCount++; }
+      });
+
+      setEarnings({
+        today: todaySum,
+        week: weekSum,
+        month: monthSum,
+        totalDeliveries,
+        averageRating: ratingCount > 0 ? +(ratingSum / ratingCount).toFixed(1) : 0,
+      });
+    } catch {
+      setEarnings({ today: 0, week: 0, month: 0, totalDeliveries: 0, averageRating: 0 });
+    } finally {
       setLoad('earnings', false);
     }
-  }, []);
+  }, [user?.id]);
 
-  // ─── Load Delivery History ───────────────────────────────────────────
   const loadDeliveryHistory = useCallback(async () => {
     setLoad('history', true);
     try {
-      // Mock data - replace with actual API call
-      setTimeout(() => {
-        setDeliveryHistory([
-          {
-            id: 'DEL-001',
-            orderId: 'ORD-1230',
-            customerName: 'Paul Zongo',
-            deliveryAddress: 'Wendt-Koudi',
-            deliveredAt: '2026-08-13T10:30:00Z',
-            deliveryFee: 1800,
-            tip: 500,
-            rating: 5,
-            totalEarnings: 2300,
-          },
-          {
-            id: 'DEL-002',
-            orderId: 'ORD-1231',
-            customerName: 'Marie Compaoré',
-            deliveryAddress: 'Zone 1',
-            deliveredAt: '2026-08-13T09:15:00Z',
-            deliveryFee: 1200,
-            tip: 0,
-            rating: 4,
-            totalEarnings: 1200,
-          },
-        ]);
-        setLoad('history', false);
-      }, 700);
-    } catch (err) {
-      setError('history', err.message);
+      const data = await getMyOrders({ status: 'DELIVERED', limit: 50 });
+      const orders = Array.isArray(data) ? data : data?.data || [];
+      const history = orders.map(o => ({
+        id: o.id,
+        orderId: o.id,
+        customerName: o.customerName || o.user?.firstName || 'Client',
+        deliveryAddress: o.deliveryAddress || o.deliveryLocation?.address || '—',
+        deliveredAt: o.updatedAt || o.deliveredAt || null,
+        deliveryFee: o.deliveryFee || 0,
+        tip: o.tip || 0,
+        rating: o.rating || 0,
+        totalEarnings: (o.deliveryFee || 0) + (o.tip || 0),
+      }));
+      setDeliveryHistory(history);
+    } catch {
+      setDeliveryHistory([]);
+    } finally {
       setLoad('history', false);
     }
   }, []);
@@ -191,13 +182,11 @@ const DriverDashboard = () => {
   useEffect(() => {
     if (driverStatus === DriverStatus.ONLINE) {
       loadAvailableJobs();
-      // Refresh jobs every 30 seconds
       const interval = setInterval(loadAvailableJobs, 30000);
       return () => clearInterval(interval);
     }
   }, [driverStatus, loadAvailableJobs]);
 
-  // ─── Actions ─────────────────────────────────────────────────────────
   const toggleDriverStatus = () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;
     setDriverStatus(newStatus);
@@ -246,6 +235,31 @@ const DriverDashboard = () => {
     }
   };
 
+  const handleCallClient = (phone) => {
+    if (phone) {
+      window.location.href = `tel:${phone}`;
+    }
+  };
+
+  const handleMessageClient = (phone) => {
+    if (phone) {
+      window.location.href = `sms:${phone}`;
+    }
+  };
+
+  const handleViewRoute = (pickupCoords, deliveryCoords) => {
+    if (deliveryCoords?.lat && deliveryCoords?.lng) {
+      const dest = `${deliveryCoords.lat},${deliveryCoords.lng}`;
+      const origin = pickupCoords?.lat && pickupCoords?.lng
+        ? `${pickupCoords.lat},${pickupCoords.lng}`
+        : '';
+      const url = origin
+        ? `https://www.google.com/maps/dir/${origin}/${dest}`
+        : `https://www.google.com/maps/search/?api=1&query=${dest}`;
+      window.open(url, '_blank');
+    }
+  };
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -260,7 +274,7 @@ const DriverDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background-primary flex">
-      {/* ─── SIDEBAR DRIVER ─────────────────────────────────────────── */}
+      {/* SIDEBAR */}
       <aside className="hidden lg:flex flex-col w-60 bg-background-card border-r border-border-light fixed h-full z-20">
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center gap-3">
@@ -286,7 +300,6 @@ const DriverDashboard = () => {
           </div>
         </div>
 
-        {/* Status Toggle */}
         <div className="p-4 border-b border-border-light">
           <button
             onClick={toggleDriverStatus}
@@ -329,17 +342,15 @@ const DriverDashboard = () => {
           })}
         </nav>
 
-        {wallet && (
-          <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <Wallet size={13} className="text-accent-primary" />
-              <span className="text-text-tertiary text-xs">Portefeuille</span>
-            </div>
-            <p className="text-text-primary text-sm font-bold">
-              {(wallet.balance || 0).toLocaleString()} FCFA
-            </p>
+        <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet size={13} className="text-accent-primary" />
+            <span className="text-text-tertiary text-xs">Portefeuille</span>
           </div>
-        )}
+          <p className="text-text-primary text-sm font-bold">
+            {(wallet?.balance || 0).toLocaleString()} FCFA
+          </p>
+        </div>
 
         <div className="p-3 border-t border-border-light">
           <button onClick={handleLogout} className="nav-item w-full text-status-error hover:bg-status-errorBg">
@@ -349,7 +360,7 @@ const DriverDashboard = () => {
         </div>
       </aside>
 
-      {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
+      {/* MAIN CONTENT */}
       <main className="flex-1 lg:ml-60 min-h-screen">
         <header className="lg:hidden flex items-center justify-between px-4 py-4 border-b border-border-light bg-background-card sticky top-0 z-10">
           <div className="flex items-center gap-2">
@@ -380,9 +391,7 @@ const DriverDashboard = () => {
 
         <div className="p-4 sm:p-6 lg:p-8">
 
-          {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET COURSES */}
-          {/* ──────────────────────────────────────────────────────── */}
+          {/* ─── ONGLET COURSES ────────────────────────────────── */}
           {activeTab === 'jobs' && (
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
@@ -421,10 +430,18 @@ const DriverDashboard = () => {
                       </div>
                     </div>
                     <div className="flex gap-2 pt-2">
-                      <button className="btn-secondary flex-1 gap-2">
+                      <button
+                        onClick={() => handleCallClient(currentJob.customerPhone)}
+                        disabled={!currentJob.customerPhone}
+                        className="btn-secondary flex-1 gap-2 disabled:opacity-40"
+                      >
                         <Phone size={14} /> Appeler client
                       </button>
-                      <button className="btn-secondary flex-1 gap-2">
+                      <button
+                        onClick={() => handleMessageClient(currentJob.customerPhone)}
+                        disabled={!currentJob.customerPhone}
+                        className="btn-secondary flex-1 gap-2 disabled:opacity-40"
+                      >
                         <MessageSquare size={14} /> Message
                       </button>
                     </div>
@@ -490,15 +507,19 @@ const DriverDashboard = () => {
                           </div>
                         </div>
                         <div className="text-right ml-4">
-                          <p className="text-lg font-bold text-accent-primary">{job.deliveryFee.toLocaleString()} FCFA</p>
-                          <div className="flex items-center gap-1 text-xs text-text-secondary mt-1">
-                            <Clock size={12} />
-                            {job.estimatedTime} min
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-text-secondary">
-                            <Route size={12} />
-                            {job.distance} km
-                          </div>
+                          <p className="text-lg font-bold text-accent-primary">{(job.deliveryFee || 0).toLocaleString()} FCFA</p>
+                          {job.estimatedTime && (
+                            <div className="flex items-center gap-1 text-xs text-text-secondary mt-1">
+                              <Clock size={12} />
+                              {job.estimatedTime} min
+                            </div>
+                          )}
+                          {job.distance && (
+                            <div className="flex items-center gap-1 text-xs text-text-secondary">
+                              <Route size={12} />
+                              {job.distance} km
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -509,7 +530,10 @@ const DriverDashboard = () => {
                         >
                           {acceptingJob === job.id ? '...' : 'Accepter'}
                         </button>
-                        <button className="btn-secondary flex-1 gap-2">
+                        <button
+                          onClick={() => handleViewRoute(job.pickupCoords, job.deliveryCoords)}
+                          className="btn-secondary flex-1 gap-2"
+                        >
                           <Navigation size={14} /> Voir l'itinéraire
                         </button>
                       </div>
@@ -520,9 +544,7 @@ const DriverDashboard = () => {
             </div>
           )}
 
-          {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET GAINS */}
-          {/* ──────────────────────────────────────────────────────── */}
+          {/* ─── ONGLET GAINS ──────────────────────────────────── */}
           {activeTab === 'earnings' && (
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
@@ -569,8 +591,14 @@ const DriverDashboard = () => {
                     <Star size={16} className="text-yellow-500" />
                     Note moyenne
                   </h3>
-                  <p className="text-3xl font-bold text-text-primary">{earnings.averageRating.toFixed(1)}/5.0</p>
-                  <p className="text-xs text-text-secondary mt-1">Basée sur {earnings.totalDeliveries} livraisons</p>
+                  <p className="text-3xl font-bold text-text-primary">
+                    {earnings.averageRating > 0 ? `${earnings.averageRating}/5.0` : '—'}
+                  </p>
+                  <p className="text-xs text-text-secondary mt-1">
+                    {earnings.totalDeliveries > 0
+                      ? `Basée sur ${earnings.totalDeliveries} livraisons`
+                      : 'Aucune livraison encore'}
+                  </p>
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
@@ -581,12 +609,31 @@ const DriverDashboard = () => {
                   <p className="text-xs text-text-secondary mt-1">Portefeuille FasoFree</p>
                 </div>
               </div>
+
+              {walletTransactions.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="font-bold text-text-primary mb-4">Transactions récentes</h3>
+                  <div className="space-y-2">
+                    {walletTransactions.map((tx, i) => (
+                      <div key={tx.id || i} className="card p-4 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{tx.description || tx.type || 'Transaction'}</p>
+                          <p className="text-xs text-text-tertiary">
+                            {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('fr-FR') : '—'}
+                          </p>
+                        </div>
+                        <p className={`text-sm font-bold ${(tx.amount || 0) >= 0 ? 'text-status-success' : 'text-status-error'}`}>
+                          {(tx.amount || 0) >= 0 ? '+' : ''}{(tx.amount || 0).toLocaleString()} FCFA
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET HISTORIQUE */}
-          {/* ──────────────────────────────────────────────────────── */}
+          {/* ─── ONGLET HISTORIQUE ─────────────────────────────── */}
           {activeTab === 'history' && (
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
@@ -619,12 +666,14 @@ const DriverDashboard = () => {
                         <div>
                           <h3 className="font-bold text-text-primary text-sm">{delivery.customerName}</h3>
                           <p className="text-xs text-text-secondary">{delivery.deliveryAddress}</p>
-                          <p className="text-xs text-text-tertiary mt-1">
-                            {new Date(delivery.deliveredAt).toLocaleDateString('fr-FR')} à {new Date(delivery.deliveredAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                          </p>
+                          {delivery.deliveredAt && (
+                            <p className="text-xs text-text-tertiary mt-1">
+                              {new Date(delivery.deliveredAt).toLocaleDateString('fr-FR')} à {new Date(delivery.deliveredAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold text-accent-primary">{delivery.totalEarnings.toLocaleString()} FCFA</p>
+                          <p className="text-lg font-bold text-accent-primary">{(delivery.totalEarnings || 0).toLocaleString()} FCFA</p>
                           {delivery.rating > 0 && (
                             <div className="flex items-center gap-1 mt-1">
                               <Star size={12} className="text-yellow-500 fill-yellow-500" />
@@ -634,7 +683,7 @@ const DriverDashboard = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-text-secondary">
-                        <span>Frais: {delivery.deliveryFee.toLocaleString()} FCFA</span>
+                        <span>Frais: {(delivery.deliveryFee || 0).toLocaleString()} FCFA</span>
                         {delivery.tip > 0 && <span>Pourboire: {delivery.tip.toLocaleString()} FCFA</span>}
                       </div>
                     </div>
@@ -644,9 +693,7 @@ const DriverDashboard = () => {
             </div>
           )}
 
-          {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET PARAMÈTRES */}
-          {/* ──────────────────────────────────────────────────────── */}
+          {/* ─── ONGLET PARAMETRES ─────────────────────────────── */}
           {activeTab === 'settings' && (
             <div className="animate-slide-up">
               <h1 className="text-xl font-bold text-text-primary mb-6">Paramètres du Livreur</h1>
@@ -654,22 +701,22 @@ const DriverDashboard = () => {
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Profil</h3>
                   <p className="text-text-secondary text-xs mb-4">Modifiez vos informations personnelles.</p>
-                  <button disabled className="btn-secondary w-full opacity-50">Modifier</button>
+                  <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Véhicule</h3>
                   <p className="text-text-secondary text-xs mb-4">Type de véhicule et informations.</p>
-                  <button disabled className="btn-secondary w-full opacity-50">Modifier</button>
+                  <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Préférences de livraison</h3>
                   <p className="text-text-secondary text-xs mb-4">Zones de livraison et horaires.</p>
-                  <button disabled className="btn-secondary w-full opacity-50">Configurer</button>
+                  <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Notifications</h3>
                   <p className="text-text-secondary text-xs mb-4">Gérez vos préférences de notification.</p>
-                  <button disabled className="btn-secondary w-full opacity-50">Configurer</button>
+                  <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
                 </div>
               </div>
             </div>
