@@ -28,7 +28,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "10000"
+        value: "1000"
       - key: CORS_ORIGIN
         value: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
       - key: DB_SYNCHRONIZE
