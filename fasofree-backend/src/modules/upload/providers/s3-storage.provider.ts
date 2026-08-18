@@ -19,13 +19,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { extname } from 'path';
 
 @Injectable()
-export class S3StorageProvider implements IStorageDriver {
+export class S3StorageProvider extends IStorageDriver {
   private readonly logger = new Logger(S3StorageProvider.name);
   private readonly s3Client: S3Client;
   private readonly bucketName: string;
   private readonly cdnUrl: string;
 
   constructor(private readonly configService: ConfigService) {
+    super();
     this.bucketName = this.configService.get<string>(
       'AWS_S3_BUCKET',
       'default-bucket',

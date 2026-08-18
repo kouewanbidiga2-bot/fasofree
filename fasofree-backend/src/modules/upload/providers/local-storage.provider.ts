@@ -21,9 +21,13 @@ import {
  * Le storageKey stocké en base est le chemin relatif (ex: kyc/<ownerId>/xxx.jpg).
  */
 @Injectable()
-export class LocalStorageProvider implements IStorageDriver {
+export class LocalStorageProvider extends IStorageDriver {
   private readonly logger = new Logger(LocalStorageProvider.name);
   private readonly rootDir = join(process.cwd(), 'uploads');
+
+  constructor() {
+    super();
+  }
 
   private resolvePath(fileKey: string): string {
     // Sécurité : interdit toute remontée hors du dossier uploads

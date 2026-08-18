@@ -22,7 +22,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { STORAGE_DRIVER } from './upload.module';
-import type { IStorageDriver, UploadedFileResult } from './interfaces/storage-driver.interface';
+import { IStorageDriver, UploadedFileResult } from './interfaces/storage-driver.interface';
 
 @ApiTags('Uploads')
 @ApiBearerAuth('JWT-auth')

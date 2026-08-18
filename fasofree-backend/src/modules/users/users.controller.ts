@@ -31,7 +31,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { STORAGE_DRIVER } from '../upload/upload.module';
-import type { IStorageDriver } from '../upload/interfaces/storage-driver.interface';
+import { IStorageDriver } from '../upload/interfaces/storage-driver.interface';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: UserRole };

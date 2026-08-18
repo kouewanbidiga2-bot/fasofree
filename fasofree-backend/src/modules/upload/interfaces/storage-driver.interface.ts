@@ -5,20 +5,23 @@ export interface UploadedFileResult {
   size: number;
 }
 
-export interface IStorageDriver {
-  uploadFile(
+/**
+ * Abstract class (not interface) so it's a runtime value.
+ * This avoids TS1272 with isolatedModules + emitDecoratorMetadata
+ * while still allowing class-based providers to implement it.
+ */
+export abstract class IStorageDriver {
+  abstract uploadFile(
     file: Express.Multer.File,
     folder: string,
   ): Promise<UploadedFileResult>;
 
-  /** Upload d'un document privé (KYC) : URL publique vide, clé de stockage renvoyée */
-  uploadPrivateFile(
+  abstract uploadPrivateFile(
     file: Express.Multer.File,
     folder: string,
   ): Promise<UploadedFileResult>;
 
-  /** URL signée (S3) ou locale (/uploads/...) permettant de consulter un document */
-  getSignedReadUrl(fileKey: string, expiresIn?: number): Promise<string>;
+  abstract getSignedReadUrl(fileKey: string, expiresIn?: number): Promise<string>;
 
-  deleteFile(fileKey: string): Promise<void>;
+  abstract deleteFile(fileKey: string): Promise<void>;
 }
