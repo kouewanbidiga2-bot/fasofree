@@ -14,6 +14,10 @@ import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
+import MerchantProducts from './pages/MerchantProducts';
+import MerchantOrders from './pages/MerchantOrders';
+import MerchantWallet from './pages/MerchantWallet';
+import MerchantSettings from './pages/MerchantSettings';
 import Auth from './pages/Auth';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
@@ -71,6 +75,10 @@ function App() {
         <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/merchant-dashboard" element={<ProtectedRoute><MerchantDashboard /></ProtectedRoute>} />
+        <Route path="/merchant/products" element={<ProtectedRoute><MerchantProducts /></ProtectedRoute>} />
+        <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />
+        <Route path="/merchant/wallet" element={<ProtectedRoute><MerchantWallet /></ProtectedRoute>} />
+        <Route path="/merchant/settings" element={<ProtectedRoute><MerchantSettings /></ProtectedRoute>} />
         <Route path="/driver-dashboard" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/privacy" element={<ProtectedRoute><Privacy /></ProtectedRoute>} />
         <Route path="/terms" element={<ProtectedRoute><Terms /></ProtectedRoute>} />

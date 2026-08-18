@@ -59,6 +59,20 @@ export class BusinessesController {
     });
   }
 
+  // 🏪 Mon commerce (marchand connecté)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Get('me')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: "Obtenir le commerce du marchand connecté" })
+  async findMine(@NestRequest() req: RequestWithUser) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.businessesService.findByOwner(userId);
+  }
+
   // 🏪 Gestion des commerces (Réservé au Super Admin) : liste complète
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)

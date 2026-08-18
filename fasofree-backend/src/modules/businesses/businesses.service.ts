@@ -35,6 +35,11 @@ export class BusinessesService {
     return this.businessRepository.save(business);
   }
 
+  // 🏪 1b. Trouver le commerce d'un marchand
+  async findByOwner(ownerId: string): Promise<Business | null> {
+    return this.businessRepository.findOne({ where: { ownerId } });
+  }
+
   async assertManagedBy(
     businessId: string,
     userId: string,

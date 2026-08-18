@@ -119,6 +119,19 @@ export class OrdersController {
     return this.ordersService.findClientOrders(userId);
   }
 
+  // 🏪 Commandes d'un commerce (marchand connecté)
+  @Get('business/:businessId')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiOperation({ summary: "Lister les commandes d'un commerce (marchand)" })
+  @ApiResponse({ status: 200, description: 'Commandes du commerce' })
+  async getBusinessOrders(
+    @NestRequest() req: RequestWithUser,
+    @Param('businessId') businessId: string,
+  ) {
+    return this.ordersService.findAllByBusiness(businessId);
+  }
+
   // 🔍 Détail d'une commande
   @Get(':id')
   @ApiOperation({ summary: "Obtenir le détail d'une commande par son ID" })

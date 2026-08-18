@@ -60,9 +60,11 @@ export const api = {
   apply: (formData) => apiFetch('/auth/apply', { method: 'POST', body: formData }),
   
   // Businesses
+  getMyBusiness: () => apiFetch('/businesses/me', { method: 'GET' }),
   getNearbyBusinesses: (lat, lng, radius = 10000, category = 'RESTAURANT') => 
     apiFetch(`/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}&category=${category}`, { method: 'GET' }),
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
+  updateBusiness: (businessId, data) => apiFetch(`/businesses/${businessId}`, { method: 'PATCH', body: data }),
   
   // Products
   getBusinessProducts: (businessId) => apiFetch(`/products/business/${businessId}`, { method: 'GET' }),
@@ -70,6 +72,14 @@ export const api = {
   updateProduct: (id, data) => apiFetch(`/products/${id}`, { method: 'PATCH', body: data }),
   deleteProduct: (id) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
   toggleProductAvailability: (id) => apiFetch(`/products/${id}/toggle-availability`, { method: 'PATCH' }),
+  
+  // Merchant Orders
+  getBusinessOrders: (businessId) => apiFetch(`/orders/business/${businessId}`, { method: 'GET' }),
+  updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
+  
+  // Merchant Wallet
+  getMerchantWallet: (userId) => apiFetch(`/wallets/MERCHANT/${userId}`, { method: 'GET' }),
+  getWalletTransactions: (walletId, limit = 20) => apiFetch(`/wallets/${walletId}/transactions?limit=${limit}`, { method: 'GET' }),
   
   // Orders
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
