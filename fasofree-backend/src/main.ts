@@ -149,15 +149,6 @@ async function bootstrap() {
   // 9. Démarrage du serveur (Adapté pour Render / Cloud / Ngrok)
   const port = Number(process.env.PORT) || 3100;
 
-  // 10. Résilience : une erreur réseau transitoire (ex: reset TLS du cache Redis
-  // Upstash dans cache-manager-redis-yet) ne doit pas tuer le process.
-  process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception :', error?.message ?? error);
-  });
-  process.on('unhandledRejection', (reason) => {
-    logger.warn('Unhandled Rejection :', (reason as any)?.message ?? reason);
-  });
-
   // Binding sur '0.0.0.0' impératif pour Render / Docker / Tunnels
   await app.listen(port, '0.0.0.0');
 
@@ -176,4 +167,13 @@ async function bootstrap() {
 bootstrap().catch((err) => {
   new Logger('Bootstrap').error('❌ Échec critique lors du démarrage :', err);
   process.exit(1);
+});
+
+// 10. Résilience : les erreurs réseau transitoires ne doivent pas tuer le process
+// APRÈS le bootstrap (pour ne pas masquer les erreurs de listen)
+process.on('uncaughtException', (error) => {
+  new Logger('Bootstrap').error('Uncaught Exception :', error?.message ?? error);
+});
+process.on('unhandledRejection', (reason) => {
+  new Logger('Bootstrap').warn('Unhandled Rejection :', (reason as any)?.message ?? reason);
 });
