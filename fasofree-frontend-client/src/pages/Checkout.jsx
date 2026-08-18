@@ -6,6 +6,7 @@ import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
+import { getRestaurantById } from '../services/data';
 import {
   fetchQuote,
   getCartSubtotal,
@@ -14,7 +15,7 @@ import {
 
 const Checkout = () => {
   const navigate = useNavigate();
-  const { items, restaurantId, clearCart } = useCartStore();
+  const { items, restaurantId } = useCartStore();
   const { addOrder } = useAuthStore();
   const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
   const [formData, setFormData] = useState({

@@ -41,7 +41,7 @@ const Home = () => {
   useEffect(() => {
     const loadBusinesses = async () => {
       try {
-        const { data } = await api.get('/businesses/nearby', { params: { latitude: 12.37, longitude: -1.52 } });
+        const data = await api.getNearbyBusinesses(12.37, -1.52, 10000);
         if (Array.isArray(data) && data.length > 0) {
           const mapped = data.map(mapBusinessToRestaurant);
           setAllRestaurants(mapped);

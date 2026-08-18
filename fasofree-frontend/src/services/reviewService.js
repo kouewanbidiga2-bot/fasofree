@@ -1,19 +1,19 @@
 import api from './api';
 
-export const getReviews = async (params) => {
-  const q = new URLSearchParams();
-  if (params?.targetType) q.set('targetType', params.targetType);
-  if (params?.targetId) q.set('targetId', params.targetId);
-  const response = await api.get(`/reviews?${q.toString()}`);
+/**
+ * Get reviews for a target (driver/business/courier).
+ * Backend route: GET /reviews/target/:targetId
+ */
+export const getReviewsByTarget = async (targetId) => {
+  const response = await api.get(`/reviews/target/${targetId}`);
   return response.data;
 };
 
-export const getReviewsByTarget = async (targetType, targetId) => {
-  const response = await api.get(`/reviews/target/${targetType}/${targetId}`);
-  return response.data;
-};
-
-export const getReviewAverage = async (targetType, targetId) => {
-  const response = await api.get(`/reviews/target/${targetType}/${targetId}/average`);
+/**
+ * Get average rating for a target.
+ * Backend route: GET /reviews/target/:targetId/average
+ */
+export const getReviewAverage = async (targetId) => {
+  const response = await api.get(`/reviews/target/${targetId}/average`);
   return response.data;
 };

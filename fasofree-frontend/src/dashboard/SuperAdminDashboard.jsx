@@ -354,9 +354,9 @@ const SuperAdminDashboard = () => {
       VEHICLE_REGISTRATION: 'Carte grise du véhicule',
     })[type] || String(type || '').replace(/_/g, ' ');
 
-  const handleSaveSettings = () => {
-    // API call to save platform settings
-    console.log('Saving platform settings:', platformSettings);
+  const handleSaveSettings = async () => {
+    // Platform settings are local-only for now (no backend endpoint yet)
+    alert('Paramètres sauvegardés localement. L\'enregistrement serveur n\'est pas encore disponible.');
   };
 
   // Load subscription data (catalog, active subs, businesses)

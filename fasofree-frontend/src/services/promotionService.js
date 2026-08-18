@@ -1,26 +1,19 @@
 import api from './api';
 
-export const getPromotions = async () => {
-  const response = await api.get('/promotions');
+/**
+ * Get promotion quote (discount calculation).
+ * Backend route: GET /promotions/quote
+ */
+export const getPromotionQuote = async (code, amount) => {
+  const response = await api.get(`/promotions/quote?code=${encodeURIComponent(code)}&amount=${amount}`);
   return response.data;
 };
 
+/**
+ * Create a new promotion (SUPER_ADMIN only).
+ * Backend route: POST /promotions
+ */
 export const createPromotion = async (data) => {
   const response = await api.post('/promotions', data);
-  return response.data;
-};
-
-export const getPromotion = async (id) => {
-  const response = await api.get(`/promotions/${id}`);
-  return response.data;
-};
-
-export const updatePromotion = async (id, data) => {
-  const response = await api.patch(`/promotions/${id}`, data);
-  return response.data;
-};
-
-export const deletePromotion = async (id) => {
-  const response = await api.delete(`/promotions/${id}`);
   return response.data;
 };

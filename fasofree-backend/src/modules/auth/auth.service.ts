@@ -261,9 +261,7 @@ export class AuthService {
     const result = await this.usersService.generatePasswordResetToken(email);
     if (result) {
       // TODO: envoyer un email avec le lien de réinitialisation
-      // Pour l'instant, on log le token pour le dev
-      this.logger.log(`🔑 Token de réinitialisation pour ${email}: ${result.token}`);
-      console.log(`🔑 RESET LINK: /reset-password?token=${result.token}`);
+      this.logger.log(`Token de réinitialisation généré pour ${email}`);
     }
     // Ne jamais révéler si l'email existe ou non
   }

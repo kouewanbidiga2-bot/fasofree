@@ -1,15 +1,12 @@
 /**
- * FasoFree — Enhanced Order Service with FSM
- * Endpoints: /orders
- * FSM States: CREATED -> CONFIRMED -> PREPARING -> READY_FOR_PICKUP -> IN_TRANSIT -> DELIVERED -> CANCELLED -> REFUNDED
+ * FasoFree — Order Service
+ * Endpoints backed by backend: /orders
  */
 import api from './api';
 import { OrderStatus, OrderStatusFlow } from '../types';
 
 /**
  * Créer une nouvelle commande (client)
- * @param {Object} data - { businessId, totalAmount, deliveryLatitude, deliveryLongitude, orderType, deliveryFee }
- * orderType: 'DELIVERY' | 'PICKUP' | 'RIDE' | 'EXPRESS'
  */
 export const createOrder = async (data) => {
   const response = await api.post('/orders', data);
@@ -24,14 +21,13 @@ export const getMyOrders = async (filters = {}) => {
   if (filters.status) params.append('status', filters.status);
   if (filters.limit) params.append('limit', filters.limit);
   if (filters.offset) params.append('offset', filters.offset);
-  
+
   const response = await api.get(`/orders/my-orders?${params.toString()}`);
   return response.data;
 };
 
 /**
  * Obtenir le détail complet d'une commande
- * @param {string} id - ID de la commande
  */
 export const getOrderById = async (id) => {
   const response = await api.get(`/orders/${id}`);
@@ -39,9 +35,7 @@ export const getOrderById = async (id) => {
 };
 
 /**
- * Mettre à jour le statut d'une commande avec validation FSM
- * @param {string} id
- * @param {string} status - Nouveau statut (enum)
+ * Mettre à jour le statut d'une commande (PATCH /orders/:id/status)
  */
 export const updateOrderStatus = async (id, status) => {
   const response = await api.patch(`/orders/${id}/status`, { status });
@@ -49,9 +43,15 @@ export const updateOrderStatus = async (id, status) => {
 };
 
 /**
+ * Accepter une commande (pour livreur)
+ */
+export const acceptOrder = async (orderId) => {
+  const response = await api.post(`/orders/${orderId}/accept`);
+  return response.data;
+};
+
+/**
  * Valider si une transition de statut est valide selon la FSM
- * @param {string} currentStatus
- * @param {string} newStatus
  */
 export const isValidStatusTransition = (currentStatus, newStatus) => {
   const allowedTransitions = OrderStatusFlow[currentStatus] || [];
@@ -60,111 +60,58 @@ export const isValidStatusTransition = (currentStatus, newStatus) => {
 
 /**
  * Obtenir les prochains statuts possibles pour une commande
- * @param {string} currentStatus
  */
 export const getNextPossibleStatuses = (currentStatus) => {
   return OrderStatusFlow[currentStatus] || [];
 };
 
-/**
- * Annuler une commande
- * @param {string} id
- * @param {string} reason - Raison de l'annulation
- */
-export const cancelOrder = async (id, reason) => {
-  const response = await api.post(`/orders/${id}/cancel`, { reason });
-  return response.data;
-};
+// ─── FUNCTIONS BELOW REQUIRE BACKEND ROUTES NOT YET IMPLEMENTED ────────
+// They return null gracefully if the endpoint is missing.
 
 /**
- * Rembourser une commande
- * @param {string} id
- * @param {string} reason - Raison du remboursement
- */
-export const refundOrder = async (id, reason) => {
-  const response = await api.post(`/orders/${id}/refund`, { reason });
-  return response.data;
-};
-
-/**
- * Obtenir les commandes pour un business
- * @param {string} businessId
- */
-export const getBusinessOrders = async (businessId, filters = {}) => {
-  const params = new URLSearchParams();
-  if (filters.status) params.append('status', filters.status);
-  if (filters.startDate) params.append('startDate', filters.startDate);
-  if (filters.endDate) params.append('endDate', filters.endDate);
-  if (filters.limit) params.append('limit', filters.limit);
-  
-  const response = await api.get(`/orders/business/${businessId}?${params.toString()}`);
-  return response.data;
-};
-
-/**
- * Obtenir les commandes disponibles pour les livreurs
- */
-export const getAvailableOrders = async (filters = {}) => {
-  const params = new URLSearchParams();
-  if (filters.latitude) params.append('latitude', filters.latitude);
-  if (filters.longitude) params.append('longitude', filters.longitude);
-  if (filters.radius) params.append('radius', filters.radius);
-  
-  const response = await api.get(`/orders/available?${params.toString()}`);
-  return response.data;
-};
-
-/**
- * Accepter une commande (pour livreur)
- * @param {string} orderId
- */
-export const acceptOrder = async (orderId) => {
-  const response = await api.post(`/orders/${orderId}/accept`);
-  return response.data;
-};
-
-/**
- * Mettre à jour la position du livreur
- * @param {string} orderId
- * @param {Object} location - { latitude, longitude }
- */
-export const updateDriverLocation = async (orderId, location) => {
-  const response = await api.post(`/orders/${orderId}/driver-location`, location);
-  return response.data;
-};
-
-/**
- * Notifier le client de l'arrivée
- * @param {string} orderId
- */
-export const notifyArrival = async (orderId) => {
-  const response = await api.post(`/orders/${orderId}/notify-arrival`);
-  return response.data;
-};
-
-/**
- * Confirmer la livraison
- * @param {string} orderId
- * @param {Object} data - { proofOfDelivery, notes }
+ * Confirmer la livraison (⏳ NOT YET IMPLEMENTED on backend)
+ * Expected route: POST /orders/:orderId/confirm-delivery
  */
 export const confirmDelivery = async (orderId, data) => {
-  const response = await api.post(`/orders/${orderId}/confirm-delivery`, data);
-  return response.data;
+  try {
+    const response = await api.post(`/orders/${orderId}/confirm-delivery`, data);
+    return response.data;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Mettre à jour la position du livreur (⏳ NOT YET IMPLEMENTED on backend)
+ * Expected route: POST /orders/:orderId/driver-location
+ */
+export const updateDriverLocation = async (orderId, location) => {
+  try {
+    const response = await api.post(`/orders/${orderId}/driver-location`, location);
+    return response.data;
+  } catch {
+    return null;
+  }
 };
 
 // ─── Helpers pour les labels et couleurs de statut ──────────────────────
 export const ORDER_STATUS = {
-  [OrderStatus.CREATED]: { label: 'Créée', color: 'warning', dot: '#F59E0B' },
-  [OrderStatus.CONFIRMED]: { label: 'Confirmée', color: 'info', dot: '#3B82F6' },
-  [OrderStatus.PREPARING]: { label: 'En préparation', color: 'processing', dot: '#FF6600' },
-  [OrderStatus.READY_FOR_PICKUP]: { label: 'Prête', color: 'success', dot: '#22C55E' },
-  [OrderStatus.IN_TRANSIT]: { label: 'En livraison', color: 'info', dot: '#3B82F6' },
+  [OrderStatus.PENDING]: { label: 'En attente', color: 'warning', dot: '#F59E0B' },
+  [OrderStatus.PAID]: { label: 'Payée', color: 'info', dot: '#3B82F6' },
+  [OrderStatus.IN_PREPARATION]: { label: 'En préparation', color: 'processing', dot: '#FF6600' },
+  [OrderStatus.PROCESSING]: { label: 'En cours', color: 'info', dot: '#3B82F6' },
+  [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: { label: 'Livrée (attente)', color: 'processing', dot: '#FF6600' },
   [OrderStatus.DELIVERED]: { label: 'Livrée', color: 'success', dot: '#22C55E' },
+  [OrderStatus.COMPLETED]: { label: 'Terminée', color: 'success', dot: '#22C55E' },
   [OrderStatus.CANCELLED]: { label: 'Annulée', color: 'error', dot: '#EF4444' },
+  [OrderStatus.FAILED]: { label: 'Échouée', color: 'error', dot: '#EF4444' },
+  [OrderStatus.DISPUTED]: { label: 'Litigée', color: 'error', dot: '#EF4444' },
   [OrderStatus.REFUNDED]: { label: 'Remboursée', color: 'error', dot: '#EF4444' },
 };
 
 export const ORDER_TYPES = {
+  MERCHANT: 'Marchand',
+  P2P_DELIVERY: 'Livraison P2P',
   DELIVERY: 'Livraison',
   PICKUP: 'À emporter',
   RIDE: 'Transport',
@@ -180,16 +127,16 @@ export const getStatusInfo = (status) => {
  */
 export const getOrderSteps = (currentStatus) => {
   const steps = [
-    { key: OrderStatus.CREATED, label: 'Commande créée' },
-    { key: OrderStatus.CONFIRMED, label: 'Confirmée' },
-    { key: OrderStatus.PREPARING, label: 'En préparation' },
-    { key: OrderStatus.READY_FOR_PICKUP, label: 'Prête' },
-    { key: OrderStatus.IN_TRANSIT, label: 'En livraison' },
+    { key: OrderStatus.PENDING, label: 'Commande créée' },
+    { key: OrderStatus.PAID, label: 'Payée' },
+    { key: OrderStatus.IN_PREPARATION, label: 'En préparation' },
+    { key: OrderStatus.PROCESSING, label: 'En cours' },
     { key: OrderStatus.DELIVERED, label: 'Livrée' },
+    { key: OrderStatus.COMPLETED, label: 'Terminée' },
   ];
 
   const statusIndex = steps.findIndex(step => step.key === currentStatus);
-  
+
   return steps.map((step, index) => ({
     ...step,
     completed: index < statusIndex,

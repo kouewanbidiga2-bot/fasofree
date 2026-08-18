@@ -69,10 +69,8 @@ const PhoneAuth = () => {
     
     // Complete registration/login
     setTimeout(() => {
-      console.log('Attempting login with phone:', phone);
       loginWithPhone(phone, { name, email });
       setLoading(false);
-      console.log('Navigating to home...');
       navigate('/');
     }, 2000);
   };
