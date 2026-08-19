@@ -6,11 +6,12 @@ import { SmsService } from './sms.service';
 import { EmailService } from './email.service';
 import { WhatsAppService } from './whatsapp.service';
 import { NotificationsController } from './notifications.controller';
+import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
 import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [ConfigModule, UsersModule],
-  controllers: [NotificationsController],
+  controllers: [NotificationsController, WhatsAppWebhookController],
   providers: [
     FirebaseAdminProvider,
     NotificationsService,
