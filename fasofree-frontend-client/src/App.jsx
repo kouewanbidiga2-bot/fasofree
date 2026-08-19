@@ -19,19 +19,26 @@ import MerchantOrders from './pages/MerchantOrders';
 import MerchantWallet from './pages/MerchantWallet';
 import MerchantSettings from './pages/MerchantSettings';
 import Auth from './pages/Auth';
+import VerifyAccount from './pages/VerifyAccount';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Loading from './pages/Loading';
 import useAuthStore from './store/authStore';
+import { needsVerification } from './store/authStore';
 import { registerFcmTokenOnLogin } from './services/pushRegistration';
 import { initFirebase, onForegroundMessage } from './services/firebase';
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Navigate to="/auth" replace />;
   }
+
+  if (needsVerification(user) && window.location.pathname !== '/verify-account') {
+    return <Navigate to="/verify-account" state={{ email: user.email }} replace />;
+  }
+
   return children;
 };
 
@@ -74,6 +81,7 @@ function App() {
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-account" element={<VerifyAccount />} />
         <Route path="/merchant-dashboard" element={<ProtectedRoute><MerchantDashboard /></ProtectedRoute>} />
         <Route path="/merchant/products" element={<ProtectedRoute><MerchantProducts /></ProtectedRoute>} />
         <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />

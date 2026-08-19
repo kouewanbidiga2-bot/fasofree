@@ -56,6 +56,7 @@
     "ioredis": "^5.11.1",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.3",
+    "libphonenumber-js": "^1.13.11",
     "nestjs-command": "^3.1.5",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

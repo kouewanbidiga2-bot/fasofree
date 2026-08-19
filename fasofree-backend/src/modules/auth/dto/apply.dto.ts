@@ -8,10 +8,11 @@ import {
   IsLongitude,
   IsOptional,
   IsString,
-  Matches,
   MinLength,
 } from 'class-validator';
 import { NotificationChannel } from '../../users/entities/user.entity';
+import { IsBurkinaPhone } from '../validators/is-burkina-phone.validator';
+import { IsDisposableEmail } from '../validators/disposable-email.validator';
 
 export const APPLICANT_ROLES = ['MERCHANT', 'DRIVER'] as const;
 
@@ -29,11 +30,12 @@ export class ApplyDto {
   fullName: string;
 
   @ApiProperty({ example: 'marchand@fasofree.bf' })
-  @IsEmail()
+  @IsEmail({}, { message: 'Adresse email invalide' })
+  @IsDisposableEmail({ message: 'Les adresses email temporaires ne sont pas autorisées' })
   email: string;
 
   @ApiProperty({ example: '+22670000000' })
-  @Matches(/^\+?[0-9]{8,20}$/)
+  @IsBurkinaPhone({ message: 'Numéro de téléphone Burkina Faso invalide. Format: +226XXXXXXXX ou 8 chiffres' })
   phone: string;
 
   @ApiProperty({ example: 'MotDePasseFort123!' })

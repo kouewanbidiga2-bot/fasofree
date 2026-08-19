@@ -105,4 +105,29 @@ export class EmailService {
     `;
     return this.sendEmail(email, `FasoFree — Votre candidature ${roleLabel} a été refusée`, html);
   }
+
+  async sendOtpEmail(
+    email: string,
+    userName: string,
+    code: string,
+  ): Promise<boolean> {
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: #C1652E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">Code de vérification FasoFree</h1>
+        </div>
+        <div style="background: #FAF6F1; padding: 30px; border-radius: 0 0 8px 8px;">
+          <p>Bonjour <strong>${userName}</strong>,</p>
+          <p>Voici votre code de vérification :</p>
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #E8E0D8; text-align: center;">
+            <p style="margin: 0; font-size: 32px; font-weight: bold; color: #C1652E; letter-spacing: 8px;">${code}</p>
+          </div>
+          <p style="color: #70645C; font-size: 14px;">Ce code expire dans <strong>5 minutes</strong>.</p>
+          <p style="color: #70645C; font-size: 14px;">Si vous n'avez pas demandé ce code, ignorez cet email.</p>
+        </div>
+        <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
+      </div>
+    `;
+    return this.sendEmail(email, 'FasoFree — Votre code de vérification', html);
+  }
 }

@@ -81,7 +81,7 @@ export class AuthService {
       this.logger.warn(`Event USER_REGISTERED emit failed: ${(err as Error).message}`);
     }
 
-    // Retourner un token d'accès directement après l'inscription
+    // Retourner un token JWT — l'utilisateur est connecté mais doit vérifier son compte via OTP
     return this.generateToken(user);
   }
 
@@ -241,6 +241,8 @@ export class AuthService {
       role: user.role,
       isActive: user.isActive,
       referralCode: user.referralCode,
+      isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
       isPremium: await this.resolveIsPremium(user),
       applicationStatus: user.applicationStatus,
       applicationType: user.applicationType,

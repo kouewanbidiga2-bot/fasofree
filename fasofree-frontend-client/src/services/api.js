@@ -56,6 +56,11 @@ export const api = {
   forgotPassword: (email) => apiFetch('/auth/forgot-password', { method: 'POST', body: { email } }),
   resetPassword: (token, newPassword) => apiFetch('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
 
+  // OTP Verification
+  sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),
+  verifyOtp: (code) => apiFetch('/auth/verify-otp', { method: 'POST', body: { code } }),
+  checkVerification: () => apiFetch('/auth/check-verification', { method: 'POST' }),
+
   // Candidature Marchand / Livreur (multipart, avec fichiers KYC)
   apply: (formData) => apiFetch('/auth/apply', { method: 'POST', body: formData }),
   
@@ -137,6 +142,12 @@ export const api = {
 
   // Notifications
   registerFcmToken: (token) => apiFetch('/notifications/fcm-token', { method: 'POST', body: { fcmToken: token } }),
+
+  // OTP Verification
+  sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),
+  verifyOtp: (code) => apiFetch('/auth/verify-otp', { method: 'POST', body: { code } }),
+  checkVerification: () => apiFetch('/auth/check-verification', { method: 'POST' }),
+  getMe: () => apiFetch('/auth/me', { method: 'GET' }),
 };
 
 export default api;

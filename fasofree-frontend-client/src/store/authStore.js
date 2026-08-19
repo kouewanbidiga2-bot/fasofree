@@ -50,6 +50,8 @@ const useAuthStore = create((set) => ({
       lastName: userData.lastName,
       role: userData.role || 'CLIENT',
       isPremium: !!userData.isPremium,
+      isEmailVerified: !!userData.isEmailVerified,
+      isPhoneVerified: !!userData.isPhoneVerified,
       createdAt: new Date().toISOString(),
     };
     localStorage.setItem('fasofree_user', JSON.stringify(user));
@@ -58,6 +60,10 @@ const useAuthStore = create((set) => ({
 
   setPremium: (isPremium) => set((state) => ({
     user: state.user ? { ...state.user, isPremium: !!isPremium } : state.user,
+  })),
+
+  setVerified: () => set((state) => ({
+    user: state.user ? { ...state.user, isEmailVerified: true, isPhoneVerified: true } : null,
   })),
 
   updateUser: (userData) => set((state) => {
@@ -82,5 +88,11 @@ const useAuthStore = create((set) => ({
     receipts: [...state.receipts, { ...receipt, createdAt: new Date().toISOString() }]
   })),
 }));
+
+export const needsVerification = (user) => {
+  if (!user) return false;
+  if (['ADMIN', 'SUPER_ADMIN'].includes(user.role?.toUpperCase())) return false;
+  return !user.isEmailVerified || !user.isPhoneVerified;
+};
 
 export default useAuthStore;

@@ -162,8 +162,10 @@ const Register = () => {
         lastName: nameParts.slice(1).join(' ') || '',
         role: user.role,
         isPremium: !!user.isPremium,
+        isEmailVerified: !!user.isEmailVerified,
+        isPhoneVerified: !!user.isPhoneVerified,
       });
-      navigate(getHomeRoute(user.role), { replace: true });
+      navigate('/verify-account', { replace: true, state: { email: user.email } });
     }
   };
 

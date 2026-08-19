@@ -113,6 +113,13 @@ export class User {
   @Column({ type: 'timestamp', nullable: true, select: false })
   passwordResetExpires?: Date | null;
 
+  // 📧📱 VÉRIFICATION DU COMPTE (OTP)
+  @Column({ type: 'boolean', default: false })
+  isEmailVerified: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  isPhoneVerified: boolean;
+
   @CreateDateColumn()
   createdAt: Date;
 
