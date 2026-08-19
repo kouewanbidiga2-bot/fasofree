@@ -50,8 +50,8 @@ export class UpdateDriverStatusDto {
   longitude?: number;
 
   @ApiPropertyOptional({
-    description: "Type de véhicule : MOTO, SCOOTER, VTC, BICYCLE, FOOT",
-    example: 'MOTO',
+    description: "Type de véhicule : BICYCLE, MOTORCYCLE, CAR",
+    example: 'MOTORCYCLE',
   })
   @IsOptional()
   @IsString()

@@ -122,7 +122,7 @@ const DriverDashboard = () => {
           isAvailable: true,
           latitude: Number(position.coords.latitude.toFixed(6)),
           longitude: Number(position.coords.longitude.toFixed(6)),
-          vehicleType: 'MOTO',
+          vehicleType: user?.vehicleType || 'MOTORCYCLE',
         });
         setOnline(true);
       } else {

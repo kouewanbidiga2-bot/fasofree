@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { User } from '../users/entities/user.entity';
 import { STORAGE_DRIVER } from '../upload/upload.tokens';
 import {
   KycDocument,
@@ -19,6 +20,8 @@ export class KycService {
   constructor(
     @InjectRepository(KycDocument)
     private readonly documents: Repository<KycDocument>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     @Inject(STORAGE_DRIVER)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -79,11 +82,30 @@ export class KycService {
     return { url: await this.storage.getSignedReadUrl(document.storageKey) };
   }
 
-  async pending(): Promise<KycDocument[]> {
-    return this.documents.find({
-      where: { status: KycStatus.PENDING },
-      order: { createdAt: 'ASC' },
-    });
+  async pending(): Promise<any[]> {
+    const raw = await this.documents
+      .createQueryBuilder('doc')
+      .leftJoinAndSelect('users', 'u', 'u.id = doc."ownerId"')
+      .select([
+        'doc.id as "id"',
+        'doc."ownerId" as "ownerId"',
+        'doc.type as "type"',
+        'doc."storageKey" as "storageKey"',
+        'doc."mimeType" as "mimeType"',
+        'doc.size as "size"',
+        'doc.status as "status"',
+        'doc."createdAt" as "createdAt"',
+        'u."fullName" as "ownerName"',
+        'u.email as "ownerEmail"',
+        'u.phone as "ownerPhone"',
+        'u."applicationType" as "applicationType"',
+        'u."applicationStatus" as "applicationStatus"',
+        'u."vehicleType" as "vehicleType"',
+      ])
+      .where('doc.status = :status', { status: KycStatus.PENDING })
+      .orderBy('doc."createdAt"', 'ASC')
+      .getRawMany();
+    return raw;
   }
 
   async review(
@@ -112,6 +134,15 @@ export class KycService {
       document.reviewedAt = new Date();
       const saved = await runner.manager.save(document);
       await runner.commitTransaction();
+
+      if (status === KycStatus.APPROVED) {
+        const ownerDocs = await this.documents.find({ where: { ownerId: document.ownerId } });
+        const allApproved = ownerDocs.every(d => d.status === KycStatus.APPROVED);
+        if (allApproved) {
+          await this.userRepository.update(document.ownerId, { applicationStatus: 'KYC_APPROVED' });
+        }
+      }
+
       return saved;
     } catch (error) {
       await runner.rollbackTransaction();

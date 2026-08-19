@@ -14,6 +14,12 @@ export enum NotificationChannel {
   PUSH = 'PUSH',
 }
 
+export enum VehicleType {
+  BICYCLE = 'BICYCLE',
+  MOTORCYCLE = 'MOTORCYCLE',
+  CAR = 'CAR',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -95,10 +101,10 @@ export class User {
   @Column({ type: 'float', nullable: true })
   averageRating?: number;
 
-  // 🏍️ Type de véhicule du livreur (MOTO, SCOOTER, VTC, BICYCLE, FOOT, ...)
+  // 🏍️ Type de véhicule du livreur (BICYCLE, MOTORCYCLE, CAR)
   // Utilisé par le dispatch pour préférer une moto/VTC sur les courses FasoFree Ride.
   @Column({ type: 'varchar', length: 20, nullable: true })
-  vehicleType?: string;
+  vehicleType?: VehicleType | string;
 
   // 🔑 RÉINITIALISATION MOT DE PASSE
   @Column({ type: 'varchar', nullable: true, select: false })

@@ -13,6 +13,8 @@ import { BusinessesService } from '../businesses/businesses.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { KycService } from '../kyc/kyc.service';
+import { KycStatus } from '../kyc/entities/kyc-document.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 
 export interface Moderator {
@@ -30,6 +32,7 @@ export class OnboardingService {
     private readonly businessesService: BusinessesService,
     private readonly walletService: WalletService,
     private readonly notificationsService: NotificationsService,
+    private readonly kycService: KycService,
   ) {}
 
   /**
@@ -66,6 +69,19 @@ export class OnboardingService {
     moderator: Moderator,
   ): Promise<{ user: User; tempPassword: string }> {
     const user = await this.findPendingApplication(applicationId);
+
+    // Check KYC status - warn if not all documents are approved
+    try {
+      const kycDocs = await this.kycService.mine(applicationId);
+      const hasApprovedDocs = kycDocs.some(d => d.status === KycStatus.APPROVED);
+      if (kycDocs.length === 0) {
+        this.logger.warn(`[Onboarding] Aucun document KYC pour ${user.email} - approbation sans vérification KYC`);
+      } else if (!hasApprovedDocs) {
+        this.logger.warn(`[Onboarding] Documents KYC non approuvés pour ${user.email} - approbation avec mise en garde`);
+      }
+    } catch {
+      this.logger.warn(`[Onboarding] Impossible de vérifier le KYC pour ${user.email}`);
+    }
 
     const tempPassword = `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
     const salt = await bcrypt.genSalt(10);

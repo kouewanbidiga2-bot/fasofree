@@ -242,6 +242,9 @@ export class AuthService {
       isActive: user.isActive,
       referralCode: user.referralCode,
       isPremium: await this.resolveIsPremium(user),
+      applicationStatus: user.applicationStatus,
+      applicationType: user.applicationType,
+      vehicleType: user.vehicleType,
     };
   }
 

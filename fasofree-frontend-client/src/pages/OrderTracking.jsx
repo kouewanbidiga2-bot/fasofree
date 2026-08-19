@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
+  AlertTriangle,
   ArrowLeft,
   Check,
   CheckCircle,
@@ -20,6 +21,7 @@ import api from '../services/api';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import useAuthStore from '../store/authStore';
 import Footer from '../components/Footer';
+import DisputeModal from '../components/DisputeModal';
 
 const STATUS_STEP = {
   PENDING: 1,
@@ -114,6 +116,10 @@ const OrderTracking = () => {
   const chatBoxRef = useRef(null);
   const chatSocket = getChatSocket();
   const dispatchSocket = getDispatchSocket();
+
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeError, setDisputeError] = useState(null);
+  const [disputeSuccess, setDisputeSuccess] = useState(false);
 
   const status = tracking?.status || 'PENDING';
   const isRide = tracking?.orderType === 'RIDE';
@@ -235,6 +241,17 @@ const OrderTracking = () => {
       .then(() => navigate('/order-history'))
       .catch((e) => window.alert(e.message || 'Code PIN invalide'));
   }, [orderId, navigate]);
+
+  const handleOpenDispute = async (reason) => {
+    try {
+      setDisputeError(null);
+      await api.openDispute(orderId, { reason });
+      setDisputeSuccess(true);
+      setShowDisputeModal(false);
+    } catch (err) {
+      setDisputeError(err.message || "Impossible d'ouvrir le litige");
+    }
+  };
 
   const mapPoints = useMemo(() => {
     const pts = [];
@@ -652,6 +669,41 @@ const OrderTracking = () => {
                 </button>
               </div>
             )}
+
+            {/* Signaler un problème */}
+            {['DELIVERED', 'DELIVERED_PENDING_CONFIRMATION', 'COMPLETED'].includes(status) && !disputeSuccess && (
+              <div className="mb-6">
+                {disputeError && (
+                  <p className="text-sm text-red-500 mb-2">{disputeError}</p>
+                )}
+                <button
+                  onClick={() => setShowDisputeModal(true)}
+                  className="w-full px-4 py-3 text-sm font-medium border border-red-300 text-red-600 hover:bg-red-50 transition flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle size={16} strokeWidth={1.5} />
+                  Signaler un problème
+                </button>
+              </div>
+            )}
+
+            {disputeSuccess && (
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 text-sm text-center">
+                Litige ouvert avec succès. Notre équipe va examiner votre dossier.
+              </div>
+            )}
+
+            {status === 'DISPUTED' && (
+              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 text-orange-700 text-sm text-center">
+                Un litige est en cours pour cette commande.
+              </div>
+            )}
+
+            <DisputeModal
+              isOpen={showDisputeModal}
+              onClose={() => setShowDisputeModal(false)}
+              onSubmit={handleOpenDispute}
+              orderId={orderId}
+            />
 
             <div className="flex gap-3">
               <button

@@ -12,6 +12,7 @@ import {
   FulfillmentType,
 } from '../orders/entities/order.entity';
 import { DispatchGateway } from './dispatch.gateway';
+import { DeliveryPricingService } from '../orders/delivery-pricing.service';
 
 /**
  * 📍 Structure pour le scoring des livreurs
@@ -34,6 +35,9 @@ const SCORING_WEIGHTS = {
   MIN_RATING: 3.0, // Note minimale acceptable
 };
 
+/** Distance maximale pour un livreur à vélo (au-delà, les vélos sont exclus) */
+const MAX_BICYCLE_DISTANCE_KM = 3;
+
 @Injectable()
 export class DispatchService {
   private readonly logger = new Logger(DispatchService.name);
@@ -46,6 +50,7 @@ export class DispatchService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly dispatchGateway: DispatchGateway,
+    private readonly deliveryPricingService: DeliveryPricingService,
   ) {}
 
   /**
@@ -163,6 +168,15 @@ export class DispatchService {
         continue;
       }
 
+      // 🚲 Exclure les livreurs à vélo si la distance est > 3 km
+      const vehicle = String(driver.vehicleType || '').toUpperCase();
+      if (vehicle === 'BICYCLE' && distanceKm > MAX_BICYCLE_DISTANCE_KM) {
+        this.logger.debug(
+          `[Dispatch] Livreur ${driver.id} à vélo exclu: distance ${distanceKm.toFixed(2)}km > ${MAX_BICYCLE_DISTANCE_KM}km`,
+        );
+        continue;
+      }
+
       // Récupérer la note moyenne du livreur (via reviews service si disponible)
       const averageRating = driver.averageRating || 4.0; // Par défaut 4.0
 
@@ -178,7 +192,6 @@ export class DispatchService {
 
       // 🏍️ RIDE : pénalité si le livreur se déplace à vélo / à pied (préférer moto/VTC)
       const isRide = orderType === OrderType.RIDE;
-      const vehicle = String(driver.vehicleType || '').toUpperCase();
       if (isRide && (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')) {
         this.logger.debug(
           `[Dispatch] Livreur ${driver.id} à vélo (${vehicle}) pénalisé pour une course RIDE`,
@@ -269,6 +282,18 @@ export class DispatchService {
     const deliveryAddress =
       order.dropoffLocation?.address || business?.address || null;
 
+    // 💰 Calcul des frais de livraison avec le tarif véhicule
+    const estimatedDistanceKm = business
+      ? this.calculateDistance(
+          originLatitude,
+          originLongitude,
+          order.deliveryLocation?.latitude ?? originLatitude,
+          order.deliveryLocation?.longitude ?? originLongitude,
+        )
+      : 0;
+    const resolvedVehicleType = this.deliveryPricingService.resolveVehicleType();
+    const calculatedFee = this.deliveryPricingService.calculateDeliveryFee(estimatedDistanceKm, resolvedVehicleType);
+
     // 4. Trouver et scorer les livreurs
     const scoredDrivers = await this.findAndScoreDrivers(
       originLatitude,
@@ -330,7 +355,7 @@ export class DispatchService {
       deliveryAddress,
       deliveryLatitude: order.deliveryLocation?.latitude,
       deliveryLongitude: order.deliveryLocation?.longitude,
-      earningXOF: order.deliveryFee,
+      earningXOF: calculatedFee || order.deliveryFee,
       totalAmount: order.totalAmount,
       estimatedDistanceKm: topCandidates[0].distanceKm,
       expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
