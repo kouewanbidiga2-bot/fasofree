@@ -102,12 +102,30 @@ export class BusinessesService {
     });
   }
 
-  // 🔍 3. Trouver un commerce par son ID
+  // 🔍 3. Trouver un commerce par son ID (UUID) ou par nom (fallback)
   async findOne(id: string): Promise<Business> {
-    const business = await this.businessRepository.findOne({
+    // 1. Essayer par UUID
+    let business = await this.businessRepository.findOne({
       where: { id },
-      relations: { products: true }, // 💡 Syntax objet typée pour TypeORM
+      relations: { products: true },
     });
+
+    // 2. Fallback : recherche par nom exact (insensible à la casse)
+    if (!business) {
+      business = await this.businessRepository.findOne({
+        where: { name: id },
+        relations: { products: true },
+      });
+    }
+
+    // 3. Fallback : recherche partielle par nom
+    if (!business) {
+      business = await this.businessRepository
+        .createQueryBuilder('b')
+        .leftJoinAndSelect('b.products', 'products')
+        .where('LOWER(b.name) LIKE LOWER(:name)', { name: `%${id}%` })
+        .getOne();
+    }
 
     if (!business) {
       throw new NotFoundException('Commerce introuvable');

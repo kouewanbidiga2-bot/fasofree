@@ -37,11 +37,12 @@ const Restaurant = () => {
   const { addItem, getTotalItems } = useCartStore();
 
   useEffect(() => {
-    if (restaurant) return;
+    let cancelled = false;
     const loadBusiness = async () => {
       try {
-        setLoading(true);
+        if (!restaurant) setLoading(true);
         const business = await api.getBusiness(id);
+        if (cancelled) return;
         const menu = (business.products || []).map((p) => ({
           id: p.id,
           name: p.name,
@@ -72,13 +73,14 @@ const Restaurant = () => {
           menu,
         });
       } catch {
-        setRestaurant(null);
+        if (!cancelled) setRestaurant(null);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     loadBusiness();
-  }, [id, restaurant]);
+    return () => { cancelled = true; };
+  }, [id]);
 
   const getRestaurantColor = (name) => {
     const lowerName = name.toLowerCase();

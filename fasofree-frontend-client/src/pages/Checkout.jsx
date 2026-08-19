@@ -69,16 +69,11 @@ const Checkout = () => {
 
   const [submitting, setSubmitting] = useState(false);
 
-  const isUUID = (v) =>
-    typeof v === 'string' &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
 
     const paymentMethod = e.target.payment?.value || 'ORANGE_MONEY';
-    const businessId = isUUID(restaurantId) ? restaurantId : undefined;
     const coords = deliveryCoords || DEFAULT_DELIVERY_COORDS;
 
     setSubmitting(true);
@@ -91,7 +86,7 @@ const Checkout = () => {
       }));
 
       const payload = {
-        businessId,
+        businessId: restaurantId,
         totalAmount: subtotal,
         items: orderItems,
         orderType: 'MERCHANT',
