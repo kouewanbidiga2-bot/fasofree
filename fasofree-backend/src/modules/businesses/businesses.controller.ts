@@ -9,12 +9,12 @@ import {
   UseGuards,
   Request as NestRequest,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { BusinessesService } from './businesses.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
-import { FindNearbyDto } from './dto/find-nearby.dto';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -48,14 +48,27 @@ export class BusinessesController {
   }
 
   // 📍 Route publique : Rechercher les commerces à proximité
-  // Exemple GET /businesses/nearby?latitude=12.3714&longitude=-1.5197&radiusInKm=3
+  // Accepte lat/lng (frontend) OU latitude/longitude (standard)
   @Get('nearby')
   @ApiOperation({ summary: 'Rechercher les commerces à proximité' })
-  async findNearby(@Query() query: FindNearbyDto) {
+  async findNearby(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('latitude') latitude: string,
+    @Query('longitude') longitude: string,
+    @Query('radius') radius: string,
+    @Query('radiusInKm') radiusInKm: string,
+    @Query('category') category: string,
+  ) {
+    const latVal = parseFloat(lat ?? latitude);
+    const lngVal = parseFloat(lng ?? longitude);
+    if (isNaN(latVal) || isNaN(lngVal)) {
+      throw new BadRequestException('lat/latitude et lng/longitude sont requis');
+    }
     return this.businessesService.findNearby({
-      latitude: Number(query.latitude),
-      longitude: Number(query.longitude),
-      radiusInKm: query.radiusInKm ? Number(query.radiusInKm) : 5,
+      latitude: latVal,
+      longitude: lngVal,
+      radiusInKm: radius ? Number(radius) : radiusInKm ? Number(radiusInKm) : 5,
     });
   }
 

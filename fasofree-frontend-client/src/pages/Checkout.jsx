@@ -6,7 +6,6 @@ import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
-import { getRestaurantById } from '../services/data';
 import {
   fetchQuote,
   getCartSubtotal,
@@ -23,7 +22,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
   const { addOrder } = useAuthStore();
-  const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
+  const [restaurant, setRestaurant] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -41,6 +40,17 @@ const Checkout = () => {
 
   const [quote, setQuote] = useState(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    let cancelled = false;
+    api.getBusiness(restaurantId).then((b) => {
+      if (!cancelled) {
+        setRestaurant({ id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude, deliveryFee: b.deliveryFee });
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [restaurantId]);
 
   useEffect(() => {
     if (!isDelivery) {

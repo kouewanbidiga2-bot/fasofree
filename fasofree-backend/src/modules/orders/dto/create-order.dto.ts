@@ -18,13 +18,14 @@ import {
   Max,
   ValidateNested,
   IsArray,
+  IsUUID,
 } from 'class-validator';
 import { P2PLocationDto } from './p2p-location.dto';
 import { PackageDetailsDto } from './package-details.dto';
 
 export class OrderItemDto {
   @ApiProperty({ description: 'Identifiant du produit' })
-  @IsString()
+  @IsUUID()
   @IsNotEmpty()
   productId: string;
 
@@ -58,6 +59,7 @@ export class CreateOrderDto {
       o.orderType !== OrderType.P2P_DELIVERY &&
       o.orderType !== OrderType.RIDE,
   )
+  @IsUUID()
   businessId?: string;
 
   @ApiProperty({

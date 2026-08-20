@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
-import { getRestaurantById } from '../services/data';
 import useCartStore from '../store/cartStore';
 import api from '../services/api';
 
@@ -30,8 +29,8 @@ const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) =
 const Restaurant = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [restaurant, setRestaurant] = useState(getRestaurantById(id));
-  const [loading, setLoading] = useState(!getRestaurantById(id));
+  const [restaurant, setRestaurant] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const { addItem, getTotalItems } = useCartStore();
