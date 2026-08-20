@@ -28,7 +28,7 @@ export class EmailService {
       });
       this.useSmtp = true;
       this.resend = null;
-      this.logger.log(`[Email] Nodemailer/Gmail initialisé (SMTP_USER=${smtpUser})`);
+      this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser}`);
     } else {
       this.smtpTransporter = null;
       this.useSmtp = false;
@@ -94,7 +94,7 @@ export class EmailService {
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: #C1652E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 24px;">🎉 Bienvenue sur FasoFree !</h1>
+          <h1 style="margin: 0; font-size: 24px;">Bienvenue sur FasoFree !</h1>
         </div>
         <div style="background: #FAF6F1; padding: 30px; border-radius: 0 0 8px 8px;">
           <p>Bonjour <strong>${userName}</strong>,</p>
@@ -109,7 +109,14 @@ export class EmailService {
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
     `;
-    return this.sendEmail(email, `FasoFree — Votre compte ${roleLabel} est approuvé !`, html);
+    this.logger.log(`[Email] Envoi e-mail d'approbation ${roleLabel} à ${email}`);
+    const sent = await this.sendEmail(email, `FasoFree — Votre compte ${roleLabel} est approuvé !`, html);
+    if (sent) {
+      this.logger.log(`[Email] E-mail d'approbation ${roleLabel} envoyé avec succès à ${email}`);
+    } else {
+      this.logger.error(`[Email] Échec envoi e-mail d'approbation ${roleLabel} à ${email}`);
+    }
+    return sent;
   }
 
   async sendRejectionEmail(
@@ -137,7 +144,14 @@ export class EmailService {
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
     `;
-    return this.sendEmail(email, `FasoFree — Votre candidature ${roleLabel} a été refusée`, html);
+    this.logger.log(`[Email] Envoi e-mail de rejet ${roleLabel} à ${email}`);
+    const sent = await this.sendEmail(email, `FasoFree — Votre candidature ${roleLabel} a été refusée`, html);
+    if (sent) {
+      this.logger.log(`[Email] E-mail de rejet ${roleLabel} envoyé avec succès à ${email}`);
+    } else {
+      this.logger.error(`[Email] Échec envoi e-mail de rejet ${roleLabel} à ${email}`);
+    }
+    return sent;
   }
 
   async sendOtpEmail(
@@ -162,7 +176,14 @@ export class EmailService {
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
     `;
-    return this.sendEmail(email, 'FasoFree — Votre code de vérification', html);
+    this.logger.log(`[Email] Envoi e-mail OTP à ${email}`);
+    const sent = await this.sendEmail(email, 'FasoFree — Votre code de vérification', html);
+    if (sent) {
+      this.logger.log(`[Email] E-mail OTP envoyé avec succès à ${email}`);
+    } else {
+      this.logger.error(`[Email] Échec envoi e-mail OTP à ${email}`);
+    }
+    return sent;
   }
 
   async sendWelcomeMerchantEmail(
@@ -219,6 +240,13 @@ export class EmailService {
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
     `;
-    return this.sendEmail(email, `FasoFree — Bienvenue ${businessName} !`, html);
+    this.logger.log(`[Email] Envoi e-mail bienvenue marchand à ${email} (promo: ${promoCode || 'aucun'})`);
+    const sent = await this.sendEmail(email, `FasoFree — Bienvenue ${businessName} !`, html);
+    if (sent) {
+      this.logger.log(`[Email] E-mail bienvenue marchand envoyé avec succès à ${email}`);
+    } else {
+      this.logger.error(`[Email] Échec envoi e-mail bienvenue marchand à ${email}`);
+    }
+    return sent;
   }
 }
