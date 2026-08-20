@@ -8,13 +8,13 @@
  * - Merchant/driver validation and blocking
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
-  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare
+  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -39,6 +39,8 @@ import {
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
+import { getActiveConversations, getChatHistory } from '../services/usersService';
+import { getChatSocket } from '../services/realtime';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -149,6 +151,16 @@ const SuperAdminDashboard = () => {
     users: true,
   });
   const [errors, setErrors] = useState({});
+
+  // Chat inbox
+  const [conversations, setConversations] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [selectedChatOrder, setSelectedChatOrder] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatChannel, setChatChannel] = useState('merchant');
+  const [chatInput, setChatInput] = useState('');
+  const chatSocketRef = useRef(null);
 
   // Load financial statistics
   const loadFinancialStats = useCallback(async () => {
@@ -261,6 +273,72 @@ const SuperAdminDashboard = () => {
     loadUsers();
     loadBanRequests();
   }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers, loadBanRequests]);
+
+  const loadConversations = useCallback(async () => {
+    setChatLoading(true);
+    try {
+      const data = await getActiveConversations();
+      setConversations(Array.isArray(data) ? data : []);
+    } catch {
+      setConversations([]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (chatSocketRef.current) {
+        chatSocketRef.current.off('newOrderMessage');
+        if (selectedChatOrder) {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
+        }
+      }
+    };
+  }, [selectedChatOrder, chatChannel]);
+
+  const handleViewChatHistory = async (orderId) => {
+    setSelectedChatOrder(orderId);
+    setChatHistoryLoading(true);
+    try {
+      const data = await getChatHistory(orderId, chatChannel);
+      setChatHistory(data?.history || data || []);
+    } catch {
+      setChatHistory([]);
+    } finally {
+      setChatHistoryLoading(false);
+    }
+
+    if (chatSocketRef.current) {
+      chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
+      chatSocketRef.current.off('newOrderMessage');
+    }
+
+    const socket = getChatSocket();
+    chatSocketRef.current = socket;
+
+    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+      if (res?.status === 'ok') {
+        setChatHistory(res.history || []);
+      }
+    });
+
+    socket.on('newOrderMessage', (msg) => {
+      if (msg.orderId === orderId && msg.channel === chatChannel) {
+        setChatHistory((prev) => [...prev, msg]);
+      }
+    });
+  };
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim() || !selectedChatOrder || !chatSocketRef.current) return;
+    chatSocketRef.current.emit('sendOrderMessage', {
+      orderId: selectedChatOrder,
+      channel: chatChannel,
+      message: chatInput.trim(),
+    });
+    setChatInput('');
+  };
 
   const handleLogout = () => {
     logout();
@@ -577,6 +655,7 @@ const SuperAdminDashboard = () => {
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
     { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
+    { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'financial', label: 'Finance', icon: DollarSign },
     { id: 'subscriptions', label: 'Abonnements', icon: Crown },
     { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
@@ -1143,6 +1222,100 @@ const SuperAdminDashboard = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET MESSAGERIE (CHAT INBOX) */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'chat-inbox' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-text-primary">Messagerie Commandes</h2>
+              <button onClick={loadConversations} className="btn-secondary gap-2">
+                <RefreshCw size={14} className={chatLoading ? 'animate-spin' : ''} />
+                Actualiser
+              </button>
+            </div>
+            {chatLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="card p-5"><LoadingSkeleton height="h-4" /></div>)}
+              </div>
+            ) : conversations.length === 0 ? (
+              <EmptyState icon={MessageSquare} title="Aucune conversation" description="Aucune conversation active pour le moment." />
+            ) : (
+              <div className="space-y-2">
+                {conversations.map(conv => (
+                  <button
+                    key={conv.orderId}
+                    onClick={() => handleViewChatHistory(conv.orderId)}
+                    className={`card p-4 w-full text-left hover:bg-background-secondary transition ${selectedChatOrder === conv.orderId ? 'ring-2 ring-accent-primary' : ''}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-text-primary">Commande #{conv.orderId?.slice(-8)}</p>
+                        <p className="text-xs text-text-tertiary">{conv.messageCount || 0} messages</p>
+                      </div>
+                      <Clock size={14} className="text-text-tertiary" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedChatOrder && (
+              <div className="card p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-text-primary">Commande #{selectedChatOrder?.slice(-8)}</h3>
+                  <div className="flex gap-2">
+                    {['merchant', 'driver'].map(ch => (
+                      <button
+                        key={ch}
+                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                        className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
+                      >
+                        {ch === 'merchant' ? 'Marchand' : 'Livreur'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {chatHistoryLoading ? (
+                  <LoadingSkeleton height="h-4" />
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
+                    {chatHistory.length === 0 && <p className="text-xs text-text-tertiary">Aucun message</p>}
+                    {chatHistory.map((msg, i) => (
+                      <div key={msg.id || i} className="flex gap-2">
+                        <div className="w-6 h-6 rounded-full bg-accent-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {(msg.senderRole || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole || 'system'}</span>
+                          <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
+                          <p className="text-xs text-text-secondary">{msg.message}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2 border-t border-border-light pt-3">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                    placeholder="Écrire un message..."
+                    className="flex-1 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                  />
+                  <button
+                    onClick={handleSendChatMessage}
+                    disabled={!chatInput.trim()}
+                    className="px-3 py-2 bg-accent-primary text-white text-xs font-semibold rounded-lg disabled:opacity-40 hover:bg-accent-primary/90 transition"
+                  >
+                    Envoyer
+                  </button>
+                </div>
               </div>
             )}
           </div>

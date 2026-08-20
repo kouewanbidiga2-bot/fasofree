@@ -10,8 +10,9 @@
  * - Order chat inbox (read-only)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getChatSocket } from '../services/realtime';
 import {
   Layout, Shield, Users, Settings, LogOut,
   TrendingUp, Activity, AlertCircle,
@@ -62,6 +63,9 @@ const SupportDashboard = () => {
   const [selectedChatOrder, setSelectedChatOrder] = useState(null);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatChannel, setChatChannel] = useState('merchant');
+  const [chatInput, setChatInput] = useState('');
+  const chatSocketRef = useRef(null);
 
   // UI states
   const [loading, setLoading] = useState({
@@ -154,6 +158,17 @@ const SupportDashboard = () => {
     loadConversations();
   }, [loadPlatformStats, loadPendingDisputes, loadKyc, loadBanRequests, loadConversations]);
 
+  useEffect(() => {
+    return () => {
+      if (chatSocketRef.current) {
+        chatSocketRef.current.off('newOrderMessage');
+        if (selectedChatOrder) {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
+        }
+      }
+    };
+  }, [selectedChatOrder, chatChannel]);
+
   // ─── Handlers ───────────────────────────────────────────────
 
   const handleLogout = () => {
@@ -243,13 +258,43 @@ const SupportDashboard = () => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
     try {
-      const data = await getChatHistory(orderId);
+      const data = await getChatHistory(orderId, chatChannel);
       setChatHistory(data?.history || data || []);
     } catch {
       setChatHistory([]);
     } finally {
       setChatHistoryLoading(false);
     }
+
+    if (chatSocketRef.current) {
+      chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
+      chatSocketRef.current.off('newOrderMessage');
+    }
+
+    const socket = getChatSocket();
+    chatSocketRef.current = socket;
+
+    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+      if (res?.status === 'ok') {
+        setChatHistory(res.history || []);
+      }
+    });
+
+    socket.on('newOrderMessage', (msg) => {
+      if (msg.orderId === orderId && msg.channel === chatChannel) {
+        setChatHistory((prev) => [...prev, msg]);
+      }
+    });
+  };
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim() || !selectedChatOrder || !chatSocketRef.current) return;
+    chatSocketRef.current.emit('sendOrderMessage', {
+      orderId: selectedChatOrder,
+      channel: chatChannel,
+      message: chatInput.trim(),
+    });
+    setChatInput('');
   };
 
   // ─── Helpers ────────────────────────────────────────────────
@@ -757,7 +802,7 @@ const SupportDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold text-text-primary">Commande #{conv.orderId?.slice(-8)}</p>
-                        <p className="text-xs text-text-tertiary">{conv.participantCount || 0} participants · {conv.messageCount || 0} messages</p>
+                        <p className="text-xs text-text-tertiary">{conv.messageCount || 0} messages</p>
                       </div>
                       <Clock size={14} className="text-text-tertiary" />
                     </div>
@@ -767,13 +812,25 @@ const SupportDashboard = () => {
             )}
             {selectedChatOrder && (
               <div className="card p-5">
-                <h3 className="text-sm font-bold text-text-primary mb-4">Historique — Commande #{selectedChatOrder?.slice(-8)}</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-text-primary">Commande #{selectedChatOrder?.slice(-8)}</h3>
+                  <div className="flex gap-2">
+                    {['merchant', 'driver'].map(ch => (
+                      <button
+                        key={ch}
+                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                        className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
+                      >
+                        {ch === 'merchant' ? 'Marchand' : 'Livreur'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {chatHistoryLoading ? (
                   <LoadingSkeleton height="h-4" />
-                ) : chatHistory.length === 0 ? (
-                  <p className="text-xs text-text-tertiary">Aucun message</p>
                 ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                  <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
+                    {chatHistory.length === 0 && <p className="text-xs text-text-tertiary">Aucun message</p>}
                     {chatHistory.map((msg, i) => (
                       <div key={msg.id || i} className="flex gap-2">
                         <div className="w-6 h-6 rounded-full bg-accent-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -781,13 +838,30 @@ const SupportDashboard = () => {
                         </div>
                         <div>
                           <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole || 'system'}</span>
-                          <span className="text-[10px] text-text-tertiary ml-2">{msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
+                          <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
                           <p className="text-xs text-text-secondary">{msg.message}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+                <div className="flex gap-2 border-t border-border-light pt-3">
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                    placeholder="Écrire un message..."
+                    className="flex-1 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                  />
+                  <button
+                    onClick={handleSendChatMessage}
+                    disabled={!chatInput.trim()}
+                    className="px-3 py-2 bg-accent-primary text-white text-xs font-semibold rounded-lg disabled:opacity-40 hover:bg-accent-primary/90 transition"
+                  >
+                    Envoyer
+                  </button>
+                </div>
               </div>
             )}
           </div>
