@@ -130,4 +130,61 @@ export class EmailService {
     `;
     return this.sendEmail(email, 'FasoFree — Votre code de vérification', html);
   }
+
+  async sendWelcomeMerchantEmail(
+    email: string,
+    userName: string,
+    businessName: string,
+    tempPassword: string,
+    promoCode: string | null,
+  ): Promise<boolean> {
+    const promoSection = promoCode
+      ? `
+        <div style="background: #5C6B3C; color: white; padding: 16px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0 0 6px 0; font-size: 14px;">Votre code promo de bienvenue</p>
+          <p style="margin: 0; font-size: 28px; font-weight: bold; letter-spacing: 4px;">${promoCode}</p>
+          <p style="margin: 8px 0 0 0; font-size: 12px; opacity: 0.85;">-10% sur la première commande de vos clients</p>
+        </div>
+      `
+      : '';
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: #C1652E; color: white; padding: 24px; text-align: center; border-radius: 8px 8px 0 0;">
+          <h1 style="margin: 0; font-size: 24px;">Bienvenue sur FasoFree !</h1>
+          <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Votre commerce est maintenant en ligne</p>
+        </div>
+        <div style="background: #FAF6F1; padding: 30px; border-radius: 0 0 8px 8px;">
+          <p>Bonjour <strong>${userName}</strong>,</p>
+          <p>Félicitations ! Votre compte marchand <strong>${businessName}</strong> a été <strong style="color: #5C6B3C;">approuvé</strong>.</p>
+
+          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #E8E0D8;">
+            <p style="margin: 0 0 12px 0; font-weight: bold; color: #2D2A26;">Vos identifiants de connexion</p>
+            <p style="margin: 0 0 8px 0;"><strong>Email :</strong> ${email}</p>
+            <p style="margin: 0;"><strong>Mot de passe temporaire :</strong> <code style="background: #f4f4f4; padding: 2px 8px; border-radius: 4px; color: #C1652E; font-weight: bold;">${tempPassword}</code></p>
+          </div>
+
+          <p style="color: #70645C; font-size: 14px;">Connectez-vous et changez immédiatement votre mot de passe depuis votre profil.</p>
+
+          ${promoSection}
+
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="https://fasofree-9udt.vercel.app/merchant-dashboard" style="display: inline-block; background: #C1652E; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold;">Accéder à mon tableau de bord</a>
+          </div>
+
+          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #E8E0D8; margin-top: 16px;">
+            <p style="margin: 0 0 8px 0; font-weight: bold; color: #2D2A26; font-size: 14px;">Prochaines étapes</p>
+            <ul style="margin: 0; padding-left: 20px; color: #70645C; font-size: 13px; line-height: 1.8;">
+              <li>Connectez-vous et changez votre mot de passe</li>
+              <li>Ajoutez vos produits / menus</li>
+              <li>Configurez vos horaires et options de livraison</li>
+              <li>Partagez votre code promo avec vos premiers clients</li>
+            </ul>
+          </div>
+        </div>
+        <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
+      </div>
+    `;
+    return this.sendEmail(email, `FasoFree — Bienvenue ${businessName} !`, html);
+  }
 }

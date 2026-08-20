@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException, UnauthorizedException } from '
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
+import { EmailService } from '../notifications/email.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import * as crypto from 'crypto';
 
@@ -18,6 +19,7 @@ export class OtpService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly emailService: EmailService,
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -34,13 +36,25 @@ export class OtpService {
     this.store.set(key, { code, expiresAt });
     this.logger.log(`[OTP] Code ${code} généré pour ${user.email} (exp: ${OtpService.OTP_EXPIRY_SECONDS}s)`);
 
-    const subject = 'FasoFree — Code de vérification';
-    const message = `Votre code de vérification FasoFree est : ${code}\n\nCe code expire dans 5 minutes.\n\nSi vous n'avez pas demandé ce code, ignorez ce message.`;
+    // Priorité 1 : email Resend via sendOtpEmail (HTML bannierte)
+    let sent = false;
+    if (user.email) {
+      try {
+        sent = await this.emailService.sendOtpEmail(user.email, user.fullName, code);
+      } catch (err) {
+        this.logger.warn(`[OTP] Échec envoi email Resend: ${(err as Error).message}`);
+      }
+    }
 
-    try {
-      await this.notificationsService.sendNotification(user, subject, message);
-    } catch (err) {
-      this.logger.warn(`[OTP] Échec envoi notification: ${(err as Error).message}`);
+    // Fallback : notifications multi-canal (SMS, WhatsApp, Push, etc.)
+    if (!sent) {
+      const subject = 'FasoFree — Code de vérification';
+      const message = `Votre code de vérification FasoFree est : ${code}\n\nCe code expire dans 5 minutes.\n\nSi vous n'avez pas demandé ce code, ignorez ce message.`;
+      try {
+        await this.notificationsService.sendNotification(user, subject, message);
+      } catch (err) {
+        this.logger.warn(`[OTP] Échec envoi notification fallback: ${(err as Error).message}`);
+      }
     }
 
     return {

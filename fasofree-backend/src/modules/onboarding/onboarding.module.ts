@@ -5,6 +5,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
 import { WalletModule } from '../wallets/wallet.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { KycModule } from '../kyc/kyc.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 import { OnboardingService } from './onboarding.service';
 import { OnboardingController } from './onboarding.controller';
 
@@ -15,6 +16,7 @@ import { OnboardingController } from './onboarding.controller';
     WalletModule,
     NotificationsModule,
     KycModule,
+    PromotionsModule,
   ],
   controllers: [OnboardingController],
   providers: [OnboardingService],

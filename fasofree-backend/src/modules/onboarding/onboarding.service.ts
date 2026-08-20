@@ -13,9 +13,12 @@ import { BusinessesService } from '../businesses/businesses.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../notifications/email.service';
 import { KycService } from '../kyc/kyc.service';
 import { KycStatus } from '../kyc/entities/kyc-document.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { PromotionsService } from '../promotions/promotions.service';
+import { PromotionKind } from '../promotions/entities/promotion.entity';
 
 export interface Moderator {
   userId: string;
@@ -32,7 +35,9 @@ export class OnboardingService {
     private readonly businessesService: BusinessesService,
     private readonly walletService: WalletService,
     private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
     private readonly kycService: KycService,
+    private readonly promotionsService: PromotionsService,
   ) {}
 
   /**
@@ -93,15 +98,38 @@ export class OnboardingService {
 
     const applicationType = user.applicationType;
 
+    let businessId: string | undefined;
+    let businessName: string | undefined;
+
     if (applicationType === 'MERCHANT') {
       await this.setupMerchantProfile(user);
+      // Récupérer le businessId créé pour le code promo
+      const business = await this.businessesService.findByOwner(user.id);
+      businessId = business?.id;
+      businessName = business?.name;
     } else if (applicationType === 'DRIVER') {
       await this.setupDriverProfile(user);
     }
 
     await this.userRepository.save(user);
 
-    // 🎉 Envoi multi-canal selon la préférence de l'utilisateur
+    // 🎉 Marchand : e-mail de bienvenue enrichi + code promo
+    if (applicationType === 'MERCHANT' && user.email) {
+      const promoCode = await this.generateWelcomePromo(businessId);
+      try {
+        await this.emailService.sendWelcomeMerchantEmail(
+          user.email,
+          user.fullName,
+          businessName || user.fullName,
+          tempPassword,
+          promoCode,
+        );
+      } catch (err) {
+        this.logger.warn(`[Onboarding] Échec email bienvenue marchand: ${(err as Error).message}`);
+      }
+    }
+
+    // 🎉 Notification multi-canal (SMS / WhatsApp / Push) en complément
     await this.notificationsService.sendApprovalNotification(user, tempPassword);
 
     this.logger.log(
@@ -184,6 +212,35 @@ export class OnboardingService {
 
     // 💰 Portefeuille livreur clé par userId (convention WalletService)
     await this.walletService.getOrCreateWallet(user.id, WalletUserRole.DRIVER);
+  }
+
+  /**
+   * 🎁 Génère un code promo de bienvenue pour un marchand approuvé.
+   * Code : WELCOME-{4 hex chars} — 10% de réduction, valable 30 jours.
+   */
+  private async generateWelcomePromo(businessId?: string): Promise<string | null> {
+    if (!businessId) return null;
+    try {
+      const code = `WELCOME-${randomBytes(2).toString('hex').toUpperCase()}`;
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 jours
+
+      await this.promotionsService.create({
+        code,
+        kind: PromotionKind.PERCENTAGE,
+        value: 10,
+        startsAt: now.toISOString(),
+        endsAt: expiresAt.toISOString(),
+        minimumOrderAmount: 1000,
+        usageLimit: 100,
+      });
+
+      this.logger.log(`[Onboarding] Code promo bienvenue créé : ${code} pour business ${businessId}`);
+      return code;
+    } catch (err) {
+      this.logger.warn(`[Onboarding] Échec création promo bienvenue: ${(err as Error).message}`);
+      return null;
+    }
   }
 
   private async findPendingApplication(id: string): Promise<User> {
