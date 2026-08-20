@@ -27,96 +27,42 @@ const Terms = () => {
           <div className="space-y-8">
             <div className="text-center mb-8">
               <FileText size={48} className="mx-auto mb-4" strokeWidth={1.5} style={{ color: '#C1652E' }} />
-              <h2 className="text-xl font-display font-medium text-text-primary mb-2">Conditions Générales</h2>
-              <p className="text-text-secondary text-sm">Dernière mise à jour: Janvier 2024</p>
+              <h2 className="text-xl font-display font-medium text-text-primary mb-2">Conditions Générales d'Utilisation (CGU)</h2>
+              <p className="text-text-secondary text-sm">Dernière mise à jour : 2026</p>
             </div>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <CheckCircle size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Acceptation des conditions
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">1. Acceptation des conditions</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                En utilisant l'application Food Delivery BF, vous acceptez ces conditions d'utilisation.
-                Si vous n'acceptez pas ces conditions, veuillez ne pas utiliser notre application.
+                En utilisant l'application FasoFree, vous acceptez d'être lié par les présentes conditions. FasoFree est une plateforme de mise en relation entre des utilisateurs, des commerçants partenaires et des livreurs indépendants à Ouagadougou.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <AlertCircle size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Utilisation du service
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">2. Commandes et Livraisons</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Food Delivery BF vous permet de commander des repas auprès de nos restaurants partenaires.
-                Vous devez être âgé d'au moins 18 ans pour utiliser notre service.
-                Vous êtes responsable de la sécurité de votre compte et de toutes les activités
-                effectuées sous votre compte.
+                Les utilisateurs s'engagent à fournir une adresse de livraison exacte et un numéro de téléphone joignable (WhatsApp recommandé). Les délais de livraison sont fournis à titre indicatif.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <Scale size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Commandes et paiements
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">3. Prix et Paiements</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Toutes les commandes sont sujettes à disponibilité. Les prix peuvent varier.
-                Nous acceptons divers modes de paiement: Wave, Orange Money, Moov Money,
-                Telecel Money et cartes bancaires. Les paiements sont sécurisés.
+                Les prix affichés incluent les frais de service. Le paiement s'effectue selon les méthodes proposées dans l'application (Mobile Money, Espèces à la livraison). L'utilisateur s'engage à régler la totalité du montant lors de la réception.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Livraison</h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">4. Litiges et Réclamations</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Les délais de livraison sont estimés et peuvent varier selon les conditions
-                météorologiques et le trafic. Nous ne sommes pas responsables des retards
-                dus à des circonstances indépendantes de notre volonté.
+                En cas de problème avec une commande (erreur, produit manquant), l'utilisateur dispose de 24 heures pour ouvrir un litige via l'application.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Annulations et remboursements</h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">5. Responsabilités</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Vous pouvez annuler votre commande tant qu'elle n'a pas été acceptée par le restaurant.
-                Une fois acceptée, les annulations sont à la discrétion du restaurant.
-                Les remboursements seront traités dans les 5-7 jours ouvrables.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Propriété intellectuelle</h3>
-              <p className="text-text-secondary leading-relaxed text-sm">
-                Tout le contenu de l'application (logos, images, textes) est la propriété
-                de Food Delivery BF ou de ses partenaires. Toute reproduction non autorisée
-                est interdite.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Limitation de responsabilité</h3>
-              <p className="text-text-secondary leading-relaxed text-sm">
-                Food Delivery BF ne peut être tenu responsable des dommages directs ou indirects
-                résultant de l'utilisation de notre service. Nous nous efforçons de fournir
-                un service de qualité mais ne garantissons pas une disponibilité à 100%.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Modifications</h3>
-              <p className="text-text-secondary leading-relaxed text-sm">
-                Nous nous réservons le droit de modifier ces conditions à tout moment.
-                Les modifications seront notifiées via l'application. Votre utilisation continue
-                du service après les modifications constitue une acceptation des nouvelles conditions.
-              </p>
-            </section>
-
-            <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Contact</h3>
-              <p className="text-text-secondary leading-relaxed text-sm">
-                Pour toute question concernant ces conditions, contactez-nous à:
-                <span style={{ color: '#C1652E' }}> legal@fooddeliverybf.com</span>
+                FasoFree s'efforce de garantir la qualité du service, mais ne saurait être tenu responsable des dommages indirects liés à l'utilisation de la plateforme.
               </p>
             </section>
 

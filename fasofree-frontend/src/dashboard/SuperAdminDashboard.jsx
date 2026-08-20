@@ -576,15 +576,11 @@ const SuperAdminDashboard = () => {
     { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
-    ...(isSuperAdmin
-      ? [
-          { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
-          { id: 'financial', label: 'Finance', icon: DollarSign },
-          { id: 'subscriptions', label: 'Abonnements', icon: Crown },
-          { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
-          { id: 'settings', label: 'Paramètres', icon: Settings },
-        ]
-      : []),
+    { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
+    { id: 'financial', label: 'Finance', icon: DollarSign },
+    { id: 'subscriptions', label: 'Abonnements', icon: Crown },
+    { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
+    { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
   return (

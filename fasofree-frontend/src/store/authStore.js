@@ -114,10 +114,10 @@ export const useAuthStore = create((set, get) => ({
   getDashboardRoute: () => {
     const normalizedRole = get().getNormalizedRole();
     const roleRoutes = {
-      'super_admin': '/financier',
-      'superadmin': '/financier',
-      'admin': '/financier',
-      'support': '/financier',
+      'super_admin': '/admin/super',
+      'superadmin': '/admin/super',
+      'admin': '/admin/manager',
+      'support': '/admin/support',
       'business_admin': '/designer',
       'business': '/designer',
       'merchant': '/designer',

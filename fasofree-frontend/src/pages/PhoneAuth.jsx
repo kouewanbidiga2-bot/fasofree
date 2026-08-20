@@ -135,10 +135,10 @@ const PhoneAuth = () => {
       'driver': '/livreur',
       'courier': '/livreur',
       'livreur': '/livreur',
-      'super_admin': '/financier',
-      'superadmin': '/financier',
-      'admin': '/financier',
-      'support': '/financier',
+      'super_admin': '/admin/super',
+      'superadmin': '/admin/super',
+      'admin': '/admin/manager',
+      'support': '/admin/support',
     };
     navigate(roleRoutes[role] || '/login');
   };

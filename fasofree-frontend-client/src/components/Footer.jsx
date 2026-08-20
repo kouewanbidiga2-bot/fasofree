@@ -39,8 +39,8 @@ const Footer = () => {
           <div>
             <h4 className="text-sm font-medium text-text-primary mb-4">Contact</h4>
             <ul className="space-y-2">
-              <li className="text-text-secondary text-sm">support@fasofree.bf</li>
-              <li className="text-text-secondary text-sm">+226 70 00 00 00</li>
+              <li className="text-text-secondary text-sm">kouewanbidiga2@gmail.com</li>
+              <li className="text-text-secondary text-sm">+226 61 01 00 11</li>
               <li className="text-text-secondary text-sm">Ouagadougou, Burkina Faso</li>
             </ul>
           </div>
@@ -48,7 +48,7 @@ const Footer = () => {
 
         <div className="border-t border-border-light mt-8 pt-8 text-center">
           <p className="text-text-secondary text-xs">
-            2024 FasoFree. Tous droits réservés.
+            © 2026 FasoFree. Tous droits réservés.
           </p>
         </div>
       </div>

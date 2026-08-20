@@ -27,7 +27,7 @@ const OUAGADOUGOU = [12.3714, -1.5197];
 
 const LiveOrders = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const { user, logout, getDashboardRoute } = useAuthStore();
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
@@ -86,7 +86,7 @@ const LiveOrders = () => {
       <header className="bg-background-card border-b border-border-light sticky top-0 z-30">
         <div className="max-w-screen-2xl mx-auto px-4 lg:px-6 py-4 flex flex-wrap items-center gap-3">
           <button
-            onClick={() => navigate('/financier')}
+            onClick={() => navigate(getDashboardRoute())}
             className="btn-secondary gap-2 text-sm"
           >
             <ArrowLeft size={16} /> Console

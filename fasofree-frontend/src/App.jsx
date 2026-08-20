@@ -10,6 +10,8 @@ import PhoneAuth from './pages/PhoneAuth';
 const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashboard'));
 const DriverDashboard = lazy(() => import('./dashboard/DriverDashboard'));
 const SuperAdminDashboard = lazy(() => import('./dashboard/SuperAdminDashboard'));
+const AdminManagerDashboard = lazy(() => import('./dashboard/AdminManagerDashboard'));
+const SupportDashboard = lazy(() => import('./dashboard/SupportDashboard'));
 const LiveOrders = lazy(() => import('./dashboard/LiveOrders'));
 const ApplicationsDashboard = lazy(() => import('./dashboard/ApplicationsDashboard'));
 
@@ -18,14 +20,14 @@ function App() {
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Suspense fallback={<Loading />}>
         <Routes>
-          {/* ROUTE PAR DÉFAUT - redirige vers la connexion */}
+          {/* ROUTE PAR DÉFAUT */}
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* ROUTES D'AUTHENTIFICATION */}
           <Route path="/login" element={<PhoneAuth />} />
           <Route path="/register" element={<PhoneAuth />} />
 
-          {/* ROUTES PRIVÉES PAR RÔLE */}
+          {/* ROUTES MARCHAND / COMMERÇANT */}
           <Route
             path="/designer"
             element={
@@ -34,6 +36,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* ROUTE LIVREUR */}
           <Route
             path="/livreur"
             element={
@@ -42,14 +46,38 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* SUPER ADMIN — accès total + finances */}
           <Route
-            path="/financier"
+            path="/admin/super"
             element={
-              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
+              <ProtectedRoute allowedRoles={['super_admin', 'superadmin']}>
                 <SuperAdminDashboard />
               </ProtectedRoute>
             }
           />
+
+          {/* ADMIN MANAGER — gestion commandes, marchands, KYC, litiges */}
+          <Route
+            path="/admin/manager"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminManagerDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* SUPPORT — litiges, KYC, ban, messagerie commande */}
+          <Route
+            path="/admin/support"
+            element={
+              <ProtectedRoute allowedRoles={['support']}>
+                <SupportDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ROUTES PARTAGÉES (tous les rôles admin) */}
           <Route
             path="/dashboard/live-orders"
             element={
@@ -58,7 +86,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
           <Route
             path="/dashboard/applications"
             element={

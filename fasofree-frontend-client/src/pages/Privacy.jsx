@@ -27,60 +27,35 @@ const Privacy = () => {
           <div className="space-y-8">
             <div className="text-center mb-8">
               <Shield size={48} className="mx-auto mb-4" strokeWidth={1.5} style={{ color: '#C1652E' }} />
-              <h2 className="text-xl font-display font-medium text-text-primary mb-2">Votre vie privée compte</h2>
-              <p className="text-text-secondary text-sm">Dernière mise à jour: Janvier 2024</p>
+              <h2 className="text-xl font-display font-medium text-text-primary mb-2">Politique de Confidentialité</h2>
+              <p className="text-text-secondary text-sm">Dernière mise à jour : 2026</p>
             </div>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <Lock size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Collecte des données
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">1. Collecte des données</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Food Delivery BF collecte uniquement les données nécessaires pour vous fournir nos services:
-                informations de compte, adresse de livraison, historique de commandes et préférences.
-                Nous ne vendons jamais vos données à des tiers.
+                FasoFree collecte les informations nécessaires au traitement de vos commandes : nom, numéro de téléphone, adresse de livraison, et données de géolocalisation lorsque l'application est active.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <Eye size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Utilisation des données
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">2. Utilisation de vos informations</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Vos données sont utilisées pour: traiter vos commandes, améliorer nos services,
-                personnaliser votre expérience et assurer la sécurité des transactions.
+                Vos données sont exclusivement utilisées pour : le traitement de vos commandes, l'optimisation des itinéraires de livraison, le support client, et la sécurité de votre compte (vérification OTP).
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4 flex items-center gap-2">
-                <Database size={16} strokeWidth={1.5} style={{ color: '#C1652E' }} />
-                Stockage et sécurité
-              </h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">3. Partage des données</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Vos données sont stockées sur des serveurs sécurisés avec chiffrement SSL.
-                Nous appliquons des mesures de sécurité strictes pour protéger vos informations
-                contre tout accès non autorisé.
+                Vos informations (nom, téléphone, adresse) sont temporairement partagées avec le commerçant et le livreur assigné pour garantir la bonne exécution de la livraison. Elles ne sont jamais vendues à des tiers.
               </p>
             </section>
 
             <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Vos droits</h3>
-              <ul className="space-y-2 text-text-secondary text-sm">
-                <li>• Accéder à vos données personnelles</li>
-                <li>• Modifier vos informations</li>
-                <li>• Supprimer votre compte et vos données</li>
-                <li>• Refuser le marketing direct</li>
-              </ul>
-            </section>
-
-            <section>
-              <h3 className="text-base font-medium text-text-primary mb-4">Contact</h3>
+              <h3 className="text-base font-medium text-text-primary mb-4">4. Vos droits</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Pour toute question concernant votre vie privée, contactez-nous à:
-                <span style={{ color: '#C1652E' }}> privacy@fooddeliverybf.com</span>
+                Conformément à la réglementation de la Commission de l'Informatique et des Libertés (CIL) du Burkina Faso, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Vous pouvez exercer ce droit en nous contactant à : kouewanbidiga2@gmail.com.
               </p>
             </section>
 

@@ -54,7 +54,7 @@ const Home = () => {
     loadBusinesses();
   }, []);
 
-  const categories = ['all', 'Fast Food', 'Poulet Frit', 'Cuisine Internationale'];
+  const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
 
   const handleSearch = (query) => {
     setSearchQuery(query);
