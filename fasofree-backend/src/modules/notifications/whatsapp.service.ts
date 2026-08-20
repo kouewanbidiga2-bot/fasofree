@@ -143,7 +143,7 @@ export class WhatsAppService {
       `📧 Email : (votre email)\n` +
       `🔑 Mot de passe temporaire : *${tempPassword}*\n\n` +
       `Connectez-vous dès maintenant et changez votre mot de passe.\n\n` +
-      `👉 https://fasofree-9udt.vercel.app`;
+      `👉 https://fasofree-admin.onrender.com`;
     return this.sendTextMessage(phone, text);
   }
 
@@ -160,7 +160,7 @@ export class WhatsAppService {
       `Votre candidature de *${roleLabel}* a été *refusée*.\n\n` +
       `📋 Motif : ${reason}\n\n` +
       `Vous pouvez corriger et soumettre une nouvelle candidature.\n\n` +
-      `👉 https://fasofree-9udt.vercel.app/auth`;
+      `👉 https://fasofree-admin.onrender.com`;
     return this.sendTextMessage(phone, text);
   }
 }
