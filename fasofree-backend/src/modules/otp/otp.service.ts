@@ -35,6 +35,10 @@ export class OtpService {
 
     this.store.set(key, { code, expiresAt });
     this.logger.log(`[OTP] Code ${code} généré pour ${user.email} (exp: ${OtpService.OTP_EXPIRY_SECONDS}s)`);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`  ⚠️  CODE OTP POUR ${user.email} : ${code}`);
+    console.log(`  ⏱️  Expire dans ${OtpService.OTP_EXPIRY_SECONDS / 60} minute(s)`);
+    console.log(`${'='.repeat(60)}\n`);
 
     // Priorité 1 : email Resend via sendOtpEmail (HTML bannierte)
     let sent = false;
