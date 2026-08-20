@@ -263,7 +263,7 @@ const AdminManagerDashboard = () => {
   return (
     <div className="min-h-screen bg-background-primary flex">
       {/* ─── SIDEBAR ADMIN ──────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-64 bg-background-card border-r border-border-light fixed h-full z-20">
+      <aside className="hidden lg:flex flex-col w-64 bg-background-card border-r border-border-light fixed h-full z-20 overflow-y-auto">
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-accent-primary/15">

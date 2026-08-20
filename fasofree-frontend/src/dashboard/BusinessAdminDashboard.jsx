@@ -573,7 +573,7 @@ const BusinessAdminDashboard = () => {
   return (
     <div className="min-h-screen bg-background-primary flex">
       {/* ─── SIDEBAR ─────────────────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-60 bg-background-card border-r border-border-light fixed h-full z-20">
+      <aside className="hidden lg:flex flex-col w-60 bg-background-card border-r border-border-light fixed h-full z-20 overflow-y-auto">
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(193,101,46,0.15)' }}>
