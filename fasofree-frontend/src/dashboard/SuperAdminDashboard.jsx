@@ -34,6 +34,8 @@ import {
   updateUserStatus,
   updateUserRole,
   deleteUser,
+  getBanRequests,
+  reviewBanRequest,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 
@@ -89,6 +91,12 @@ const SuperAdminDashboard = () => {
     password: '',
     role: 'admin',
   });
+
+  // Ban requests
+  const [banRequests, setBanRequests] = useState([]);
+  const [banRequestsLoading, setBanRequestsLoading] = useState(false);
+  const [banReviewBusy, setBanReviewBusy] = useState(null);
+  const [banRequestsMsg, setBanRequestsMsg] = useState(null);
 
   // Subscriptions
   const [plans, setPlans] = useState([]);
@@ -232,12 +240,26 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
+  // Load ban requests
+  const loadBanRequests = useCallback(async () => {
+    setBanRequestsLoading(true);
+    try {
+      const data = await getBanRequests();
+      setBanRequests(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setBanRequestsMsg({ type: 'error', text: err.message });
+    } finally {
+      setBanRequestsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadFinancialStats();
     loadPendingValidations();
     loadKyc();
     loadUsers();
-  }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers]);
+    loadBanRequests();
+  }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers, loadBanRequests]);
 
   const handleLogout = () => {
     logout();
@@ -307,6 +329,30 @@ const SuperAdminDashboard = () => {
       setUsersMsg({ type: 'error', text: err.message });
     } finally {
       setUsersBusy(null);
+    }
+  };
+
+  // ─── Actions Ban Requests ────────────────────────────────────────────
+  const handleReviewBanRequest = async (requestId, status) => {
+    const note = status === 'REJECTED'
+      ? window.prompt('Motif du rejet (optionnel) :')
+      : window.prompt('Note (optionnel) :');
+    if (note === null && status === 'REJECTED') return;
+
+    setBanReviewBusy(requestId);
+    setBanRequestsMsg(null);
+    try {
+      await reviewBanRequest(requestId, { status, note: note || undefined });
+      setBanRequestsMsg({
+        type: 'success',
+        text: status === 'APPROVED' ? 'Demande approuvée — utilisateur banni.' : 'Demande rejetée.',
+      });
+      await loadBanRequests();
+      await loadUsers();
+    } catch (err) {
+      setBanRequestsMsg({ type: 'error', text: err.message });
+    } finally {
+      setBanReviewBusy(null);
     }
   };
 
@@ -530,6 +576,7 @@ const SuperAdminDashboard = () => {
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
     ...(isSuperAdmin
       ? [
+          { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
           { id: 'financial', label: 'Finance', icon: DollarSign },
           { id: 'subscriptions', label: 'Abonnements', icon: Crown },
           { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
@@ -995,6 +1042,99 @@ const SuperAdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET DEMANDES DE BAN */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'ban-requests' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">Demandes de Bannissement</h2>
+                <p className="text-text-secondary text-sm">
+                  Les admins et agents support soumettent des demandes. Vous validez ou rejetez.
+                </p>
+              </div>
+              <button onClick={loadBanRequests} className="btn-secondary gap-2">
+                <RefreshCw size={14} className={banRequestsLoading ? 'animate-spin' : ''} />
+              </button>
+            </div>
+
+            {banRequestsMsg && (
+              <div className={`p-3 rounded-lg border text-sm ${banRequestsMsg.type === 'success' ? 'bg-status-successBg border-status-success/30 text-status-success' : 'bg-status-errorBg border-status-error/30 text-status-error'}`}>
+                {banRequestsMsg.text}
+              </div>
+            )}
+
+            {banRequestsLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <div key={i} className="card p-5"><LoadingSkeleton height="h-4" /></div>)}
+              </div>
+            ) : banRequests.length === 0 ? (
+              <EmptyState icon={Ban} title="Aucune demande" description="Aucune demande de bannissement en cours." />
+            ) : (
+              <div className="space-y-3">
+                {banRequests.map(req => {
+                  const isPending = req.status === 'PENDING';
+                  const statusColors = {
+                    PENDING: 'bg-yellow-50 border-yellow-200 text-yellow-700',
+                    APPROVED: 'bg-red-50 border-red-200 text-red-700',
+                    REJECTED: 'bg-gray-50 border-gray-200 text-gray-500',
+                  };
+                  return (
+                    <div key={req.id} className={`card p-5 border ${isPending ? 'border-yellow-200' : 'border-border-light'}`}>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusColors[req.status]}`}>
+                              {req.status}
+                            </span>
+                            <span className="text-[10px] text-text-tertiary">
+                              {req.createdAt ? new Date(req.createdAt).toLocaleDateString('fr-FR') : ''}
+                            </span>
+                          </div>
+                          <p className="text-sm font-semibold text-text-primary">
+                            Cible : {req.targetUser?.fullName || req.targetUserId}
+                          </p>
+                          <p className="text-xs text-text-secondary mt-1">
+                            Demandé par : {req.requester?.fullName || req.requestedBy}
+                          </p>
+                          <p className="text-xs text-text-secondary mt-2 bg-background-secondary p-2 rounded">
+                            {req.reason}
+                          </p>
+                          {req.reviewNote && (
+                            <p className="text-xs text-text-tertiary mt-2 italic">
+                              Note : {req.reviewNote}
+                            </p>
+                          )}
+                        </div>
+                        {isPending && (
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <button
+                              onClick={() => handleReviewBanRequest(req.id, 'APPROVED')}
+                              disabled={banReviewBusy === req.id}
+                              className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1 bg-status-error hover:bg-status-error/80"
+                            >
+                              {banReviewBusy === req.id ? <RefreshCw size={12} className="animate-spin" /> : <Ban size={12} />}
+                              Approuver
+                            </button>
+                            <button
+                              onClick={() => handleReviewBanRequest(req.id, 'REJECTED')}
+                              disabled={banReviewBusy === req.id}
+                              className="btn-secondary py-1.5 px-3 text-xs flex items-center gap-1 text-text-secondary border-border-light"
+                            >
+                              <XCircle size={12} /> Rejeter
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

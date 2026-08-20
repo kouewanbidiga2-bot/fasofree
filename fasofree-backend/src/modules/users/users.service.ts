@@ -174,6 +174,7 @@ export class UsersService implements OnModuleInit {
     operator: User,
     targetUserId: string,
     isActive: boolean,
+    banReason?: string,
   ): Promise<User> {
     const targetUser = await this.findById(targetUserId);
     await this.assertCanModify(operator, targetUser);
@@ -183,6 +184,15 @@ export class UsersService implements OnModuleInit {
     }
 
     targetUser.isActive = isActive;
+    if (!isActive) {
+      targetUser.banReason = banReason ?? null;
+      targetUser.bannedBy = operator.id;
+      targetUser.bannedAt = new Date();
+    } else {
+      targetUser.banReason = null;
+      targetUser.bannedBy = null;
+      targetUser.bannedAt = null;
+    }
     return this.userRepository.save(targetUser);
   }
 

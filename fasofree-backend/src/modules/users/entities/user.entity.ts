@@ -64,6 +64,16 @@ export class User {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  // 🚫 MÉTADONNÉES DE BANNISSEMENT
+  @Column({ type: 'text', nullable: true })
+  banReason?: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  bannedBy?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  bannedAt?: Date | null;
+
   // 🚦 ONBOARDING MARCHANDS & LIVREURS
   // Compte candidat créé via POST /auth/apply puis examiné par l'administration.
   @Column({ type: 'varchar', length: 20, nullable: true })

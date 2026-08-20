@@ -21,6 +21,7 @@ import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getAllUsers } from '../services/authService';
 import { getFinancialDashboard } from '../services/walletService';
+import { createBanRequest } from '../services/usersService';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -59,6 +60,13 @@ const AdminDashboard = () => {
     orders: true,
   });
   const [errors, setErrors] = useState({});
+
+  // Ban request submission
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [banForm, setBanForm] = useState({ targetUserId: '', reason: '' });
+  const [banSubmitting, setBanSubmitting] = useState(false);
+  const [banMsg, setBanMsg] = useState(null);
+  const [allUsers, setAllUsers] = useState([]);
 
   // Load regional statistics
   const loadRegionalStats = useCallback(async () => {
@@ -178,9 +186,34 @@ const AdminDashboard = () => {
     loadRecentOrders();
   }, [loadRegionalStats, loadDisputes, loadLocalMerchants, loadRecentOrders]);
 
+  // Load users for ban request target selection
+  useEffect(() => {
+    getAllUsers().then(data => setAllUsers(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  // ─── Ban Request ──────────────────────────────────────────────
+  const handleBanSubmit = async () => {
+    if (!banForm.targetUserId || banForm.reason.trim().length < 10) return;
+    setBanSubmitting(true);
+    setBanMsg(null);
+    try {
+      await createBanRequest({
+        targetUserId: banForm.targetUserId,
+        reason: banForm.reason.trim(),
+      });
+      setBanMsg({ type: 'success', text: 'Demande de bannissement soumise. En attente de validation par le Super Admin.' });
+      setShowBanModal(false);
+      setBanForm({ targetUserId: '', reason: '' });
+    } catch (err) {
+      setBanMsg({ type: 'error', text: err.message || 'Erreur lors de la soumission' });
+    } finally {
+      setBanSubmitting(false);
+    }
   };
 
   const handleResolveDispute = (disputeId, resolution) => {
@@ -206,6 +239,7 @@ const AdminDashboard = () => {
     { id: 'overview', label: 'Vue Régionale', icon: Layout, show: true },
     { id: 'merchants', label: 'Commerçants Locaux', icon: Users, show: true },
     { id: 'disputes', label: 'Litiges & Support', icon: LifeBuoy, show: true, badge: disputes.filter(d => d.status === 'OPEN').length },
+    { id: 'ban-request', label: 'Signaler un utilisateur', icon: AlertCircle, show: true },
     { id: 'orders', label: 'Suivi Commandes', icon: ShoppingBag, show: true },
     { id: 'settings', label: 'Paramètres Région', icon: Settings, show: true },
   ].filter(t => t.show);
@@ -668,6 +702,62 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────── */}
+          {/* ONGLET SIGNALER UN UTILISATEUR */}
+          {/* ──────────────────────────────────────────────────────── */}
+          {activeTab === 'ban-request' && (
+            <div className="space-y-6 animate-slide-up">
+              <div>
+                <h1 className="text-xl font-bold text-text-primary">Signaler un Utilisateur</h1>
+                <p className="text-text-secondary text-sm">
+                  Soumettez une demande de bannissement au Super Admin. La décision finale lui appartient.
+                </p>
+              </div>
+
+              {banMsg && (
+                <div className={`p-3 rounded-lg border text-sm ${banMsg.type === 'success' ? 'bg-status-successBg border-status-success/30 text-status-success' : 'bg-status-errorBg border-status-error/30 text-status-error'}`}>
+                  {banMsg.text}
+                </div>
+              )}
+
+              <div className="card p-6 max-w-xl">
+                <div className="mb-4">
+                  <label className="block text-xs text-text-secondary mb-2">Utilisateur cible</label>
+                  <select
+                    value={banForm.targetUserId}
+                    onChange={(e) => setBanForm(prev => ({ ...prev, targetUserId: e.target.value }))}
+                    className="input-field w-full"
+                  >
+                    <option value="">— Sélectionner un utilisateur —</option>
+                    {allUsers.filter(u => u.role !== 'super_admin').map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.fullName || u.email} ({u.role}) — {u.isActive ? 'Actif' : 'Banni'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mb-4">
+                  <label className="block text-xs text-text-secondary mb-2">Raison du signalement (min. 10 caractères)</label>
+                  <textarea
+                    value={banForm.reason}
+                    onChange={(e) => setBanForm(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="Décrivez le comportement problématique..."
+                    rows={4}
+                    className="input-field w-full resize-none"
+                  />
+                </div>
+                <button
+                  onClick={handleBanSubmit}
+                  disabled={banSubmitting || !banForm.targetUserId || banForm.reason.trim().length < 10}
+                  className="btn-primary flex items-center gap-2 disabled:opacity-50"
+                >
+                  {banSubmitting ? <RefreshCw size={14} className="animate-spin" /> : <AlertCircle size={14} />}
+                  Soumettre la demande
+                </button>
               </div>
             </div>
           )}
