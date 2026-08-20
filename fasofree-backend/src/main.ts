@@ -46,23 +46,10 @@ async function bootstrap() {
     /\.onrender\.com$/,
   ];
 
-  const localDevOrigins = [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001',
-    'http://127.0.0.1:5173',
-  ];
-
   const isOriginAllowed = (origin: string) => {
-    if (envOrigins.includes(origin)) return true;
+    if (envOrigins.length > 0 && envOrigins.includes(origin)) return true;
     return allowedRegexPatterns.some((re) => re.test(origin));
   };
-
-  const allowedOrigins = isProduction
-    ? envOrigins
-    : [...localDevOrigins, ...envOrigins];
 
   app.enableCors({
     origin: (origin, callback) => {
@@ -70,7 +57,7 @@ async function bootstrap() {
         callback(null, true);
       } else {
         logger.warn(`CORS bloquee : ${origin}`);
-        callback(new Error(`CORS non autorise pour : ${origin}`));
+        callback(null, true); // Temporairement ouvert pour debug
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
