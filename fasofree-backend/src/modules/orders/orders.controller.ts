@@ -311,7 +311,7 @@ export class OrdersController {
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    await this.disputesService.open(id, userId, { reason: dto.reason });
+    await this.disputesService.open(id, userId, { reason: dto.reason, password: dto.password });
     // Compatibilité ascendante : cette route historique retournait la commande,
     // tandis que le nouveau détail du dossier est disponible sous /disputes.
     return this.ordersService.findOne(id);

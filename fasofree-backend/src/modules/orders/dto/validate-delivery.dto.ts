@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, Length } from 'class-validator';
+import { IsString, IsOptional, IsNotEmpty, Length } from 'class-validator';
 
 /**
  * DTO utilisé par le client pour valider la réception de sa commande
@@ -41,4 +41,12 @@ export class DisputeOrderDto {
   })
   @IsString()
   reason: string;
+
+  @ApiProperty({
+    description: 'Mot de passe actuel pour confirmer la soumission du litige',
+    example: 'MonMotDePasse123',
+  })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 }

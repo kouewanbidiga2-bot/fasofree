@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource } from 'typeorm';
@@ -34,6 +35,7 @@ import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class DisputesService {
@@ -52,6 +54,14 @@ export class DisputesService {
     clientId: string,
     dto: CreateDisputeDto,
   ): Promise<Dispute> {
+    const user = await this.usersService.findById(clientId);
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    const valid = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedException('Mot de passe incorrect');
+    }
+
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();

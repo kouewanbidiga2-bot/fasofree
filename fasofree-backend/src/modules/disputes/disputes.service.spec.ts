@@ -8,6 +8,10 @@ import { Dispute } from './entities/dispute.entity';
 import { DISPUTE_OPENED } from './events/dispute.events';
 import { DisputesService } from './disputes.service';
 
+jest.mock('bcrypt', () => ({
+  compare: jest.fn().mockResolvedValue(true),
+}));
+
 describe('DisputesService', () => {
   it('persists the reason, freezes the order and blocks an in-flight payout', async () => {
     const order = {
@@ -42,16 +46,23 @@ describe('DisputesService', () => {
     const dataSource = { createQueryRunner: jest.fn().mockReturnValue(runner) };
     const emit = jest.fn();
     const events = { emit } as unknown as EventEmitter2;
+    const usersService = {
+      findById: jest.fn().mockResolvedValue({
+        id: 'client-1',
+        passwordHash: '$2b$10$fakehash',
+      }),
+    } as never;
     const service = new DisputesService(
       dataSource as never,
       events,
       {} as never,
       {} as never,
-      {} as never,
+      usersService,
     );
 
     await service.open(order.id, order.clientId, {
       reason: 'Le colis n’a pas été remis au client.',
+      password: 'Test@12345',
     });
 
     expect(order.status).toBe(OrderStatus.DISPUTED);

@@ -12,7 +12,7 @@ export class EmailService {
     const apiKey = this.configService.get<string>('RESEND_API_KEY', '');
     this.fromEmail = this.configService.get<string>(
       'RESEND_FROM_EMAIL',
-      'FasoFree <noreply@fasofree.bf>',
+      'FasoFree <onboarding@resend.dev>',
     );
 
     if (apiKey) {

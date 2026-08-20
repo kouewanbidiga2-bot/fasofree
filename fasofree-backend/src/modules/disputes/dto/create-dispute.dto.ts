@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMaxSize,
   IsArray,
+  IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
@@ -16,6 +17,14 @@ export class CreateDisputeDto {
   @MinLength(10)
   @MaxLength(2000)
   reason: string;
+
+  @ApiProperty({
+    example: 'MonMotDePasse123',
+    description: 'Mot de passe actuel pour confirmer la soumission du litige.',
+  })
+  @IsString()
+  @IsNotEmpty()
+  password: string;
 
   @ApiPropertyOptional({
     type: [String],

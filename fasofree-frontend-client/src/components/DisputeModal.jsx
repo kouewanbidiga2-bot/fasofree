@@ -12,18 +12,20 @@ const REASONS = [
 const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
   const [reasonCategory, setReasonCategory] = useState(REASONS[0].value);
   const [description, setDescription] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (description.trim().length < 10) return;
+    if (description.trim().length < 10 || !password.trim()) return;
     setSubmitting(true);
     try {
-      await onSubmit(reasonCategory + ' — ' + description.trim());
+      await onSubmit(reasonCategory + ' — ' + description.trim(), password.trim());
       setReasonCategory(REASONS[0].value);
       setDescription('');
+      setPassword('');
     } finally {
       setSubmitting(false);
     }
@@ -60,7 +62,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
             </select>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <label className="block text-xs text-[#70645C] mb-2">Description du problème</label>
             <textarea
               value={description}
@@ -70,6 +72,18 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
               required
               minLength={10}
               className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded resize-none focus:outline-none focus:border-[#C1652E]"
+            />
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-xs text-[#70645C] mb-2">Confirmez votre mot de passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Saisissez votre mot de passe actuel"
+              required
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded focus:outline-none focus:border-[#C1652E]"
             />
           </div>
 
@@ -83,7 +97,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
             </button>
             <button
               type="submit"
-              disabled={submitting || description.trim().length < 10}
+              disabled={submitting || description.trim().length < 10 || !password.trim()}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-white transition disabled:opacity-50"
               style={{ backgroundColor: '#C1652E' }}
             >

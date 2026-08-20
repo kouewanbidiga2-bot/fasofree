@@ -242,10 +242,10 @@ const OrderTracking = () => {
       .catch((e) => window.alert(e.message || 'Code PIN invalide'));
   }, [orderId, navigate]);
 
-  const handleOpenDispute = async (reason) => {
+  const handleOpenDispute = async (reason, password) => {
     try {
       setDisputeError(null);
-      await api.openDispute(orderId, { reason });
+      await api.openDispute(orderId, { reason, password });
       setDisputeSuccess(true);
       setShowDisputeModal(false);
     } catch (err) {
