@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { FirebaseAdminProvider } from './providers/firebase-admin.provider';
 import { NotificationsService } from './notifications.service';
@@ -10,7 +10,7 @@ import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
 import { UsersModule } from '../users/users.module';
 
 @Module({
-  imports: [ConfigModule, UsersModule],
+  imports: [ConfigModule, forwardRef(() => UsersModule)],
   controllers: [NotificationsController, WhatsAppWebhookController],
   providers: [
     FirebaseAdminProvider,

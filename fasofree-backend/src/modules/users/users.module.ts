@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
@@ -14,7 +14,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
   imports: [
     TypeOrmModule.forFeature([User, BanRequest]),
     UploadModule,
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [UsersController, BanRequestController],
   providers: [UsersService, UsersCommand, BanRequestService],
