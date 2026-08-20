@@ -14,7 +14,7 @@ import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
-  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2
+  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -38,6 +38,7 @@ import {
   reviewBanRequest,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
+import InternalChat from '../components/InternalChat';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -572,6 +573,7 @@ const SuperAdminDashboard = () => {
 
   const tabs = [
     { id: 'overview', label: 'Vue Globale', icon: Layout },
+    { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
     ...(isSuperAdmin
@@ -678,6 +680,16 @@ const SuperAdminDashboard = () => {
             Mode {isSuperAdmin ? 'Super Admin' : roleLabel(userRole)}
           </span>
         </header>
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET DISCUSSION ÉQUIPE */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'team-chat' && (
+          <div className="p-6 border border-border-light rounded-xl bg-background-primary">
+            <InternalChat currentUser={user} />
+          </div>
+        )}
 
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET VUE GLOBALE */}

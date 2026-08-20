@@ -33,6 +33,7 @@ import { BrandsModule } from './modules/brands/brands.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { SeedModule } from './modules/seed/seed.module';
 import { OtpModule } from './modules/otp/otp.module';
+import { InternalChatModule } from './modules/internal-chat/internal-chat.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
 
 @Module({
@@ -89,6 +90,7 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     ReceiptsModule,
     SeedModule,
     OtpModule,
+    InternalChatModule,
     CommandModule, // 👈 2. Ajouter le module Command
   ],
   controllers: [AppController],
