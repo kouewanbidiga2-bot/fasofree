@@ -22,6 +22,7 @@ import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components
 import { getAllUsers } from '../services/authService';
 import { getFinancialDashboard } from '../services/walletService';
 import { createBanRequest } from '../services/usersService';
+import { getActiveConversations, getChatHistory } from '../services/usersService';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -67,6 +68,13 @@ const AdminDashboard = () => {
   const [banSubmitting, setBanSubmitting] = useState(false);
   const [banMsg, setBanMsg] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+
+  // Chat inbox
+  const [conversations, setConversations] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [selectedChatOrder, setSelectedChatOrder] = useState(null);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
 
   // Load regional statistics
   const loadRegionalStats = useCallback(async () => {
@@ -191,6 +199,11 @@ const AdminDashboard = () => {
     getAllUsers().then(data => setAllUsers(Array.isArray(data) ? data : [])).catch(() => {});
   }, []);
 
+  // Load conversations when chat tab is activated
+  useEffect(() => {
+    if (activeTab === 'chat') loadConversations();
+  }, [activeTab, loadConversations]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -213,6 +226,32 @@ const AdminDashboard = () => {
       setBanMsg({ type: 'error', text: err.message || 'Erreur lors de la soumission' });
     } finally {
       setBanSubmitting(false);
+    }
+  };
+
+  // ─── Chat Inbox ──────────────────────────────────────────────
+  const loadConversations = useCallback(async () => {
+    setChatLoading(true);
+    try {
+      const data = await getActiveConversations();
+      setConversations(Array.isArray(data) ? data : []);
+    } catch {
+      setConversations([]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, []);
+
+  const handleViewChat = async (orderId) => {
+    setSelectedChatOrder(orderId);
+    setChatHistoryLoading(true);
+    try {
+      const data = await getChatHistory(orderId);
+      setChatHistory(data?.history || []);
+    } catch {
+      setChatHistory([]);
+    } finally {
+      setChatHistoryLoading(false);
     }
   };
 
@@ -240,6 +279,7 @@ const AdminDashboard = () => {
     { id: 'merchants', label: 'Commerçants Locaux', icon: Users, show: true },
     { id: 'disputes', label: 'Litiges & Support', icon: LifeBuoy, show: true, badge: disputes.filter(d => d.status === 'OPEN').length },
     { id: 'ban-request', label: 'Signaler un utilisateur', icon: AlertCircle, show: true },
+    { id: 'chat', label: 'Messagerie', icon: MessageSquare, show: true },
     { id: 'orders', label: 'Suivi Commandes', icon: ShoppingBag, show: true },
     { id: 'settings', label: 'Paramètres Région', icon: Settings, show: true },
   ].filter(t => t.show);
@@ -759,6 +799,104 @@ const AdminDashboard = () => {
                   Soumettre la demande
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────── */}
+          {/* ONGLET MESSAGERIE */}
+          {/* ──────────────────────────────────────────────────────── */}
+          {activeTab === 'chat' && (
+            <div className="space-y-6 animate-slide-up">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-xl font-bold text-text-primary">Messagerie</h1>
+                  <p className="text-text-secondary text-sm">
+                    Conversations entre clients, marchands et livreurs. Accès en lecture seule.
+                  </p>
+                </div>
+                <button onClick={loadConversations} className="btn-secondary gap-2 text-xs">
+                  <RefreshCw size={12} className={chatLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {chatLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => <div key={i} className="card p-5"><LoadingSkeleton height="h-4" /></div>)}
+                </div>
+              ) : selectedChatOrder ? (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => { setSelectedChatOrder(null); setChatHistory([]); }}
+                    className="text-accent-primary text-xs font-semibold flex items-center gap-1 hover:underline"
+                  >
+                    ← Retour aux conversations
+                  </button>
+                  <div className="card p-5">
+                    <h3 className="font-bold text-text-primary text-sm mb-4">
+                      Conversation — Commande #{selectedChatOrder.slice(0, 8)}
+                    </h3>
+                    {chatHistoryLoading ? (
+                      <LoadingSkeleton height="h-8" className="mb-2" />
+                    ) : chatHistory.length === 0 ? (
+                      <p className="text-text-tertiary text-xs">Aucun message dans cette conversation.</p>
+                    ) : (
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {chatHistory.map((msg) => (
+                          <div key={msg.id} className="flex gap-3">
+                            <div className="w-7 h-7 rounded-full bg-background-secondary flex items-center justify-center text-[10px] font-bold text-text-secondary shrink-0">
+                              {(msg.senderRole || '?').charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole}</span>
+                                <span className="text-[10px] text-text-tertiary">
+                                  {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                                </span>
+                                <span className="text-[10px] text-text-tertiary px-1.5 py-0.5 bg-background-secondary rounded">{msg.channel}</span>
+                              </div>
+                              <p className="text-xs text-text-secondary mt-0.5">{msg.message}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : conversations.length === 0 ? (
+                <EmptyState icon={MessageSquare} title="Aucune conversation" description="Aucune conversation active pour le moment." />
+              ) : (
+                <div className="space-y-2">
+                  {conversations.map(conv => (
+                    <div
+                      key={conv.orderId}
+                      className="card p-4 flex items-center justify-between hover:bg-background-secondary cursor-pointer transition"
+                      onClick={() => handleViewChat(conv.orderId)}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-full bg-accent-primary/15 flex items-center justify-center">
+                          <MessageSquare size={14} className="text-accent-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-text-primary">
+                            Commande #{conv.orderId.slice(0, 8)}
+                          </p>
+                          <p className="text-xs text-text-tertiary truncate max-w-xs">
+                            {conv.lastMessage}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0 ml-4">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-background-secondary rounded text-text-tertiary uppercase font-bold">
+                          {conv.channel}
+                        </span>
+                        <p className="text-[10px] text-text-tertiary mt-1">
+                          {conv.lastAt ? new Date(conv.lastAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : ''}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

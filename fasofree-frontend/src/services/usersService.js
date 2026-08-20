@@ -46,3 +46,15 @@ export const getBanRequestPendingCount = async () => {
   const response = await api.get('/ban-requests/pending-count');
   return response.data;
 };
+
+// ─── Chat (Admin/Support) ──────────────────────────────────────
+export const getActiveConversations = async () => {
+  const response = await api.get('/chat');
+  return response.data;
+};
+
+export const getChatHistory = async (orderId, channel) => {
+  const params = channel ? { channel } : {};
+  const response = await api.get(`/chat/${orderId}`, { params });
+  return response.data;
+};

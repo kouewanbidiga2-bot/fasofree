@@ -16,10 +16,12 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
+import { Roles } from '../../core/security/roles.decorator';
+import { RolesGuard } from '../../core/security/roles.guard';
+import { UserRole } from '../users/entities/user-role.enum';
 import { ChatService } from './chat.service';
 import { ChatChannel } from './entities/order-chat-message.entity';
 import { OrdersService } from '../orders/orders.service';
-import { UserRole } from '../users/entities/user-role.enum';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: string };
@@ -34,6 +36,17 @@ export class ChatController {
     private readonly chatService: ChatService,
     private readonly ordersService: OrdersService,
   ) {}
+
+  /**
+   * 📋 Commandes avec conversations actives (admin/support/super_admin).
+   */
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @ApiOperation({ summary: 'Liste des conversations actives (Admin/Support)' })
+  async getActiveConversations() {
+    return this.chatService.getActiveConversations();
+  }
 
   /**
    * 📜 Historique / archive d'un canal de discussion d'une commande.

@@ -56,6 +56,8 @@ export class ChatService {
 
     const normalizedRole = role?.toLowerCase();
     if (normalizedRole === UserRole.SUPER_ADMIN) return true;
+    if (normalizedRole === UserRole.ADMIN) return true;
+    if (normalizedRole === UserRole.SUPPORT) return true;
 
     if (channel === ChatChannel.MERCHANT) {
       if (!order.businessId) return false;
@@ -112,5 +114,35 @@ export class ChatService {
       `[Chat Stored] Commande ${orderId} | canal ${channel} | ${senderId}`,
     );
     return saved;
+  }
+
+  /**
+   * 📋 Commandes ayant des messages de chat (pour inbox admin/support).
+   * Retourne les 50 commandes les plus récentes avec au moins un message.
+   */
+  async getActiveConversations(): Promise<{ orderId: string; lastMessage: string; lastAt: Date; channel: string }[]> {
+    const result = await this.chatRepository
+      .createQueryBuilder('msg')
+      .select('msg.orderId', 'orderId')
+      .addSelect('MAX(msg.createdAt)', 'lastAt')
+      .addSelect(
+        `(SELECT m2.message FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        'lastMessage',
+      )
+      .addSelect(
+        `(SELECT m2.channel FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        'channel',
+      )
+      .groupBy('msg.orderId')
+      .orderBy('MAX(msg.createdAt)', 'DESC')
+      .limit(50)
+      .getRawMany();
+
+    return result.map((r) => ({
+      orderId: r.orderId,
+      lastMessage: r.lastMessage,
+      lastAt: r.lastAt,
+      channel: r.channel,
+    }));
   }
 }
