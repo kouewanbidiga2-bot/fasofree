@@ -130,7 +130,11 @@ export class OnboardingService {
     }
 
     // 🎉 Notification multi-canal (SMS / WhatsApp / Push) en complément
-    await this.notificationsService.sendApprovalNotification(user, tempPassword);
+    try {
+      await this.notificationsService.sendApprovalNotification(user, tempPassword);
+    } catch (err) {
+      this.logger.warn(`[Onboarding] Échec notification approbation pour ${user.email}: ${(err as Error).message}`);
+    }
 
     this.logger.log(
       `[Onboarding] Candidature ${applicationType} approuvée : ${user.email}`,
@@ -160,8 +164,12 @@ export class OnboardingService {
 
     await this.userRepository.save(user);
 
-    // ❌ Notification de refus multi-canal
-    await this.notificationsService.sendRejectionNotification(user, reason);
+    // ❌ Notification de refus multi-canal (email + push + SMS)
+    try {
+      await this.notificationsService.sendRejectionNotification(user, reason);
+    } catch (err) {
+      this.logger.warn(`[Onboarding] Échec notification rejet pour ${user.email}: ${(err as Error).message}`);
+    }
 
     this.logger.log(
       `[Onboarding] Candidature rejetée : ${user.email} — ${reason}`,

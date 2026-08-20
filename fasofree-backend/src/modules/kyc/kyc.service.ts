@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
 } from '@nestjs/common';
@@ -17,6 +18,8 @@ import {
 
 @Injectable()
 export class KycService {
+  private readonly logger = new Logger(KycService.name);
+
   constructor(
     @InjectRepository(KycDocument)
     private readonly documents: Repository<KycDocument>,
@@ -34,6 +37,22 @@ export class KycService {
     file: Express.Multer.File,
   ): Promise<KycDocument> {
     const upload = await this.storage.uploadPrivateFile(file, `kyc/${ownerId}`);
+
+    // Reset user application status if previously rejected (resubmission)
+    try {
+      const user = await this.userRepository.findOne({ where: { id: ownerId } });
+      if (user && user.applicationStatus === 'REJECTED') {
+        user.applicationStatus = 'PENDING_APPROVAL';
+        user.rejectionReason = null;
+        user.reviewedBy = null;
+        user.reviewedAt = null;
+        await this.userRepository.save(user);
+        this.logger.log(`[KYC] Resoumission : candidature ${ownerId} remise en PENDING_APPROVAL`);
+      }
+    } catch {
+      // Non bloquant — le document KYC est soumis quand même
+    }
+
     const existing = await this.documents.findOne({ where: { ownerId, type } });
     if (existing) {
       const previousKey = existing.storageKey;
