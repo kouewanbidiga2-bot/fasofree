@@ -3,8 +3,12 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { writeFileSync } from 'fs';
+import dns from 'dns';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+
+// Force IPv4 for all DNS lookups — fixes ENETUNREACH on Render
+dns.setDefaultResultOrder('ipv4first');
 
 async function bootstrap() {
   const startTime = Date.now();
