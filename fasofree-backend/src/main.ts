@@ -40,8 +40,9 @@ async function bootstrap() {
         .filter(Boolean)
     : [];
 
-  // Patterns regex autorises en prod (*.vercel.app, *.onrender.com)
+  // Patterns regex autorises en prod (*.fasofree.site, *.vercel.app, *.onrender.com)
   const allowedRegexPatterns = [
+    /\.fasofree\.site$/,
     /\.vercel\.app$/,
     /\.onrender\.com$/,
   ];

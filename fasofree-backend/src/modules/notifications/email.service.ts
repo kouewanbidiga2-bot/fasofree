@@ -70,7 +70,7 @@ export class EmailService {
             <p style="margin: 0;"><strong>Mot de passe temporaire :</strong> <code style="background: #f4f4f4; padding: 2px 6px; border-radius: 4px; color: #C1652E; font-weight: bold;">${tempPassword}</code></p>
           </div>
           <p>Connectez-vous dès maintenant et modifiez votre mot de passe depuis votre profil.</p>
-          <a href="https://fasofree-admin.onrender.com" style="display: inline-block; background: #C1652E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">Se connecter</a>
+          <a href="https://fasofree.site" style="display: inline-block; background: #C1652E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">Se connecter</a>
         </div>
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
@@ -105,7 +105,7 @@ export class EmailService {
             <p style="margin: 0; color: #70645C;">${reason}</p>
           </div>
           <p>Vous pouvez corriger les éléments signalés et soumettre une nouvelle candidature.</p>
-          <a href="https://fasofree-admin.onrender.com" style="display: inline-block; background: #C1652E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">Soumettre une nouvelle candidature</a>
+          <a href="https://fasofree.site" style="display: inline-block; background: #C1652E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 10px;">Soumettre une nouvelle candidature</a>
         </div>
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>
@@ -190,7 +190,7 @@ export class EmailService {
           ${promoSection}
 
           <div style="text-align: center; margin: 24px 0;">
-            <a href="https://fasofree-admin.onrender.com" style="display: inline-block; background: #C1652E; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold;">Se connecter</a>
+            <a href="https://fasofree.site" style="display: inline-block; background: #C1652E; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: bold;">Se connecter</a>
           </div>
 
           <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #E8E0D8; margin-top: 16px;">
