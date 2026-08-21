@@ -3,12 +3,20 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { writeFileSync } from 'fs';
-import dns from 'dns';
+import net from 'net';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
-// Force IPv4 for all DNS lookups — fixes ENETUNREACH on Render
-dns.setDefaultResultOrder('ipv4first');
+// Force IPv4 on all outbound sockets — fixes ENETUNREACH on Render
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _origConnect = net.connect.bind(net) as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+net.connect = function (...args: any[]) {
+  if (typeof args[0] === 'object' && args[0]) {
+    args[0].family = 4;
+  }
+  return _origConnect(...args);
+} as typeof net.connect;
 
 async function bootstrap() {
   const startTime = Date.now();
