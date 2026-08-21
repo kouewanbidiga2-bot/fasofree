@@ -10,7 +10,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { NotificationChannel } from '../../users/entities/user.entity';
+import { NotificationChannel, VehicleCategory } from '../../users/entities/user.entity';
 import { IsBurkinaPhone } from '../validators/is-burkina-phone.validator';
 import { IsDisposableEmail } from '../validators/disposable-email.validator';
 
@@ -90,6 +90,15 @@ export class ApplyDto {
   @IsOptional()
   @IsString()
   driverLicenseNumber?: string;
+
+  @ApiPropertyOptional({ example: true, description: 'Véhicule climatisé (pour FasoFree Ride)' })
+  @IsOptional()
+  hasAirConditioning?: boolean;
+
+  @ApiPropertyOptional({ enum: Object.values(VehicleCategory), example: 'BERLINE', description: 'Catégorie du véhicule (BERLINE / SUV / PREMIUM)' })
+  @IsOptional()
+  @IsString()
+  vehicleCategory?: string;
 
   @ApiPropertyOptional({ example: 'AMINATA-7F3A' })
   @IsOptional()

@@ -20,6 +20,12 @@ export enum VehicleType {
   CAR = 'CAR',
 }
 
+export enum VehicleCategory {
+  BERLINE = 'BERLINE',
+  SUV = 'SUV',
+  PREMIUM = 'PREMIUM',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -115,6 +121,14 @@ export class User {
   // Utilisé par le dispatch pour préférer une moto/VTC sur les courses FasoFree Ride.
   @Column({ type: 'varchar', length: 20, nullable: true })
   vehicleType?: VehicleType | string;
+
+  // 🚗 Confort / catégorie du véhicule (BERLINE, SUV, PREMIUM) — réservé aux voitures
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  vehicleCategory?: VehicleCategory | string;
+
+  // ❄️ Véhicule climatisé (pour FasoFree Ride)
+  @Column({ type: 'boolean', default: false })
+  hasAirConditioning: boolean;
 
   // 🔑 RÉINITIALISATION MOT DE PASSE
   @Column({ type: 'varchar', nullable: true, select: false })

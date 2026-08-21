@@ -14,9 +14,11 @@ import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
-  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock
+  BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
+  Truck, Car
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import api from '../services/api';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getFinancialDashboard, getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
@@ -135,12 +137,26 @@ const SuperAdminDashboard = () => {
 
   // Platform settings
   const [platformSettings, setPlatformSettings] = useState({
-    commissionRate: 15,
-    baseDeliveryFee: 500,
+    platformFee: 100,
+    deliveryPricing: {
+      BICYCLE:    { baseFee: 250, ratePerKm: 100 },
+      MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
+      CAR:        { baseFee: 800, ratePerKm: 300 },
+    },
+    fasoRidePricing: {
+      MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
+      ECONOMY:    { minFare: 500, pricePerKm: 200 },
+      COMFORT:    { minFare: 700, pricePerKm: 280 },
+      PREMIUM:    { minFare: 1000, pricePerKm: 400 },
+    },
     maxDeliveryRadius: 15,
     enableScheduling: true,
     enableBulkOrders: true,
   });
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+  const [settingsError, setSettingsError] = useState('');
 
   // UI states
   const [loading, setLoading] = useState({
@@ -161,6 +177,35 @@ const SuperAdminDashboard = () => {
   const [chatChannel, setChatChannel] = useState('merchant');
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
+
+  // Load platform settings from backend
+  const loadSettings = useCallback(async () => {
+    setSettingsLoading(true);
+    try {
+      const data = await api.get('/admin/settings').then(r => r.data);
+      setPlatformSettings({
+        platformFee: data.platformFee ?? 100,
+        deliveryPricing: data.deliveryPricing || {
+          BICYCLE:    { baseFee: 250, ratePerKm: 100 },
+          MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
+          CAR:        { baseFee: 800, ratePerKm: 300 },
+        },
+        fasoRidePricing: data.fasoRidePricing || {
+          MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
+          ECONOMY:    { minFare: 500, pricePerKm: 200 },
+          COMFORT:    { minFare: 700, pricePerKm: 280 },
+          PREMIUM:    { minFare: 1000, pricePerKm: 400 },
+        },
+        maxDeliveryRadius: data.maxDeliveryRadius ?? 15,
+        enableScheduling: data.enableScheduling ?? true,
+        enableBulkOrders: data.enableBulkOrders ?? true,
+      });
+    } catch {
+      // Keep defaults on error
+    } finally {
+      setSettingsLoading(false);
+    }
+  }, []);
 
   // Load financial statistics
   const loadFinancialStats = useCallback(async () => {
@@ -272,7 +317,8 @@ const SuperAdminDashboard = () => {
     loadKyc();
     loadUsers();
     loadBanRequests();
-  }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers, loadBanRequests]);
+    loadSettings();
+  }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings]);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -480,8 +526,25 @@ const SuperAdminDashboard = () => {
     })[type] || String(type || '').replace(/_/g, ' ');
 
   const handleSaveSettings = async () => {
-    // Platform settings are local-only for now (no backend endpoint yet)
-    alert('Paramètres sauvegardés localement. L\'enregistrement serveur n\'est pas encore disponible.');
+    setSettingsSaving(true);
+    setSettingsError('');
+    setSettingsSuccess('');
+    try {
+      await api.patch('/admin/settings', {
+        platformFee: platformSettings.platformFee,
+        deliveryPricing: platformSettings.deliveryPricing,
+        fasoRidePricing: platformSettings.fasoRidePricing,
+        maxDeliveryRadius: platformSettings.maxDeliveryRadius,
+        enableScheduling: platformSettings.enableScheduling,
+        enableBulkOrders: platformSettings.enableBulkOrders,
+      });
+      setSettingsSuccess('Paramètres enregistrés avec succès.');
+      setTimeout(() => setSettingsSuccess(''), 3000);
+    } catch (err) {
+      setSettingsError(err.message || 'Erreur lors de la sauvegarde.');
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   // Load subscription data (catalog, active subs, businesses)
@@ -1759,92 +1822,183 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'settings' && (
           <div className="space-y-6 animate-slide-up">
-            <h2 className="text-xl font-bold text-text-primary">Paramètres de la Plateforme</h2>
-            
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Financial Settings */}
-              <div className="card p-6">
-                <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                  <DollarSign size={16} className="text-accent-primary" />
-                  Paramètres Financiers
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                      Commission de la plateforme (%)
-                    </label>
-                    <input 
-                      type="number" 
-                      className="input-field"
-                      value={platformSettings.commissionRate}
-                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, commissionRate: Number(e.target.value) }))}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                      Frais de livraison de base (FCFA)
-                    </label>
-                    <input 
-                      type="number" 
-                      className="input-field"
-                      value={platformSettings.baseDeliveryFee}
-                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, baseDeliveryFee: Number(e.target.value) }))}
-                    />
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-text-primary">Paramètres de la Plateforme</h2>
+              <div className="flex items-center gap-3">
+                {settingsLoading && <span className="text-xs text-text-secondary">Chargement...</span>}
+                {settingsSuccess && <span className="text-xs text-green-500 font-medium">{settingsSuccess}</span>}
+                {settingsError && <span className="text-xs text-red-500 font-medium">{settingsError}</span>}
               </div>
+            </div>
 
-              {/* Geographic Settings */}
-              <div className="card p-6">
-                <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                  <MapPin size={16} className="text-accent-primary" />
-                  Paramètres Géographiques
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
-                      Rayon de livraison maximal (km)
-                    </label>
-                    <input 
-                      type="number" 
-                      className="input-field"
-                      value={platformSettings.maxDeliveryRadius}
-                      onChange={(e) => setPlatformSettings(prev => ({ ...prev, maxDeliveryRadius: Number(e.target.value) }))}
-                    />
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-md">
-                    <span className="text-sm text-text-secondary flex-1">Activer la planification</span>
-                    <button
-                      onClick={() => setPlatformSettings(prev => ({ ...prev, enableScheduling: !prev.enableScheduling }))}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        platformSettings.enableScheduling ? 'bg-accent-primary' : 'bg-background-tertiary'
-                      }`}
-                    >
-                      <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                        platformSettings.enableScheduling ? 'translate-x-6' : 'translate-x-0.5'
-                      }`} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-md">
-                    <span className="text-sm text-text-secondary flex-1">Activer les commandes groupées</span>
-                    <button
-                      onClick={() => setPlatformSettings(prev => ({ ...prev, enableBulkOrders: !prev.enableBulkOrders }))}
-                      className={`w-12 h-6 rounded-full transition-colors ${
-                        platformSettings.enableBulkOrders ? 'bg-accent-primary' : 'bg-background-tertiary'
-                      }`}
-                    >
-                      <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                        platformSettings.enableBulkOrders ? 'translate-x-6' : 'translate-x-0.5'
-                      }`} />
-                    </button>
-                  </div>
+            {/* Frais de plateforme */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+                <DollarSign size={16} className="text-accent-primary" />
+                Frais de Plateforme (Client)
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Frais de service (FCFA)</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={platformSettings.platformFee}
+                    onChange={(e) => setPlatformSettings(prev => ({ ...prev, platformFee: Number(e.target.value) }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Rayon max (km)</label>
+                  <input
+                    type="number"
+                    className="input-field"
+                    value={platformSettings.maxDeliveryRadius}
+                    onChange={(e) => setPlatformSettings(prev => ({ ...prev, maxDeliveryRadius: Number(e.target.value) }))}
+                  />
                 </div>
               </div>
             </div>
 
+            {/* Matrice Livraison */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+                <Truck size={16} className="text-accent-primary" />
+                Matrice Tarifaire — Livraison
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border-light">
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Véhicule</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Tarif de base (FCFA)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix/km (FCFA)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['BICYCLE', 'MOTORCYCLE', 'CAR'].map((v) => (
+                      <tr key={v} className="border-b border-border-light/50">
+                        <td className="py-2 px-3 font-medium text-text-primary">
+                          {v === 'BICYCLE' ? 'Vélo' : v === 'MOTORCYCLE' ? 'Moto' : 'Voiture'}
+                        </td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-24 text-right"
+                            value={platformSettings.deliveryPricing[v]?.baseFee || 0}
+                            onChange={(e) => setPlatformSettings(prev => ({
+                              ...prev,
+                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], baseFee: Number(e.target.value) } }
+                            }))}
+                          />
+                        </td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-24 text-right"
+                            value={platformSettings.deliveryPricing[v]?.ratePerKm || 0}
+                            onChange={(e) => setPlatformSettings(prev => ({
+                              ...prev,
+                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], ratePerKm: Number(e.target.value) } }
+                            }))}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Matrice Faso Ride */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+                <Car size={16} className="text-accent-primary" />
+                Matrice Tarifaire — FasoFree Ride
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border-light">
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Option</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Description</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Tarif Min (FCFA)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix/km (FCFA)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { key: 'MOTORCYCLE', label: 'Moto taxi', desc: 'Moto standard' },
+                      { key: 'ECONOMY', label: 'Économique', desc: 'Voiture non climatisée' },
+                      { key: 'COMFORT', label: 'Confort', desc: 'Voiture climatisée' },
+                      { key: 'PREMIUM', label: 'Premium', desc: 'SUV / Berline luxe' },
+                    ].map((opt) => (
+                      <tr key={opt.key} className="border-b border-border-light/50">
+                        <td className="py-2 px-3 font-medium text-text-primary">{opt.label}</td>
+                        <td className="py-2 px-3 text-text-secondary text-xs">{opt.desc}</td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-24 text-right"
+                            value={platformSettings.fasoRidePricing[opt.key]?.minFare || 0}
+                            onChange={(e) => setPlatformSettings(prev => ({
+                              ...prev,
+                              fasoRidePricing: { ...prev.fasoRidePricing, [opt.key]: { ...prev.fasoRidePricing[opt.key], minFare: Number(e.target.value) } }
+                            }))}
+                          />
+                        </td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-24 text-right"
+                            value={platformSettings.fasoRidePricing[opt.key]?.pricePerKm || 0}
+                            onChange={(e) => setPlatformSettings(prev => ({
+                              ...prev,
+                              fasoRidePricing: { ...prev.fasoRidePricing, [opt.key]: { ...prev.fasoRidePricing[opt.key], pricePerKm: Number(e.target.value) } }
+                            }))}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Options */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+                <Settings size={16} className="text-accent-primary" />
+                Options Générales
+              </h3>
+              <div className="space-y-3">
+                {[
+                  { key: 'enableScheduling', label: 'Planification de commandes' },
+                  { key: 'enableBulkOrders', label: 'Commandes groupées' },
+                ].map(({ key, label }) => (
+                  <div key={key} className="flex items-center gap-3 p-3 bg-background-secondary rounded-md">
+                    <span className="text-sm text-text-secondary flex-1">{label}</span>
+                    <button
+                      onClick={() => setPlatformSettings(prev => ({ ...prev, [key]: !prev[key] }))}
+                      className={`w-12 h-6 rounded-full transition-colors ${
+                        platformSettings[key] ? 'bg-accent-primary' : 'bg-background-tertiary'
+                      }`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                        platformSettings[key] ? 'translate-x-6' : 'translate-x-0.5'
+                      }`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex justify-end">
-              <button onClick={handleSaveSettings} className="btn-primary">
-                Enregistrer les modifications
+              <button
+                onClick={handleSaveSettings}
+                disabled={settingsSaving}
+                className="btn-primary gap-2"
+              >
+                {settingsSaving ? 'Enregistrement...' : 'Enregistrer les modifications'}
               </button>
             </div>
           </div>

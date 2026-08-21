@@ -136,6 +136,12 @@ export class AuthService {
       if (dto.driverLicenseNumber) {
         applicationData.driverLicenseNumber = dto.driverLicenseNumber;
       }
+      if (dto.hasAirConditioning !== undefined) {
+        applicationData.hasAirConditioning = dto.hasAirConditioning;
+      }
+      if (dto.vehicleCategory) {
+        applicationData.vehicleCategory = dto.vehicleCategory;
+      }
     }
 
     const salt = await bcrypt.genSalt(10);

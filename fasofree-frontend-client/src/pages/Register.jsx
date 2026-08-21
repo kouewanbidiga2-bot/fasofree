@@ -35,6 +35,12 @@ const VEHICLE_TYPES = [
   { value: 'BICYCLE', label: 'Vélo' },
 ];
 
+const VEHICLE_CATEGORIES = [
+  { value: 'BERLINE', label: 'Berline' },
+  { value: 'SUV', label: 'SUV' },
+  { value: 'PREMIUM', label: 'Premium' },
+];
+
 const TABS = [
   { id: 'client', label: 'Client', icon: User, hint: 'Commander et se faire livrer' },
   { id: 'merchant', label: 'Marchand', icon: Store, hint: 'Vendre sur la plateforme' },
@@ -69,6 +75,8 @@ const Register = () => {
     latitude: '',
     longitude: '',
     vehicleType: 'MOTORCYCLE',
+    vehicleCategory: 'BERLINE',
+    hasAirConditioning: false,
     driverLicenseNumber: '',
     preferredNotificationChannel: 'EMAIL',
   });
@@ -191,6 +199,10 @@ const Register = () => {
       if (files.vehicleRegistration) fd.append('vehicleRegistration', files.vehicleRegistration);
     } else {
       fd.append('vehicleType', formData.vehicleType);
+      if (formData.vehicleType === 'CAR') {
+        fd.append('vehicleCategory', formData.vehicleCategory);
+        fd.append('hasAirConditioning', String(formData.hasAirConditioning));
+      }
       if (formData.driverLicenseNumber) fd.append('driverLicenseNumber', formData.driverLicenseNumber);
       if (files.identityCard) fd.append('identityCard', files.identityCard);
       if (files.driverLicense) fd.append('driverLicense', files.driverLicense);
@@ -484,6 +496,36 @@ const Register = () => {
                   </select>
                   {errors.vehicleType && <p className="text-xs text-red-500 mt-1">{errors.vehicleType}</p>}
                 </div>
+                {formData.vehicleType === 'CAR' && (
+                  <>
+                    <div>
+                      <label className="block text-xs text-text-secondary mb-2">Catégorie du véhicule</label>
+                      <select
+                        value={formData.vehicleCategory}
+                        onChange={(e) => set('vehicleCategory', e.target.value)}
+                        className={selectClass('vehicleCategory')}
+                      >
+                        {VEHICLE_CATEGORIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-md">
+                      <label className="text-sm text-text-secondary flex-1">Véhicule climatisé</label>
+                      <button
+                        type="button"
+                        onClick={() => set('hasAirConditioning', !formData.hasAirConditioning)}
+                        className={`w-10 h-6 rounded-full transition-colors ${
+                          formData.hasAirConditioning ? 'bg-accent-primary' : 'bg-background-tertiary'
+                        }`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                          formData.hasAirConditioning ? 'translate-x-5' : 'translate-x-0.5'
+                        }`} />
+                      </button>
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="block text-xs text-text-secondary mb-2">
                     Numéro de permis <span className="text-text-muted">(facultatif)</span>

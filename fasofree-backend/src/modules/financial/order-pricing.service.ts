@@ -1,16 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { OrderType } from '../orders/entities/order.entity';
 import {
   SERVICE_FEE_DEFAULT,
   SubscriptionService,
 } from '../subscriptions/subscription.service';
 
-/**
- * Tarification publique FasoFree (règles métier affichées au client).
- * - MIN_DELIVERY_FEE : toute livraison (commerces ou P2P) est facturée au minimum 800 FCFA.
- * - PLATFORM_FEE    : frais de plateforme fixes de 100 FCFA par commande (0 si client VIP).
- * - Total = Sous-total articles + DELIVERY_FEE + PLATFORM_FEE.
- */
 export const MIN_DELIVERY_FEE = 800;
 export const PLATFORM_FEE_DEFAULT = SERVICE_FEE_DEFAULT;
 

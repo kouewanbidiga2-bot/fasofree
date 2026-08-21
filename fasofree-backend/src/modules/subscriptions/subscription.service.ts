@@ -35,6 +35,9 @@ export const SERVICE_FEE_DEFAULT = 100; // FCFA - par commande (0 si client VIP)
 export const MIN_MERCHANT_COMMISSION_RATE = 0.015; // 1.5% minimum (taux préférentiel inclus)
 export const MIN_MERCHANT_PLAN_PRICE = 5000; // FCFA - prix plancher des forfaits marchands payants (0 = gratuit, ex. Starter)
 
+/** Cache dynamique rempli par SettingsService.onModuleInit() */
+export const subscriptionFeeCache = { platformFee: null as number | null };
+
 function merchantPlanPriceError(price: number): string {
   return `Le prix minimum d'un forfait marchand payant est de ${MIN_MERCHANT_PLAN_PRICE.toLocaleString('fr-FR')} FCFA (reçu : ${price.toLocaleString('fr-FR')} FCFA). Le plan gratuit Starter reste à 0 FCFA.`;
 }
@@ -356,11 +359,13 @@ export class SubscriptionService implements OnModuleInit {
   }
 
   /**
-   * Frais de service client : 0 FCFA si VIP actif, sinon 100 FCFA.
+   * Frais de service client : 0 FCFA si VIP actif, sinon platformFee depuis SystemSettings (défaut 100 FCFA).
    */
   async resolveServiceFee(clientId: string): Promise<number> {
     const isVip = await this.isVipActive(clientId);
-    return isVip ? 0 : SERVICE_FEE_DEFAULT;
+    if (isVip) return 0;
+    if (subscriptionFeeCache.platformFee !== null) return subscriptionFeeCache.platformFee;
+    return SERVICE_FEE_DEFAULT;
   }
 
   /**
