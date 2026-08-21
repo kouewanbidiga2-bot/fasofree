@@ -35,9 +35,12 @@ export class BusinessesService {
     return this.businessRepository.save(business);
   }
 
-  // 🏪 1b. Trouver le commerce d'un marchand
+  // 🏪 1b. Trouver le commerce d'un marchand (inclut les produits)
   async findByOwner(ownerId: string): Promise<Business | null> {
-    return this.businessRepository.findOne({ where: { ownerId } });
+    return this.businessRepository.findOne({
+      where: { ownerId },
+      relations: { products: true },
+    });
   }
 
   async assertManagedBy(
@@ -63,6 +66,21 @@ export class BusinessesService {
     try {
       return await this.businessRepository
         .createQueryBuilder('business')
+        .select([
+          'business.id',
+          'business.name',
+          'business.address',
+          'business.phone',
+          'business.logo',
+          'business.coverImage',
+          'business.category',
+          'business.isOpen',
+          'business.enableDelivery',
+          'business.enablePickup',
+          'business.enableDineIn',
+          'business.latitude',
+          'business.longitude',
+        ])
         .where(
           `ST_DWithin(
             business.location::geography,
@@ -79,7 +97,25 @@ export class BusinessesService {
         .getMany();
     } catch {
       // PostGIS indisponible → fallback Haversine sur les colonnes lat/lng
-      const all = await this.businessRepository.find({ where: { isOpen: true } });
+      const all = await this.businessRepository
+        .createQueryBuilder('business')
+        .select([
+          'business.id',
+          'business.name',
+          'business.address',
+          'business.phone',
+          'business.logo',
+          'business.coverImage',
+          'business.category',
+          'business.isOpen',
+          'business.enableDelivery',
+          'business.enablePickup',
+          'business.enableDineIn',
+          'business.latitude',
+          'business.longitude',
+        ])
+        .where('business.isOpen = true')
+        .getMany();
       return all.filter((b) => {
         if (b.latitude == null || b.longitude == null) return false;
         const R = 6371e3;
