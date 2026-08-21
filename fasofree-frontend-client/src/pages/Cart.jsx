@@ -6,6 +6,7 @@ import Footer from '../components/Footer';
 import useCartStore from '../store/cartStore';
 import { getRestaurantById } from '../services/data';
 import { fetchQuote, getCartSubtotal } from '../services/pricingService';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -79,7 +80,7 @@ const Cart = () => {
             {restaurant && (
               <div className="app-panel mb-5 rounded-lg p-4">
                 <div className="flex items-center gap-3">
-                  <img
+                  <ImageWithFallback
                     src={restaurant.logo}
                     alt={restaurant.name}
                     className="w-10 h-10 object-cover rounded-photo"
@@ -95,7 +96,7 @@ const Cart = () => {
             {items.map((item) => (
               <div key={item.id} className="app-panel mb-4 rounded-lg p-4">
                 <div className="flex gap-4">
-                  <img
+                  <ImageWithFallback
                     src={item.image}
                     alt={item.name}
                     className="w-20 h-20 object-cover rounded-photo"

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils } from 'lucide-react';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
+import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
@@ -409,7 +410,7 @@ const Checkout = () => {
 
               {restaurant && (
                 <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border-light">
-                  <img
+                  <ImageWithFallback
                     src={restaurant.logo}
                     alt={restaurant.name}
                     className="w-10 h-10 object-cover rounded-photo"

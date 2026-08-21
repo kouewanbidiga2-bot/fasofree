@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown } from 'lucide-react';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
+import ImageWithFallback from '../components/ImageWithFallback';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
+import { getAbsoluteImageUrl } from '../utils/images';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -53,7 +55,7 @@ const Profile = () => {
           setFavoriteItems(data.map((f) => ({
             id: f.businessId,
             name: f.business?.name || 'Commerce',
-            image: f.business?.logo || f.business?.coverImage || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400',
+            image: getAbsoluteImageUrl(f.business?.logo || f.business?.logoUrl || f.business?.coverImage),
           })));
         }
       } catch {
@@ -287,7 +289,7 @@ const Profile = () => {
                     onClick={() => navigate(`/restaurant/${item.id}`)}
                     className="flex items-center gap-3 p-3 rounded-lg hover:bg-background-secondary transition-colors text-left"
                   >
-                    <img
+                    <ImageWithFallback
                       src={item.image}
                       alt={item.name}
                       className="w-12 h-12 rounded-lg object-cover"

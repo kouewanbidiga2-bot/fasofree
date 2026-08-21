@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, MapPin, ArrowLeft, Repeat } from 'lucide-react';
 import Footer from '../components/Footer';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 const OrderHistory = () => {
   const navigate = useNavigate();
@@ -79,7 +80,7 @@ const OrderHistory = () => {
                 <div className="border border-border-light p-4">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <img
+                      <ImageWithFallback
                         src={order.restaurantLogo}
                         alt={order.restaurant}
                         className="w-10 h-10 object-cover rounded-photo"

@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
 import { api } from '../services/api';
+import { getAbsoluteImageUrl } from '../utils/images';
 
 const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -56,7 +57,7 @@ const Restaurant = () => {
           description: p.description || '',
           price: p.price,
           category: p.category || 'Général',
-          image: p.imageUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600',
+          image: getAbsoluteImageUrl(p.imageUrl || p.image || p.photo),
           available: p.isAvailable !== false,
         }));
         setRestaurant({
@@ -64,8 +65,8 @@ const Restaurant = () => {
           name: business.name,
           tagline: business.category || 'Restaurant',
           description: business.name,
-          logo: business.logo || '/assets/cesar.jpeg',
-          coverImage: business.coverImage || '/assets/cesar.jpeg',
+          logo: getAbsoluteImageUrl(business.logo || business.logoUrl || business.coverImage || '/assets/cesar.jpeg'),
+          coverImage: getAbsoluteImageUrl(business.coverImage || business.logo || '/assets/cesar.jpeg'),
           rating: business.rating ?? 4.0,
           deliveryTime: business.deliveryTime || '25-40 min',
           deliveryFee: business.deliveryFee ?? 500,

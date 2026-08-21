@@ -16,6 +16,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { getAbsoluteImageUrl, onImgError } from '../utils/images';
 
 const CATEGORIES = [
   'Burgers',
@@ -252,10 +253,11 @@ export default function MerchantProducts() {
                 <div className="relative h-44 bg-background-secondary overflow-hidden">
                   {product.imageUrl ? (
                     <img
-                      src={product.imageUrl}
+                      src={getAbsoluteImageUrl(product.imageUrl)}
                       alt={product.name}
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      onError={onImgError}
                     />
                   ) : (
                     <div className="flex flex-col items-center justify-center h-full text-text-secondary">
@@ -470,7 +472,7 @@ export default function MerchantProducts() {
                 {form.imageUrl && (
                   <div className="mt-2 w-full h-32 rounded-lg overflow-hidden border border-border-light bg-background-secondary">
                     <img
-                      src={form.imageUrl}
+                      src={getAbsoluteImageUrl(form.imageUrl)}
                       alt="Aperçu"
                       className="w-full h-full object-cover"
                       onError={(e) => (e.target.style.display = 'none')}

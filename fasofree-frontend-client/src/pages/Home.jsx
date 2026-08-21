@@ -10,14 +10,15 @@ import { restaurants as mockRestaurants } from '../services/data';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
+import { getAbsoluteImageUrl } from '../utils/images';
 
 const mapBusinessToRestaurant = (b) => ({
   id: b.id,
   name: b.name || b.fullName || 'Restaurant',
   tagline: b.category || 'Restaurant',
   description: b.name || b.fullName || 'Restaurant',
-  logo: b.logo || b.coverImage || '/assets/cesar.jpeg',
-  coverImage: b.coverImage || b.logo || '/assets/cesar.jpeg',
+  logo: getAbsoluteImageUrl(b.logo || b.logoUrl || b.coverImage || '/assets/cesar.jpeg'),
+  coverImage: getAbsoluteImageUrl(b.coverImage || b.logo || '/assets/cesar.jpeg'),
   rating: b.rating ?? 4.0,
   deliveryTime: b.deliveryTime || '25-40 min',
   deliveryFee: b.deliveryFee ?? 500,
