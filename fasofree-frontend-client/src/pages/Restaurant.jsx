@@ -57,7 +57,7 @@ const Restaurant = () => {
           description: p.description || '',
           price: p.price,
           category: p.category || 'Général',
-          image: getAbsoluteImageUrl(p.imageUrl || p.image || p.photo),
+          image: getAbsoluteImageUrl(p.imageUrl || p.image_url || p.image || p.photo || p.photoUrl || p.photo_url),
           available: p.isAvailable !== false,
         }));
         setRestaurant({
@@ -65,8 +65,8 @@ const Restaurant = () => {
           name: business.name,
           tagline: business.category || 'Restaurant',
           description: business.name,
-          logo: getAbsoluteImageUrl(business.logo || business.logoUrl || business.coverImage || '/assets/cesar.jpeg'),
-          coverImage: getAbsoluteImageUrl(business.coverImage || business.logo || '/assets/cesar.jpeg'),
+          logo: getAbsoluteImageUrl(business.logo || business.logoUrl || business.logo_url),
+          coverImage: getAbsoluteImageUrl(business.coverImage || business.coverUrl || business.cover_url || business.banner || business.cover_image),
           rating: business.rating ?? 4.0,
           deliveryTime: business.deliveryTime || '25-40 min',
           deliveryFee: business.deliveryFee ?? 500,

@@ -55,7 +55,7 @@ const Profile = () => {
           setFavoriteItems(data.map((f) => ({
             id: f.businessId,
             name: f.business?.name || 'Commerce',
-            image: getAbsoluteImageUrl(f.business?.logo || f.business?.logoUrl || f.business?.coverImage),
+            image: getAbsoluteImageUrl(f.business?.logo || f.business?.logoUrl || f.business?.logo_url),
           })));
         }
       } catch {

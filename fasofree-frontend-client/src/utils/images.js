@@ -1,6 +1,10 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
+const API_BASE =
+  (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
+  (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) ||
+  'https://fasofree-3nh8.onrender.com/api/v1';
+
 const API_ORIGIN = (() => {
-  try { return new URL(API_BASE).origin; } catch { return ''; }
+  try { return new URL(API_BASE).origin; } catch { return 'https://fasofree-3nh8.onrender.com'; }
 })();
 
 const PLACEHOLDER =
