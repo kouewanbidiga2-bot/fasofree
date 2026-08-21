@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
 
 export async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');

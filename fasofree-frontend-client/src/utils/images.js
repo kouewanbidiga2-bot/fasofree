@@ -1,10 +1,10 @@
 const API_BASE =
   (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) ||
   (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) ||
-  'https://api.fasofree.site/api/v1';
+  'https://fasofree-3nh8.onrender.com/api/v1';
 
 const API_ORIGIN = (() => {
-  try { return new URL(API_BASE).origin; } catch { return 'https://api.fasofree.site'; }
+  try { return new URL(API_BASE).origin; } catch { return 'https://fasofree-3nh8.onrender.com'; }
 })();
 
 const PLACEHOLDER =
@@ -14,6 +14,10 @@ export function getAbsoluteImageUrl(url) {
   if (!url) return PLACEHOLDER;
   if (url.startsWith('data:')) return url;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('/uploads/')) return API_ORIGIN + url;
+  if (url.startsWith('/assets/')) {
+    try { return window.location.origin + url; } catch { return url; }
+  }
   if (url.startsWith('/')) return API_ORIGIN + url;
   return url;
 }

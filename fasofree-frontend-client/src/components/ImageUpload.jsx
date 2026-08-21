@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { Image, Upload, X } from 'lucide-react';
 import { getAbsoluteImageUrl, onImgError, PLACEHOLDER_SVG } from '../utils/images';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
 
 export default function ImageUpload({ value, onChange, folder = 'general', className = '' }) {
   const [uploading, setUploading] = useState(false);
