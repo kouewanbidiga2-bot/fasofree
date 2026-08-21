@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, Download, Home, ArrowLeft, Loader2 } from 'lucide-react';
+import { Check, Download, Home, Loader2 } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
@@ -95,6 +95,7 @@ const Receipt = () => {
   const handleBackToHome = () => {
     clearCart();
     navigate('/order-tracking', {
+      replace: true,
       state: {
         orderId: orderDetails.id
       }
@@ -107,12 +108,6 @@ const Receipt = () => {
       <header className="app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-background-secondary transition-colors"
-            >
-              <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
-            </button>
             <h1 className="text-lg font-display font-bold text-text-primary">Reçu de commande</h1>
           </div>
         </div>

@@ -133,6 +133,7 @@ const Checkout = () => {
       });
 
       navigate('/receipt', {
+        replace: true,
         state: {
           orderId: order.id,
           items,

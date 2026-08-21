@@ -38,6 +38,11 @@ const Profile = () => {
     loadProfile();
   }, []);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/auth');
+  };
+
   const favoriteItems = [
     {
       id: 1,
@@ -82,11 +87,6 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/auth');
   };
 
   return (

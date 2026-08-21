@@ -11,11 +11,11 @@ import useAuthStore from '../store/authStore';
 
 const mapBusinessToRestaurant = (b) => ({
   id: b.id,
-  name: b.name,
+  name: b.name || b.fullName || 'Restaurant',
   tagline: b.category || 'Restaurant',
-  description: b.name,
-  logo: b.logo || '/assets/cesar.jpeg',
-  coverImage: b.coverImage || '/assets/cesar.jpeg',
+  description: b.name || b.fullName || 'Restaurant',
+  logo: b.logo || b.coverImage || '/assets/cesar.jpeg',
+  coverImage: b.coverImage || b.logo || '/assets/cesar.jpeg',
   rating: b.rating ?? 4.0,
   deliveryTime: b.deliveryTime || '25-40 min',
   deliveryFee: b.deliveryFee ?? 500,
