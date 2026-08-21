@@ -1,48 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
-import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly resend: Resend | null;
-  private readonly smtpTransporter: nodemailer.Transporter | null;
+  private readonly transporter: nodemailer.Transporter;
   private readonly fromEmail: string;
-  private readonly useSmtp: boolean;
 
   constructor(private readonly configService: ConfigService) {
     const smtpUser = this.configService.get<string>('SMTP_USER', '');
     const smtpPass = this.configService.get<string>('SMTP_PASS', '');
-    this.fromEmail = this.configService.get<string>(
-      'RESEND_FROM_EMAIL',
-      `"FasoFree" <${smtpUser || 'onboarding@resend.dev'}>`,
-    );
 
-    if (smtpUser && smtpPass) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.smtpTransporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        family: 4,
-        auth: { user: smtpUser, pass: smtpPass },
-      } as any);
-      this.useSmtp = true;
-      this.resend = null;
-      this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser}`);
-    } else {
-      this.smtpTransporter = null;
-      this.useSmtp = false;
-      const apiKey = this.configService.get<string>('RESEND_API_KEY', '');
-      if (apiKey) {
-        this.resend = new Resend(apiKey);
-        this.logger.log('[Email] Resend SDK initialisé (fallback)');
-      } else {
-        this.resend = null;
-        this.logger.warn('[Email] Aucun transporteur email configuré — mode dev (log uniquement)');
-      }
-    }
+    this.fromEmail = `"FasoFree" <${smtpUser || 'onboarding@resend.dev'}>`;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      family: 4,
+      auth: { user: smtpUser, pass: smtpPass },
+    } as any);
+
+    this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser} (IPv4 forcé)`);
   }
 
   async sendEmail(
@@ -50,40 +31,19 @@ export class EmailService {
     subject: string,
     html: string,
   ): Promise<boolean> {
-    if (this.useSmtp && this.smtpTransporter) {
-      try {
-        await this.smtpTransporter.sendMail({
-          from: this.fromEmail,
-          to,
-          subject,
-          html,
-        });
-        this.logger.log(`[Email/Gmail] Envoyé à ${to} — Sujet: ${subject}`);
-        return true;
-      } catch (error: any) {
-        this.logger.error(`[Email/Gmail] Échec envoi à ${to}: ${error.message}`);
-        this.logger.log(`[Email/Gmail] Bannière OTP — À: ${to} | Sujet: ${subject}`);
-      }
+    try {
+      await this.transporter.sendMail({
+        from: this.fromEmail,
+        to,
+        subject,
+        html,
+      });
+      this.logger.log(`[Email/Gmail] Envoyé à ${to} — Sujet: ${subject}`);
+      return true;
+    } catch (error: any) {
+      this.logger.error(`[Email/Gmail] Échec envoi à ${to}: ${error.message}`);
+      return false;
     }
-
-    if (this.resend) {
-      try {
-        await this.resend.emails.send({
-          from: this.fromEmail,
-          to: [to],
-          subject,
-          html,
-        });
-        this.logger.log(`[Email/Resend] Envoyé à ${to} — Sujet: ${subject}`);
-        return true;
-      } catch (error: any) {
-        this.logger.error(`[Email/Resend] Échec envoi à ${to}: ${error.message}`);
-      }
-    }
-
-    this.logger.log(`[Email Dev] À: ${to} | Sujet: ${subject}`);
-    this.logger.log(`[Email Dev] Contenu: ${html.replace(/<[^>]*>/g, '').slice(0, 200)}`);
-    return false;
   }
 
   async sendApprovalEmail(
