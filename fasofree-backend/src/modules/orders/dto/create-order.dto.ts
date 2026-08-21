@@ -1,4 +1,4 @@
-import { OrderType, FulfillmentType } from '../entities/order.entity';
+import { OrderType, FulfillmentType, RideOption } from '../entities/order.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -178,4 +178,16 @@ export class CreateOrderDto {
   @ValidateNested()
   @Type(() => PackageDetailsDto)
   packageDetails?: PackageDetailsDto;
+
+  // --- 🚗 RIDE OPTIONS (FasoFree Ride) ---
+
+  @ApiPropertyOptional({
+    description: 'Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)',
+    enum: RideOption,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.orderType === OrderType.RIDE)
+  @IsEnum(RideOption)
+  rideOption?: RideOption;
 }

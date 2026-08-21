@@ -35,6 +35,15 @@ export enum OrderType {
 }
 
 /**
+ * 🚗 Options de confort pour FasoFree Ride
+ */
+export enum RideOption {
+  ECONOMY = 'ECONOMY',       // Moto — tarif de base
+  COMFORT = 'COMFORT',       // Moto premium / climatisé
+  PREMIUM = 'PREMIUM',       // VTC / Berline — climatisé, espace
+}
+
+/**
  * 📦 Type de fulfillment (mode de retrait)
  */
 export enum FulfillmentType {
@@ -65,6 +74,11 @@ export class Order {
     default: FulfillmentType.DELIVERY,
   })
   fulfillmentType: FulfillmentType;
+
+  // 🚗 Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)
+  // Nullable pour les commandes non-RIDE (MERCHANT, P2P_DELIVERY)
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  rideOption?: RideOption | null;
 
   @Column({ type: 'jsonb', nullable: true })
   fulfillmentDetails?: {

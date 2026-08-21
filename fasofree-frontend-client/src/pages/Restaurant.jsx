@@ -4,7 +4,7 @@ import { ArrowLeft, Star, Clock, MapPin } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
-import api from '../services/api';
+import { api } from '../services/api';
 
 const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -33,7 +33,15 @@ const Restaurant = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isFavorited, setIsFavorited] = useState(false);
   const { addItem, getTotalItems } = useCartStore();
+
+  useEffect(() => {
+    // Check if this restaurant is favorited
+    api.getFavoriteIds().then((ids) => {
+      if (Array.isArray(ids) && ids.includes(id)) setIsFavorited(true);
+    }).catch(() => {});
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +129,20 @@ const Restaurant = () => {
     addItem(item, restaurant.id);
   };
 
+  const toggleFavorite = async () => {
+    // Optimistic UI: flip instantly
+    const prev = isFavorited;
+    setIsFavorited(!prev);
+    try {
+      const result = await api.toggleFavorite(restaurant.id);
+      if (result && typeof result.isFavorited === 'boolean') {
+        setIsFavorited(result.isFavorited);
+      }
+    } catch {
+      setIsFavorited(prev); // rollback on error
+    }
+  };
+
   return (
     <>
       <div className="app-page">
@@ -135,6 +157,14 @@ const Restaurant = () => {
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
             <h1 className="text-lg font-display font-bold text-text-primary">{restaurant.name}</h1>
+            <div className="flex-1" />
+            <button
+              onClick={toggleFavorite}
+              className="p-2 hover:bg-background-secondary rounded-full transition-colors"
+              aria-label={isFavorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+            >
+              <FavoriteIcon filled={isFavorited} color={restaurantColor} size={22} />
+            </button>
           </div>
         </div>
       </header>

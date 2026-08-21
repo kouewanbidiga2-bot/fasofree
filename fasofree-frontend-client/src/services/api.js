@@ -143,6 +143,11 @@ export const api = {
   // Notifications
   registerFcmToken: (token) => apiFetch('/notifications/fcm-token', { method: 'POST', body: { fcmToken: token } }),
 
+  // Favoris
+  toggleFavorite: (businessId) => apiFetch(`/users/favorites/${businessId}`, { method: 'POST' }),
+  getFavorites: () => apiFetch('/users/favorites', { method: 'GET' }),
+  getFavoriteIds: () => apiFetch('/users/favorites/ids', { method: 'GET' }),
+
   // OTP Verification
   sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),
   verifyOtp: (code) => apiFetch('/auth/verify-otp', { method: 'POST', body: { code } }),

@@ -19,6 +19,7 @@ export interface PricingQuote {
   deliveryFee: number;
   platformFee: number;
   total: number;
+  rideOption?: string;
   currency: 'FCFA';
 }
 
@@ -130,6 +131,7 @@ export class OrderPricingService {
     deliveryFee: number;
     clientId?: string;
     orderType?: OrderType;
+    rideOption?: string;
   }): Promise<PricingQuote> {
     const subtotal = Math.max(0, Number(input.subtotal) || 0);
     const rawDeliveryFee = Number(input.deliveryFee) || 0;
@@ -150,6 +152,7 @@ export class OrderPricingService {
       deliveryFee,
       platformFee,
       total: subtotal + deliveryFee + platformFee,
+      rideOption: input.rideOption,
       currency: 'FCFA',
     };
 

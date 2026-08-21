@@ -5,9 +5,11 @@ import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
 import UserMenu from '../components/UserMenu';
+import NotificationDropdown from '../components/NotificationDropdown';
 import { restaurants as mockRestaurants } from '../services/data';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
+import useNotificationStore from '../store/notificationStore';
 
 const mapBusinessToRestaurant = (b) => ({
   id: b.id,
@@ -37,6 +39,8 @@ const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [allRestaurants, setAllRestaurants] = useState(mockRestaurants);
   const [filteredRestaurants, setFilteredRestaurants] = useState(mockRestaurants);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const { unreadCount } = useNotificationStore();
 
   useEffect(() => {
     const loadBusinesses = async () => {
@@ -147,8 +151,17 @@ const Home = () => {
                   <span className="sm:inline">Connexion</span>
                 </button>
               )}
-              <button aria-label="Notifications" className="rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
+              <button
+                aria-label="Notifications"
+                onClick={() => setNotifOpen(true)}
+                className="relative rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary"
+              >
                 <Bell size={18} strokeWidth={1.8} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent-primary text-white text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
               <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
                 <ShoppingBag size={18} strokeWidth={1.8} />
@@ -241,6 +254,7 @@ const Home = () => {
         )}
       </main>
 
+      <NotificationDropdown open={notifOpen} onClose={() => setNotifOpen(false)} />
       <Footer />
     </div>
   );

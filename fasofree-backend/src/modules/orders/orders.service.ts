@@ -433,6 +433,7 @@ export class OrdersService {
         dto.dropoffLocation.latitude,
         dto.dropoffLocation.longitude,
         clientId,
+        dto.rideOption,
       );
       deliveryFee = estimate.fare;
       this.logger.log(
@@ -472,6 +473,7 @@ export class OrdersService {
       deliveryFee,
       clientId,
       orderType: dto.orderType,
+      rideOption: dto.rideOption,
     });
   }
 
@@ -500,6 +502,7 @@ export class OrdersService {
       dropoffLocation.latitude,
       dropoffLocation.longitude,
       clientId,
+      dto.rideOption,
     );
 
     const financials = await this.pricingService.calculateFinancials(
@@ -511,7 +514,7 @@ export class OrdersService {
     const totalAmount = financials.totalAmount;
 
     this.logger.log(
-      `[Ride Order] Distance: ${estimate.distanceKm} km, Course: ${estimate.fare} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
+      `[Ride Order] Option: ${estimate.rideOption}, Distance: ${estimate.distanceKm} km, Course: ${estimate.fare} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
     );
 
     const order = this.orderRepository.create({
@@ -519,6 +522,7 @@ export class OrdersService {
       businessId: undefined, // Pas de business pour une course
       orderType: OrderType.RIDE,
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
+      rideOption: estimate.rideOption,
       fulfillmentDetails: {
         notes: `Course FasoFree Ride - ${pickupLocation.address} → ${dropoffLocation.address}`,
       },

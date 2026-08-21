@@ -8,10 +8,19 @@ import {
   Navigation,
   Check,
   AlertCircle,
+  Bike,
+  Snowflake,
+  Crown,
 } from 'lucide-react';
 import Footer from '../components/Footer';
 import { api } from '../services/api';
 import useAuthStore from '../store/authStore';
+
+const RIDE_OPTIONS = [
+  { key: 'ECONOMY', label: 'Économique', desc: 'Moto standard', icon: Bike, multiplier: '1×', color: '#B95B2B' },
+  { key: 'COMFORT', label: 'Confort', desc: 'Moto premium', icon: Snowflake, multiplier: '1.4×', color: '#2563EB' },
+  { key: 'PREMIUM', label: 'Premium', desc: 'VTC / Berline', icon: Crown, multiplier: '2×', color: '#9333EA' },
+];
 
 const OUAGA_CENTER = { latitude: 12.3714, longitude: -1.5197 };
 
@@ -34,6 +43,7 @@ const RideBooking = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+  const [rideOption, setRideOption] = useState('ECONOMY');
 
   const updateLocation = (setter, field, value) =>
     setter((prev) => ({ ...prev, [field]: value }));
@@ -72,6 +82,7 @@ const RideBooking = () => {
     try {
       const result = await api.quoteOrder({
         orderType: 'RIDE',
+        rideOption,
         pickupLocation: {
           address: pickup.address,
           latitude: Number(pickup.latitude),
@@ -105,6 +116,7 @@ const RideBooking = () => {
       const totalAmount = quote?.total || 0;
       const response = await api.createOrder({
         orderType: 'RIDE',
+        rideOption,
         totalAmount,
         pickupLocation: {
           address: pickup.address,
@@ -298,7 +310,7 @@ const RideBooking = () => {
                 FasoFree Ride
               </h1>
               <p className="text-xs text-text-secondary">
-                VTC / moto-taxi à la demande · 200 FCFA/km
+                {RIDE_OPTIONS.find(o => o.key === rideOption)?.desc || 'Moto standard'} · 200 FCFA/km
               </p>
             </div>
           </div>
@@ -321,6 +333,39 @@ const RideBooking = () => {
             setDropoff,
           )}
 
+          {/* ─── OPTIONS DE CONFORT ─── */}
+          <div className="mb-6">
+            <p className="text-xs text-text-secondary mb-3 font-medium">Type de véhicule</p>
+            <div className="grid grid-cols-3 gap-3">
+              {RIDE_OPTIONS.map((opt) => {
+                const Icon = opt.icon;
+                const isActive = rideOption === opt.key;
+                return (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => { setRideOption(opt.key); setQuote(null); }}
+                    className={`relative flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                      isActive
+                        ? 'border-accent-primary bg-accent-primary/5 shadow-sm'
+                        : 'border-border-light bg-background-card hover:border-border-dark'
+                    }`}
+                  >
+                    {isActive && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-accent-primary flex items-center justify-center">
+                        <Check size={10} className="text-white" />
+                      </span>
+                    )}
+                    <Icon size={20} style={{ color: opt.color }} strokeWidth={1.5} />
+                    <span className="text-xs font-bold text-text-primary">{opt.label}</span>
+                    <span className="text-[10px] text-text-tertiary">{opt.desc}</span>
+                    <span className="text-[10px] font-mono font-bold" style={{ color: opt.color }}>{opt.multiplier}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {error && (
             <div className="mb-6 flex items-start gap-3 rounded-md border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
               <AlertCircle size={18} className="mt-0.5 shrink-0" />
@@ -337,6 +382,12 @@ const RideBooking = () => {
                 <Car size={18} className="text-accent-primary" strokeWidth={1.5} />
               </div>
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between text-text-secondary">
+                  <span>Type de course</span>
+                  <span className="font-semibold" style={{ color: RIDE_OPTIONS.find(o => o.key === rideOption)?.color || '#B95B2B' }}>
+                    {RIDE_OPTIONS.find(o => o.key === rideOption)?.label || 'Économique'}
+                  </span>
+                </div>
                 <div className="flex justify-between text-text-secondary">
                   <span>Trajet (conducteur)</span>
                   <span className="font-mono">

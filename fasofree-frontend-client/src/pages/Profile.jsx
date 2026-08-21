@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown } from 'lucide-react';
 import Footer from '../components/Footer';
+import NotificationDropdown from '../components/NotificationDropdown';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 
@@ -14,9 +15,10 @@ const Profile = () => {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    address: '',
-    preferredNotificationChannel: 'EMAIL',
+    preferredNotificationChannel: user?.preferredNotificationChannel || 'EMAIL',
   });
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [favoriteItems, setFavoriteItems] = useState([]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -43,28 +45,29 @@ const Profile = () => {
     navigate('/auth');
   };
 
-  const favoriteItems = [
-    {
-      id: 1,
-      name: 'Cesar Burger',
-      restaurant: 'Cesar',
-      image: 'https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=400',
-      price: 4000,
-    },
-    {
-      id: 2,
-      name: '8 Wings',
-      restaurant: 'BelChiken',
-      image: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=400',
-      price: 5000,
-    },
-  ];
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const data = await api.getFavorites();
+        if (Array.isArray(data)) {
+          setFavoriteItems(data.map((f) => ({
+            id: f.businessId,
+            name: f.business?.name || 'Commerce',
+            image: f.business?.logo || f.business?.coverImage || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=400',
+          })));
+        }
+      } catch {
+        // silent
+      }
+    };
+    loadFavorites();
+  }, []);
 
   const menuItems = [
     { icon: Crown, label: 'FasoFree Pass VIP', action: () => navigate('/vip-pass'), highlight: user?.isPremium },
     { icon: MapPin, label: 'Adresses de livraison', action: () => {} },
     { icon: CreditCard, label: 'Modes de paiement', action: () => {} },
-    { icon: Bell, label: 'Notifications', action: () => {} },
+    { icon: Bell, label: 'Notifications', action: () => setNotifOpen(true) },
     { icon: Settings, label: 'Paramètres', action: () => {} },
     { icon: LogOut, label: 'Déconnexion', action: handleLogout, variant: 'danger' },
   ];
@@ -276,10 +279,30 @@ const Profile = () => {
               <h2 className="text-sm font-medium text-text-secondary">Favoris</h2>
             </div>
 
-            <div className="text-center py-8">
-              <Heart size={48} className="mx-auto text-text-secondary mb-4" strokeWidth={1} />
-              <p className="text-text-secondary text-sm">Aucun favori pour le moment</p>
-            </div>
+            {favoriteItems.length > 0 ? (
+              <div className="grid grid-cols-2 gap-3">
+                {favoriteItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => navigate(`/restaurant/${item.id}`)}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-background-secondary transition-colors text-left"
+                  >
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-12 h-12 rounded-lg object-cover"
+                    />
+                    <p className="text-sm font-medium text-text-primary truncate">{item.name}</p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Heart size={48} className="mx-auto text-text-secondary mb-4" strokeWidth={1} />
+                <p className="text-text-secondary text-sm">Aucun favori pour le moment</p>
+                <p className="text-text-tertiary text-xs mt-1">Ajoutez des restaurants en cliquant sur le cœur</p>
+              </div>
+            )}
           </div>
 
           {/* Menu Items */}
@@ -329,6 +352,7 @@ const Profile = () => {
           </div>
         </div>
       </div>
+      <NotificationDropdown open={notifOpen} onClose={() => setNotifOpen(false)} />
       <Footer />
     </div>
   );
