@@ -767,6 +767,17 @@ export class OrdersService {
     return saved;
   }
 
+  /**
+   * 🎯 Assignation manuelle d'un livreur à une commande (admin/support).
+   * Délègue au DispatchService qui notifie le livreur via WebSocket.
+   */
+  async assignDriverToOrder(
+    orderId: string,
+    driverId: string,
+  ): Promise<Order> {
+    return this.dispatchService.assignDriverToOrder(orderId, driverId);
+  }
+
   public formatClientInvoiceResponse(order: Order): ClientInvoiceResponse {
     return {
       orderId: order.id,
@@ -1506,5 +1517,22 @@ export class OrdersService {
         `[Auto-Completed] Commande #${order.id} complétée automatiquement (24h sans action client).`,
       );
     }
+  }
+
+  /**
+   * 🛵 Liste des livreurs disponibles (ADMIN / SUPPORT — pour assignation manuelle).
+   */
+  async listAvailableDrivers() {
+    const allUsers = await this.usersService.findAll();
+    return allUsers
+      .filter((u) => u.role === UserRole.DRIVER || u.role === UserRole.COURIER)
+      .map((d) => ({
+        id: d.id,
+        name: d.fullName || d.name || d.email,
+        phone: d.phone || '',
+        vehicleType: d.vehicleType || null,
+        isActive: d.isActive ?? true,
+        email: d.email,
+      }));
   }
 }

@@ -42,7 +42,7 @@ const PackageStep = ({ value, onUpdate }) => (
         />
       </div>
       <div>
-        <label className="block text-xs text-text-secondary mb-2">Montant estimé (FCFA) *</label>
+        <label className="block text-xs text-text-secondary mb-2">Valeur déclarée du colis (FCFA) *</label>
         <input
           type="number"
           min="0"

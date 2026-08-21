@@ -7,9 +7,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Radio, RefreshCw, Truck, MapPin, Package } from 'lucide-react';
+import { ArrowLeft, Radio, RefreshCw, Truck, MapPin, Package, UserPlus, X } from 'lucide-react';
 import useAuthStore from '../store/authStore';
-import { getAdminOrders } from '../services/ordersService';
+import { getAdminOrders, assignDriverToOrder, getActiveDrivers } from '../services/ordersService';
 import { StatusBadge } from './components/StatCard';
 
 const STATUS_LABELS = {
@@ -33,6 +33,13 @@ const LiveOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(null);
+
+  // Modal d'assignation
+  const [assigningOrder, setAssigningOrder] = useState(null);
+  const [drivers, setDrivers] = useState([]);
+  const [driversLoading, setDriversLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -78,6 +85,35 @@ const LiveOrders = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const openAssignModal = async (order) => {
+    setAssigningOrder(order);
+    setAssignError(null);
+    setDriversLoading(true);
+    try {
+      const data = await getActiveDrivers();
+      setDrivers(Array.isArray(data) ? data : []);
+    } catch {
+      setDrivers([]);
+    } finally {
+      setDriversLoading(false);
+    }
+  };
+
+  const handleAssign = async (driverId) => {
+    if (!assigningOrder) return;
+    setAssigning(true);
+    setAssignError(null);
+    try {
+      await assignDriverToOrder(assigningOrder.id, driverId);
+      setAssigningOrder(null);
+      load(true);
+    } catch (err) {
+      setAssignError(err.message);
+    } finally {
+      setAssigning(false);
+    }
   };
 
   return (
@@ -302,19 +338,30 @@ const LiveOrders = () => {
                       <span className="text-text-secondary">
                         {Number(o.totalAmount || 0).toLocaleString('fr-FR')} FCFA
                       </span>
-                      <span className="flex items-center gap-1 text-text-tertiary">
-                        {o.driverLocation ? (
-                          <>
-                            <Truck size={12} className="text-status-success" />
-                            Livreur en ligne
-                          </>
-                        ) : (
-                          <>
-                            <Truck size={12} />
-                            {o.driverId ? 'En route' : 'Aucun livreur'}
-                          </>
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-text-tertiary">
+                          {o.driverLocation ? (
+                            <>
+                              <Truck size={12} className="text-status-success" />
+                              Livreur en ligne
+                            </>
+                          ) : (
+                            <>
+                              <Truck size={12} />
+                              {o.driverId ? 'En route' : 'Aucun livreur'}
+                            </>
+                          )}
+                        </span>
+                        {!o.driverId && (o.status === 'PENDING' || o.status === 'PAID') && (
+                          <button
+                            onClick={() => openAssignModal(o)}
+                            className="flex items-center gap-1 px-2 py-1 rounded bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors text-[11px] font-semibold"
+                          >
+                            <UserPlus size={12} />
+                            Assigner
+                          </button>
                         )}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -323,6 +370,75 @@ const LiveOrders = () => {
           </div>
         </div>
       </main>
+
+      {/* ─── MODAL ASSIGNATION LIVREUR ─────────────────────────────── */}
+      {assigningOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-background-card border border-border-light rounded-xl w-full max-w-md mx-4 p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-text-primary">
+                Assigner un livreur
+              </h3>
+              <button
+                onClick={() => setAssigningOrder(null)}
+                className="p-1.5 hover:bg-background-secondary rounded-lg transition-colors"
+              >
+                <X size={18} className="text-text-tertiary" />
+              </button>
+            </div>
+
+            <p className="text-xs text-text-secondary mb-4">
+              Commande <span className="font-mono font-bold">#{assigningOrder.id.slice(0, 8)}</span>
+              {' · '}
+              {Number(assigningOrder.totalAmount || 0).toLocaleString('fr-FR')} FCFA
+            </p>
+
+            {assignError && (
+              <div className="mb-4 p-3 rounded-lg bg-status-errorBg border border-status-error/30 text-status-error text-xs">
+                {assignError}
+              </div>
+            )}
+
+            {driversLoading ? (
+              <div className="space-y-2 py-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-12 bg-background-secondary rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : drivers.length === 0 ? (
+              <div className="py-6 text-center text-xs text-text-tertiary">
+                Aucun livreur actif disponible.
+              </div>
+            ) : (
+              <div className="max-h-64 overflow-y-auto divide-y divide-border-light">
+                {drivers.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleAssign(d.id)}
+                    disabled={assigning}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-background-secondary transition-colors text-left disabled:opacity-50"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center text-accent-primary text-xs font-bold">
+                      {(d.fullName || d.name || '?')[0]?.toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-text-primary truncate">
+                        {d.fullName || d.name || d.id.slice(0, 8)}
+                      </p>
+                      <p className="text-[11px] text-text-tertiary">
+                        {d.vehicleType || 'Moto'} · {d.phone || ''}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-semibold text-accent-primary px-2 py-1 rounded bg-accent-primary/10">
+                      {assigning ? '...' : 'Assigner'}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

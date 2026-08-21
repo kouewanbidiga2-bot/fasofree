@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle, Info } from 'lucide-react';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { STEPS, emptyLocation, emptyPackage } from './constants';
+import { formatBurkinaPhone } from '../../utils/phone';
+import { estimateP2PPrice } from '../../utils/p2pPricing';
 import LocationStep from './LocationStep';
 import PackageStep from './PackageStep';
 import SuccessScreen from './SuccessScreen';
@@ -17,6 +19,13 @@ const P2PDelivery = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  // Estimation client-side du prix P2P (Haversine + formule backend)
+  const priceEstimate = useMemo(
+    () =>
+      estimateP2PPrice(pickup, dropoff, packageInfo.isFragile, packageInfo.weight),
+    [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, packageInfo.isFragile, packageInfo.weight],
+  );
 
   const updateLocation = (setter, field, value) =>
     setter((prev) => ({ ...prev, [field]: value }));
@@ -45,10 +54,20 @@ const P2PDelivery = () => {
 
   const isStepValid = (current) => {
     if (current === 1) {
-      return pickup.address.trim() && pickup.contactName.trim() && pickup.contactPhone.trim();
+      return (
+        pickup.address.trim() &&
+        pickup.contactName.trim() &&
+        pickup.contactPhone.trim() &&
+        !!formatBurkinaPhone(pickup.contactPhone)
+      );
     }
     if (current === 2) {
-      return dropoff.address.trim() && dropoff.contactName.trim() && dropoff.contactPhone.trim();
+      return (
+        dropoff.address.trim() &&
+        dropoff.contactName.trim() &&
+        dropoff.contactPhone.trim() &&
+        !!formatBurkinaPhone(dropoff.contactPhone)
+      );
     }
     return packageInfo.description.trim() && packageInfo.estimatedAmount.trim();
   };
@@ -69,14 +88,12 @@ const P2PDelivery = () => {
 
   const buildPayload = () => ({
     orderType: 'P2P_DELIVERY',
-    totalAmount: Number(packageInfo.estimatedAmount),
-    deliveryFee: Number(packageInfo.estimatedAmount),
     pickupLocation: {
       address: pickup.address,
       latitude: Number(pickup.latitude),
       longitude: Number(pickup.longitude),
       contactName: pickup.contactName,
-      contactPhone: pickup.contactPhone,
+      contactPhone: formatBurkinaPhone(pickup.contactPhone) || pickup.contactPhone,
       instructions: pickup.instructions || undefined,
     },
     dropoffLocation: {
@@ -84,13 +101,14 @@ const P2PDelivery = () => {
       latitude: Number(dropoff.latitude),
       longitude: Number(dropoff.longitude),
       contactName: dropoff.contactName,
-      contactPhone: dropoff.contactPhone,
+      contactPhone: formatBurkinaPhone(dropoff.contactPhone) || dropoff.contactPhone,
       instructions: dropoff.instructions || undefined,
     },
     packageDetails: {
       description: packageInfo.description,
       isFragile: packageInfo.isFragile,
       weight: packageInfo.weight ? Number(packageInfo.weight) : undefined,
+      estimatedValue: packageInfo.estimatedAmount ? Number(packageInfo.estimatedAmount) : undefined,
       dimensions:
         packageInfo.length || packageInfo.width || packageInfo.height
           ? {
@@ -215,6 +233,57 @@ const P2PDelivery = () => {
           {/* ─── ÉTAPE 3 : COLIS & CONTACT ─── */}
           {step === 3 && (
             <PackageStep value={packageInfo} onUpdate={updatePackage} />
+          )}
+
+          {/* ─── ESTIMATION PRIX (affichée à partir de l'étape 3) ─── */}
+          {step === 3 && priceEstimate && (
+            <div className="app-panel rounded-lg p-5 mb-6 border border-accent-primary/20 bg-accent-primary/5 fade-in">
+              <div className="flex items-center gap-2 mb-3">
+                <Info size={15} className="text-accent-primary" />
+                <h3 className="text-sm font-semibold text-text-primary">Estimation du tarif</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-text-tertiary">Distance</span>
+                  <p className="font-semibold text-text-primary">{priceEstimate.distance} km</p>
+                </div>
+                <div>
+                  <span className="text-text-tertiary">Frais de livraison</span>
+                  <p className="font-semibold text-accent-primary text-base">
+                    {priceEstimate.price.toLocaleString('fr-FR')} FCFA
+                  </p>
+                </div>
+                <div>
+                  <span className="text-text-tertiary">Base</span>
+                  <p className="text-text-secondary">{priceEstimate.breakdown.basePrice} FCFA</p>
+                </div>
+                <div>
+                  <span className="text-text-tertiary">Distance ({priceEstimate.distance} km)</span>
+                  <p className="text-text-secondary">{priceEstimate.breakdown.distancePrice} FCFA</p>
+                </div>
+                {priceEstimate.breakdown.fragileSurcharge > 0 && (
+                  <div>
+                    <span className="text-text-tertiary">Surcoût fragile</span>
+                    <p className="text-text-secondary">{priceEstimate.breakdown.fragileSurcharge} FCFA</p>
+                  </div>
+                )}
+                {priceEstimate.breakdown.weightSurcharge > 0 && (
+                  <div>
+                    <span className="text-text-tertiary">Surcoût poids</span>
+                    <p className="text-text-secondary">{priceEstimate.breakdown.weightSurcharge} FCFA</p>
+                  </div>
+                )}
+              </div>
+              <p className="mt-3 text-[11px] text-text-tertiary">
+                Le montant final est calculé côté serveur et peut varier légèrement. Frais de service : 100 FCFA.
+              </p>
+            </div>
+          )}
+
+          {step === 3 && !priceEstimate && (
+            <div className="mb-6 p-4 rounded-lg border border-status-warning/30 bg-status-warning/10 text-xs text-status-warning">
+              Renseignez les adresses aux étapes 1 et 2 pour obtenir une estimation du tarif.
+            </div>
           )}
 
           {/* Erreur éventuelle */}

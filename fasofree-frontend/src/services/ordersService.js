@@ -13,3 +13,21 @@ export const getAdminOrders = async (status) => {
   const response = await api.get('/orders', { params });
   return response.data;
 };
+
+/**
+ * Assigner manuellement un livreur à une commande.
+ * @param {string} orderId
+ * @param {string} driverId
+ */
+export const assignDriverToOrder = async (orderId, driverId) => {
+  const response = await api.post(`/orders/${orderId}/assign`, { driverId });
+  return response.data;
+};
+
+/**
+ * Liste des livreurs actifs (disponibles pour assignation).
+ */
+export const getActiveDrivers = async () => {
+  const response = await api.get('/orders/available-drivers');
+  return response.data;
+};

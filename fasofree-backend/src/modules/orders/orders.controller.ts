@@ -40,7 +40,7 @@ type RequestWithUser = ExpressRequest & {
 @ApiTags('Orders')
 @ApiBearerAuth('JWT-auth')
 @Controller('orders')
-@UseGuards(AuthGuard('jwt')) // 🛡️ Toutes les routes de commandes nécessitent d'être connecté
+@UseGuards(AuthGuard('jwt'))
 export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
@@ -283,6 +283,45 @@ export class OrdersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.ordersService.clientValidateWithPin(id, userId, dto.pinCode);
+  }
+
+  // 🎯 Liste des livreurs disponibles (pour assignation manuelle)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Get('available-drivers')
+  @ApiOperation({
+    summary:
+      'Liste des livreurs/coursiers actifs (SUPER_ADMIN / ADMIN / SUPPORT)',
+  })
+  @ApiResponse({ status: 200, description: 'Liste des livreurs' })
+  async getAvailableDrivers() {
+    return this.ordersService.listAvailableDrivers();
+  }
+
+  // ========================================================================
+  // 🎯 ASSIGNATION MANUELLE D'UN LIVREUR (admin / support)
+  // ========================================================================
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Post(':id/assign')
+  @ApiOperation({
+    summary:
+      "Assigner manuellement un livreur à une commande (SUPER_ADMIN / ADMIN / SUPPORT)",
+  })
+  @ApiResponse({ status: 201, description: 'Livreur assigné avec succès' })
+  @ApiResponse({
+    status: 403,
+    description: 'Rôle non autorisé',
+  })
+  @ApiResponse({ status: 404, description: 'Commande ou livreur introuvable' })
+  async assignDriver(
+    @Param('id') orderId: string,
+    @Body('driverId') driverId: string,
+  ) {
+    if (!driverId) {
+      throw new UnauthorizedException('driverId est requis');
+    }
+    return this.ordersService.assignDriverToOrder(orderId, driverId);
   }
 
   // ========================================================================

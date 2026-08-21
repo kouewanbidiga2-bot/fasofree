@@ -1,5 +1,6 @@
 import React from 'react';
 import { MapPin, LocateFixed } from 'lucide-react';
+import { formatBurkinaPhone } from '../../utils/phone';
 
 const LocationStep = ({
   title,
@@ -51,11 +52,16 @@ const LocationStep = ({
         <label className="block text-xs text-text-secondary mb-2">{phoneLabel} *</label>
         <input
           type="tel"
-          placeholder="+226 XX XX XX XX"
+          placeholder="66 10 10 01"
           value={value.contactPhone}
           onChange={(e) => onUpdate('contactPhone', e.target.value)}
+          onBlur={(e) => {
+            const normalized = formatBurkinaPhone(e.target.value);
+            if (normalized) onUpdate('contactPhone', normalized);
+          }}
           required
           className="app-input"
+          maxLength={14}
         />
       </div>
     </div>

@@ -7,8 +7,8 @@ import {
   IsLongitude,
   IsOptional,
   MaxLength,
-  Matches,
 } from 'class-validator';
+import { IsBurkinaPhone } from '../../auth/validators/is-burkina-phone.validator';
 
 export class P2PLocationDto {
   @ApiProperty({
@@ -51,7 +51,7 @@ export class P2PLocationDto {
   })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\+?[0-9]{10,15}$/)
+  @IsBurkinaPhone()
   contactPhone: string;
 
   @ApiProperty({
