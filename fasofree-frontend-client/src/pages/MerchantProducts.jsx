@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl, onImgError } from '../utils/images';
+import ImageUpload from '../components/ImageUpload';
 
 const CATEGORIES = [
   'Burgers',
@@ -455,31 +456,12 @@ export default function MerchantProducts() {
                 </div>
               </div>
 
-              {/* Image URL */}
-              <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wide">
-                  <Image size={12} strokeWidth={1.5} />
-                  URL de l'image
-                </label>
-                <input
-                  type="url"
-                  name="imageUrl"
-                  value={form.imageUrl}
-                  onChange={handleChange}
-                  placeholder="https://exemple.com/image.jpg"
-                  className="w-full px-3 py-2.5 text-sm rounded-lg border border-border-light bg-background-primary text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:border-accent-primary transition-colors"
-                />
-                {form.imageUrl && (
-                  <div className="mt-2 w-full h-32 rounded-lg overflow-hidden border border-border-light bg-background-secondary">
-                    <img
-                      src={getAbsoluteImageUrl(form.imageUrl)}
-                      alt="Aperçu"
-                      className="w-full h-full object-cover"
-                      onError={(e) => (e.target.style.display = 'none')}
-                    />
-                  </div>
-                )}
-              </div>
+              {/* Image */}
+              <ImageUpload
+                value={form.imageUrl}
+                onChange={(url) => setForm((f) => ({ ...f, imageUrl: url }))}
+                folder="products"
+              />
 
               {/* Stock + Availability row */}
               <div className="grid grid-cols-2 gap-3 items-end">

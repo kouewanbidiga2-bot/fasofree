@@ -32,6 +32,7 @@ import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket } from '../services/realtime';
 import { ProductType, InventoryStatus } from '../types';
+import ImageUpload from '../components/ImageUpload';
 
 // ─── Product Modal with Inventory Management ─────────────────────────────
 const ProductModal = ({ product, businessId, onSave, onClose }) => {
@@ -181,10 +182,11 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
           </div>
 
           {/* Image */}
-          <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">URL Image</label>
-            <input className="input-field" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
-          </div>
+          <ImageUpload
+            value={form.imageUrl}
+            onChange={(url) => setForm({ ...form, imageUrl: url })}
+            folder="products"
+          />
 
           {/* Availability */}
           <div className="flex items-center gap-3 p-3 bg-background-secondary rounded-md">
@@ -968,7 +970,7 @@ const BusinessAdminDashboard = () => {
                             <td>
                               <div className="flex items-center gap-3">
                                 {product.imageUrl && (
-                                  <img src={product.imageUrl} alt={product.name} className="w-10 h-10 rounded object-cover" />
+                                  <img src={product.imageUrl.startsWith('/') ? (import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1').replace(/\/api\/v1$/, '') + product.imageUrl : product.imageUrl} alt={product.name} className="w-10 h-10 rounded object-cover" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} />
                                 )}
                                 <div>
                                   <p className="font-bold text-text-primary text-sm">{product.name}</p>
