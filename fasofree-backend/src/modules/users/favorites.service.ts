@@ -24,7 +24,7 @@ export class FavoritesService {
   async findAllByUser(userId: string): Promise<Favorite[]> {
     return this.repo.find({
       where: { userId },
-      relations: ['business'],
+      relations: { business: true },
       order: { createdAt: 'DESC' },
     });
   }
@@ -35,7 +35,7 @@ export class FavoritesService {
   }
 
   async getFavoritedIds(userId: string): Promise<string[]> {
-    const favs = await this.repo.find({ where: { userId }, select: ['businessId'] });
+    const favs = await this.repo.find({ where: { userId }, select: { businessId: true } });
     return favs.map((f) => f.businessId);
   }
 }

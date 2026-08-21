@@ -1532,7 +1532,7 @@ export class OrdersService {
       .filter((u) => u.role === UserRole.DRIVER || u.role === UserRole.COURIER)
       .map((d) => ({
         id: d.id,
-        name: d.fullName || d.name || d.email,
+        name: d.fullName || d.email,
         phone: d.phone || '',
         vehicleType: d.vehicleType || null,
         isActive: d.isActive ?? true,

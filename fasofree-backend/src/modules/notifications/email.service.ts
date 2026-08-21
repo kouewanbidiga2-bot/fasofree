@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import * as dns from 'dns';
 
 @Injectable()
 export class EmailService {
@@ -14,16 +15,19 @@ export class EmailService {
 
     this.fromEmail = `"FasoFree" <${smtpUser || 'onboarding@resend.dev'}>`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
       port: 587,
       secure: false,
-      family: 4,
       auth: { user: smtpUser, pass: smtpPass },
+      lookup: (hostname: string, options: any, callback: any) => {
+        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+          callback(err, address, family);
+        });
+      },
     } as any);
 
-    this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser} (IPv4 forcé)`);
+    this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser} (IPv4 via dns.lookup)`);
   }
 
   async sendEmail(
