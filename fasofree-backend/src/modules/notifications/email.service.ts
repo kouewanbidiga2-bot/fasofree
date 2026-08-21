@@ -20,12 +20,14 @@ export class EmailService {
     );
 
     if (smtpUser && smtpPass) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.smtpTransporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
         secure: false,
+        family: 4,
         auth: { user: smtpUser, pass: smtpPass },
-      });
+      } as any);
       this.useSmtp = true;
       this.resend = null;
       this.logger.log(`[Email/SMTP] Transporteur Gmail initialisé avec ${smtpUser}`);
