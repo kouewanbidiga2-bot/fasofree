@@ -86,6 +86,10 @@ export const api = {
   // Merchant Wallet
   getMerchantWallet: (userId) => apiFetch(`/wallets/MERCHANT/${userId}`, { method: 'GET' }),
   getWalletTransactions: (walletId, limit = 20) => apiFetch(`/wallets/${walletId}/transactions?limit=${limit}`, { method: 'GET' }),
+
+  // Retraits Mobile Money
+  previewPayoutFee: (amountFcfa) => apiFetch('/wallets/fee-preview', { method: 'POST', body: { amountFcfa } }),
+  requestWithdrawal: (data) => apiFetch('/wallets/withdrawals', { method: 'POST', body: data }),
   
   // Orders
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),

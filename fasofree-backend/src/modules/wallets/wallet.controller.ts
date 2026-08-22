@@ -2,6 +2,8 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Post,
+  Body,
   Param,
   Query,
   ParseEnumPipe,
@@ -11,7 +13,9 @@ import {
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { WalletService } from './wallet.service';
+import { PayoutsService } from './payouts.service';
 import { UserRole } from './entities/wallet.entity';
+import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 
@@ -19,7 +23,50 @@ import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 @UseGuards(AuthGuard('jwt'))
 @Controller('wallets')
 export class WalletController {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly payoutsService: PayoutsService,
+  ) {}
+
+  @Post('fee-preview')
+  @ApiOperation({ summary: 'Prévisualisation des frais de retrait' })
+  async previewFee(
+    @Body() body: { amountFcfa: number },
+  ) {
+    return this.payoutsService.calculatePayoutFee(body.amountFcfa);
+  }
+
+  @Post('withdrawals')
+  @ApiOperation({ summary: 'Demander un retrait Mobile Money' })
+  async requestWithdrawal(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Body() dto: RequestWithdrawalDto,
+  ) {
+    const user = req.user;
+    if (!user?.userId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    const allowedRoles: AppUserRole[] = [
+      AppUserRole.BUSINESS_ADMIN,
+      AppUserRole.DRIVER,
+    ];
+    if (!allowedRoles.includes(user.role as AppUserRole)) {
+      throw new ForbiddenException(
+        'Seuls les marchands et livreurs peuvent effectuer des retraits',
+      );
+    }
+
+    const walletRole =
+      user.role === AppUserRole.DRIVER ? UserRole.DRIVER : UserRole.MERCHANT;
+
+    return this.payoutsService.requestWithdrawal(
+      user.userId,
+      walletRole,
+      dto,
+    );
+  }
 
   @Get(':walletId/transactions')
   @ApiOperation({

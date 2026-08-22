@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { Send, Users, Hash, MessageSquare, ArrowLeft } from 'lucide-react';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1';
 
 const CHANNELS = [
   { id: 'general', label: 'Général', icon: Hash, desc: 'Coordination générale' },

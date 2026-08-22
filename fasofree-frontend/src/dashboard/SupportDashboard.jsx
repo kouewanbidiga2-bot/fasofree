@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
-import { getFinancialDashboard, getPendingDisputes } from '../services/financialService';
+import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getUsers, getBanRequests, reviewBanRequest } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';

@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsNumber, Min, Max } from 'class-validator';
 
 export class UpdateSettingsDto {
   @ApiPropertyOptional({ example: 100, description: 'Frais de plateforme (FCFA)' })
@@ -31,4 +31,22 @@ export class UpdateSettingsDto {
   @IsInt()
   @Min(1)
   maxDeliveryRadius?: number;
+
+  @ApiPropertyOptional({ example: false, description: 'Activer les frais de retrait' })
+  @IsOptional()
+  @IsBoolean()
+  isPayoutFeeActive?: boolean;
+
+  @ApiPropertyOptional({ example: 1.5, description: 'Pourcentage de frais de retrait (0-100)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  payoutFeePercentage?: number;
+
+  @ApiPropertyOptional({ example: 20000, description: 'Seuil en dessous duquel les frais sont gratuits (FCFA)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  payoutFreeThreshold?: number;
 }

@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
-  'https://fasofree-3nh8.onrender.com/api/v1';
+  'https://api.fasofree.site/api/v1';
 
 const getSocketBase = () => {
   try {

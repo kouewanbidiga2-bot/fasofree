@@ -33,3 +33,19 @@ export const getFinancialDashboard = async () => {
   const response = await api.get('/financial/dashboard');
   return response.data;
 };
+
+/**
+ * Preview des frais de retrait
+ */
+export const previewPayoutFee = async (amountFcfa) => {
+  const response = await api.post('/wallets/fee-preview', { amountFcfa });
+  return response.data;
+};
+
+/**
+ * Demander un retrait Mobile Money
+ */
+export const requestWithdrawal = async (data) => {
+  const response = await api.post('/wallets/withdrawals', data);
+  return response.data;
+};

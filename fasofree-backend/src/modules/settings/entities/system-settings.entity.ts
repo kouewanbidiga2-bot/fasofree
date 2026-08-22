@@ -43,6 +43,15 @@ export class SystemSettings {
   @Column({ type: 'int', default: 15 })
   maxDeliveryRadius: number;
 
+  @Column({ type: 'boolean', default: false })
+  isPayoutFeeActive: boolean;
+
+  @Column({ type: 'decimal', default: 1.5, precision: 5, scale: 2 })
+  payoutFeePercentage: number;
+
+  @Column({ type: 'int', default: 20000 })
+  payoutFreeThreshold: number;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

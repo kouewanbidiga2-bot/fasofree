@@ -2,7 +2,7 @@ import { io } from 'socket.io-client';
 
 const API_URL =
   import.meta.env.VITE_API_BASE_URL ||
-  'https://unbridle-deferral-staleness.ngrok-free.dev/api/v1';
+  'https://api.fasofree.site/api/v1';
 
 const getSocketBase = () => {
   try {
