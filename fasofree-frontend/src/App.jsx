@@ -5,6 +5,7 @@ import { ProtectedRoute } from './guards';
 // 1. DIRECT IMPORTS for critical components (eliminates lazy loading crashes)
 import Loading from './pages/Loading';
 import PhoneAuth from './pages/PhoneAuth';
+import Unauthorized from './pages/Unauthorized';
 
 // 2. LAZY LOADING for dashboards (non-critical pages)
 const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashboard'));
@@ -26,6 +27,7 @@ function App() {
           {/* ROUTES D'AUTHENTIFICATION */}
           <Route path="/login" element={<PhoneAuth />} />
           <Route path="/register" element={<PhoneAuth />} />
+          <Route path="/unauthorized" element={<Unauthorized />} />
 
           {/* ROUTES MARCHAND / COMMERÇANT */}
           <Route

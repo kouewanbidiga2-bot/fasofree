@@ -19,12 +19,13 @@ const getInitialState = () => {
     const userRaw = localStorage.getItem(USER_KEY);
     if (token && userRaw) {
       const user = JSON.parse(userRaw);
-      return { token, user, isAuthenticated: true };
+      // isHydrated starts false — role will be re-verified from server on mount
+      return { token, user, isAuthenticated: true, isHydrated: false };
     }
   } catch (e) {
     clearStorage();
   }
-  return { token: null, user: null, isAuthenticated: false };
+  return { token: null, user: null, isAuthenticated: false, isHydrated: true };
 };
 
 // EXPORT NOMMÉ ET EXPORT PAR DÉFAUT (Règle le problème d'importation définitivement)
@@ -32,6 +33,8 @@ export const useAuthStore = create((set, get) => ({
   ...getInitialState(),
   isLoading: false,
   error: null,
+  // isHydrated: false when restored from localStorage — becomes true after server re-validation
+  isHydrated: getInitialState().isHydrated ?? true,
 
   login: async (email, password) => {
     set({ isLoading: true, error: null });
@@ -48,7 +51,7 @@ export const useAuthStore = create((set, get) => ({
 
       persistToken(token);
       persistUser(user);
-      set({ token, user, isAuthenticated: true, isLoading: false, error: null });
+      set({ token, user, isAuthenticated: true, isHydrated: true, isLoading: false, error: null });
       return user;
     } catch (err) {
       set({ isLoading: false, error: err.message });
@@ -65,7 +68,7 @@ export const useAuthStore = create((set, get) => ({
         const user = result.user || { ...data, id: result.id };
         persistToken(token);
         persistUser(user);
-        set({ token, user, isAuthenticated: true, isLoading: false, error: null });
+        set({ token, user, isAuthenticated: true, isHydrated: true, isLoading: false, error: null });
         return user;
       }
       set({ isLoading: false });
@@ -80,7 +83,7 @@ export const useAuthStore = create((set, get) => ({
     try {
       const user = await getMe();
       persistUser(user);
-      set({ user });
+      set({ user, isHydrated: true });
       return user;
     } catch {
       get().logout();
@@ -89,7 +92,7 @@ export const useAuthStore = create((set, get) => ({
 
   logout: () => {
     clearStorage();
-    set({ token: null, user: null, isAuthenticated: false, error: null });
+    set({ token: null, user: null, isAuthenticated: false, isHydrated: true, error: null });
   },
 
   clearError: () => set({ error: null }),
