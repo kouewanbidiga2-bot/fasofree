@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Image, Upload, X } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://fasofree-3nh8.onrender.com/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
 
 function getAbsoluteImageUrl(url) {
   if (!url) return '';

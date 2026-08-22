@@ -13,7 +13,7 @@ export class EmailService {
     const smtpUser = this.configService.get<string>('SMTP_USER', '');
     const smtpPass = this.configService.get<string>('SMTP_PASS', '');
 
-    this.fromEmail = `"FasoFree" <${smtpUser || 'onboarding@resend.dev'}>`;
+    this.fromEmail = this.configService.get<string>('EMAIL_FROM', `"FasoFree" <noreply@fasofree.site>`);
 
     this.transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
