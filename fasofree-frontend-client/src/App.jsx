@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
 import RideBooking from './pages/RideBooking';
-import DriverDashboard from './pages/DriverDashboard';
 import Restaurant from './pages/Restaurant';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
@@ -70,7 +69,6 @@ function App() {
         <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/" element={<Home />} />
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
-        <Route path="/driver" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/p2p-delivery" element={<P2PDelivery />} />
         <Route path="/restaurant/:id" element={<Restaurant />} />
         <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
@@ -87,7 +85,6 @@ function App() {
         <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />
         <Route path="/merchant/wallet" element={<ProtectedRoute><MerchantWallet /></ProtectedRoute>} />
         <Route path="/merchant/settings" element={<ProtectedRoute><MerchantSettings /></ProtectedRoute>} />
-        <Route path="/driver-dashboard" element={<ProtectedRoute><DriverDashboard /></ProtectedRoute>} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
       </Routes>

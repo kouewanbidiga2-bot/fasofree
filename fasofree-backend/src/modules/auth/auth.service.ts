@@ -228,8 +228,6 @@ export class AuthService {
     }
 
     if (user.applicationStatus === 'PENDING_APPROVAL') {
-      // 🚦 Compte candidat (marchand/livreur) encore en cours d'examen :
-      // on bloque le login tant que l'administration n'a pas validé le dossier.
       throw new ForbiddenException(
         "Votre compte est en cours d'examen par FasoFree. Vous recevrez vos identifiants après validation de votre dossier.",
       );
@@ -239,7 +237,20 @@ export class AuthService {
       throw new UnauthorizedException('Ce compte est désactivé');
     }
 
-    return this.generateToken(user);
+    // ✅ Email déjà vérifié → connexion directe, pas d'OTP
+    if (user.isEmailVerified) {
+      return this.generateToken(user);
+    }
+
+    // 📧 Première connexion (email non vérifié) → déclencher le flux OTP
+    try {
+      await this.otpService.sendOtp(user.id);
+      this.logger.log(`[Login] OTP envoyé à ${user.email} (première connexion)`);
+    } catch (err) {
+      this.logger.warn(`[Login] Échec envoi OTP: ${(err as Error).message}`);
+    }
+
+    return this.generateToken(user, true);
   }
 
   // 👤 3. Obtenir le profil utilisateur connecté
@@ -311,12 +322,12 @@ export class AuthService {
   }
 
   // 🎟️ 4. Génération du Jeton JWT avec format frontend-compatible
-  private async generateToken(user: User) {
+  private async generateToken(user: User, requiresVerification = false) {
     try {
       const payload = { sub: user.id, role: user.role };
       const accessToken = this.jwtService.sign(payload);
 
-      return {
+      const result: Record<string, any> = {
         access_token: accessToken,
         user: {
           id: user.id,
@@ -326,8 +337,16 @@ export class AuthService {
           role: user.role,
           isActive: user.isActive,
           isPremium: await this.resolveIsPremium(user),
+          isEmailVerified: user.isEmailVerified,
+          isPhoneVerified: user.isPhoneVerified,
         },
       };
+
+      if (requiresVerification) {
+        result.requiresVerification = true;
+      }
+
+      return result;
     } catch (err) {
       this.logger.error(`generateToken FAILED for user ${user?.id}: ${(err as Error).message}`, (err as Error).stack);
       throw err;

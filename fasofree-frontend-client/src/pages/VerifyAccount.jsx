@@ -63,7 +63,12 @@ const VerifyAccount = () => {
       }
 
       setTimeout(() => {
-        navigate(getHomeRoute(user.role), { replace: true });
+        const homeRoute = getHomeRoute(user.role);
+        if (homeRoute.startsWith('http')) {
+          window.location.href = homeRoute;
+        } else {
+          navigate(homeRoute, { replace: true });
+        }
       }, 1500);
     } catch (err) {
       setError(err.message || 'Code incorrect. Réessayez.');

@@ -48,6 +48,8 @@ const Auth = () => {
           lastName: nameParts.slice(1).join(' ') || '',
           role: user.role,
           isPremium: !!user.isPremium,
+          isEmailVerified: !!user.isEmailVerified,
+          isPhoneVerified: !!user.isPhoneVerified,
         });
 
         const route = getHomeRoute(user.role);

@@ -15,7 +15,7 @@ const ADMIN_APP_URL = 'https://admin.fasofree.site';
 
 export const getHomeRoute = (role) => {
   const r = String(role || '').toUpperCase();
-  if (['DRIVER', 'COURIER'].includes(r)) return '/driver-dashboard';
+  if (['DRIVER', 'COURIER'].includes(r)) return 'https://admin.fasofree.site/livreur';
   if (['BUSINESS_ADMIN', 'MERCHANT'].includes(r)) return '/merchant-dashboard';
   if (['ADMIN', 'SUPER_ADMIN'].includes(r)) return ADMIN_APP_URL;
   return '/';
