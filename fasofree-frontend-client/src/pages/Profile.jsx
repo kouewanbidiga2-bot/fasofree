@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown } from 'lucide-react';
+import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check } from 'lucide-react';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl } from '../utils/images';
+
+const MOBILE_MONEY_PROVIDERS = [
+  { value: 'ORANGE_MONEY', label: 'Orange Money' },
+  { value: 'MOOV_MONEY', label: 'Moov Money' },
+  { value: 'WAVE', label: 'Wave' },
+  { value: 'TELECEL_MONEY', label: 'Telecel Money' },
+];
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -22,6 +29,15 @@ const Profile = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [favoriteItems, setFavoriteItems] = useState([]);
 
+  // Mobile Money state
+  const [showPaymentInfo, setShowPaymentInfo] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    mobileMoneyNumber: '',
+    mobileMoneyProvider: '',
+  });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSaved, setPaymentSaved] = useState(false);
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -35,6 +51,11 @@ const Profile = () => {
           preferredNotificationChannel: me.preferredNotificationChannel || 'EMAIL',
         }));
         updateUser({ name, email: me.email, phone: me.phone, id: me.id });
+        // Load Mobile Money info
+        setPaymentData({
+          mobileMoneyNumber: me.mobileMoneyNumber || '',
+          mobileMoneyProvider: me.mobileMoneyProvider || '',
+        });
       } catch {
         // silent — keep local defaults
       }
@@ -68,7 +89,7 @@ const Profile = () => {
   const menuItems = [
     { icon: Crown, label: 'FasoFree Pass VIP', action: () => navigate('/vip-pass'), highlight: user?.isPremium },
     { icon: MapPin, label: 'Adresses de livraison', action: () => {} },
-    { icon: CreditCard, label: 'Modes de paiement', action: () => {} },
+    { icon: CreditCard, label: 'Informations de paiement', action: () => setShowPaymentInfo(!showPaymentInfo) },
     { icon: Bell, label: 'Notifications', action: () => setNotifOpen(true) },
     { icon: Settings, label: 'Paramètres', action: () => {} },
     { icon: LogOut, label: 'Déconnexion', action: handleLogout, variant: 'danger' },
@@ -91,6 +112,23 @@ const Profile = () => {
       alert(err.message || 'Erreur lors de la mise à jour du profil.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSavePaymentInfo = async () => {
+    setPaymentLoading(true);
+    setPaymentSaved(false);
+    try {
+      await api.updatePaymentInfo({
+        mobileMoneyNumber: paymentData.mobileMoneyNumber || undefined,
+        mobileMoneyProvider: paymentData.mobileMoneyProvider || undefined,
+      });
+      setPaymentSaved(true);
+      setTimeout(() => setPaymentSaved(false), 3000);
+    } catch (err) {
+      alert(err.message || 'Erreur lors de la mise à jour des informations de paiement.');
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -207,6 +245,56 @@ const Profile = () => {
               </div>
             )}
           </div>
+
+          {/* Mobile Money Section */}
+          {showPaymentInfo && (
+            <div className="border border-border-light p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Smartphone size={16} className="text-accent-primary" strokeWidth={1.5} />
+                <h2 className="text-sm font-medium text-text-secondary">Informations de paiement</h2>
+              </div>
+              <p className="text-xs text-text-secondary mb-4">
+                Configurez votre numéro Mobile Money pour les retraits et dépôts d'argent.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Numéro Mobile Money</label>
+                  <input
+                    type="tel"
+                    placeholder="+226 70 12 34 56"
+                    value={paymentData.mobileMoneyNumber}
+                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyNumber: e.target.value })}
+                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Opérateur</label>
+                  <select
+                    value={paymentData.mobileMoneyProvider}
+                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyProvider: e.target.value })}
+                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Sélectionner un opérateur</option>
+                    {MOBILE_MONEY_PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleSavePaymentInfo}
+                  disabled={paymentLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: '#C1652E' }}
+                >
+                  {paymentLoading ? 'Enregistrement...' : paymentSaved ? (
+                    <><Check size={16} /> Enregistré</>
+                  ) : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Orders */}
           <div className="border border-border-light p-4">

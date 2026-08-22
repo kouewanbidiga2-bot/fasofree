@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Save, Store, MapPin, Phone, Tag, Truck, Package, UtensilsCrossed, Power, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Store, MapPin, Phone, Tag, Truck, Package, UtensilsCrossed, Power, Loader2, Smartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
@@ -10,6 +10,13 @@ const CATEGORIES = [
   { value: 'RETAIL', label: 'Commerce général' },
   { value: 'BAKERY', label: 'Boulangerie' },
   { value: 'SERVICES', label: 'Services' },
+];
+
+const MOBILE_MONEY_PROVIDERS = [
+  { value: 'ORANGE_MONEY', label: 'Orange Money' },
+  { value: 'MOOV_MONEY', label: 'Moov Money' },
+  { value: 'WAVE', label: 'Wave' },
+  { value: 'TELECEL_MONEY', label: 'Telecel Money' },
 ];
 
 function Switch({ checked, onChange, disabled = false }) {
@@ -71,6 +78,8 @@ export default function MerchantSettings() {
     enablePickup: false,
     enableDineIn: false,
     isOpen: false,
+    mobileMoneyNumber: '',
+    mobileMoneyProvider: '',
   });
 
   useEffect(() => {
@@ -87,6 +96,8 @@ export default function MerchantSettings() {
           enablePickup: business.enablePickup || false,
           enableDineIn: business.enableDineIn || false,
           isOpen: business.isOpen || false,
+          mobileMoneyNumber: business.mobileMoneyNumber || '',
+          mobileMoneyProvider: business.mobileMoneyProvider || '',
         });
       } catch {
         setFeedback({ type: 'error', message: 'Impossible de charger les paramètres.' });
@@ -186,6 +197,34 @@ export default function MerchantSettings() {
                 <option key={cat.value} value={cat.value}>
                   {cat.label}
                 </option>
+              ))}
+            </select>
+          </FieldRow>
+        </FormSection>
+
+        <FormSection title="Informations de paiement">
+          <p className="text-xs text-text-secondary">
+            Numéro Mobile Money dédié aux retraits et dépôts d'argent.
+          </p>
+          <FieldRow icon={Smartphone} label="Numéro Mobile Money">
+            <input
+              type="tel"
+              value={form.mobileMoneyNumber}
+              onChange={(e) => setField('mobileMoneyNumber', e.target.value)}
+              placeholder="+226 70 12 34 56"
+              className="w-full rounded-lg border border-border-light bg-background-primary px-3 py-2.5 text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:ring-2 focus:ring-accent-primary transition-shadow"
+            />
+          </FieldRow>
+
+          <FieldRow icon={Smartphone} label="Opérateur">
+            <select
+              value={form.mobileMoneyProvider}
+              onChange={(e) => setField('mobileMoneyProvider', e.target.value)}
+              className="w-full rounded-lg border border-border-light bg-background-primary px-3 py-2.5 text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-primary transition-shadow appearance-none"
+            >
+              <option value="">Sélectionner un opérateur</option>
+              {MOBILE_MONEY_PROVIDERS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>
           </FieldRow>

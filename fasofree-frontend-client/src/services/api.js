@@ -53,6 +53,7 @@ export const api = {
   login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
   getProfile: () => apiFetch('/users/me', { method: 'GET' }),
   updateProfile: (data) => apiFetch('/users/me', { method: 'PATCH', body: data }),
+  updatePaymentInfo: (data) => apiFetch('/users/me/payment-info', { method: 'PATCH', body: data }),
   forgotPassword: (email) => apiFetch('/auth/forgot-password', { method: 'POST', body: { email } }),
   resetPassword: (token, newPassword) => apiFetch('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
 
