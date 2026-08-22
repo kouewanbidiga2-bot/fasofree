@@ -4,15 +4,24 @@ import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-rea
 import { Button } from '../components/ui';
 import Footer from '../components/Footer';
 import useCartStore from '../store/cartStore';
-import { getRestaurantById } from '../services/data';
+import api from '../services/api';
 import { fetchQuote, getCartSubtotal } from '../services/pricingService';
 import ImageWithFallback from '../components/ImageWithFallback';
 
 const Cart = () => {
   const navigate = useNavigate();
   const { items, restaurantId, updateQuantity, removeItem, clearCart } = useCartStore();
-  const restaurant = restaurantId ? getRestaurantById(restaurantId) : null;
+  const [restaurant, setRestaurant] = useState(null);
   const subtotal = getCartSubtotal(items);
+
+  useEffect(() => {
+    if (!restaurantId) { setRestaurant(null); return; }
+    let cancelled = false;
+    api.getBusiness(restaurantId)
+      .then((b) => { if (!cancelled) setRestaurant(b); })
+      .catch(() => { if (!cancelled) setRestaurant(null); });
+    return () => { cancelled = true; };
+  }, [restaurantId]);
 
   // 💬 Devis tarifaire : les frais de livraison et plateforme viennent de l'API
   const [quote, setQuote] = useState(null);

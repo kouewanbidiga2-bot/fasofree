@@ -6,7 +6,6 @@ import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
 import UserMenu from '../components/UserMenu';
 import NotificationDropdown from '../components/NotificationDropdown';
-import { restaurants as mockRestaurants } from '../services/data';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
@@ -38,7 +37,7 @@ const Home = () => {
   const { isAuthenticated } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [allRestaurants, setAllRestaurants] = useState(mockRestaurants);
+  const [allRestaurants, setAllRestaurants] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
 
@@ -47,28 +46,11 @@ const Home = () => {
     const loadBusinesses = async () => {
       try {
         const data = await api.getNearbyBusinesses(12.37, -1.52, 10000);
-        if (cancelled || !Array.isArray(data) || data.length === 0) return;
-        const mapped = data.map(mapBusinessToRestaurant);
-        setAllRestaurants((prev) => {
-          const prevMap = new Map(prev.map((r) => [r.id, r]));
-          const merged = mapped.map((r) => {
-            const existing = prevMap.get(r.id);
-            if (existing) {
-              return {
-                ...existing,
-                ...r,
-                logo: r.logo && !r.logo.includes('placeholder') ? r.logo : existing.logo,
-                coverImage: r.coverImage && !r.coverImage.includes('placeholder') ? r.coverImage : existing.coverImage,
-              };
-            }
-            return r;
-          });
-          const newIds = new Set(mapped.map((r) => r.id));
-          const extras = prev.filter((r) => !newIds.has(r.id));
-          return [...merged, ...extras];
-        });
+        if (!cancelled && Array.isArray(data)) {
+          setAllRestaurants(data.map(mapBusinessToRestaurant));
+        }
       } catch {
-        // Keep mock data on failure
+        // API failed — list stays empty
       }
     };
     loadBusinesses();
