@@ -34,14 +34,16 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
       return;
     }
 
+    const normalizedName = cloudName.trim().toLowerCase();
+
     cloudinary.config({
-      cloud_name: cloudName,
-      api_key: apiKey,
-      api_secret: apiSecret,
+      cloud_name: normalizedName,
+      api_key: apiKey.trim(),
+      api_secret: apiSecret.trim(),
       secure: true,
     });
 
-    this.logger.log('[Cloudinary] SDK initialisé avec succès');
+    this.logger.log(`[Cloudinary] SDK initialisé — cloud: ${normalizedName}`);
   }
 
   // ─── VALIDATION ─────────────────────────────────────────────────────────────
@@ -130,9 +132,13 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
         size: file.size,
       };
     } catch (error) {
-      this.logger.error(`[Cloudinary] Échec upload public (${folder}):`, error);
+      const detail = error?.message || JSON.stringify(error) || 'Erreur inconnue';
+      this.logger.error(`[Cloudinary] Échec upload public (${folder}): ${detail}`);
+      if (error?.http_code) {
+        this.logger.error(`[Cloudinary] HTTP ${error.http_code} — ${error.message}`);
+      }
       throw new BadRequestException(
-        `Échec de l'upload de l'image: ${error.message || 'Erreur Cloudinary'}`,
+        `Échec de l'upload: ${detail}`,
       );
     }
   }
@@ -154,9 +160,10 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
         size: file.size,
       };
     } catch (error) {
-      this.logger.error(`[Cloudinary] Échec upload privé (${folder}):`, error);
+      const detail = error?.message || JSON.stringify(error) || 'Erreur inconnue';
+      this.logger.error(`[Cloudinary] Échec upload privé (${folder}): ${detail}`);
       throw new BadRequestException(
-        `Échec de l'upload du document: ${error.message || 'Erreur Cloudinary'}`,
+        `Échec de l'upload du document: ${detail}`,
       );
     }
   }
