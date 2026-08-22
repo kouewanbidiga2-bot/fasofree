@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn } from 'lucide-react';
 import Footer from '../components/Footer';
@@ -39,47 +39,51 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [allRestaurants, setAllRestaurants] = useState(mockRestaurants);
-  const [filteredRestaurants, setFilteredRestaurants] = useState(mockRestaurants);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
 
   useEffect(() => {
+    let cancelled = false;
     const loadBusinesses = async () => {
       try {
         const data = await api.getNearbyBusinesses(12.37, -1.52, 10000);
-        if (Array.isArray(data) && data.length > 0) {
-          const mapped = data.map(mapBusinessToRestaurant);
-          setAllRestaurants(mapped);
-          setFilteredRestaurants(mapped);
-        }
+        if (cancelled || !Array.isArray(data) || data.length === 0) return;
+        const mapped = data.map(mapBusinessToRestaurant);
+        setAllRestaurants((prev) => {
+          const prevMap = new Map(prev.map((r) => [r.id, r]));
+          const merged = mapped.map((r) => {
+            const existing = prevMap.get(r.id);
+            if (existing) {
+              return {
+                ...existing,
+                ...r,
+                logo: r.logo && !r.logo.includes('placeholder') ? r.logo : existing.logo,
+                coverImage: r.coverImage && !r.coverImage.includes('placeholder') ? r.coverImage : existing.coverImage,
+              };
+            }
+            return r;
+          });
+          const newIds = new Set(mapped.map((r) => r.id));
+          const extras = prev.filter((r) => !newIds.has(r.id));
+          return [...merged, ...extras];
+        });
       } catch {
         // Keep mock data on failure
       }
     };
     loadBusinesses();
+    return () => { cancelled = true; };
   }, []);
 
   const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-    filterRestaurants(query, selectedCategory);
-  };
-
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-    filterRestaurants(searchQuery, category);
-  };
-
-  const filterRestaurants = (query, category) => {
+  const filteredRestaurants = useMemo(() => {
     let filtered = allRestaurants;
-
-    if (category !== 'all') {
-      filtered = filtered.filter((r) => r.cuisineType === category);
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter((r) => r.cuisineType === selectedCategory);
     }
-
-    if (query) {
-      const lowerQuery = query.toLowerCase();
+    if (searchQuery) {
+      const lowerQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (r) =>
           r.name.toLowerCase().includes(lowerQuery) ||
@@ -87,9 +91,16 @@ const Home = () => {
           r.cuisineType.toLowerCase().includes(lowerQuery)
       );
     }
+    return filtered;
+  }, [allRestaurants, selectedCategory, searchQuery]);
 
-    setFilteredRestaurants(filtered);
-  };
+  const handleSearch = useCallback((query) => {
+    setSearchQuery(query);
+  }, []);
+
+  const handleCategoryChange = useCallback((category) => {
+    setSelectedCategory(category);
+  }, []);
 
   return (
     <div className="app-page text-text-primary font-sans">
@@ -246,7 +257,6 @@ const Home = () => {
               onClick={() => {
                 setSearchQuery('');
                 setSelectedCategory('all');
-                setFilteredRestaurants(allRestaurants);
               }}
             >
               Réinitialiser les filtres
