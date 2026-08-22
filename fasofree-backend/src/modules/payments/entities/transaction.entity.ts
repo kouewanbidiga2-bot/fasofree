@@ -11,7 +11,8 @@ import { Order } from '../../orders/entities/order.entity';
 export enum PaymentMethod {
   ORANGE_MONEY = 'orange_money',
   MOOV_MONEY = 'moov_money',
-  CARD = 'card', // VISA / Mastercard
+  TELECEL_MONEY = 'telecel_money',
+  CARD = 'card',
   CASH = 'cash',
 }
 

@@ -17,6 +17,8 @@ import { Transaction, TransactionStatus } from './entities/transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
+import { YengaPayService, YengaPayWebhookPayload } from './providers/yengapay.service';
+import { resolvePaymentProvider } from '../../config/payment.config';
 
 @Injectable()
 export class PaymentsService {
@@ -31,9 +33,10 @@ export class PaymentsService {
     private readonly httpService: HttpService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
+    private readonly yengaPayService: YengaPayService,
   ) {}
 
-  // 🚀 1. Initier un guichet de paiement CinetPay via API REST
+  // 1. Initier un paiement — route vers le provider actif (YengaPay ou CinetPay)
   async initiatePayment(dto: InitiatePaymentDto, clientId: string) {
     const order = await this.orderRepository.findOne({
       where: { id: dto.orderId },
@@ -63,7 +66,54 @@ export class PaymentsService {
     });
     await this.transactionRepository.save(transaction);
 
-    // Payload envoyé à l'API CinetPay v2
+    // Routing vers le provider actif
+    const provider = resolvePaymentProvider(this.configService);
+
+    if (provider === 'yengapay' && this.yengaPayService.isConfigured()) {
+      return this.initiateYengaPay(order, reference, dto);
+    }
+
+    // Fallback CinetPay
+    return this.initiateCinetPay(order, reference, dto);
+  }
+
+  // YengaPay: créer un PaymentIntent et retourner l'URL checkout
+  private async initiateYengaPay(
+    order: Order,
+    reference: string,
+    dto: InitiatePaymentDto,
+  ) {
+    try {
+      const result = await this.yengaPayService.createCheckoutPayment({
+        amount: Number(order.totalAmount),
+        reference,
+        description: `Paiement Commande #${order.id.substring(0, 8)} - FasoFree`,
+        metadata: { orderId: order.id, paymentMethod: dto.paymentMethod },
+        customerEmail: dto.phoneNumber || undefined,
+      });
+
+      return {
+        reference,
+        checkoutUrl: result.checkoutUrl,
+        paymentIntentId: result.paymentIntentId,
+        amount: order.totalAmount,
+        provider: 'yengapay',
+        status: TransactionStatus.PENDING,
+      };
+    } catch (error) {
+      this.logger.error('Erreur YengaPay initiatePayment', error.message);
+      throw new BadRequestException(
+        error.message || 'Échec de l\'initialisation YengaPay',
+      );
+    }
+  }
+
+  // CinetPay: créer un guichet de paiement via API REST
+  private async initiateCinetPay(
+    order: Order,
+    reference: string,
+    dto: InitiatePaymentDto,
+  ) {
     const cinetpayPayload = {
       apikey: this.configService.get<string>('CINETPAY_API_KEY'),
       site_id: this.configService.get<string>('CINETPAY_SITE_ID'),
@@ -73,7 +123,7 @@ export class PaymentsService {
       description: `Paiement Commande #${order.id.substring(0, 8)} - FasoFree`,
       notify_url: this.configService.get<string>('APP_WEBHOOK_URL'),
       return_url: `${this.configService.get<string>('APP_RETURN_URL')}?orderId=${order.id}`,
-      channels: 'ALL', // Permet Mobile Money (Orange/Moov) & Carte Bancaire
+      channels: 'ALL',
     };
 
     try {
@@ -93,9 +143,10 @@ export class PaymentsService {
 
       return {
         reference,
-        paymentUrl: data.payment_url, // URL de paiement vers laquelle rediriger le client
+        paymentUrl: data.payment_url,
         paymentToken: data.payment_token,
         amount: order.totalAmount,
+        provider: 'cinetpay',
         status: TransactionStatus.PENDING,
       };
     } catch (error) {

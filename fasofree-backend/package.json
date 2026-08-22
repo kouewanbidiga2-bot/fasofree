@@ -45,6 +45,7 @@
     "@nestjs/websockets": "^11.1.28",
     "@sentry/nestjs": "^10.70.0",
     "@types/nodemailer": "^8.0.1",
+    "@yengapay/nodejs-sdk": "^0.1.0",
     "axios": "^1.18.1",
     "bcrypt": "^6.0.0",
     "cache-manager": "^7.2.9",
