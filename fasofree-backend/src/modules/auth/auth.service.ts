@@ -15,6 +15,7 @@ import { SubscriptionService } from '../subscriptions/subscription.service';
 import { KycService } from '../kyc/kyc.service';
 import { KycDocumentType } from '../kyc/entities/kyc-document.entity';
 import { UsersService } from '../users/users.service';
+import { OtpService } from '../otp/otp.service';
 
 /** Champs fichiers KYC acceptés dans la candidature multipart */
 const KYC_FILE_FIELDS: Record<string, KycDocumentType> = {
@@ -35,6 +36,7 @@ export class AuthService {
     private readonly subscriptionService: SubscriptionService,
     private readonly kycService: KycService,
     private readonly usersService: UsersService,
+    private readonly otpService: OtpService,
   ) {}
 
   // 📝 1. Inscription d'un nouvel utilisateur
@@ -81,8 +83,17 @@ export class AuthService {
       this.logger.warn(`Event USER_REGISTERED emit failed: ${(err as Error).message}`);
     }
 
-    // Retourner un token JWT — l'utilisateur est connecté mais doit vérifier son compte via OTP
-    return this.generateToken(user);
+    const tokenPayload = this.generateToken(user);
+
+    // Auto-send OTP for email/phone verification
+    try {
+      await this.otpService.sendOtp(user.id);
+      this.logger.log(`[Register] OTP envoye automatiquement a ${user.email}`);
+    } catch (err) {
+      this.logger.warn(`[Register] Echec envoi OTP automatique: ${(err as Error).message}`);
+    }
+
+    return tokenPayload;
   }
 
   // 🚦 1bis. Candidature MARCHAND / LIVREUR (onboarding avec KYC)

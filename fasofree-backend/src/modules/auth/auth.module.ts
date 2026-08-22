@@ -11,6 +11,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { KycModule } from '../kyc/kyc.module';
 import { UsersModule } from '../users/users.module';
+import { OtpModule } from '../otp/otp.module';
 import { VerifiedGuard } from './guards/verified.guard';
 
 function normalizeExpiresIn(
@@ -80,6 +81,7 @@ function normalizeExpiresIn(
     SubscriptionsModule,
     KycModule,
     UsersModule,
+    OtpModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, VerifiedGuard],
