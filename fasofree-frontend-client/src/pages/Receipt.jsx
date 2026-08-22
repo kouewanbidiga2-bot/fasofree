@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Check, Download, Home, Loader2 } from 'lucide-react';
 import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
@@ -8,19 +8,22 @@ import { api } from '../services/api';
 const Receipt = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { clearCart } = useCartStore();
   const { addReceipt } = useAuthStore();
   
   const incoming = location.state || {};
+  const orderIdFromParams = searchParams.get('orderId') || searchParams.get('reference');
+  const orderId = incoming.orderId || orderIdFromParams;
   const [orderDetails, setOrderDetails] = React.useState(null);
-  const [loading, setLoading] = React.useState(!!incoming.orderId);
+  const [loading, setLoading] = React.useState(!!orderId);
   const [error, setError] = React.useState(null);
 
   React.useEffect(() => {
-    if (!incoming.orderId) return;
+    if (!orderId) return;
     let cancelled = false;
     setLoading(true);
-    api.getOrder(incoming.orderId)
+    api.getOrder(orderId)
       .then((order) => {
         if (cancelled) return;
         const items = (order.items || []).map((i) => ({
@@ -54,10 +57,10 @@ const Receipt = () => {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [incoming.orderId]);
+  }, [orderId]);
 
   const details = orderDetails || {
-    id: incoming.orderId || 'FF' + Date.now().toString().slice(-8),
+    id: orderId || 'FF' + Date.now().toString().slice(-8),
     date: new Date().toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',

@@ -98,6 +98,9 @@ export const api = {
   clientValidateWithPin: (id, pinCode) => apiFetch(`/orders/${id}/client-validate`, { method: 'POST', body: { pinCode } }),
   updateDriverStatus: (data) => apiFetch('/users/me/driver-status', { method: 'PATCH', body: data }),
 
+  // Paiement
+  initiatePayment: (data) => apiFetch('/payments/initiate', { method: 'POST', body: data }),
+
   // Chat éphémère
   getChatHistory: (orderId, channel = 'driver') => apiFetch(`/chat/${orderId}?channel=${channel}`, { method: 'GET' }),
   

@@ -1,13 +1,12 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios'; // 👈 Injection du module Axios pour HttpService
+import { HttpModule } from '@nestjs/axios';
 
 import { PaymentsService } from './payments.service';
 import { PayoutsService } from './payouts.service';
 import { WebhooksService } from './webhooks.service';
 import { PaymentsController } from './payments.controller';
 
-// Entités TypeORM
 import { MerchantPayout } from './entities/merchant-payout.entity';
 import { Transaction } from './entities/transaction.entity';
 import { FinancialLedger } from './entities/financial-ledger.entity';
@@ -16,11 +15,12 @@ import { Business } from '../businesses/entities/business.entity';
 import { RedisModule } from '../../core/redis/redis.module';
 import { OrdersModule } from '../orders/orders.module';
 import { LigdiCashModule } from './ligdicash.module';
+import { YengaPayService } from './providers/yengapay.service';
 
 @Module({
   imports: [
     RedisModule,
-    HttpModule, // 👈 Règle l'erreur 'HttpService at index [3]'
+    HttpModule,
     forwardRef(() => OrdersModule),
     forwardRef(() => LigdiCashModule),
     TypeOrmModule.forFeature([
@@ -32,7 +32,7 @@ import { LigdiCashModule } from './ligdicash.module';
     ]),
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PayoutsService, WebhooksService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, TypeOrmModule],
+  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService],
+  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, TypeOrmModule],
 })
 export class PaymentsModule {}

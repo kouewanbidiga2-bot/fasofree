@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Headers,
   Request,
+  Logger,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -23,15 +24,19 @@ import { PayOrderDto } from './dto/pay-order.dto';
 import { WaveWebhookGuard } from './guards/webhook-signature.guard';
 import { LigdiCashService } from './providers/ligdicash.service';
 import { MockPaymentService } from './providers/mock-payment.service';
+import { YengaPayService } from './providers/yengapay.service';
 import { isMockProvider } from '../../config/payment.config';
 
 @ApiTags('Payments')
 @Controller('payments')
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly ligdiCashService: LigdiCashService,
     private readonly mockPaymentService: MockPaymentService,
+    private readonly yengaPayService: YengaPayService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -122,5 +127,58 @@ export class PaymentsController {
     @Headers('x-ligdicash-token') token: string,
   ) {
     return this.paymentsService.handleLigdicashWebhook(payload, token);
+  }
+
+  /**
+   * 4. Webhook YengaPay (Orange Money / Moov Money / Telecel Money)
+   * Endpoint public : POST /payments/yengapay/webhook
+   * Vérifie la signature HMAC-SHA256 via x-webhook-hash
+   */
+  @Post('webhook/yengapay')
+  @ApiHeader({
+    name: 'x-webhook-hash',
+    required: true,
+    description: 'Signature HMAC-SHA256 du payload YengaPay',
+  })
+  @ApiOperation({ summary: 'Recevoir la confirmation de paiement YengaPay' })
+  @HttpCode(HttpStatus.OK)
+  async handleYengaPayWebhook(
+    @Body() payload: any,
+    @Headers('x-webhook-hash') webhookHash: string,
+  ) {
+    if (!this.yengaPayService.isConfigured()) {
+      this.logger.warn('Webhook YengaPay reçu mais YengaPay n\'est pas configuré');
+      return { ok: false, error: 'YengaPay not configured' };
+    }
+
+    if (webhookHash && !this.yengaPayService.verifyWebhookSignature(payload, webhookHash)) {
+      this.logger.warn('Webhook YengaPay: signature invalide');
+      return { ok: false, error: 'Invalid signature' };
+    }
+
+    const { orderId, transactionRef, status, amount } =
+      this.yengaPayService.extractOrderInfo(payload);
+
+    if (!orderId || !transactionRef) {
+      this.logger.warn('Webhook YengaPay: orderId ou transactionRef manquant', payload);
+      return { ok: false, error: 'Missing orderId or transactionRef' };
+    }
+
+    if (status === 'SUCCESS') {
+      await this.paymentsService.processSuccessfulPayment(
+        orderId,
+        transactionRef,
+        'YENGAPAY',
+      );
+      this.logger.log(
+        `YengaPay webhook traité: commande ${orderId} marquée PAID`,
+      );
+    } else {
+      this.logger.warn(
+        `YengaPay webhook: paiement échoué pour la commande ${orderId}`,
+      );
+    }
+
+    return { ok: true };
   }
 }

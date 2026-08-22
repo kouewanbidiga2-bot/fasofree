@@ -84,7 +84,16 @@ const Checkout = () => {
     e.preventDefault();
     if (submitting) return;
 
-    const paymentMethod = e.target.payment?.value || 'ORANGE_MONEY';
+    const paymentMethodRaw = e.target.payment?.value || 'orange';
+    const paymentMethodMap = {
+      orange: 'ORANGE_MONEY',
+      moov: 'MOOV_MONEY',
+      telecel: 'TELECEL_MONEY',
+      wave: 'WAVE',
+      visa: 'CARD',
+      mastercard: 'CARD',
+    };
+    const paymentMethod = paymentMethodMap[paymentMethodRaw] || paymentMethodRaw.toUpperCase();
     const coords = deliveryCoords || DEFAULT_DELIVERY_COORDS;
 
     setSubmitting(true);
@@ -132,6 +141,21 @@ const Checkout = () => {
         fulfillmentType,
         status: order.status || 'pending',
       });
+
+      try {
+        const payResult = await api.initiatePayment({
+          orderId: order.id,
+          paymentMethod,
+          phoneNumber: formData.phone || undefined,
+        });
+
+        if (payResult?.checkoutUrl) {
+          window.location.href = payResult.checkoutUrl;
+          return;
+        }
+      } catch (payErr) {
+        console.warn('Payment initiate skipped (mock or provider unavailable):', payErr?.message);
+      }
 
       navigate('/receipt', {
         replace: true,
