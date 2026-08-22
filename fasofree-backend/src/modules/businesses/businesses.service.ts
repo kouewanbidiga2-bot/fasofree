@@ -195,6 +195,8 @@ export class BusinessesService {
       business.hasOwnDrivers = dto.hasOwnDrivers;
     if (dto.isOpen !== undefined) business.isOpen = dto.isOpen;
     if (dto.brandId !== undefined) business.brandId = dto.brandId;
+    if (dto.logo !== undefined) (business as any).logo = dto.logo || null;
+    if (dto.coverImage !== undefined) (business as any).coverImage = dto.coverImage || null;
     if (dto.mobileMoneyNumber !== undefined) business.mobileMoneyNumber = dto.mobileMoneyNumber || null;
     if (dto.mobileMoneyProvider !== undefined) (business as any).mobileMoneyProvider = dto.mobileMoneyProvider || null;
 

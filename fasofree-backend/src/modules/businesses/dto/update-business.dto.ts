@@ -75,6 +75,16 @@ export class UpdateBusinessDto {
   @IsOptional()
   brandId?: string;
 
+  @ApiPropertyOptional({ description: 'URL du logo du commerce' })
+  @IsString()
+  @IsOptional()
+  logo?: string;
+
+  @ApiPropertyOptional({ description: "URL de l'image de couverture" })
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
+
   @ApiPropertyOptional({ description: 'Numero Mobile Money pour les retraits' })
   @IsString()
   @IsOptional()
