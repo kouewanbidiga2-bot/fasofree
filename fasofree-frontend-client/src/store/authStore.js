@@ -11,7 +11,7 @@ const loadInitial = () => {
   return { user: null, isAuthenticated: false };
 };
 
-const ADMIN_APP_URL = 'https://fasofree-admin.onrender.com';
+const ADMIN_APP_URL = 'https://admin.fasofree.site';
 
 export const getHomeRoute = (role) => {
   const r = String(role || '').toUpperCase();
