@@ -12,9 +12,10 @@ const storageDriverProvider: Provider = {
   inject: [ConfigService],
   useFactory: (configService: ConfigService): IStorageDriver => {
     const hasCloudinary =
-      !!configService.get<string>('CLOUDINARY_CLOUD_NAME') &&
-      !!configService.get<string>('CLOUDINARY_API_KEY') &&
-      !!configService.get<string>('CLOUDINARY_API_SECRET');
+      !!configService.get<string>('CLOUDINARY_URL') ||
+      (!!configService.get<string>('CLOUDINARY_CLOUD_NAME') &&
+       !!configService.get<string>('CLOUDINARY_API_KEY') &&
+       !!configService.get<string>('CLOUDINARY_API_SECRET'));
 
     if (hasCloudinary) {
       return new CloudinaryStorageProvider(configService);

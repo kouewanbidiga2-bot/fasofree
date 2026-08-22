@@ -23,27 +23,34 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
+    const cloudUrl = this.configService.get<string>('CLOUDINARY_URL');
     const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME');
     const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY');
     const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET');
 
-    if (!cloudName || !apiKey || !apiSecret) {
-      this.logger.warn(
-        '[Cloudinary] Variables CLOUDINARY_CLOUD_NAME / API_KEY / API_SECRET non configurées',
-      );
+    // 1. Priorité aux 3 vars individuelles
+    if (cloudName && apiKey && apiSecret) {
+      const normalizedName = cloudName.trim().toLowerCase();
+      cloudinary.config({
+        cloud_name: normalizedName,
+        api_key: apiKey.trim(),
+        api_secret: apiSecret.trim(),
+        secure: true,
+      });
+      this.logger.log(`[Cloudinary] Configuré via vars individuelles — cloud: ${normalizedName}`);
       return;
     }
 
-    const normalizedName = cloudName.trim().toLowerCase();
+    // 2. Fallback : CLOUDINARY_URL (format cloudinary://key:secret@cloud)
+    if (cloudUrl) {
+      cloudinary.config({ secure: true });
+      this.logger.log('[Cloudinary] Configuré via CLOUDINARY_URL');
+      return;
+    }
 
-    cloudinary.config({
-      cloud_name: normalizedName,
-      api_key: apiKey.trim(),
-      api_secret: apiSecret.trim(),
-      secure: true,
-    });
-
-    this.logger.log(`[Cloudinary] SDK initialisé — cloud: ${normalizedName}`);
+    this.logger.warn(
+      '[Cloudinary] Aucune variable configurée (CLOUDINARY_URL ou CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET)',
+    );
   }
 
   // ─── VALIDATION ─────────────────────────────────────────────────────────────
