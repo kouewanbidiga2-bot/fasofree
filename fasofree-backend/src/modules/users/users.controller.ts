@@ -28,6 +28,7 @@ import { UpdateUserStatusDto } from './dto/update-user-status.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdatePaymentInfoDto } from './dto/update-payment-info.dto';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { STORAGE_DRIVER } from '../upload/upload.tokens';
@@ -72,6 +73,21 @@ export class UsersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.usersService.updateProfile(userId, dto);
+  }
+
+  // 💰 Route protégée : Mettre à jour les informations de paiement Mobile Money
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('me/payment-info')
+  @ApiOperation({ summary: "Mettre à jour le numéro Mobile Money et l'opérateur de paiement" })
+  async updatePaymentInfo(
+    @Body() dto: UpdatePaymentInfoDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.usersService.updatePaymentInfo(userId, dto);
   }
 
   // 📸 Mettre à jour l'avatar de profil (upload vers Cloudinary)

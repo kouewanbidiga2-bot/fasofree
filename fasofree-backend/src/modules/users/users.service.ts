@@ -370,6 +370,19 @@ export class UsersService implements OnModuleInit {
     return this.userRepository.save(user);
   }
 
+  async updatePaymentInfo(userId: string, data: { mobileMoneyNumber?: string; mobileMoneyProvider?: string }): Promise<User> {
+    const user = await this.findById(userId);
+
+    if (data.mobileMoneyNumber !== undefined) {
+      user.mobileMoneyNumber = data.mobileMoneyNumber || null;
+    }
+    if (data.mobileMoneyProvider !== undefined) {
+      (user as any).mobileMoneyProvider = data.mobileMoneyProvider || null;
+    }
+
+    return this.userRepository.save(user);
+  }
+
   async findAll(): Promise<User[]> {
     return this.userRepository.find();
   }

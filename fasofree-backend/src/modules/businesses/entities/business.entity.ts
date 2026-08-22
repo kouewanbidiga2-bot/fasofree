@@ -11,6 +11,7 @@ import {
 import type { Point } from 'typeorm'; // 💡 'import type' résout l'erreur TS1272
 import { Product } from '../../products/entities/product.entity';
 import { Brand } from '../../brands/entities/brand.entity';
+import { MobileMoneyProvider } from '../../users/entities/user.entity';
 
 /**
  * 🏪 Catégories de commerces (Multi-Secteurs)
@@ -37,6 +38,17 @@ export class Business {
 
   @Column({ type: 'varchar', length: 20 })
   phone: string;
+
+  // 💰 NUMERO MOBILE MONEY DEDIE AUX PAIEMENTS MARCHANDS (retraits)
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  mobileMoneyNumber?: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: MobileMoneyProvider,
+    nullable: true,
+  })
+  mobileMoneyProvider?: MobileMoneyProvider | null;
 
   @Column({ type: 'uuid', nullable: true })
   ownerId: string | null;

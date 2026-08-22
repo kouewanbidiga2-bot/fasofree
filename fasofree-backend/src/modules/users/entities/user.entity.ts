@@ -26,6 +26,13 @@ export enum VehicleCategory {
   PREMIUM = 'PREMIUM',
 }
 
+export enum MobileMoneyProvider {
+  WAVE = 'WAVE',
+  ORANGE_MONEY = 'ORANGE_MONEY',
+  MOOV_MONEY = 'MOOV_MONEY',
+  TELECEL_MONEY = 'TELECEL_MONEY',
+}
+
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
@@ -39,6 +46,18 @@ export class User {
 
   @Column({ type: 'varchar', unique: true, length: 20 })
   phone: string;
+
+  // 💰 NUMÉRO MOBILE MONEY DÉDIÉ AUX PAIEMENTS (retraits / dépôts)
+  // Séparé du numéro de contact (phone) pour éviter les conflits.
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  mobileMoneyNumber?: string | null;
+
+  @Column({
+    type: 'enum',
+    enum: MobileMoneyProvider,
+    nullable: true,
+  })
+  mobileMoneyProvider?: MobileMoneyProvider | null;
 
   @Column({ nullable: true })
   fcmToken?: string;

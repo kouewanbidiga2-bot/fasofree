@@ -9,6 +9,7 @@ import {
   IsUUID,
 } from 'class-validator';
 import { BusinessCategory } from '../entities/business.entity';
+import { MobileMoneyProvider } from '../../users/entities/user.entity';
 
 export class UpdateBusinessDto {
   @ApiPropertyOptional({ description: 'Nom du commerce' })
@@ -73,4 +74,14 @@ export class UpdateBusinessDto {
   @IsUUID()
   @IsOptional()
   brandId?: string;
+
+  @ApiPropertyOptional({ description: 'Numero Mobile Money pour les retraits' })
+  @IsString()
+  @IsOptional()
+  mobileMoneyNumber?: string;
+
+  @ApiPropertyOptional({ enum: MobileMoneyProvider, description: 'Operateur Mobile Money' })
+  @IsEnum(MobileMoneyProvider)
+  @IsOptional()
+  mobileMoneyProvider?: MobileMoneyProvider;
 }

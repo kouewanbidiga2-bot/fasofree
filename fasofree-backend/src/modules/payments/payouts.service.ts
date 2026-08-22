@@ -68,17 +68,21 @@ export class PayoutsService {
       return existingPayout;
     }
 
-    // 4️⃣ Récupération des informations du marchand (Simulé ici, à lier avec ton BusinessService/User)
+    // 4️⃣ Récupération des informations du marchand
     const business = await this.businessRepository.findOne({
       where: { id: order.businessId },
     });
-    if (!business?.phone) {
+
+    // Priorité: mobileMoneyNumber (dédié paiements) > phone (contact)
+    const merchantPhoneNumber = business?.mobileMoneyNumber || business?.phone;
+    if (!merchantPhoneNumber) {
       throw new NotFoundException(
-        `Numéro de paiement introuvable pour le commerce ${order.businessId}`,
+        `Numéro de paiement introuvable pour le commerce ${order.businessId}. Le marchand doit configurer son numéro Mobile Money.`,
       );
     }
-    const merchantPhoneNumber = business.phone;
-    const preferredProvider = PayoutProvider.ORANGE_MONEY; // À configurer selon le profil du marchand
+
+    // Priorite: mobileMoneyProvider configure > defaut ORANGE_MONEY
+    const preferredProvider = (business?.mobileMoneyProvider as unknown as PayoutProvider) || PayoutProvider.ORANGE_MONEY;
 
     // 5️⃣ Création de l'enregistrement Payout (Statut PENDING)
     const payout = this.payoutRepository.create({

@@ -22,6 +22,7 @@ export enum PayoutProvider {
   ORANGE_MONEY = 'ORANGE_MONEY',
   MOOV_MONEY = 'MOOV_MONEY',
   WAVE = 'WAVE',
+  TELECEL_MONEY = 'TELECEL_MONEY',
 }
 
 @Entity('merchant_payouts')
