@@ -102,12 +102,41 @@ export const updateDriverLocation = async (orderId, location) => {
   }
 };
 
+// ─── DISPATCH (LIVREUR) ────────────────────────────────────────────────────
+
+/**
+ * Lister les courses disponibles (status READY_FOR_PICKUP)
+ */
+export const getAvailableDispatchOrders = async () => {
+  const response = await api.get('/dispatch/available');
+  return response.data;
+};
+
+/**
+ * Accepter une course (livreur)
+ */
+export const acceptDispatchOrder = async (orderId) => {
+  const response = await api.post(`/dispatch/accept/${orderId}`);
+  return response.data;
+};
+
+/**
+ * Passer au statut suivant (livreur)
+ */
+export const advanceOrderStatus = async (orderId, status) => {
+  const response = await api.patch(`/orders/${orderId}/status`, { status });
+  return response.data;
+};
+
 // ─── Helpers pour les labels et couleurs de statut ──────────────────────
 export const ORDER_STATUS = {
   [OrderStatus.PENDING]: { label: 'En attente', color: 'warning', dot: '#F59E0B' },
   [OrderStatus.PAID]: { label: 'Payée', color: 'info', dot: '#3B82F6' },
   [OrderStatus.IN_PREPARATION]: { label: 'En préparation', color: 'processing', dot: '#FF6600' },
+  [OrderStatus.READY_FOR_PICKUP]: { label: 'Prête (retrait)', color: 'success', dot: '#22C55E' },
+  [OrderStatus.DRIVER_ASSIGNED]: { label: 'Livreur assigné', color: 'info', dot: '#3B82F6' },
   [OrderStatus.PROCESSING]: { label: 'En cours', color: 'info', dot: '#3B82F6' },
+  [OrderStatus.IN_DELIVERY]: { label: 'En livraison', color: 'processing', dot: '#FF6600' },
   [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: { label: 'Livrée (attente)', color: 'processing', dot: '#FF6600' },
   [OrderStatus.DELIVERED]: { label: 'Livrée', color: 'success', dot: '#22C55E' },
   [OrderStatus.COMPLETED]: { label: 'Terminée', color: 'success', dot: '#22C55E' },

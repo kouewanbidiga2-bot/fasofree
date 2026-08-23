@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { DispatchGateway } from './dispatch.gateway';
 import { DispatchService } from './dispatch.service';
+import { DispatchController } from './dispatch.controller';
 import { LocationHandler } from './handlers/location.handler';
 import { RoomHandler } from './handlers/room.handler';
 import { OrdersModule } from '../orders/orders.module';
@@ -36,6 +37,7 @@ import { Order } from '../orders/entities/order.entity';
       }),
     }),
   ],
+  controllers: [DispatchController],
   providers: [DispatchGateway, DispatchService, LocationHandler, RoomHandler],
   exports: [DispatchGateway, DispatchService, JwtModule],
 })

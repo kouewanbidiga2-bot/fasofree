@@ -70,6 +70,63 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
 ];
 
 /**
+ * 🔄 Machine à États (FSM) des statuts de commande.
+ * KEY = statut actuel → VALUES = statuts autorisés en transition.
+ *
+ * RÈGLES MÉTIER :
+ * - PREPARING → READY_FOR_PICKUP : restaurant uniquement
+ * - READY_FOR_PICKUP → DRIVER_ASSIGNED : livreur/coursier uniquement
+ * - DRIVER_ASSIGNED → IN_DELIVERY : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
+ * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
+ */
+const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
+  [OrderStatus.IN_PREPARATION]: [
+    OrderStatus.READY_FOR_PICKUP,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.DRIVER_ASSIGNED, OrderStatus.CANCELLED],
+  [OrderStatus.DRIVER_ASSIGNED]: [OrderStatus.IN_DELIVERY, OrderStatus.CANCELLED],
+  [OrderStatus.IN_DELIVERY]: [OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: [
+    OrderStatus.DELIVERED,
+    OrderStatus.COMPLETED,
+    OrderStatus.DISPUTED,
+  ],
+  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.DISPUTED, OrderStatus.REFUNDED],
+  [OrderStatus.PROCESSING]: [OrderStatus.IN_DELIVERY, OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
+  [OrderStatus.COMPLETED]: [],
+  [OrderStatus.CANCELLED]: [],
+  [OrderStatus.FAILED]: [],
+  [OrderStatus.DISPUTED]: [OrderStatus.REFUNDED, OrderStatus.COMPLETED],
+  [OrderStatus.REFUNDED]: [],
+};
+
+/**
+ * 🔒 Rôles autorisés par transition de statut.
+ * Si une transition n'est pas listée ici, elle est refusée.
+ */
+const DRIVER_TRANSITIONS: OrderStatus[] = [
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.IN_DELIVERY,
+  OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+];
+
+const MERCHANT_TRANSITIONS: OrderStatus[] = [
+  OrderStatus.IN_PREPARATION,
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.CANCELLED,
+];
+
+/**
+ * ⏳ Délai de séquestre financier (3 heures en millisecondes).
+ * Les fonds marchand et livreur ne sont libérés qu'après ce délai,
+ * sauf si un litige (DISPUTE) est créé avant.
+ */
+const HOLDING_PERIOD_MS = 3 * 60 * 60 * 1000;
+
+/**
  * 🧾 DTO de réponse pour l'application Mobile Client
  */
 export interface ClientInvoiceResponse {
@@ -1135,45 +1192,78 @@ export class OrdersService {
       throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
     }
 
-    await this.businessesService.assertManagedBy(
-      order.businessId,
-      userId,
-      role,
-    );
-
     const previousStatus = order.status;
+
+    // 🔒 1. Vérifier que la transition est possible dans la FSM
+    const allowedTransitions = ORDER_STATUS_FSM[previousStatus] || [];
+    if (!allowedTransitions.includes(status)) {
+      throw new BadRequestException(
+        `Transition invalide : ${previousStatus} → ${status}. Transitions autorisées : ${allowedTransitions.join(', ') || 'aucune'}`,
+      );
+    }
+
+    // 🔒 2. Vérifier que le rôle est autorisé pour cette transition
+    const isDriverTransition = DRIVER_TRANSITIONS.includes(status);
+    const isMerchantTransition =
+      MERCHANT_TRANSITIONS.includes(status) ||
+      status === OrderStatus.CANCELLED;
+
+    // Déterminer si c'est une flotte interne (hasOwnDrivers)
+    let hasOwnFleet = false;
+    if (order.businessId) {
+      try {
+        const business = await this.businessesService.findOne(order.businessId);
+        hasOwnFleet = business?.hasOwnDrivers === true;
+      } catch {
+        // fallback: pas de fleet interne
+      }
+    }
+
+    const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
+    const isMerchant = role === UserRole.BUSINESS_ADMIN;
+
+    // Le restaurant peut gérer IN_DELIVERY / DELIVERED uniquement si hasOwnFleet
+    if (isDriverTransition) {
+      if (isDriver) {
+        // OK — le livreur peut faire ces transitions
+      } else if (isMerchant && hasOwnFleet) {
+        // OK — le restaurant avec flotte interne peut gérer
+      } else if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
+        // OK — admin peut tout
+      } else {
+        throw new ForbiddenException(
+          `Transition ${status} réservée aux livreurs/coursiers` +
+            (hasOwnFleet ? '' : ' (flotte interne non activée)'),
+        );
+      }
+    }
+
+    if (isMerchantTransition && isDriver) {
+      throw new ForbiddenException(
+        `Transition ${status} réservée au restaurant`,
+      );
+    }
+
+    // ✅ Appliquer la transition
     order.status = status;
     const updatedOrder = await this.orderRepository.save(order);
+
+    // ⏳ 3. Séquestre financier : programmer la libération des fonds à J+3h
+    if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
+      updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
+      updatedOrder.payoutReleased = false;
+      await this.orderRepository.save(updatedOrder);
+      this.logger.log(
+        `[Holding] Commande #${id} → séquestre 3h (libération prévue ${updatedOrder.payoutScheduledAt.toISOString()})`,
+      );
+    }
 
     // 🔔 Settlement financier : livreur (delivered) & marchand (completed)
     this.emitOrderSettlementEvents(updatedOrder, previousStatus);
     // 💬 Archivage du chat éphémère si la commande atteint un statut terminal
     this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
 
-    if (
-      (status === OrderStatus.DELIVERED || status === OrderStatus.COMPLETED) &&
-      previousStatus !== OrderStatus.DELIVERED &&
-      previousStatus !== OrderStatus.COMPLETED
-    ) {
-      this.payoutsService
-        .processAutomaticPayout(updatedOrder.id)
-        .catch((err) => {
-          this.logger.error(
-            `Erreur arrière-plan lors du Payout #${updatedOrder.id}`,
-            err,
-          );
-        });
-    }
-
-    try {
-      await this.analyticsService.invalidateMerchantCache(order.businessId);
-    } catch (error) {
-      this.logger.warn(
-        `Échec invalidation cache analytics: ${error?.message || error}`,
-      );
-    }
-
-    // 🚀 Auto-Dispatch: Quand la commande est payée (confirmée) ou en préparation
+    // 🚀 Auto-Dispatch: Quand la commande est en préparation
     if (
       (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
       previousStatus !== OrderStatus.PAID &&
@@ -1191,6 +1281,14 @@ export class OrdersService {
 
     // 📱 Notifications FCM & WebSocket selon le statut
     await this.sendStatusNotifications(updatedOrder, previousStatus);
+
+    try {
+      await this.analyticsService.invalidateMerchantCache(order.businessId);
+    } catch (error) {
+      this.logger.warn(
+        `Échec invalidation cache analytics: ${error?.message || error}`,
+      );
+    }
 
     return updatedOrder;
   }
@@ -1520,6 +1618,58 @@ export class OrdersService {
       this.logger.log(
         `[Auto-Completed] Commande #${order.id} complétée automatiquement (24h sans action client).`,
       );
+    }
+  }
+
+  // ========================================================================
+  // ⏳ CRON : Séquestre financier 3h — libération des fonds après holding
+  // Vérifie toutes les 5 minutes les commandes dont le payoutScheduledAt est dépassé
+  // et dont aucun litige n'a été créé.
+  // ========================================================================
+  @Cron('*/5 * * * *')
+  async releaseHeldPayouts(): Promise<void> {
+    const now = new Date();
+
+    const heldOrders = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order."payoutScheduledAt" IS NOT NULL')
+      .andWhere('order."payoutScheduledAt" <= :now', { now })
+      .andWhere('order."payoutReleased" = false')
+      .andWhere('order.status != :disputed', { disputed: OrderStatus.DISPUTED })
+      .andWhere('order.status != :cancelled', { cancelled: OrderStatus.CANCELLED })
+      .andWhere('order.status != :refunded', { refunded: OrderStatus.REFUNDED })
+      .getMany();
+
+    if (heldOrders.length === 0) return;
+
+    this.logger.log(
+      `[Holding Cron] ${heldOrders.length} commande(s) à libérer après séquestre 3h`,
+    );
+
+    for (const order of heldOrders) {
+      try {
+        // Marquer comme libéré
+        order.payoutReleased = true;
+        await this.orderRepository.save(order);
+
+        // Déclencher le payout automatique (marchand + livreur)
+        this.payoutsService
+          .processAutomaticPayout(order.id)
+          .catch((err) => {
+            this.logger.error(
+              `[Holding Cron] Erreur payout libéré #${order.id}`,
+              err,
+            );
+          });
+
+        this.logger.log(
+          `[Holding Released] Commande #${order.id} — fonds libérés (pas de litige)`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `[Holding Cron] Échec libération #${order.id}: ${error.message}`,
+        );
+      }
     }
   }
 

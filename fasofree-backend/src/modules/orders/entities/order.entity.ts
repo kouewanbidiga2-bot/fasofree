@@ -14,8 +14,11 @@ import { Transaction } from '../../payments/entities/transaction.entity';
 export enum OrderStatus {
   PENDING = 'PENDING',
   PAID = 'PAID',
-  IN_PREPARATION = 'IN_PREPARATION', // Add for PaymentsService
+  IN_PREPARATION = 'IN_PREPARATION',
+  READY_FOR_PICKUP = 'READY_FOR_PICKUP',
+  DRIVER_ASSIGNED = 'DRIVER_ASSIGNED',
   PROCESSING = 'PROCESSING',
+  IN_DELIVERY = 'IN_DELIVERY',
   DELIVERED_PENDING_CONFIRMATION = 'DELIVERED_PENDING_CONFIRMATION',
   DELIVERED = 'DELIVERED',
   COMPLETED = 'COMPLETED',
@@ -269,6 +272,13 @@ export class Order {
   // --- 🎫 QR CODE (PICKUP / DINE_IN) ---
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
   qrCode: string | null;
+
+  // --- ⏳ SÉQUESTRE FINANCIER (3h holding) ---
+  @Column({ type: 'timestamp', nullable: true })
+  payoutScheduledAt: Date | null;
+
+  @Column({ type: 'boolean', default: false })
+  payoutReleased: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

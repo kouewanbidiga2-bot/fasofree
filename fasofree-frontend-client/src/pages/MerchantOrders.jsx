@@ -18,6 +18,8 @@ const STATUS_CONFIG = {
   PENDING: { label: 'En attente', bg: 'bg-warning/15', text: 'text-warning', icon: Clock },
   PAID: { label: 'Payée', bg: 'bg-info/15', text: 'text-info', icon: CheckCircle2 },
   IN_PREPARATION: { label: 'En préparation', bg: 'bg-[#B8862E]/15', text: 'text-[#B8862E]', icon: Package },
+  READY_FOR_PICKUP: { label: 'Prête (retrait)', bg: 'bg-success/15', text: 'text-success', icon: CheckCircle2 },
+  IN_DELIVERY: { label: 'En livraison', bg: 'bg-[#B8862E]/15', text: 'text-[#B8862E]', icon: Package },
   DELIVERED: { label: 'Livrée', bg: 'bg-success/15', text: 'text-success', icon: CheckCircle2 },
   CANCELLED: { label: 'Annulée', bg: 'bg-error/15', text: 'text-error', icon: XCircle },
 };
@@ -80,6 +82,20 @@ const MerchantOrders = () => {
       await api.updateOrderStatus(orderId, 'IN_PREPARATION');
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: 'IN_PREPARATION' } : o))
+      );
+    } catch {
+      // silently fail
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const handleReadyForPickup = async (orderId) => {
+    try {
+      setUpdatingId(orderId);
+      await api.updateOrderStatus(orderId, 'READY_FOR_PICKUP');
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: 'READY_FOR_PICKUP' } : o))
       );
     } catch {
       // silently fail
@@ -156,6 +172,7 @@ const MerchantOrders = () => {
               const Icon = cfg.icon;
               const expanded = expandedId === order.id;
               const canPrepare = order.status === 'PENDING' || order.status === 'PAID';
+              const canMarkReady = order.status === 'IN_PREPARATION';
               const items = order.items || order.orderItems || [];
               const itemsSummary =
                 items.length > 0
@@ -285,6 +302,23 @@ const MerchantOrders = () => {
                             <Package size={16} strokeWidth={1.5} />
                           )}
                           Marquer en préparation
+                        </button>
+                      )}
+                      {canMarkReady && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReadyForPickup(order.id);
+                          }}
+                          disabled={updatingId === order.id}
+                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-success text-white text-sm font-semibold hover:opacity-90 transition disabled:opacity-50"
+                        >
+                          {updatingId === order.id ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <CheckCircle2 size={16} strokeWidth={1.5} />
+                          )}
+                          Prête pour retrait / livraison
                         </button>
                       )}
                     </div>
