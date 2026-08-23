@@ -57,7 +57,7 @@ export class UsersController {
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    return this.usersService.findById(userId);
+    return this.usersService.findProfileWithBusiness(userId);
   }
 
   // 👤 Route protégée : Mettre à jour son propre profil

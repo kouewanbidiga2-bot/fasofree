@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
+import { Business } from '../businesses/entities/business.entity';
 
 /**
  * 🧑💼 Compte initial de la plateforme, créé uniquement s'il n'existe pas.
@@ -25,6 +26,8 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -228,6 +231,23 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Utilisateur introuvable');
     }
     return user;
+  }
+
+  async findProfileWithBusiness(id: string): Promise<Record<string, unknown>> {
+    const user = await this.findById(id);
+    const result: Record<string, unknown> = { ...user };
+
+    if (user.role === UserRole.BUSINESS_ADMIN) {
+      const business = await this.businessRepository.findOne({
+        where: { ownerId: id },
+      });
+      if (business) {
+        result.businessId = business.id;
+        result.business = { id: business.id, name: business.name };
+      }
+    }
+
+    return result;
   }
 
   /**

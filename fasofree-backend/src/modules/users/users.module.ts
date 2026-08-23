@@ -12,10 +12,11 @@ import { Favorite } from './entities/favorite.entity';
 import { FavoritesService } from './favorites.service';
 import { FavoritesController } from './favorites.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { Business } from '../businesses/entities/business.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, BanRequest, Favorite]),
+    TypeOrmModule.forFeature([User, BanRequest, Favorite, Business]),
     UploadModule,
     forwardRef(() => NotificationsModule),
   ],
