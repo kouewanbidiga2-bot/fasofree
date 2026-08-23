@@ -6,15 +6,16 @@
  * - POST /dispatch/accept/:orderId — accept a course
  * - PATCH /orders/:id/status — advance order status
  * - GET /wallet, GET /wallet/:id/transactions — earnings/wallet
+ * - In-app client-driver chat via WebSocket (channel='driver')
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layout, MapPin, Clock, DollarSign, Star, LogOut,
   RefreshCw, AlertCircle, CheckCircle, XCircle, Navigation,
   TrendingUp, Wallet, Phone, MessageSquare, Power, PowerOff,
-  Calendar, History, Package, Route, ChevronRight
+  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/StatCard';
@@ -25,6 +26,7 @@ import {
   getMyOrders,
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
+import { getChatSocket } from '../services/realtime';
 import { DriverStatus, OrderStatus } from '../types';
 
 const STATUS_PROGRESS = [
@@ -73,6 +75,12 @@ const DriverDashboard = () => {
     earnings: true,
   });
   const [errors, setErrors] = useState({});
+
+  const chatSocketRef = useRef(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatHistory, setChatHistory] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatClosed, setChatClosed] = useState(false);
 
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
   const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
@@ -222,6 +230,74 @@ const DriverDashboard = () => {
     }
   }, []);
 
+  // ─── CHAT: Join / Leave / Send ───────────────────────────────────────────
+  const joinJobChat = useCallback((orderId) => {
+    if (!orderId) return;
+
+    if (chatSocketRef.current) {
+      chatSocketRef.current.off('newOrderMessage');
+      chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' });
+    }
+
+    const socket = getChatSocket();
+    chatSocketRef.current = socket;
+
+    socket.emit('joinOrderChat', { orderId, channel: 'driver' }, (res) => {
+      if (res?.status === 'ok') {
+        setChatHistory(res.history || []);
+        setChatClosed(false);
+      } else if (res?.status === 'closed') {
+        setChatHistory(res.history || []);
+        setChatClosed(true);
+      }
+    });
+
+    socket.on('newOrderMessage', (msg) => {
+      if (msg.orderId === orderId && msg.channel === 'driver') {
+        if (msg.systemEvent === 'chatClosed') {
+          setChatClosed(true);
+        } else {
+          setChatHistory((prev) => [...prev, msg]);
+        }
+      }
+    });
+  }, []);
+
+  const leaveJobChat = useCallback(() => {
+    if (chatSocketRef.current) {
+      chatSocketRef.current.off('newOrderMessage');
+      chatSocketRef.current.disconnect();
+      chatSocketRef.current = null;
+    }
+    setChatHistory([]);
+    setChatClosed(false);
+  }, []);
+
+  const handleSendChatMessage = useCallback(() => {
+    if (!chatInput.trim() || !currentJob?.orderId || !chatSocketRef.current) return;
+    chatSocketRef.current.emit('sendOrderMessage', {
+      orderId: currentJob.orderId,
+      channel: 'driver',
+      message: chatInput.trim(),
+    });
+    setChatInput('');
+  }, [chatInput, currentJob?.orderId]);
+
+  useEffect(() => {
+    if (chatOpen && currentJob?.orderId) {
+      joinJobChat(currentJob.orderId);
+    }
+    return () => {
+      if (chatSocketRef.current) {
+        chatSocketRef.current.off('newOrderMessage');
+      }
+    };
+  }, [chatOpen, currentJob?.orderId, joinJobChat]);
+
+  useEffect(() => {
+    return () => leaveJobChat();
+  }, [leaveJobChat]);
+
   useEffect(() => {
     loadWallet();
     loadEarnings();
@@ -283,6 +359,8 @@ const DriverDashboard = () => {
         setCurrentJobStatus(nextStatus);
 
         if (nextStatus === OrderStatus.DELIVERED) {
+          leaveJobChat();
+          setChatOpen(false);
           setDeliveryHistory(prev => [{
             id: `DEL-${Date.now()}`,
             orderId: currentJob.orderId,
@@ -340,6 +418,7 @@ const DriverDashboard = () => {
 
   const tabs = [
     { id: 'jobs', label: 'Courses', icon: Package, badge: availableJobs.length },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: currentJob ? 1 : 0 },
     { id: 'earnings', label: 'Gains', icon: DollarSign },
     { id: 'history', label: 'Historique', icon: History },
     { id: 'settings', label: 'Paramètres', icon: Layout },
@@ -542,11 +621,13 @@ const DriverDashboard = () => {
                         <Phone size={14} /> Appeler
                       </button>
                       <button
-                        onClick={() => handleMessageClient(currentJob.customerPhone)}
-                        disabled={!currentJob.customerPhone}
-                        className="btn-secondary flex-1 gap-2 disabled:opacity-40"
+                        onClick={() => {
+                          setChatOpen(true);
+                          setActiveTab('messages');
+                        }}
+                        className="btn-primary flex-1 gap-2"
                       >
-                        <MessageSquare size={14} /> Message
+                        <MessageSquare size={14} /> Chat
                       </button>
                       <button
                         onClick={() => handleViewRoute(currentJob.pickupCoords, currentJob.deliveryCoords)}
@@ -700,6 +781,135 @@ const DriverDashboard = () => {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── ONGLET MESSAGES ──────────────────────────────── */}
+          {activeTab === 'messages' && (
+            <div className="animate-slide-up">
+              <div className="flex items-center justify-between mb-6">
+                <h1 className="text-xl font-bold text-text-primary">Messages</h1>
+                {currentJob && chatOpen && (
+                  <button onClick={() => setChatOpen(false)} className="btn-secondary gap-2 text-xs">
+                    <XCircle size={12} /> Fermer
+                  </button>
+                )}
+              </div>
+
+              {!currentJob ? (
+                <div className="card p-8 text-center">
+                  <MessageSquare size={48} className="mx-auto text-text-tertiary mb-4" />
+                  <h3 className="text-base font-bold text-text-primary mb-2">Pas de course en cours</h3>
+                  <p className="text-text-secondary text-sm max-w-md mx-auto">
+                    Acceptez une course pour pouvoir discuter avec le client.
+                  </p>
+                </div>
+              ) : !chatOpen ? (
+                <div className="card p-8 text-center">
+                  <MessageSquare size={48} className="mx-auto text-accent-primary/40 mb-4" />
+                  <h3 className="text-base font-bold text-text-primary mb-2">
+                    Chat avec le client
+                  </h3>
+                  <p className="text-text-secondary text-sm max-w-md mx-auto mb-4">
+                    Commande #{currentJob.orderId?.slice(-8)} — {currentJob.businessName || 'Restaurant'}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setChatOpen(true);
+                      joinJobChat(currentJob.orderId);
+                    }}
+                    className="btn-primary gap-2"
+                  >
+                    <MessageSquare size={16} /> Ouvrir le chat
+                  </button>
+                </div>
+              ) : (
+                <div className="card p-5 flex flex-col" style={{ height: 'calc(100vh - 220px)' }}>
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-border-light">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setChatOpen(false)}
+                        className="btn-icon"
+                      >
+                        <ArrowLeft size={16} />
+                      </button>
+                      <div>
+                        <p className="text-sm font-bold text-text-primary">
+                          Commande #{currentJob.orderId?.slice(-8)}
+                        </p>
+                        <p className="text-xs text-text-tertiary">
+                          {currentJob.customerName || 'Client'} — {currentJob.businessName || 'Restaurant'}
+                        </p>
+                      </div>
+                    </div>
+                    {chatClosed && (
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-background-secondary text-text-secondary">
+                        Discussion fermée
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+                    {chatHistory.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-text-tertiary">
+                        <MessageSquare size={24} className="mb-2 opacity-40" />
+                        <p className="text-xs">Aucun message. Commencez la conversation !</p>
+                      </div>
+                    ) : (
+                      chatHistory.map((msg, i) => {
+                        const isMine = msg.senderRole === 'DRIVER' || msg.senderRole === 'COURIER';
+                        return (
+                          <div key={msg.id || i} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[80%] px-4 py-2.5 rounded-2xl ${
+                              isMine
+                                ? 'bg-accent-primary text-white rounded-br-md'
+                                : 'bg-background-secondary text-text-primary rounded-bl-md'
+                            }`}>
+                              {!isMine && (
+                                <p className="text-[10px] font-bold uppercase opacity-70 mb-0.5">
+                                  {msg.senderRole === 'CLIENT' ? 'Client' : msg.senderRole || 'Système'}
+                                </p>
+                              )}
+                              <p className="text-sm leading-relaxed">{msg.message}</p>
+                              <p className={`text-[10px] mt-1 ${isMine ? 'text-white/60' : 'text-text-tertiary'}`}>
+                                {msg.timestamp
+                                  ? new Date(msg.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                                  : msg.createdAt
+                                    ? new Date(msg.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                                    : ''}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {chatClosed ? (
+                    <div className="border-t border-border-light pt-3 text-center">
+                      <p className="text-xs text-text-tertiary">Cette discussion est fermée (commande terminée).</p>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2 border-t border-border-light pt-3">
+                      <input
+                        type="text"
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                        placeholder="Écrire un message..."
+                        className="flex-1 bg-background-secondary border border-border-light rounded-xl px-4 py-2.5 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent-primary"
+                      />
+                      <button
+                        onClick={handleSendChatMessage}
+                        disabled={!chatInput.trim()}
+                        className="px-4 py-2.5 bg-accent-primary text-white text-sm font-semibold rounded-xl disabled:opacity-40 hover:bg-accent-primary/90 transition"
+                      >
+                        <Send size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
