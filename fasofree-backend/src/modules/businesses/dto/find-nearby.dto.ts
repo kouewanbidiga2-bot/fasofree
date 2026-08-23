@@ -29,4 +29,8 @@ export class FindNearbyDto {
   @IsPositive()
   @Max(50)
   radiusInKm?: number; // Par défaut : 5 km
+
+  @ApiPropertyOptional({ example: 'Fast-Food', description: 'Filtrer par catégorie' })
+  @IsOptional()
+  category?: string;
 }

@@ -118,7 +118,7 @@ const SEED_MERCHANTS = [
     phone: '+22675654321',
     password: 'Merchant@12345',
     restaurant: {
-      name: 'Maquis Gusto',
+      name: 'Gusto',
       address: 'Zone Ouaga 2000, Ouagadougou',
       phone: '+22675654321',
       category: BusinessCategory.RESTAURANT,

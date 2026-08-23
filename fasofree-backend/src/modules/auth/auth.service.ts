@@ -237,17 +237,11 @@ export class AuthService {
       throw new UnauthorizedException('Ce compte est désactivé');
     }
 
-    // ✅ Email déjà vérifié → connexion directe, pas d'OTP
+    // 🔐 L'OTP est envoyé uniquement à l'inscription (register).
+    // Pour un compte non vérifié, l'utilisateur peut renvoyer un code
+    // depuis la page de vérification (POST /auth/send-otp).
     if (user.isEmailVerified) {
       return this.generateToken(user);
-    }
-
-    // 📧 Première connexion (email non vérifié) → déclencher le flux OTP
-    try {
-      await this.otpService.sendOtp(user.id);
-      this.logger.log(`[Login] OTP envoyé à ${user.email} (première connexion)`);
-    } catch (err) {
-      this.logger.warn(`[Login] Échec envoi OTP: ${(err as Error).message}`);
     }
 
     return this.generateToken(user, true);

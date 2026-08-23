@@ -5,7 +5,7 @@ import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
 import { api } from '../services/api';
-import { getAbsoluteImageUrl } from '../utils/images';
+import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
 const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -51,22 +51,30 @@ const Restaurant = () => {
         if (!restaurant) setLoading(true);
         const business = await api.getBusiness(id);
         if (cancelled) return;
-        const menu = (business.products || []).map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description || '',
-          price: p.price,
-          category: p.category || 'Général',
-          image: getAbsoluteImageUrl(p.imageUrl || p.image_url || p.image || p.photo || p.photoUrl || p.photo_url),
-          available: p.isAvailable !== false,
-        }));
+        const menu = (business.products || []).map((p) => {
+          const itemImage = p.imageUrl || p.image_url || p.image || p.photo || p.photoUrl || p.photo_url;
+          const category = p.category || 'Général';
+          return {
+            id: p.id,
+            name: p.name,
+            description: p.description || '',
+            price: p.price,
+            category,
+            image: itemImage ? getAbsoluteImageUrl(itemImage) : getCategoryFallbackImage(category),
+            available: p.isAvailable !== false,
+          };
+        });
+        const signatureField = business.signatureImage || business.signature_image;
+        const signatureImage = signatureField ? getAbsoluteImageUrl(signatureField) : null;
+        
         setRestaurant({
           id: business.id,
-          name: business.name,
+          name: getBrandName(business.name) || business.name,
           tagline: business.category || 'Restaurant',
           description: business.name,
-          logo: getAbsoluteImageUrl(business.logo || business.logoUrl || business.logo_url),
-          coverImage: getAbsoluteImageUrl(business.coverImage || business.coverUrl || business.cover_url || business.banner || business.cover_image),
+          logo: business.logo || business.logoUrl || business.logo_url || getBrandImage(business.name),
+          coverImage: getAbsoluteImageUrl(business.coverImage || business.coverUrl || business.cover_url || business.banner || business.cover_image) || getCategoryFallbackImage(business.category || 'default'),
+          signatureImage,
           rating: business.rating ?? 4.0,
           deliveryTime: business.deliveryTime || '25-40 min',
           deliveryFee: business.deliveryFee ?? 500,

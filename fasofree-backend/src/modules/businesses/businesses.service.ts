@@ -64,7 +64,7 @@ export class BusinessesService {
     const radiusMeters = (dto.radiusInKm || 5) * 1000;
 
     try {
-      return await this.businessRepository
+      const query = this.businessRepository
         .createQueryBuilder('business')
         .select([
           'business.id',
@@ -93,11 +93,25 @@ export class BusinessesService {
             radius: radiusMeters,
           },
         )
-        .andWhere('business.isOpen = true')
-        .getMany();
+        .andWhere('business.isOpen = true');
+
+      if (dto.category) {
+        query.andWhere('business.category = :category', { category: dto.category });
+      }
+
+      // Tri par distance pour garantir un ordre déterministe
+      query.orderBy(
+        `ST_Distance(
+          business.location::geography,
+          ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
+        )`,
+        'ASC'
+      );
+
+      return await query.getMany();
     } catch {
       // PostGIS indisponible → fallback Haversine sur les colonnes lat/lng
-      const all = await this.businessRepository
+      const query = this.businessRepository
         .createQueryBuilder('business')
         .select([
           'business.id',
@@ -114,9 +128,14 @@ export class BusinessesService {
           'business.latitude',
           'business.longitude',
         ])
-        .where('business.isOpen = true')
-        .getMany();
-      return all.filter((b) => {
+        .where('business.isOpen = true');
+
+      if (dto.category) {
+        query.andWhere('business.category = :category', { category: dto.category });
+      }
+
+      const all = await query.getMany();
+      const filteredAndSorted = all.filter((b) => {
         if (b.latitude == null || b.longitude == null) return false;
         const R = 6371e3;
         const dLat = ((b.latitude - dto.latitude) * Math.PI) / 180;
@@ -126,8 +145,12 @@ export class BusinessesService {
           Math.cos((dto.latitude * Math.PI) / 180) *
             Math.cos((b.latitude * Math.PI) / 180) *
             Math.sin(dLon / 2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= radiusMeters;
+        const distance = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        b['distance'] = distance;
+        return distance <= radiusMeters;
       });
+
+      return filteredAndSorted.sort((a, b) => (a['distance'] || 0) - (b['distance'] || 0));
     }
   }
 

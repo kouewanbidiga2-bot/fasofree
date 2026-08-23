@@ -49,6 +49,7 @@
 .hero-reveal-2 { animation-delay: 120ms; }
 .hero-reveal-3 { animation-delay: 190ms; }
 .hero-reveal-4 { animation-delay: 260ms; }
+.hero-reveal-5 { animation-delay: 330ms; }
 .hero-cta, .restaurant-card { transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out), color 200ms ease; }
 .hero-cta:active { transform: scale(.96); }
 .hero-location { animation: home-reveal 500ms 420ms var(--ease-out) both; }
@@ -80,6 +81,13 @@
 @keyframes home-reveal { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes restaurant-enter { to { opacity: 1; transform: translateY(0); } }
 @keyframes hero-image-in { from { opacity: 0; transform: scale(1.035); } to { opacity: 1; transform: scale(1); } }
+@keyframes hero-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes hero-slide-right { from { opacity: 0; transform: translateX(36px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes hero-kenburns { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+.hero-float { animation: hero-float 6s ease-in-out 1.2s infinite; }
+.hero-slide-in { opacity: 0; animation: hero-slide-right 800ms var(--ease-out) 250ms both; }
+.hero-kenburns { animation: hero-kenburns 14s ease-in-out 1.2s infinite alternate; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }

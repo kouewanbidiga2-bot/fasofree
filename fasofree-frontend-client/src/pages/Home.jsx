@@ -4,33 +4,45 @@ import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn } from 'lucide-r
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
+import FavoritesStories from '../components/FavoritesStories';
 import UserMenu from '../components/UserMenu';
 import NotificationDropdown from '../components/NotificationDropdown';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
-import { getAbsoluteImageUrl } from '../utils/images';
+import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
-const mapBusinessToRestaurant = (b) => ({
-  id: b.id,
-  name: b.name || b.fullName || 'Restaurant',
-  tagline: b.category || 'Restaurant',
-  description: b.name || b.fullName || 'Restaurant',
-  logo: getAbsoluteImageUrl(b.logo || b.logoUrl || b.logo_url),
-  coverImage: getAbsoluteImageUrl(b.coverImage || b.coverUrl || b.cover_url || b.banner || b.cover_image),
-  rating: b.rating ?? 4.0,
-  deliveryTime: b.deliveryTime || '25-40 min',
-  deliveryFee: b.deliveryFee ?? 500,
-  minOrder: b.minOrder ?? 1500,
-  latitude: b.latitude ?? b.location?.coordinates?.[1] ?? 12.37,
-  longitude: b.longitude ?? b.location?.coordinates?.[0] ?? -1.52,
-  location: b.address || 'Ouagadougou',
-  phone: b.phone || '',
-  cuisineType: b.category || 'Fast Food',
-  promo: b.promo || null,
-  categories: b.categories || [],
-  menu: b.menu || [],
-});
+const mapBusinessToRestaurant = (b) => {
+  const category = b.category || 'Fast Food';
+  const rawName = b.name || b.fullName || 'Restaurant';
+  const name = getBrandName(rawName) || rawName;
+  const brandImage = getBrandImage(rawName);
+  // Priorité aux URLs hébergées (Cloudinary/DB), fallback sur l'image locale de marque
+  const coverUrl = b.coverImage || b.coverUrl || b.cover_url || b.banner || b.cover_image || brandImage;
+  const signatureUrl = b.signatureImage || b.signature_image || brandImage;
+  
+  return {
+    id: b.id,
+    name: name,
+    tagline: category,
+    description: name,
+    logo: b.logo || b.logoUrl || b.logo_url || brandImage,
+    coverImage: coverUrl ? (coverUrl.startsWith('/') ? coverUrl : getAbsoluteImageUrl(coverUrl)) : getCategoryFallbackImage(category),
+    signatureImage: signatureUrl ? (signatureUrl.startsWith('/') ? signatureUrl : getAbsoluteImageUrl(signatureUrl)) : null,
+    rating: b.rating ?? 4.0,
+    deliveryTime: b.deliveryTime || '25-40 min',
+    deliveryFee: b.deliveryFee ?? 500,
+    minOrder: b.minOrder ?? 1500,
+    latitude: b.latitude ?? b.location?.coordinates?.[1] ?? 12.37,
+    longitude: b.longitude ?? b.location?.coordinates?.[0] ?? -1.52,
+    location: b.address || 'Ouagadougou',
+    phone: b.phone || '',
+    cuisineType: category,
+    promo: b.promo || null,
+    categories: b.categories || [],
+    menu: b.menu || [],
+  };
+};
 
 const Home = () => {
   const navigate = useNavigate();
@@ -41,29 +53,31 @@ const Home = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
 
+  // Refetch businesses when selectedCategory changes
   useEffect(() => {
     let cancelled = false;
     const loadBusinesses = async () => {
       try {
-        const data = await api.getNearbyBusinesses(12.37, -1.52, 10000);
+        // Send the selected category to the backend
+        const data = await api.getNearbyBusinesses(12.37, -1.52, 10000, selectedCategory);
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }
       } catch {
         // API failed — list stays empty
+        if (!cancelled) setAllRestaurants([]);
       }
     };
     loadBusinesses();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectedCategory]); // <--- dependency added here
 
   const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
 
   const filteredRestaurants = useMemo(() => {
     let filtered = allRestaurants;
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter((r) => r.cuisineType === selectedCategory);
-    }
+    // Category filtering is now handled by the backend!
+    // We only filter locally by search query:
     if (searchQuery) {
       const lowerQuery = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -74,7 +88,7 @@ const Home = () => {
       );
     }
     return filtered;
-  }, [allRestaurants, selectedCategory, searchQuery]);
+  }, [allRestaurants, searchQuery]);
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query);
@@ -108,10 +122,9 @@ const Home = () => {
                 <circle cx="70" cy="70" r="3" fill="#C1652E" opacity="0.2"/>
               </svg>
               <div className="flex flex-col">
-                <span className="text-[10px] font-semibold tracking-wider text-[#C1652E] uppercase">Livraison Premium</span>
-                <p className="text-xs text-[#70645C] flex items-center gap-1 font-medium">
-                  <MapPin size={12} className="text-[#C1652E]" />
-                  Ouagadougou
+                <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">Livraison à</span>
+                <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold">
+                  Ouagadougou, Zone du Bois
                 </p>
               </div>
             </button>
@@ -190,17 +203,22 @@ const Home = () => {
         <HeroBanner />
       </section>
 
+      {/* Section Favoris - Stories */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        <h2 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-4 ml-1">Favoris</h2>
+        <FavoritesStories
+          onFavoriteClick={(favorite) => navigate(`/restaurant/${favorite.id}`)}
+          onAddClick={() => navigate('/')}
+        />
+      </section>
+
       {/* Grille de Restaurants */}
       <main id="restaurants" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <div className="mb-9 flex flex-wrap items-end justify-between gap-6">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-primary">Aujourd'hui à Ouaga</p>
-            <h2 className="mt-2 text-balance text-4xl font-display font-semibold tracking-[-0.05em] text-text-primary">
-              Les adresses du moment.
+            <h2 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-4 ml-1">
+              Tous les restaurants
             </h2>
-            <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">
-              Commandez auprès des meilleurs établissements à Ouagadougou
-            </p>
           </div>
           <button
             type="button"
@@ -221,7 +239,7 @@ const Home = () => {
           </button>
         </div>
 
-        <div className="restaurant-grid grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 lg:gap-6">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
           {filteredRestaurants.map((restaurant) => (
             <RestaurantCard
               key={restaurant.id}
