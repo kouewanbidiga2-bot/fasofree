@@ -6,7 +6,6 @@ import {
   Body,
   Param,
   Query,
-  ParseEnumPipe,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -95,7 +94,7 @@ export class WalletController {
     @Request()
     req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
     @Param('userId') userId: string,
-    @Param('userRole', new ParseEnumPipe(UserRole)) userRole: UserRole,
+    @Param('userRole') userRoleRaw: string,
   ) {
     const user = req.user;
     if (user?.role !== AppUserRole.SUPER_ADMIN && user?.userId !== userId) {
@@ -103,6 +102,27 @@ export class WalletController {
         'Vous ne pouvez consulter que votre portefeuille',
       );
     }
-    return this.walletService.getOrCreateWallet(userId, userRole);
+
+    const roleMap: Record<string, UserRole> = {
+      BUSINESS_ADMIN: UserRole.MERCHANT,
+      business_admin: UserRole.MERCHANT,
+      MERCHANT: UserRole.MERCHANT,
+      merchant: UserRole.MERCHANT,
+      DRIVER: UserRole.DRIVER,
+      driver: UserRole.DRIVER,
+      COURIER: UserRole.COURIER,
+      courier: UserRole.COURIER,
+      CUSTOMER: UserRole.CUSTOMER,
+      customer: UserRole.CUSTOMER,
+    };
+
+    const walletRole = roleMap[userRoleRaw];
+    if (!walletRole) {
+      throw new ForbiddenException(
+        `Rôle de portefeuille invalide: "${userRoleRaw}". Valeurs acceptées: MERCHANT, DRIVER, COURIER, CUSTOMER`,
+      );
+    }
+
+    return this.walletService.getOrCreateWallet(userId, walletRole);
   }
 }

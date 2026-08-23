@@ -16,7 +16,10 @@ const getSocketOptions = () => {
   const token = localStorage.getItem('fasofree_token');
   return {
     auth: { token },
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000,
   };
 };
 
@@ -25,7 +28,9 @@ let chatSocket = null;
 export const getChatSocket = () => {
   if (!chatSocket) {
     chatSocket = io(`${getSocketBase()}/chat`, getSocketOptions());
-    chatSocket.on('connect_error', () => {});
+    chatSocket.on('connect_error', (err) => {
+      console.warn('[Chat Socket] Erreur connexion:', err?.message);
+    });
   }
   return chatSocket;
 };

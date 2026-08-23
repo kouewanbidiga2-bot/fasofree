@@ -27,6 +27,14 @@ export const getMyOrders = async (filters = {}) => {
 };
 
 /**
+ * Lister les commandes d'un commerce (marchand)
+ */
+export const getBusinessOrders = async (businessId) => {
+  const response = await api.get(`/orders/business/${businessId}`);
+  return response.data;
+};
+
+/**
  * Obtenir le détail complet d'une commande
  */
 export const getOrderById = async (id) => {

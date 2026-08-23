@@ -45,6 +45,20 @@ export class ProductsService {
     });
   }
 
+  // ⚠️ 2bis. Produits en stock bas (sous minStockAlert)
+  async findLowStock(businessId: string): Promise<Product[]> {
+    const products = await this.productRepository.find({
+      where: { businessId },
+      order: { stockQuantity: 'ASC' },
+    });
+    return products.filter(
+      (p) =>
+        p.trackStock &&
+        p.minStockAlert != null &&
+        p.stockQuantity <= p.minStockAlert,
+    );
+  }
+
   // 🔍 3. Trouver un produit spécifique
   async findOne(id: string): Promise<Product> {
     const product = await this.productRepository.findOne({ where: { id } });

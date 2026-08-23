@@ -21,7 +21,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
 import { getBusinessAnalytics } from '../services/analyticsService';
-import { getMyOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
+import { getMyOrders, getBusinessOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
   getProductsByBusiness, createProduct, updateProduct,
   deleteProduct, toggleProductAvailability,
@@ -378,16 +378,17 @@ const BusinessAdminDashboard = () => {
   }, [businessId]);
 
   const loadOrders = useCallback(async () => {
+    if (!businessId) return;
     setLoad('orders', true);
     try {
-      const data = await getMyOrders();
+      const data = await getBusinessOrders(businessId);
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('orders', err.message);
     } finally {
       setLoad('orders', false);
     }
-  }, []);
+  }, [businessId]);
 
   const loadProducts = useCallback(async () => {
     if (!businessId) return;
@@ -434,6 +435,12 @@ const BusinessAdminDashboard = () => {
     loadProducts();
     loadLowStockAlerts();
     loadWallet();
+
+    const ordersInterval = setInterval(() => {
+      loadOrders();
+    }, 12000);
+
+    return () => clearInterval(ordersInterval);
   }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet]);
 
   const loadConversations = useCallback(async () => {

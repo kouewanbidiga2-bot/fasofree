@@ -86,14 +86,15 @@ const Checkout = () => {
 
     const paymentMethodRaw = e.target.payment?.value || 'orange';
     const paymentMethodMap = {
-      orange: 'ORANGE_MONEY',
-      moov: 'MOOV_MONEY',
-      telecel: 'TELECEL_MONEY',
-      wave: 'WAVE',
-      visa: 'CARD',
-      mastercard: 'CARD',
+      orange: 'orange_money',
+      moov: 'moov_money',
+      telecel: 'telecel_money',
+      wave: 'wave',
+      visa: 'card',
+      mastercard: 'card',
+      cash: 'cash',
     };
-    const paymentMethod = paymentMethodMap[paymentMethodRaw] || paymentMethodRaw.toUpperCase();
+    const paymentMethod = paymentMethodMap[paymentMethodRaw] || paymentMethodRaw.toLowerCase();
     const coords = deliveryCoords || DEFAULT_DELIVERY_COORDS;
 
     setSubmitting(true);
@@ -143,15 +144,17 @@ const Checkout = () => {
       });
 
       try {
-        const payResult = await api.initiatePayment({
-          orderId: order.id,
-          paymentMethod,
-          phoneNumber: formData.phone || undefined,
-        });
+        if (paymentMethod !== 'cash') {
+          const payResult = await api.initiatePayment({
+            orderId: order.id,
+            paymentMethod,
+            phoneNumber: formData.phone || undefined,
+          });
 
-        if (payResult?.checkoutUrl) {
-          window.location.href = payResult.checkoutUrl;
-          return;
+          if (payResult?.checkoutUrl) {
+            window.location.href = payResult.checkoutUrl;
+            return;
+          }
         }
       } catch (payErr) {
         console.warn('Payment initiate skipped (mock or provider unavailable):', payErr?.message);

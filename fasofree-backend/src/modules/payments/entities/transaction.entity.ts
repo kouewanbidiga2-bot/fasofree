@@ -12,6 +12,7 @@ export enum PaymentMethod {
   ORANGE_MONEY = 'orange_money',
   MOOV_MONEY = 'moov_money',
   TELECEL_MONEY = 'telecel_money',
+  WAVE = 'wave',
   CARD = 'card',
   CASH = 'cash',
 }

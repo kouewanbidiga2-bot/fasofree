@@ -42,8 +42,8 @@ export class ChatController {
    */
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
-  @ApiOperation({ summary: 'Liste des conversations actives (Admin/Support)' })
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
+  @ApiOperation({ summary: 'Liste des conversations actives (Admin/Support/Merchant)' })
   async getActiveConversations() {
     return this.chatService.getActiveConversations();
   }

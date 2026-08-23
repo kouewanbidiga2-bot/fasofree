@@ -42,9 +42,19 @@ export class ProductsController {
 
   // 📋 Route publique : Obtenir la carte / le catalogue d'un commerce
   @Get('business/:businessId')
-  @ApiOperation({ summary: 'Lister les produits d’un commerce' })
+  @ApiOperation({ summary: 'Lister les produits d\u2019un commerce' })
   async findByBusiness(@Param('businessId') businessId: string) {
     return this.productsService.findByBusiness(businessId);
+  }
+
+  // ⚠️ Produits en stock bas pour un commerce
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Get('business/:businessId/low-stock')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Produits dont le stock est sous le seuil d\u2019alerte' })
+  async findLowStock(@Param('businessId') businessId: string) {
+    return this.productsService.findLowStock(businessId);
   }
 
   // ✏️ Modifier un produit

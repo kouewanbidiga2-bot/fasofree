@@ -16,7 +16,10 @@ const getSocketOptions = () => {
   const token = localStorage.getItem('access_token');
   return {
     auth: { token },
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000,
   };
 };
 
@@ -29,8 +32,8 @@ let dispatchSocket = null;
 export const getChatSocket = () => {
   if (!chatSocket) {
     chatSocket = io(`${getSocketBase()}/chat`, getSocketOptions());
-    chatSocket.on('connect_error', () => {
-      // Reconnexion automatique gérée par socket.io
+    chatSocket.on('connect_error', (err) => {
+      console.warn('[Chat Socket] Erreur connexion:', err?.message);
     });
   }
   return chatSocket;
@@ -42,8 +45,8 @@ export const getChatSocket = () => {
 export const getDispatchSocket = () => {
   if (!dispatchSocket) {
     dispatchSocket = io(`${getSocketBase()}/dispatch`, getSocketOptions());
-    dispatchSocket.on('connect_error', () => {
-      // Reconnexion automatique gérée par socket.io
+    dispatchSocket.on('connect_error', (err) => {
+      console.warn('[Dispatch Socket] Erreur connexion:', err?.message);
     });
   }
   return dispatchSocket;
