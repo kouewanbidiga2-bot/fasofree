@@ -37,6 +37,12 @@ export class Product {
   @Column({ type: 'varchar', length: 100, default: 'GÉNÉRAL' })
   category: string;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  type: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  sku: string;
+
   @Column({ type: 'varchar', length: 500, nullable: true })
   imageUrl: string;
 
@@ -50,6 +56,9 @@ export class Product {
 
   @Column({ type: 'int', default: 0 })
   stockQuantity: number;
+
+  @Column({ type: 'int', nullable: true })
+  minStockAlert: number;
 
   // ⏱️ HORODATAGE
   @CreateDateColumn({ type: 'timestamp with time zone' })

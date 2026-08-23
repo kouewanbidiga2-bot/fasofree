@@ -27,7 +27,12 @@ export class ProductsService {
       price: dto.price,
       imageUrl: dto.imageUrl,
       category: dto.category,
+      type: dto.type,
+      sku: dto.sku,
       isAvailable: dto.isAvailable,
+      trackStock: dto.trackInventory ?? true,
+      stockQuantity: dto.stockQuantity ?? 0,
+      minStockAlert: dto.minStockAlert,
       businessId: dto.businessId,
     });
     return this.productRepository.save(product);
@@ -64,7 +69,9 @@ export class ProductsService {
   ): Promise<Product> {
     const product = await this.findOne(id);
     await this.assertBusinessOwnership(product.businessId, userId, role);
-    // Fusionne les nouvelles données avec le produit existant
+    if (dto.trackInventory !== undefined) {
+      product.trackStock = dto.trackInventory;
+    }
     Object.assign(product, dto);
     return this.productRepository.save(product);
   }
