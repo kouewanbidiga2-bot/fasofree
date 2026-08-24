@@ -9,6 +9,7 @@ import UserMenu from '../components/UserMenu';
 import NotificationDropdown from '../components/NotificationDropdown';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
+import useCartStore from '../store/cartStore';
 import useNotificationStore from '../store/notificationStore';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
@@ -52,6 +53,8 @@ const Home = () => {
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
+  const cartItems = useCartStore((s) => s.items);
+  const cartCount = cartItems.reduce((n, i) => n + (i.quantity || 1), 0);
 
   // Refetch businesses when selectedCategory changes
   useEffect(() => {
@@ -106,9 +109,9 @@ const Home = () => {
           <div className="flex items-center justify-between gap-4">
             
             {/* Logo & Localisation */}
-            <button type="button" className="flex items-center gap-3 text-left" onClick={() => navigate('/')} aria-label="Retour à l'accueil">
+            <button type="button" className="flex items-center gap-2 sm:gap-3 text-left min-w-0 flex-1 md:flex-none" onClick={() => navigate('/')} aria-label="Retour à l'accueil">
               <svg
-                style={{ width: '38px', height: '38px' }}
+                className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex-shrink-0"
                 viewBox="0 0 140 140"
                 fill="none"
               >
@@ -121,9 +124,9 @@ const Home = () => {
                 <path d="M56 96 Q70 104 84 96" stroke="#C1652E" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
                 <circle cx="70" cy="70" r="3" fill="#C1652E" opacity="0.2"/>
               </svg>
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">Livraison à</span>
-                <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold">
+                <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold truncate">
                   Ouagadougou, Zone du Bois
                 </p>
               </div>
@@ -144,7 +147,7 @@ const Home = () => {
             </div>
 
             {/* Boutons d'action */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {isAuthenticated ? (
                 <UserMenu />
               ) : (
@@ -152,26 +155,31 @@ const Home = () => {
                   type="button"
                   aria-label="Se connecter"
                   onClick={() => navigate('/auth')}
-                  className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-4 py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+                  className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
                 >
                   <LogIn size={16} strokeWidth={1.8} />
-                  <span className="sm:inline">Connexion</span>
+                  <span className="hidden sm:inline">Connexion</span>
                 </button>
               )}
               <button
                 aria-label="Notifications"
                 onClick={() => setNotifOpen(true)}
-                className="relative rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary"
+                className="relative rounded-full border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary"
               >
-                <Bell size={18} strokeWidth={1.8} />
+                <Bell size={17} strokeWidth={1.8} />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent-primary text-white text-[9px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
-              <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="rounded-full border border-border-light bg-white p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
-                <ShoppingBag size={18} strokeWidth={1.8} />
+              <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="relative rounded-full border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
+                <ShoppingBag size={17} strokeWidth={1.8} />
+                {cartCount > 0 && (
+                  <span key={cartCount} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent-primary text-white text-[9px] font-bold flex items-center justify-center" style={{ animation: 'cartPop 0.35s ease' }}>
+                    {cartCount > 9 ? '9+' : cartCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>

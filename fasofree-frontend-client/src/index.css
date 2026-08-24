@@ -212,3 +212,9 @@
 @keyframes fasofree-spin {
   to { transform: rotate(360deg); }
 }
+
+@keyframes cartPop {
+  0% { transform: scale(0.5); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}

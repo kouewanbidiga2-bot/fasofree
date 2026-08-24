@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Clock, MapPin } from 'lucide-react';
+import { ArrowLeft, Star, Clock, MapPin, Check } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
@@ -158,18 +158,17 @@ const Restaurant = () => {
       {/* Header */}
       <header className="app-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button
               onClick={() => navigate('/')}
-              className="p-2 hover:bg-background-secondary transition-colors"
+              className="p-2 hover:bg-background-secondary transition-colors flex-shrink-0"
             >
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">{restaurant.name}</h1>
-            <div className="flex-1" />
+            <h1 className="text-base sm:text-lg font-display font-bold text-text-primary truncate min-w-0 flex-1">{restaurant.name}</h1>
             <button
               onClick={toggleFavorite}
-              className="p-2 hover:bg-background-secondary rounded-full transition-colors"
+              className="p-2 hover:bg-background-secondary rounded-full transition-colors flex-shrink-0"
               aria-label={isFavorited ? 'Retirer des favoris' : 'Ajouter aux favoris'}
             >
               <FavoriteIcon filled={isFavorited} color={restaurantColor} size={22} />
@@ -184,11 +183,11 @@ const Restaurant = () => {
           <ImageWithFallback
             src={restaurant.logo}
             alt={restaurant.name}
-            className="w-32 h-32 object-cover rounded-photo"
+            className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-photo flex-shrink-0"
           />
           <div className="flex-1">
             <h2 className="text-base font-medium text-text-secondary mb-3">{restaurant.tagline}</h2>
-            <div className="flex items-center gap-6 text-sm text-text-secondary">
+            <div className="flex items-center gap-3 sm:gap-6 text-sm text-text-secondary flex-wrap">
               <div className="flex items-center gap-2">
                 <Star size={14} fill="currentColor" style={{ color: restaurantColor }} />
                 <span className="font-mono text-text-primary">{restaurant.rating}</span>
@@ -204,7 +203,7 @@ const Restaurant = () => {
             <p className="text-text-secondary text-sm mt-4 line-clamp-2 max-w-xl">{restaurant.description}</p>
           </div>
           
-          <div className="flex flex-col items-end gap-3 mt-4 sm:mt-0">
+          <div className="flex flex-col items-start sm:items-end gap-3 mt-4 sm:mt-0 min-w-0">
             {restaurant.promo && (
               <div 
                 className="px-3 py-1.5 text-sm font-medium border-b-2"
@@ -213,9 +212,9 @@ const Restaurant = () => {
                 {restaurant.promo}
               </div>
             )}
-            <div className="flex items-center gap-2 text-sm text-text-secondary">
-              <MapPin size={14} strokeWidth={1.5} />
-              <span>{restaurant.location}</span>
+            <div className="flex items-center gap-2 text-sm text-text-secondary max-w-full">
+              <MapPin size={14} strokeWidth={1.5} className="flex-shrink-0" />
+              <span className="break-words">{restaurant.location}</span>
             </div>
           </div>
         </div>
@@ -294,13 +293,19 @@ const Restaurant = () => {
 
       {/* Floating Cart Button */}
       {getTotalItems() > 0 && (
-        <div className="fixed bottom-24 right-6 z-50">
+        <div className="fixed bottom-24 right-4 sm:right-6 z-50">
           <button
             onClick={() => navigate('/cart')}
             className="app-action flex gap-3 shadow-medium"
           >
             <span>Panier</span>
-            <span className="bg-white/20 px-2 py-0.5 text-xs">{getTotalItems()}</span>
+            <span
+              key={getTotalItems()}
+              className="bg-white/20 px-2 py-0.5 text-xs"
+              style={{ animation: 'cartPop 0.35s ease' }}
+            >
+              {getTotalItems()}
+            </span>
           </button>
         </div>
       )}
@@ -312,10 +317,18 @@ const Restaurant = () => {
 
 const MenuItemCard = ({ item, onAddToCart, restaurantColor }) => {
   const [isLiked, setIsLiked] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleAdd = () => {
+    onAddToCart(item);
+    // Feedback visuel discret sur le bouton (pas de message) : ✓ puis retour
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 1200);
+  };
 
   return (
-    <div className="app-panel mb-4 flex gap-4 rounded-lg p-4">
-      <div className="w-28 h-28 flex-shrink-0 overflow-hidden">
+    <div className="app-panel mb-4 flex gap-3 sm:gap-4 rounded-lg p-3 sm:p-4">
+      <div className="w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 overflow-hidden">
         <ImageWithFallback
           src={item.image}
           alt={item.name}
@@ -323,13 +336,13 @@ const MenuItemCard = ({ item, onAddToCart, restaurantColor }) => {
         />
       </div>
       
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 min-w-0 flex flex-col justify-between">
         <div>
           <h3 className="text-base font-medium text-text-primary truncate">{item.name}</h3>
           <p className="text-sm text-text-secondary line-clamp-2 mt-1">{item.description}</p>
         </div>
         
-        <div className="flex items-center justify-between mt-2">
+        <div className="flex items-center justify-between flex-wrap gap-2 mt-2">
           <span className="text-base font-mono text-text-primary">
             {item.price.toLocaleString()} FCFA
           </span>
@@ -344,11 +357,25 @@ const MenuItemCard = ({ item, onAddToCart, restaurantColor }) => {
               />
             </button>
             <button
-              onClick={() => onAddToCart(item)}
-              className="app-action-secondary px-4 py-2"
-              style={{ borderColor: restaurantColor }}
+              onClick={handleAdd}
+              aria-label="Ajouter au panier"
+              className={`min-w-[92px] px-4 py-2 rounded-md text-sm font-medium border flex items-center justify-center gap-1.5 transition-all duration-200 active:scale-95 ${
+                justAdded ? 'text-white' : 'app-action-secondary'
+              }`}
+              style={
+                justAdded
+                  ? { backgroundColor: restaurantColor, borderColor: restaurantColor }
+                  : { borderColor: restaurantColor }
+              }
             >
-              Ajouter
+              {justAdded ? (
+                <>
+                  <Check size={16} strokeWidth={2.5} />
+                  <span>Ajouté</span>
+                </>
+              ) : (
+                'Ajouter'
+              )}
             </button>
           </div>
         </div>
