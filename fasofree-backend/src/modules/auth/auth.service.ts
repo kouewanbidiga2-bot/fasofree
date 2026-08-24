@@ -101,17 +101,6 @@ export class AuthService {
     dto: ApplyDto,
     files?: Record<string, Express.Multer.File[]>,
   ): Promise<{ message: string; applicationId: string; role: string }> {
-    // Vérifier si l'email ou le téléphone existe déjà
-    const existingUser = await this.userRepository.findOne({
-      where: [{ email: dto.email }, { phone: dto.phone }],
-    });
-
-    if (existingUser) {
-      throw new ConflictException(
-        'Un compte existe déjà avec cet email ou ce numéro de téléphone',
-      );
-    }
-
     // Validation métier des champs spécifiques au rôle
     if (dto.role === 'MERCHANT') {
       if (!dto.businessName || !dto.businessAddress) {
@@ -153,6 +142,51 @@ export class AuthService {
       if (dto.vehicleCategory) {
         applicationData.vehicleCategory = dto.vehicleCategory;
       }
+    }
+
+    // 👤 Utilisateur déjà inscrit ? La candidature est rattachée à son compte
+    // existant (après vérification du mot de passe) sans écraser son rôle ni
+    // son accès client. Le rôle marchand/livreur sera posé à l'approbation.
+    const existingUser = await this.userRepository.findOne({
+      where: [{ email: dto.email }, { phone: dto.phone }],
+    });
+
+    if (existingUser) {
+      const passwordMatches = existingUser.passwordHash
+        ? await bcrypt.compare(dto.password, existingUser.passwordHash)
+        : false;
+      if (!passwordMatches) {
+        throw new ConflictException(
+          'Un compte existe déjà avec cet email ou ce numéro de téléphone',
+        );
+      }
+      if (existingUser.applicationStatus === 'PENDING_APPROVAL') {
+        throw new ConflictException(
+          'Une candidature est déjà en cours d’examen pour ce compte',
+        );
+      }
+
+      existingUser.applicationStatus = 'PENDING_APPROVAL';
+      existingUser.applicationType = dto.role;
+      existingUser.applicationData = applicationData;
+      await this.userRepository.save(existingUser);
+
+      // 📎 Documents KYC fournis dans la candidature
+      if (files) {
+        for (const [field, type] of Object.entries(KYC_FILE_FIELDS)) {
+          const uploaded = files[field];
+          if (uploaded && uploaded.length > 0) {
+            await this.kycService.submit(existingUser.id, type, uploaded[0]);
+          }
+        }
+      }
+
+      return {
+        message:
+          'Candidature envoyée avec succès. Notre équipe examine votre dossier ; vous serez notifié après validation.',
+        applicationId: existingUser.id,
+        role: dto.role,
+      };
     }
 
     const salt = await bcrypt.genSalt(10);

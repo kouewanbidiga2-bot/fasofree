@@ -90,7 +90,7 @@ export default function UserMenu() {
 
           {currentRole === 'CLIENT' && (
             <button
-              onClick={() => { setOpen(false); navigate('/merchant-dashboard'); }}
+              onClick={() => { setOpen(false); navigate('/register'); }}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
             >
               <Briefcase size={15} /> Espace Pro

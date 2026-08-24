@@ -109,22 +109,22 @@ const MerchantDashboard = () => {
     <div className="min-h-screen bg-background-primary">
       <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
               <button
                 onClick={() => navigate(getHomeRoute(user?.role))}
-                className="p-2 hover:bg-background-secondary rounded-lg transition-colors"
+                className="p-2 hover:bg-background-secondary rounded-lg transition-colors flex-shrink-0"
               >
                 <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
               </button>
-              <h1 className="text-lg font-display font-bold text-text-primary">Espace Marchand</h1>
+              <h1 className="text-base sm:text-lg font-display font-bold text-text-primary truncate">Espace Marchand</h1>
             </div>
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium rounded-lg border border-border-light text-text-secondary hover:bg-background-secondary transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs font-medium rounded-lg border border-border-light text-text-secondary hover:bg-background-secondary transition-colors flex-shrink-0"
             >
               <LogOut size={14} strokeWidth={1.5} />
-              Déconnexion
+              <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
         </div>
@@ -187,8 +187,8 @@ const MerchantDashboard = () => {
           })}
         </div>
 
-        <div className="rounded-xl border border-border-light bg-background-card p-5 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="rounded-xl border border-border-light bg-background-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isOpen ? 'bg-success/10' : 'bg-error/10'}`}>
               {isOpen ? (
                 <Power size={18} className="text-success" strokeWidth={1.5} />
@@ -210,7 +210,7 @@ const MerchantDashboard = () => {
           <button
             onClick={handleToggleOpen}
             disabled={togglingOpen}
-            className={`px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-60 ${
+            className={`w-full sm:w-auto px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-60 ${
               isOpen ? 'bg-error hover:bg-error/90' : 'bg-success hover:bg-success/90'
             }`}
           >

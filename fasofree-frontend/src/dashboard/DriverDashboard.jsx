@@ -518,9 +518,25 @@ const DriverDashboard = () => {
             <Navigation size={16} className="text-accent-primary" />
             <p className="text-text-primary font-bold">FasoFree Livreur</p>
           </div>
-          <button onClick={handleLogout} className="btn-icon">
-            <LogOut size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDriverStatus}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                driverStatus === DriverStatus.ONLINE
+                  ? 'bg-status-success text-white'
+                  : 'bg-background-secondary text-text-secondary border border-border-light'
+              }`}
+            >
+              {driverStatus === DriverStatus.ONLINE ? (
+                <><Power size={12} /> En ligne</>
+              ) : (
+                <><PowerOff size={12} /> Hors ligne</>
+              )}
+            </button>
+            <button onClick={handleLogout} className="btn-icon">
+              <LogOut size={16} />
+            </button>
+          </div>
         </header>
 
         <div className="lg:hidden flex overflow-x-auto scrollbar-hide gap-1 px-4 pt-4 pb-1 border-b border-border-light">

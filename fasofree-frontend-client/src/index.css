@@ -28,6 +28,17 @@
     scroll-behavior: smooth;
   }
 
+  /* Anti-débordement horizontal mobile (clip ne casse pas position:sticky) */
+  html, body {
+    overflow-x: clip;
+  }
+
+  @supports not (overflow: clip) {
+    html, body {
+      overflow-x: hidden;
+    }
+  }
+
   button, a, input, select, textarea {
     -webkit-tap-highlight-color: transparent;
   }

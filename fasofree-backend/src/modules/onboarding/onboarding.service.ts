@@ -88,15 +88,25 @@ export class OnboardingService {
       this.logger.warn(`[Onboarding] Impossible de vérifier le KYC pour ${user.email}`);
     }
 
-    const tempPassword = `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
+    const applicationType = user.applicationType;
+
+    // 🔑 Code d'accès temporaire :
+    // - MERCHANT → code PIN à 6 chiffres (modifiable ensuite dans les paramètres)
+    // - DRIVER   → mot de passe temporaire alphanumérique
+    const tempPassword =
+      applicationType === 'MERCHANT'
+        ? String(Math.floor(100000 + Math.random() * 900000))
+        : `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
     const salt = await bcrypt.genSalt(10);
     user.passwordHash = await bcrypt.hash(tempPassword, salt);
     user.isActive = true;
     user.applicationStatus = 'APPROVED';
+    user.role =
+      applicationType === 'MERCHANT'
+        ? UserRole.BUSINESS_ADMIN
+        : UserRole.DRIVER;
     user.reviewedBy = moderator.userId;
     user.reviewedAt = new Date();
-
-    const applicationType = user.applicationType;
 
     let businessId: string | undefined;
     let businessName: string | undefined;
