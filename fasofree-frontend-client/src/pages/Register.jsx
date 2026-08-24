@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -60,9 +60,20 @@ const emptyFiles = { identityCard: null, driverLicense: null, vehicleRegistratio
 
 const Register = () => {
   const navigate = useNavigate();
-  const { loginWithToken } = useAuthStore();
+  const location = useLocation();
+  const { loginWithToken, user, isAuthenticated } = useAuthStore();
 
-  const [activeTab, setActiveTab] = useState('client');
+  // Mode "Espace Pro" : un client connecté candidat directement comme
+  // marchand ou livreur (l'onglet Client n'a pas de sens ici — il a déjà
+  // un compte). Les 3 choix restent disponibles à l'inscription publique.
+  const isClientLogged =
+    isAuthenticated && String(user?.role || '').toUpperCase() === 'CLIENT';
+  const proMode =
+    isClientLogged || new URLSearchParams(location.search).get('pro') === '1';
+
+  const visibleTabs = proMode ? TABS.filter((t) => t.id !== 'client') : TABS;
+
+  const [activeTab, setActiveTab] = useState(proMode ? 'merchant' : 'client');
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -305,15 +316,19 @@ const Register = () => {
 
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-2xl font-display font-bold text-text-primary mb-2">Rejoignez FasoFree</h2>
+          <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
+            {proMode ? 'Espace Pro' : 'Rejoignez FasoFree'}
+          </h2>
           <p className="text-text-secondary text-sm">
-            Créez votre compte et choisissez votre profil : client, marchand ou livreur.
+            {proMode
+              ? 'Devenez marchand ou livreur sur FasoFree — votre dossier sera examiné par notre équipe.'
+              : 'Créez votre compte et choisissez votre profil : client, marchand ou livreur.'}
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          {TABS.map((tab) => {
+        <div className={`grid gap-3 mb-8 ${proMode ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
             return (
