@@ -5,6 +5,12 @@ import { RideOption } from '../entities/order.entity';
 
 export const RIDE_PRICE_PER_KM_DEFAULT = 200;
 export const RIDE_MIN_FARE_DEFAULT = 500;
+/**
+ * Plancher économique absolu par course (moto) :
+ * ~500 FCFA d'essence aller-retour + 500 FCFA de bénéfice minimum livreur.
+ * Même sur les trajets les plus courts, le livreur doit y retrouver son compte.
+ */
+export const RIDE_FLOOR_FARE_DEFAULT = 1000;
 
 export const RIDE_OPTION_MULTIPLIERS: Record<string, number> = {
   [RideOption.ECONOMY]: 1.0,
@@ -52,6 +58,13 @@ export class RidePricingService {
     };
   }
 
+  /**
+   * Arrondit au multiple de 50 FCFA supérieur (prix "propres" pour le client).
+   */
+  private roundUp50(value: number): number {
+    return Math.ceil(value / 50) * 50;
+  }
+
   async estimate(
     pickupLatitude: number,
     pickupLongitude: number,
@@ -67,14 +80,22 @@ export class RidePricingService {
     const option = rideOption || RideOption.ECONOMY;
     const pricing = this.getOptionPricing(option);
 
-    const fare = Math.max(distanceKm * pricing.pricePerKm, pricing.minFare);
+    // 💡 Tarification moto : base (prise en charge / essence courte distance)
+    // + tarif kilométrique sur la distance réelle pickup → destination.
+    const rawFare = pricing.minFare + distanceKm * pricing.pricePerKm;
+
+    // 🛵 Plancher absolu : essence aller-retour (~500 F) + bénéfice
+    // minimum livreur (500 F) sur les trajets les plus courts.
+    const fare = Math.max(rawFare, pricing.minFare, RIDE_FLOOR_FARE_DEFAULT);
+
+    const roundedFare = this.roundUp50(fare);
     const platformFee = await this.subscriptionService.resolveServiceFee(clientId);
 
     return {
       distanceKm,
-      fare: Math.round(fare),
+      fare: roundedFare,
       platformFee,
-      total: Math.round(fare) + platformFee,
+      total: roundedFare + platformFee,
       rideOption: option,
       currency: 'FCFA',
     };

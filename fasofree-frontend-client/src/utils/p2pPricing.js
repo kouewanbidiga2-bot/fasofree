@@ -1,9 +1,10 @@
 /**
  * Estimation client-side du prix P2P (Haversine + tarif FasoFree).
  * Même formule que le backend distance-calculator.service.ts :
- * prix = 500 (base) + distance_km × 200 + fragile 100 + poids > 5kg × 50/kg
+ * prix = 1000 (base : essence A/R + bénéfice livreur) + distance_km × 200
+ *        + fragile 100 + poids > 5kg × 50/kg   (arrondi au 50 supérieur)
  */
-const P2P_MIN_PRICE = 500;
+const P2P_MIN_PRICE = 1000;
 const P2P_PRICE_PER_KM = 200;
 const P2P_FRAGILE_SURCHARGE = 100;
 const P2P_WEIGHT_SURCHARGE_PER_KG = 50;
@@ -46,7 +47,9 @@ export function estimateP2PPrice(pickup, dropoff, isFragile = false, weight = 0)
     ? Math.round((weightNum - P2P_WEIGHT_THRESHOLD) * P2P_WEIGHT_SURCHARGE_PER_KG)
     : 0;
 
-  const price = basePrice + distancePrice + fragilePrice + weightPrice;
+  const rawPrice = basePrice + distancePrice + fragilePrice + weightPrice;
+  // Arrondi au multiple de 50 FCFA supérieur (identique au backend)
+  const price = Math.ceil(rawPrice / 50) * 50;
 
   return {
     distance,

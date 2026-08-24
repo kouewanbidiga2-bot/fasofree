@@ -51,9 +51,11 @@ export class DistanceCalculatorService {
     isFragile: boolean = false,
     weight: number = 0,
   ): number {
+    // 💡 Base à 1000 FCFA : couvre l'essence aller-retour (~500 F) + le
+    // bénéfice minimum livreur (500 F) même sur les trajets les plus courts.
     const minPrice = this.configService.get<number>(
       'P2P_MIN_PRICE',
-      500, // Prix minimum par défaut
+      1000,
     );
 
     const pricePerKm = this.configService.get<number>(
@@ -89,7 +91,8 @@ export class DistanceCalculatorService {
       totalPrice += (weight - weightThreshold) * weightSurchargePerKg;
     }
 
-    return Math.round(totalPrice);
+    // Arrondi au multiple de 50 FCFA supérieur (prix "propres" pour le client)
+    return Math.ceil(totalPrice / 50) * 50;
   }
 
   /**
@@ -126,7 +129,7 @@ export class DistanceCalculatorService {
       dropoffLon,
     );
 
-    const minPrice = this.configService.get<number>('P2P_MIN_PRICE', 500);
+    const minPrice = this.configService.get<number>('P2P_MIN_PRICE', 1000);
     const pricePerKm = this.configService.get<number>('P2P_PRICE_PER_KM', 200);
     const fragileSurcharge = this.configService.get<number>(
       'P2P_FRAGILE_SURCHARGE',
@@ -154,7 +157,8 @@ export class DistanceCalculatorService {
 
     return {
       distance,
-      price: Math.round(totalPrice),
+      // Arrondi au multiple de 50 FCFA supérieur (prix "propres" pour le client)
+      price: Math.ceil(totalPrice / 50) * 50,
       breakdown: {
         basePrice,
         distancePrice: Math.round(distancePrice),
