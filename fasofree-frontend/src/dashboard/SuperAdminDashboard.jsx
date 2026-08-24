@@ -29,6 +29,7 @@ import {
   getSubscriptions,
   assignSubscription,
   getBusinesses,
+  deleteBusiness,
 } from '../services/subscriptionService';
 import {
   getUsers,
@@ -107,6 +108,8 @@ const SuperAdminDashboard = () => {
   const [plans, setPlans] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [businesses, setBusinesses] = useState([]);
+  const [businessesBusy, setBusinessesBusy] = useState(null);
+  const [businessesMsg, setBusinessesMsg] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(false);
   const [editingPlan, setEditingPlan] = useState(null);
   const [planForm, setPlanForm] = useState({
@@ -280,6 +283,7 @@ const SuperAdminDashboard = () => {
       const list = Array.isArray(usersData) ? usersData : [];
       const merchants = Array.isArray(businessesData) ? businessesData : [];
       setUsers(list);
+      setBusinesses(merchants);
       const countRole = (r) =>
         list.filter((u) => String(u.role).toLowerCase().replace('-', '_') === r).length;
       setPlatformStats({
@@ -454,6 +458,22 @@ const SuperAdminDashboard = () => {
       setUsersMsg({ type: 'error', text: err.message });
     } finally {
       setUsersBusy(null);
+    }
+  };
+
+  // ─── Actions Commerces ───────────────────────────────────────────────
+  const handleDeleteBusiness = async (id, name) => {
+    if (!window.confirm(`Supprimer définitivement le commerce "${name}" ?\n\nSes produits et favoris seront supprimés. L'historique des commandes est conservé. Cette action est irréversible.`)) return;
+    setBusinessesBusy(id);
+    setBusinessesMsg(null);
+    try {
+      await deleteBusiness(id);
+      setBusinessesMsg({ type: 'success', text: `Commerce "${name}" supprimé.` });
+      await loadUsers();
+    } catch (err) {
+      setBusinessesMsg({ type: 'error', text: err.message });
+    } finally {
+      setBusinessesBusy(null);
     }
   };
 
@@ -712,8 +732,93 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Séparation des utilisateurs : commerçants / clients / autres comptes
+  const normRole = (u) => String(u.role || '').toLowerCase().replace('-', '_');
+  const merchantUsers = users.filter((u) => normRole(u) === 'business_admin');
+  const clientUsers = users.filter((u) => ['client', 'customer'].includes(normRole(u)));
+  const otherUsers = users.filter((u) => normRole(u) !== 'business_admin' && !['client', 'customer'].includes(normRole(u)));
+
+  const renderUserRow = (u) => {
+    const isSelf = u.id === user?.id;
+    const isProtected = normRole(u) === 'super_admin' && !isSelf;
+    return (
+      <tr key={u.id}>
+        <td>
+          <div className="flex items-center gap-2">
+            <div className="avatar w-8 h-8 bg-accent-primary text-white text-xs font-bold flex items-center justify-center rounded-full">
+              {(u.fullName || u.email || '?').charAt(0).toUpperCase()}
+            </div>
+            <p className="font-semibold text-text-primary text-sm">{u.fullName || '—'}</p>
+          </div>
+        </td>
+        <td>
+          <p className="text-text-secondary text-xs">{u.email}</p>
+        </td>
+        <td>
+          <p className="text-text-secondary text-xs">{u.phone || '—'}</p>
+        </td>
+        <td>
+          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+            {roleLabel(u.role)}
+          </span>
+        </td>
+        <td>
+          <StatusBadge status={u.isActive ? 'active' : 'inactive'} statusConfig={{
+            active: { label: 'Actif', color: 'success', dot: '#22C55E' },
+            inactive: { label: 'Banni', color: 'gray', dot: '#A09890' },
+          }} />
+        </td>
+        <td>
+          <div className="flex items-center gap-2">
+            <select
+              className="input-field !py-1.5 !text-xs"
+              value={u.role}
+              disabled={usersBusy === u.id || isSelf || isProtected}
+              onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
+            >
+              {['client', 'business_admin', 'driver', 'support', 'admin', 'super_admin'].map(r => (
+                <option key={r} value={r}>{roleLabel(r)}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => handleToggleUserStatus(u.id, !u.isActive)}
+              disabled={usersBusy === u.id || isSelf || isProtected}
+              className={`btn-icon disabled:opacity-40 disabled:cursor-not-allowed ${u.isActive ? 'text-status-error hover:bg-status-errorBg' : 'text-status-success hover:bg-status-successBg'}`}
+              title={
+                isSelf
+                  ? 'Impossible sur votre propre compte'
+                  : isProtected
+                    ? 'Super Admin protégé'
+                    : u.isActive
+                      ? 'Bannir le compte'
+                      : 'Réactiver le compte'
+              }
+            >
+              <Ban size={14} />
+            </button>
+            <button
+              onClick={() => handleDeleteUser(u.id, u.email)}
+              disabled={usersBusy === u.id || isSelf || isProtected}
+              className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-40 disabled:cursor-not-allowed"
+              title={
+                isSelf
+                  ? 'Impossible sur votre propre compte'
+                  : isProtected
+                    ? 'Super Admin protégé'
+                    : 'Supprimer définitivement'
+              }
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   const tabs = [
     { id: 'overview', label: 'Vue Globale', icon: Layout },
+    { id: 'businesses', label: 'Commerces', icon: Store },
     { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
@@ -1688,6 +1793,89 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET GESTION UTILISATEURS */}
         {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'businesses' && (
+          <div className="space-y-6 animate-slide-up">
+            <div>
+              <h2 className="text-xl font-bold text-text-primary">Gestion des Commerces</h2>
+              <p className="text-text-secondary text-sm">
+                Supprimer un commerce supprime aussi ses produits et favoris. L'historique des commandes est conservé.
+              </p>
+            </div>
+
+            {businessesMsg && (
+              <div className={`p-3 rounded-lg border text-sm ${businessesMsg.type === 'success' ? 'bg-status-successBg border-status-success/30 text-status-success' : 'bg-status-errorBg border-status-error/30 text-status-error'}`}>
+                {businessesMsg.text}
+              </div>
+            )}
+
+            <div className="card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Commerce</th>
+                      <th>Catégorie</th>
+                      <th>Adresse</th>
+                      <th>Téléphone</th>
+                      <th>Statut</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {businesses.map(b => (
+                      <tr key={b.id}>
+                        <td>
+                          <div className="flex items-center gap-2">
+                            {b.logo ? (
+                              <img src={b.logo} alt={b.name} className="w-8 h-8 rounded-lg object-cover" />
+                            ) : (
+                              <div className="w-8 h-8 bg-background-secondary rounded-lg flex items-center justify-center text-xs font-bold text-text-secondary">
+                                {(b.name || '?').charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <p className="font-semibold text-text-primary text-sm">{b.name}</p>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                            {String(b.category || '—').toLowerCase()}
+                          </span>
+                        </td>
+                        <td>
+                          <p className="text-text-secondary text-xs">{b.address || '—'}</p>
+                        </td>
+                        <td>
+                          <p className="text-text-secondary text-xs">{b.phone || '—'}</p>
+                        </td>
+                        <td>
+                          <StatusBadge status={b.isOpen ? 'active' : 'inactive'} statusConfig={{
+                            active: { label: 'Ouvert', color: 'success', dot: '#22C55E' },
+                            inactive: { label: 'Fermé', color: 'gray', dot: '#A09890' },
+                          }} />
+                        </td>
+                        <td>
+                          <button
+                            onClick={() => handleDeleteBusiness(b.id, b.name)}
+                            disabled={businessesBusy === b.id}
+                            className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-40 disabled:cursor-not-allowed"
+                            title="Supprimer définitivement ce commerce"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {businesses.length === 0 && (
+                  <p className="text-text-tertiary text-sm text-center py-8">Aucun commerce enregistré.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'users' && (
           <div className="space-y-6 animate-slide-up">
             <div className="flex justify-between items-center">
@@ -1718,100 +1906,95 @@ const SuperAdminDashboard = () => {
                 ))}
               </div>
             ) : (
-              <div className="card overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Utilisateur</th>
-                        <th>Email</th>
-                        <th>Téléphone</th>
-                        <th>Rôle</th>
-                        <th>Statut</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map(u => {
-                        const isSelf = u.id === user?.id;
-                        const isProtected = String(u.role || '').toLowerCase().replace('-', '_') === 'super_admin' && !isSelf;
-                        return (
-                          <tr key={u.id}>
-                            <td>
-                              <div className="flex items-center gap-2">
-                                <div className="avatar w-8 h-8 bg-accent-primary text-white text-xs font-bold flex items-center justify-center rounded-full">
-                                  {(u.fullName || u.email || '?').charAt(0).toUpperCase()}
-                                </div>
-                                <p className="font-semibold text-text-primary text-sm">{u.fullName || '—'}</p>
-                              </div>
-                            </td>
-                            <td>
-                              <p className="text-text-secondary text-xs">{u.email}</p>
-                            </td>
-                            <td>
-                              <p className="text-text-secondary text-xs">{u.phone || '—'}</p>
-                            </td>
-                            <td>
-                              <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
-                                {roleLabel(u.role)}
-                              </span>
-                            </td>
-                            <td>
-                              <StatusBadge status={u.isActive ? 'active' : 'inactive'} statusConfig={{
-                                active: { label: 'Actif', color: 'success', dot: '#22C55E' },
-                                inactive: { label: 'Banni', color: 'gray', dot: '#A09890' },
-                              }} />
-                            </td>
-                            <td>
-                              <div className="flex items-center gap-2">
-                                <select
-                                  className="input-field !py-1.5 !text-xs"
-                                  value={u.role}
-                                  disabled={usersBusy === u.id || isSelf || isProtected}
-                                  onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
-                                >
-                                  {['client', 'business_admin', 'driver', 'support', 'admin', 'super_admin'].map(r => (
-                                    <option key={r} value={r}>{roleLabel(r)}</option>
-                                  ))}
-                                </select>
-                                <button
-                                  onClick={() => handleToggleUserStatus(u.id, !u.isActive)}
-                                  disabled={usersBusy === u.id || isSelf || isProtected}
-                                  className={`btn-icon disabled:opacity-40 disabled:cursor-not-allowed ${u.isActive ? 'text-status-error hover:bg-status-errorBg' : 'text-status-success hover:bg-status-successBg'}`}
-                                  title={
-                                    isSelf
-                                      ? 'Impossible sur votre propre compte'
-                                      : isProtected
-                                        ? 'Super Admin protégé'
-                                        : u.isActive
-                                          ? 'Bannir le compte'
-                                          : 'Réactiver le compte'
-                                  }
-                                >
-                                  <Ban size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteUser(u.id, u.email)}
-                                  disabled={usersBusy === u.id || isSelf || isProtected}
-                                  className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-40 disabled:cursor-not-allowed"
-                                  title={
-                                    isSelf
-                                      ? 'Impossible sur votre propre compte'
-                                      : isProtected
-                                        ? 'Super Admin protégé'
-                                        : 'Supprimer définitivement'
-                                  }
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+              <div className="space-y-6">
+                {/* ─── Commerçants ─── */}
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border-light flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                      <Store size={14} className="text-accent-primary" /> Commerçants
+                    </h3>
+                    <span className="text-xs font-bold text-text-secondary bg-background-secondary px-2 py-1 rounded">{merchantUsers.length}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Utilisateur</th>
+                          <th>Email</th>
+                          <th>Téléphone</th>
+                          <th>Rôle</th>
+                          <th>Statut</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {merchantUsers.map(renderUserRow)}
+                      </tbody>
+                    </table>
+                    {merchantUsers.length === 0 && (
+                      <p className="text-text-tertiary text-sm text-center py-6">Aucun commerçant.</p>
+                    )}
+                  </div>
                 </div>
+
+                {/* ─── Clients ─── */}
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border-light flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                      <Users size={14} className="text-status-info" /> Clients
+                    </h3>
+                    <span className="text-xs font-bold text-text-secondary bg-background-secondary px-2 py-1 rounded">{clientUsers.length}</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="table">
+                      <thead>
+                        <tr>
+                          <th>Utilisateur</th>
+                          <th>Email</th>
+                          <th>Téléphone</th>
+                          <th>Rôle</th>
+                          <th>Statut</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {clientUsers.map(renderUserRow)}
+                      </tbody>
+                    </table>
+                    {clientUsers.length === 0 && (
+                      <p className="text-text-tertiary text-sm text-center py-6">Aucun client.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ─── Autres comptes (livreurs, support, admin) ─── */}
+                {otherUsers.length > 0 && (
+                  <div className="card overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border-light flex items-center justify-between">
+                      <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
+                        <Shield size={14} className="text-text-secondary" /> Autres comptes
+                      </h3>
+                      <span className="text-xs font-bold text-text-secondary bg-background-secondary px-2 py-1 rounded">{otherUsers.length}</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>Utilisateur</th>
+                            <th>Email</th>
+                            <th>Téléphone</th>
+                            <th>Rôle</th>
+                            <th>Statut</th>
+                            <th>Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {otherUsers.map(renderUserRow)}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -30,6 +30,11 @@ export const getBusinesses = async () => {
   return response.data;
 };
 
+export const deleteBusiness = async (id) => {
+  const response = await api.delete(`/businesses/${id}`);
+  return response.data;
+};
+
 export const getMySubscription = async () => {
   const response = await api.get('/subscriptions/me');
   return response.data;

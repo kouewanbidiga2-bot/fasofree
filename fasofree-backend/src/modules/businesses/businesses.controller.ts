@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -111,5 +112,15 @@ export class BusinessesController {
   @ApiOperation({ summary: "Mettre à jour les paramètres d'un commerce" })
   async update(@Param('id') id: string, @Body() dto: UpdateBusinessDto) {
     return this.businessesService.update(id, dto);
+  }
+
+  // 🗑️ Suppression d'un commerce (Réservé au Super Admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Delete(':id')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Supprimer un commerce (super administrateur)' })
+  async remove(@Param('id') id: string) {
+    return this.businessesService.remove(id);
   }
 }

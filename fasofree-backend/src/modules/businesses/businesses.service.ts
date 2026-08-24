@@ -233,4 +233,25 @@ export class BusinessesService {
 
     return this.businessRepository.save(business);
   }
+
+  // 🗑️ 5. Supprimer un commerce (Super Admin)
+  // - Les produits et favoris liés sont supprimés en CASCADE par la base.
+  // - Les commandes conservent leur businessId (colonne sans contrainte FK)
+  //   afin de préserver l'historique et les données financières.
+  async remove(id: string): Promise<{ message: string; id: string }> {
+    const business = await this.businessRepository.findOne({
+      where: { id },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Commerce introuvable');
+    }
+
+    await this.businessRepository.remove(business);
+
+    return {
+      message: `Commerce "${business.name}" supprimé`,
+      id,
+    };
+  }
 }
