@@ -152,6 +152,18 @@ export class AuthService {
     });
 
     if (existingUser) {
+      // 🏪 / 🏍️ Un compte marchand ou livreur existe déjà avec cet email →
+      // pas de nouvelle candidature : il se connecte avec son code PIN.
+      if (
+        existingUser.role === UserRole.BUSINESS_ADMIN ||
+        existingUser.role === UserRole.DRIVER ||
+        existingUser.role === UserRole.COURIER
+      ) {
+        throw new ConflictException(
+          'Un compte marchand ou livreur existe déjà avec cet email. Connectez-vous avec votre code PIN.',
+        );
+      }
+
       const passwordMatches = existingUser.passwordHash
         ? await bcrypt.compare(dto.password, existingUser.passwordHash)
         : false;

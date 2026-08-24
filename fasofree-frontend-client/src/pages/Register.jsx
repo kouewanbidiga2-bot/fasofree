@@ -14,6 +14,7 @@ import {
   Home,
   Car,
   CreditCard,
+  LogIn,
 } from 'lucide-react';
 import { api } from '../services/api';
 import useAuthStore, { getHomeRoute } from '../store/authStore';
@@ -84,6 +85,7 @@ const Register = () => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [pinHint, setPinHint] = useState(false);
   const [locating, setLocating] = useState(false);
   const [success, setSuccess] = useState(null);
 
@@ -216,6 +218,7 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
+    setPinHint(false);
     const valid = validateForm();
     if (!valid) return;
 
@@ -228,6 +231,9 @@ const Register = () => {
       }
     } catch (err) {
       setSubmitError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
+      // Compte marchand/livreur déjà existant avec cet email → proposer la
+      // connexion par code PIN au lieu d'une nouvelle candidature.
+      if (err.message?.includes('code PIN')) setPinHint(true);
     } finally {
       setLoading(false);
     }
@@ -641,6 +647,17 @@ const Register = () => {
           {submitError && (
             <div className="bg-red-50 border border-red-100 text-error px-4 py-3 rounded-lg text-sm">
               {submitError}
+              {pinHint && (
+                <button
+                  type="button"
+                  onClick={() => navigate('/auth')}
+                  className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: ACCENT }}
+                >
+                  <LogIn size={15} />
+                  Se connecter avec mon code PIN
+                </button>
+              )}
             </div>
           )}
 
