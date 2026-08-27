@@ -56,24 +56,24 @@ const Home = () => {
   const cartItems = useCartStore((s) => s.items);
   const cartCount = cartItems.reduce((n, i) => n + (i.quantity || 1), 0);
 
-  // Refetch businesses when selectedCategory changes
+  // Load businesses — re-fetch when category changes AND every 30s for live updates
   useEffect(() => {
     let cancelled = false;
+    let timer = null;
     const loadBusinesses = async () => {
       try {
-        // Send the selected category to the backend
         const data = await api.getNearbyBusinesses(12.37, -1.52, 10000, selectedCategory);
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }
       } catch {
-        // API failed — list stays empty
         if (!cancelled) setAllRestaurants([]);
       }
     };
     loadBusinesses();
-    return () => { cancelled = true; };
-  }, [selectedCategory]); // <--- dependency added here
+    timer = setInterval(loadBusinesses, 30000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [selectedCategory]);
 
   const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
 
