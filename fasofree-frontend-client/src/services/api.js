@@ -68,10 +68,9 @@ export const api = {
   // Businesses
   getMyBusiness: () => apiFetch('/businesses/me', { method: 'GET' }),
   getNearbyBusinesses: (lat, lng, radius = 10000, category = '') => {
-    const ts = Date.now();
     const url = category && category !== 'all' 
-      ? `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}&category=${category}&_t=${ts}`
-      : `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}&_t=${ts}`;
+      ? `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}&category=${category}`
+      : `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
     return apiFetch(url, { method: 'GET' });
   },
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),

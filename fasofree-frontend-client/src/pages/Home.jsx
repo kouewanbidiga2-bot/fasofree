@@ -56,10 +56,17 @@ const Home = () => {
   const cartItems = useCartStore((s) => s.items);
   const cartCount = cartItems.reduce((n, i) => n + (i.quantity || 1), 0);
 
-  // Load businesses — re-fetch when category changes AND every 30s for live updates
+  // Refetch businesses when selectedCategory changes OR when returning via browser back button
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handlePopState = () => setRefreshKey((k) => k + 1);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
-    let timer = null;
     const loadBusinesses = async () => {
       try {
         const data = await api.getNearbyBusinesses(12.37, -1.52, 10000, selectedCategory);
@@ -71,9 +78,8 @@ const Home = () => {
       }
     };
     loadBusinesses();
-    timer = setInterval(loadBusinesses, 30000);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, [selectedCategory]);
+    return () => { cancelled = true; };
+  }, [selectedCategory, refreshKey]);
 
   const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
 
