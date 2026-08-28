@@ -1,7 +1,7 @@
 import { PaymentMethod } from '../entities/transaction.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class InitiatePaymentDto {
   @ApiProperty({ format: 'uuid' })
@@ -16,6 +16,5 @@ export class InitiatePaymentDto {
   @ApiPropertyOptional({ example: '+22670000000' })
   @IsOptional()
   @IsString()
-  @Matches(/^\+?[0-9]{8,20}$/)
   phoneNumber?: string;
 }
