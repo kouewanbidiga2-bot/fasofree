@@ -379,10 +379,10 @@ export class DispatchService {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
       const pendingOrders = await this.orderRepository
-        .createQueryBuilder('order')
-        .where('order.status = :status', { status: OrderStatus.PAID })
-        .andWhere('order.dispatchedAt < :timeout', { timeout: fiveMinutesAgo })
-        .andWhere('order.driverId IS NULL')
+        .createQueryBuilder('o')
+        .where('o.status = :status', { status: OrderStatus.PAID })
+        .andWhere('o.dispatchedAt < :timeout', { timeout: fiveMinutesAgo })
+        .andWhere('o.driverId IS NULL')
         .getMany();
 
       for (const order of pendingOrders) {

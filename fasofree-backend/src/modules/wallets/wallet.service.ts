@@ -444,13 +444,13 @@ export class WalletService {
       for (const wallet of merchantWallets) {
         // Calculer le chiffre d'affaires total (commandes COMPLETED)
         const totalRevenue = await this.orderRepository
-          .createQueryBuilder('order')
-          .select('SUM(order.merchantPayoutAmount)', 'sum')
-          .where('order.businessId = :businessId', {
+          .createQueryBuilder('o')
+          .select('SUM(o.merchantPayoutAmount)', 'sum')
+          .where('o.businessId = :businessId', {
             businessId: wallet.userId,
           })
-          .andWhere('order.status = :status', { status: OrderStatus.COMPLETED })
-          .andWhere('order.createdAt >= :cutoff', {
+          .andWhere('o.status = :status', { status: OrderStatus.COMPLETED })
+          .andWhere('o.createdAt >= :cutoff', {
             cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 derniers jours
           })
           .getRawOne<{ sum: string }>();
@@ -493,11 +493,11 @@ export class WalletService {
       for (const wallet of driverWallets) {
         // Calculer les frais de livraison gagnés
         const totalEarnings = await this.orderRepository
-          .createQueryBuilder('order')
-          .select('SUM(order.deliveryFee)', 'sum')
-          .where('order.driverId = :driverId', { driverId: wallet.userId })
-          .andWhere('order.status = :status', { status: OrderStatus.COMPLETED })
-          .andWhere('order.createdAt >= :cutoff', {
+          .createQueryBuilder('o')
+          .select('SUM(o.deliveryFee)', 'sum')
+          .where('o.driverId = :driverId', { driverId: wallet.userId })
+          .andWhere('o.status = :status', { status: OrderStatus.COMPLETED })
+          .andWhere('o.createdAt >= :cutoff', {
             cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           })
           .getRawOne<{ sum: string }>();

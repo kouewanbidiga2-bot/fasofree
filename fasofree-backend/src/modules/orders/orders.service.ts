@@ -1585,11 +1585,11 @@ export class OrdersService {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const staleOrders = await this.orderRepository
-      .createQueryBuilder('order')
-      .where('order.status = :status', {
+      .createQueryBuilder('o')
+      .where('o.status = :status', {
         status: OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       })
-      .andWhere('order.driverValidatedAt < :cutoff', {
+      .andWhere('o.driverValidatedAt < :cutoff', {
         cutoff: twentyFourHoursAgo,
       })
       .getMany();
@@ -1631,13 +1631,13 @@ export class OrdersService {
     const now = new Date();
 
     const heldOrders = await this.orderRepository
-      .createQueryBuilder('order')
-      .where('order."payoutScheduledAt" IS NOT NULL')
-      .andWhere('order."payoutScheduledAt" <= :now', { now })
-      .andWhere('order."payoutReleased" = false')
-      .andWhere('order.status != :disputed', { disputed: OrderStatus.DISPUTED })
-      .andWhere('order.status != :cancelled', { cancelled: OrderStatus.CANCELLED })
-      .andWhere('order.status != :refunded', { refunded: OrderStatus.REFUNDED })
+      .createQueryBuilder('o')
+      .where('o."payoutScheduledAt" IS NOT NULL')
+      .andWhere('o."payoutScheduledAt" <= :now', { now })
+      .andWhere('o."payoutReleased" = false')
+      .andWhere('o.status != :disputed', { disputed: OrderStatus.DISPUTED })
+      .andWhere('o.status != :cancelled', { cancelled: OrderStatus.CANCELLED })
+      .andWhere('o.status != :refunded', { refunded: OrderStatus.REFUNDED })
       .getMany();
 
     if (heldOrders.length === 0) return;

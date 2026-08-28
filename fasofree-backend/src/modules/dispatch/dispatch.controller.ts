@@ -54,17 +54,17 @@ export class DispatchController {
     const driverId = req.user?.userId;
 
     const orders = await this.orderRepository
-      .createQueryBuilder('order')
-      .where('order.status = :status', { status: OrderStatus.READY_FOR_PICKUP })
+      .createQueryBuilder('o')
+      .where('o.status = :status', { status: OrderStatus.READY_FOR_PICKUP })
       .andWhere(
-        `(order."dispatchCandidates" IS NULL OR NOT EXISTS (
-          SELECT 1 FROM jsonb_array_elements(order."dispatchCandidates") AS cand
+        `(o."dispatchCandidates" IS NULL OR NOT EXISTS (
+          SELECT 1 FROM jsonb_array_elements(o."dispatchCandidates") AS cand
           WHERE cand->>'driverId' = :driverId
         ))`,
         { driverId },
       )
-      .andWhere('order.fulfillmentType = :ft', { ft: 'DELIVERY' })
-      .orderBy('order."dispatchedAt"', 'ASC')
+      .andWhere('o.fulfillmentType = :ft', { ft: 'DELIVERY' })
+      .orderBy('o."dispatchedAt"', 'ASC')
       .limit(20)
       .getMany();
 

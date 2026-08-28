@@ -97,21 +97,21 @@ export class AnalyticsService {
     try {
       // 1. Calcul des statistiques financières (Query SQL directe pour la performance)
       const query = this.orderRepository
-        .createQueryBuilder('order')
-        .select('COUNT(order.id)', 'totalOrders')
+        .createQueryBuilder('o')
+        .select('COUNT(o.id)', 'totalOrders')
         .addSelect(
-          'SUM(CASE WHEN order.status = :deliveredStatus THEN order.totalAmount ELSE 0 END)',
+          'SUM(CASE WHEN o.status = :deliveredStatus THEN o.totalAmount ELSE 0 END)',
           'totalRevenue',
         )
         .addSelect(
-          'COUNT(CASE WHEN order.status = :deliveredStatus THEN 1 END)',
+          'COUNT(CASE WHEN o.status = :deliveredStatus THEN 1 END)',
           'completedOrders',
         )
         .addSelect(
-          'COUNT(CASE WHEN order.status = :cancelledStatus THEN 1 END)',
+          'COUNT(CASE WHEN o.status = :cancelledStatus THEN 1 END)',
           'cancelledOrders',
         )
-        .where('order.businessId = :businessId', { businessId })
+        .where('o.businessId = :businessId', { businessId })
         .setParameters({
           deliveredStatus: OrderStatus.DELIVERED,
           cancelledStatus: OrderStatus.CANCELLED,
@@ -243,14 +243,14 @@ export class AnalyticsService {
     const { startDate, endDate } = this.resolveDateRange(filter);
 
     const query = this.orderRepository
-      .createQueryBuilder('order')
-      .where('order.businessId = :businessId', { businessId })
-      .andWhere('order.status != :cancelled', {
+      .createQueryBuilder('o')
+      .where('o.businessId = :businessId', { businessId })
+      .andWhere('o.status != :cancelled', {
         cancelled: OrderStatus.CANCELLED,
       });
 
     if (startDate && endDate) {
-      query.andWhere('order.createdAt BETWEEN :startDate AND :endDate', {
+      query.andWhere('o.createdAt BETWEEN :startDate AND :endDate', {
         startDate,
         endDate,
       });
