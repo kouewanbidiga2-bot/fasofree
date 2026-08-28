@@ -16,6 +16,7 @@ import { RedisModule } from '../../core/redis/redis.module';
 import { OrdersModule } from '../orders/orders.module';
 import { LigdiCashModule } from './ligdicash.module';
 import { YengaPayService } from './providers/yengapay.service';
+import { PayDunyaService } from './providers/paydunya.service';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { YengaPayService } from './providers/yengapay.service';
     ]),
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, TypeOrmModule],
+  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService],
+  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, TypeOrmModule],
 })
 export class PaymentsModule {}

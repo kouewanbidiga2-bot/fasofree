@@ -18,6 +18,7 @@ import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
 import { YengaPayService, YengaPayWebhookPayload } from './providers/yengapay.service';
+import { PayDunyaService } from './providers/paydunya.service';
 import { resolvePaymentProvider } from '../../config/payment.config';
 
 @Injectable()
@@ -34,9 +35,10 @@ export class PaymentsService {
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly yengaPayService: YengaPayService,
+    private readonly payDunyaService: PayDunyaService,
   ) {}
 
-  // 1. Initier un paiement — route vers le provider actif (YengaPay ou CinetPay)
+  // 1. Initier un paiement — route vers le provider actif
   async initiatePayment(dto: InitiatePaymentDto, clientId: string) {
     const order = await this.orderRepository.findOne({
       where: { id: dto.orderId },
@@ -68,6 +70,10 @@ export class PaymentsService {
 
     // Routing vers le provider actif
     const provider = resolvePaymentProvider(this.configService);
+
+    if (provider === 'paydunya' && this.payDunyaService.isConfigured()) {
+      return this.initiatePayDunya(order, reference, dto);
+    }
 
     if (provider === 'yengapay' && this.yengaPayService.isConfigured()) {
       return this.initiateYengaPay(order, reference, dto);
@@ -104,6 +110,38 @@ export class PaymentsService {
       this.logger.error('Erreur YengaPay initiatePayment', error.message);
       throw new BadRequestException(
         error.message || 'Échec de l\'initialisation YengaPay',
+      );
+    }
+  }
+
+  // PayDunya: créer une facture checkout et retourner l'URL de paiement
+  private async initiatePayDunya(
+    order: Order,
+    reference: string,
+    dto: InitiatePaymentDto,
+  ) {
+    try {
+      const result = await this.payDunyaService.createCheckoutPayment({
+        amount: Number(order.totalAmount),
+        reference,
+        description: `Commande #${order.id.substring(0, 8)} - FasoFree`,
+        metadata: { orderId: order.id, paymentMethod: dto.paymentMethod },
+        customerPhone: dto.phoneNumber?.replace('+', '') || undefined,
+        paymentMethod: dto.paymentMethod,
+      });
+
+      return {
+        reference,
+        checkoutUrl: result.checkoutUrl,
+        token: result.token,
+        amount: order.totalAmount,
+        provider: 'paydunya',
+        status: TransactionStatus.PENDING,
+      };
+    } catch (error) {
+      this.logger.error('Erreur PayDunya initiatePayment', error.message);
+      throw new BadRequestException(
+        error.message || 'Échec de l\'initialisation PayDunya',
       );
     }
   }

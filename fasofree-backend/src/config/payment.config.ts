@@ -8,17 +8,18 @@ import { ConfigService } from '@nestjs/config';
  * - `wave`     : Wave Mobile Money
  * - `yengapay` : Mobile Money via YengaPay (Orange, Moov, Telecel, Coris, Sank)
  */
-export type PaymentProvider = 'mock' | 'ligdicash' | 'cinetpay' | 'wave' | 'yengapay';
+export type PaymentProvider = 'mock' | 'ligdicash' | 'cinetpay' | 'wave' | 'yengapay' | 'paydunya';
 
 export const PAYMENT_PROVIDER_KEY = 'PAYMENT_PROVIDER';
 
 /**
  * Résout le provider de paiement actif.
- * 1. `PAYMENT_PROVIDER` explicite (mock | ligdicash | cinetpay | wave | yengapay) gagne.
- * 2. Si YENGAPAY_API_KEY est défini → `yengapay`.
- * 3. En dev, si les clés LigdiCash ne sont PAS renseignées (placeholders), on
+ * 1. `PAYMENT_PROVIDER` explicite (mock | ligdicash | cinetpay | wave | yengapay | paydunya) gagne.
+ * 2. Si PAYDUNYA_MASTER_KEY est défini → `paydunya`.
+ * 3. Si YENGAPAY_API_KEY est défini → `yengapay`.
+ * 4. En dev, si les clés LigdiCash ne sont PAS renseignées (placeholders), on
  *    bascule automatiquement sur `mock` pour ne jamais bloquer les tests.
- * 4. Sinon, le provider réel par défaut est LigdiCash.
+ * 5. Sinon, le provider réel par défaut est LigdiCash.
  */
 export function resolvePaymentProvider(
   configService: ConfigService,
@@ -30,6 +31,12 @@ export function resolvePaymentProvider(
 
   if (explicit) {
     return explicit as PaymentProvider;
+  }
+
+  // PayDunya si les clés sont présentes
+  const paydunyaKey = configService.get<string>('PAYDUNYA_MASTER_KEY', '');
+  if (paydunyaKey && !paydunyaKey.includes('votre_') && !paydunyaKey.includes('replace_')) {
+    return 'paydunya';
   }
 
   // YengaPay si les clés sont présentes

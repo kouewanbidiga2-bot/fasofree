@@ -1,7 +1,9 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
+  Param,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -25,6 +27,7 @@ import { WaveWebhookGuard } from './guards/webhook-signature.guard';
 import { LigdiCashService } from './providers/ligdicash.service';
 import { MockPaymentService } from './providers/mock-payment.service';
 import { YengaPayService } from './providers/yengapay.service';
+import { PayDunyaService } from './providers/paydunya.service';
 import { isMockProvider } from '../../config/payment.config';
 
 @ApiTags('Payments')
@@ -37,6 +40,7 @@ export class PaymentsController {
     private readonly ligdiCashService: LigdiCashService,
     private readonly mockPaymentService: MockPaymentService,
     private readonly yengaPayService: YengaPayService,
+    private readonly payDunyaService: PayDunyaService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -180,5 +184,66 @@ export class PaymentsController {
     }
 
     return { ok: true };
+  }
+
+  /**
+   * 5. Webhook PayDunya (Orange Money Burkina / Moov Money Burkina)
+   * Endpoint public : POST /payments/paydunya/webhook
+   * PayDunya envoie les données en application/x-www-form-urlencoded
+   */
+  @Post('paydunya/webhook')
+  @ApiOperation({ summary: 'Recevoir la confirmation de paiement PayDunya' })
+  @HttpCode(HttpStatus.OK)
+  async handlePayDunyaWebhook(@Body() payload: any) {
+    this.logger.log('Webhook PayDunya reçu');
+
+    if (!this.payDunyaService.isConfigured()) {
+      this.logger.warn('Webhook PayDunya reçu mais PayDunya n\'est pas configuré');
+      return { response_code: '00', response_text: 'OK' };
+    }
+
+    // PayDunya envoie les données dans un champ "data" ou directement en body
+    const data = payload?.data || payload;
+
+    if (!data || !data.invoice) {
+      this.logger.warn('Webhook PayDunya: payload invalide');
+      return { response_code: '00', response_text: 'OK' };
+    }
+
+    const { orderId, transactionRef, status, amount } =
+      this.payDunyaService.extractOrderInfo(data);
+
+    if (!orderId || !transactionRef) {
+      this.logger.warn('Webhook PayDunya: orderId ou transactionRef manquant', data);
+      return { response_code: '00', response_text: 'OK' };
+    }
+
+    if (status === 'SUCCESS') {
+      await this.paymentsService.processSuccessfulPayment(
+        orderId,
+        transactionRef,
+        'PAYDUNYA',
+      );
+      this.logger.log(
+        `PayDunya webhook traité: commande ${orderId} marquée PAID`,
+      );
+    } else {
+      this.logger.warn(
+        `PayDunya webhook: paiement ${status} pour la commande ${orderId}`,
+      );
+    }
+
+    return { response_code: '00', response_text: 'OK' };
+  }
+
+  /**
+   * 6. Vérifier le statut d'un paiement PayDunya
+   */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'))
+  @Get('paydunya/status/:token')
+  @ApiOperation({ summary: 'Vérifier le statut d\'un paiement PayDunya' })
+  async checkPayDunyaStatus(@Param('token') token: string) {
+    return this.payDunyaService.verifyPayment(token);
   }
 }
