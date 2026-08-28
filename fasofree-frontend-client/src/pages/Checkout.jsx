@@ -158,9 +158,14 @@ const Checkout = () => {
           // Pas de checkoutUrl → paiement mock ou provider non configuré, continuer
         }
       } catch (payErr) {
-        console.error('Payment initiation error:', payErr?.message);
-        // Si le paiement échoue vraiment, informer l'utilisateur
-        alert(`Erreur de paiement: ${payErr?.message || 'Paiement non disponible'}. Votre commande a été enregistrée.`);
+        console.error('Payment initiation error:', payErr);
+        // Extraire le message d'erreur depuis la réponse API
+        let errorMsg = 'Paiement non disponible';
+        if (payErr?.message) {
+          // Si le message est un array (format NestJS), prendre le premier
+          errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
+        }
+        alert(`Erreur de paiement: ${errorMsg}. Votre commande a été enregistrée.`);
       }
 
       navigate('/receipt', {

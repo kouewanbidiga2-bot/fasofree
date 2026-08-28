@@ -120,6 +120,7 @@ export class PaymentsService {
     reference: string,
     dto: InitiatePaymentDto,
   ) {
+    this.logger.log(`initiatePayDunya: order=${order.id}, amount=${order.totalAmount}, method=${dto.paymentMethod}`);
     try {
       const result = await this.payDunyaService.createCheckoutPayment({
         amount: Number(order.totalAmount),
@@ -130,6 +131,7 @@ export class PaymentsService {
         paymentMethod: dto.paymentMethod,
       });
 
+      this.logger.log(`initiatePayDunya success: token=${result.token}`);
       return {
         reference,
         checkoutUrl: result.checkoutUrl,
@@ -139,7 +141,10 @@ export class PaymentsService {
         status: TransactionStatus.PENDING,
       };
     } catch (error) {
-      this.logger.error('Erreur PayDunya initiatePayment', error.message);
+      this.logger.error(
+        `initiatePayDunya FAILED for order ${order.id}: ${error?.message}`,
+        error?.stack,
+      );
       throw new BadRequestException(
         error.message || 'Échec de l\'initialisation PayDunya',
       );

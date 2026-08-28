@@ -190,31 +190,48 @@ export class PaymentsController {
    * 5. Webhook PayDunya (Orange Money Burkina / Moov Money Burkina)
    * Endpoint public : POST /payments/paydunya/webhook
    * PayDunya envoie les données en application/x-www-form-urlencoded
+   * avec un champ "data" contenant le JSON stringifié
    */
   @Post('paydunya/webhook')
   @ApiOperation({ summary: 'Recevoir la confirmation de paiement PayDunya' })
   @HttpCode(HttpStatus.OK)
   async handlePayDunyaWebhook(@Body() payload: any) {
     this.logger.log('Webhook PayDunya reçu');
+    this.logger.debug(`Webhook PayDunya payload type: ${typeof payload}, keys: ${JSON.stringify(Object.keys(payload || {}))}`);
 
     if (!this.payDunyaService.isConfigured()) {
       this.logger.warn('Webhook PayDunya reçu mais PayDunya n\'est pas configuré');
       return { response_code: '00', response_text: 'OK' };
     }
 
-    // PayDunya envoie les données dans un champ "data" ou directement en body
-    const data = payload?.data || payload;
+    // PayDunya envoie le payload comme form-urlencoded avec un champ "data" (JSON string)
+    // Le @Body() parser peut retourner { data: "..." } ou { data: {...} }
+    let data = payload?.data || payload;
+
+    // Si data est une string JSON, on le parse
+    if (typeof data === 'string') {
+      try {
+        data = JSON.parse(data);
+      } catch {
+        this.logger.warn('Webhook PayDunya: impossible de parser data comme JSON');
+        return { response_code: '00', response_text: 'OK' };
+      }
+    }
+
+    this.logger.debug(`Webhook PayDunya data: ${JSON.stringify(data).substring(0, 500)}`);
 
     if (!data || !data.invoice) {
-      this.logger.warn('Webhook PayDunya: payload invalide');
+      this.logger.warn('Webhook PayDunya: payload invalide (pas de invoice)', JSON.stringify(payload).substring(0, 300));
       return { response_code: '00', response_text: 'OK' };
     }
 
     const { orderId, transactionRef, status, amount } =
       this.payDunyaService.extractOrderInfo(data);
 
+    this.logger.log(`Webhook PayDunya: orderId=${orderId}, status=${status}, amount=${amount}`);
+
     if (!orderId || !transactionRef) {
-      this.logger.warn('Webhook PayDunya: orderId ou transactionRef manquant', data);
+      this.logger.warn('Webhook PayDunya: orderId ou transactionRef manquant', JSON.stringify(data).substring(0, 300));
       return { response_code: '00', response_text: 'OK' };
     }
 
@@ -245,5 +262,30 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Vérifier le statut d\'un paiement PayDunya' })
   async checkPayDunyaStatus(@Param('token') token: string) {
     return this.payDunyaService.verifyPayment(token);
+  }
+
+  /**
+   * 7. Endpoint test — vérifier la config PayDunya (pas d'auth requise)
+   */
+  @Get('paydunya/test-config')
+  @ApiOperation({ summary: '[Test] Vérifier la configuration PayDunya' })
+  testPayDunyaConfig() {
+    const masterKey = this.configService.get<string>('PAYDUNYA_MASTER_KEY', '');
+    const privateKey = this.configService.get<string>('PAYDUNYA_PRIVATE_KEY', '');
+    const token = this.configService.get<string>('PAYDUNYA_TOKEN', '');
+    const mode = this.configService.get<string>('PAYDUNYA_MODE', 'test');
+    const provider = this.configService.get<string>('PAYMENT_PROVIDER', '');
+
+    return {
+      configured: this.payDunyaService.isConfigured(),
+      mode,
+      provider,
+      masterKeyLast4: masterKey ? masterKey.slice(-4) : null,
+      privateKeyLast4: privateKey ? privateKey.slice(-4) : null,
+      tokenLast4: token ? token.slice(-4) : null,
+      masterKeyLength: masterKey.length,
+      privateKeyLength: privateKey.length,
+      tokenLength: token.length,
+    };
   }
 }

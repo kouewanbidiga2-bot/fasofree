@@ -113,6 +113,11 @@ export class PayDunyaService {
             description: '',
           },
         },
+        customer: {
+          name: params.customerName || '',
+          phone: params.customerPhone || '',
+          email: params.customerEmail || '',
+        },
       },
       store: {
         name: 'FasoFree',
@@ -125,7 +130,7 @@ export class PayDunyaService {
       },
       actions: {
         cancel_url: 'https://www.fasofree.site/receipt',
-        return_url: `https://www.fasofree.site/receipt`,
+        return_url: 'https://www.fasofree.site/receipt',
         callback_url: this.configService.get<string>(
           'PAYDUNYA_WEBHOOK_URL',
           'https://api.fasofree.site/api/v1/payments/paydunya/webhook',
@@ -137,28 +142,24 @@ export class PayDunyaService {
       payload.invoice.channels = [channel];
     }
 
-    if (params.customerName || params.customerPhone || params.customerEmail) {
-      payload.invoice.customer = {
-        name: params.customerName || '',
-        phone: params.customerPhone || '',
-        email: params.customerEmail || '',
-      };
-    }
-
     try {
       const url = `${this.baseUrl}/checkout-invoice/create`;
       this.logger.log(`PayDunya → POST ${url}`);
+      this.logger.debug(`PayDunya payload: ${JSON.stringify({ ...payload, store: '...', invoice: { ...payload.invoice, items: '...' } })}`);
 
       const response = await firstValueFrom(
         this.httpService.post(url, payload, {
           headers: this.getHeaders(),
+          timeout: 30000,
         }),
       );
 
       const data = response.data;
 
+      this.logger.log(`PayDunya response_code: ${data.response_code}`);
+
       if (data.response_code !== '00') {
-        this.logger.error('PayDunya checkout error:', data);
+        this.logger.error(`PayDunya API error (${data.response_code}): ${data.response_text}`, JSON.stringify(data));
         throw new BadRequestException(
           data.response_text || 'Échec de la création de la facture PayDunya',
         );
@@ -174,12 +175,26 @@ export class PayDunyaService {
       };
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
-      this.logger.error(
-        'Erreur lors de l\'appel à PayDunya',
-        error?.response?.data || error.message,
-      );
+
+      // Log détaillé pour tous les types d'erreurs
+      const axiosData = error?.response?.data;
+      const axiosStatus = error?.response?.status;
+      const axiosHeaders = error?.response?.headers;
+
+      if (axiosData) {
+        this.logger.error(
+          `PayDunya API HTTP ${axiosStatus}: ${JSON.stringify(axiosData)}`,
+          axiosHeaders ? JSON.stringify(axiosHeaders) : '',
+        );
+      } else {
+        this.logger.error(
+          `PayDunya network/error: ${error?.message || error}`,
+          error?.stack || '',
+        );
+      }
+
       throw new BadRequestException(
-        'Impossible de contacter la passerelle PayDunya.',
+        axiosData?.response_text || axiosData?.message || 'Impossible de contacter la passerelle PayDunya.',
       );
     }
   }
@@ -199,10 +214,12 @@ export class PayDunyaService {
       const response = await firstValueFrom(
         this.httpService.get(url, {
           headers: this.getHeaders(),
+          timeout: 15000,
         }),
       );
 
       const data = response.data;
+      this.logger.log(`PayDunya verify response_code: ${data.response_code}, status: ${data.status}`);
       const rawStatus = (data.status || '').toLowerCase();
 
       let status: 'completed' | 'pending' | 'cancelled' | 'failed' = 'pending';
@@ -216,10 +233,17 @@ export class PayDunyaService {
         raw: data,
       };
     } catch (error) {
-      this.logger.error(
-        `Erreur vérification PayDunya pour ${invoiceToken}`,
-        error?.response?.data || error.message,
-      );
+      const axiosData = error?.response?.data;
+      const axiosStatus = error?.response?.status;
+      if (axiosData) {
+        this.logger.error(
+          `PayDunya verify HTTP ${axiosStatus}: ${JSON.stringify(axiosData)}`,
+        );
+      } else {
+        this.logger.error(
+          `PayDunya verify error for ${invoiceToken}: ${error?.message || error}`,
+        );
+      }
       return { status: 'failed', amount: 0, raw: null as any };
     }
   }
