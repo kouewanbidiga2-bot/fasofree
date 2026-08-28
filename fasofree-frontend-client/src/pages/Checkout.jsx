@@ -155,9 +155,12 @@ const Checkout = () => {
             window.location.href = payResult.checkoutUrl;
             return;
           }
+          // Pas de checkoutUrl → paiement mock ou provider non configuré, continuer
         }
       } catch (payErr) {
-        console.warn('Payment initiate skipped (mock or provider unavailable):', payErr?.message);
+        console.error('Payment initiation error:', payErr?.message);
+        // Si le paiement échoue vraiment, informer l'utilisateur
+        alert(`Erreur de paiement: ${payErr?.message || 'Paiement non disponible'}. Votre commande a été enregistrée.`);
       }
 
       navigate('/receipt', {
