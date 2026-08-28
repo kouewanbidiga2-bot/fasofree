@@ -109,6 +109,7 @@ export const api = {
 
   // Paiement
   initiatePayment: (data) => apiFetch('/payments/initiate', { method: 'POST', body: data }),
+  checkPayDunyaStatus: (token) => apiFetch(`/payments/paydunya/status/${token}`, { method: 'GET' }),
 
   // Chat éphémère
   getChatHistory: (orderId, channel = 'driver') => apiFetch(`/chat/${orderId}?channel=${channel}`, { method: 'GET' }),
