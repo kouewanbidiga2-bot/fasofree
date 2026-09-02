@@ -215,36 +215,36 @@
 /* ── Hero sun: visible golden sun with rays ── */
 .hero-sun-wrap {
   position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 80px;
-  height: 80px;
-  z-index: 2;
+  top: -20px;
+  left: -20px;
+  width: 120px;
+  height: 120px;
+  z-index: 5;
   animation: sunSpin 30s linear infinite;
 }
 .hero-sun-core {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 28px;
-  height: 28px;
-  margin: -14px 0 0 -14px;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
   border-radius: 50%;
   background: radial-gradient(circle, #E8B86D 30%, #D4A05A 70%, #C1652E 100%);
-  box-shadow: 0 0 20px rgba(232,184,109,0.6), 0 0 40px rgba(232,184,109,0.3);
+  box-shadow: 0 0 24px rgba(232,184,109,0.7), 0 0 48px rgba(232,184,109,0.35);
   animation: sunPulse 3s ease-in-out infinite;
 }
 .hero-sun-ray {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 2px;
-  height: 14px;
-  margin-top: -28px;
-  margin-left: -1px;
+  width: 2.5px;
+  height: 20px;
+  margin-top: -40px;
+  margin-left: -1.25px;
   background: linear-gradient(to top, #D4A05A, transparent);
   border-radius: 1px;
-  transform-origin: 1px 28px;
+  transform-origin: 1.25px 40px;
   animation: rayBreath 2s ease-in-out infinite;
 }
 .hero-sun-ray:nth-child(2) { animation-delay: 0.25s; }
@@ -288,9 +288,9 @@
 }
 
 @media (max-width: 640px) {
-  .hero-sun-wrap { width: 60px; height: 60px; top: 12px; right: 12px; }
-  .hero-sun-core { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
-  .hero-sun-ray { height: 10px; margin-top: -21px; transform-origin: 1px 21px; }
+  .hero-sun-wrap { width: 80px; height: 80px; top: -15px; left: -15px; }
+  .hero-sun-core { width: 28px; height: 28px; margin: -14px 0 0 -14px; }
+  .hero-sun-ray { height: 14px; margin-top: -28px; transform-origin: 1.25px 28px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
