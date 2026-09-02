@@ -13,6 +13,7 @@ import {
   createBranch,
   updateBranch,
   deleteBranch,
+  seedChitirChicken,
 } from '../../services/subscriptionService';
 
 const BrandsManagementTab = () => {
@@ -205,6 +206,21 @@ const BrandsManagementTab = () => {
     }
   };
 
+  const handleSeedChitirChicken = async () => {
+    if (!window.confirm('Seed Chitir Chicken ? Cela crée la marque, 3 agences et le menu.'));
+    setBusy('seed');
+    setMsg(null);
+    try {
+      await seedChitirChicken();
+      setMsg({ type: 'success', text: 'Chitir Chicken seedé avec succès (3 agences + 10 plats).' });
+      await loadBrands();
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message });
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
       <div className="flex justify-between items-center">
@@ -215,16 +231,26 @@ const BrandsManagementTab = () => {
             Chaque agence est un point de livraison avec sa propre géolocalisation.
           </p>
         </div>
-        <button
-          onClick={() => {
-            setShowBrandForm(true);
-            setEditingBrand(null);
-            setBrandForm({ name: '', description: '', logoUrl: '' });
-          }}
-          className="btn-primary text-xs flex items-center gap-1"
-        >
-          <Plus size={14} /> Nouvelle Marque
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSeedChitirChicken}
+            disabled={busy === 'seed'}
+            className="btn-secondary text-xs flex items-center gap-1"
+          >
+            {busy === 'seed' ? <Loader2 size={12} className="animate-spin" /> : <Store size={12} />}
+            Seed Chitir Chicken
+          </button>
+          <button
+            onClick={() => {
+              setShowBrandForm(true);
+              setEditingBrand(null);
+              setBrandForm({ name: '', description: '', logoUrl: '' });
+            }}
+            className="btn-primary text-xs flex items-center gap-1"
+          >
+            <Plus size={14} /> Nouvelle Marque
+          </button>
+        </div>
       </div>
 
       {msg && (

@@ -89,3 +89,8 @@ export const deleteBranch = async (businessId) => {
   const response = await api.delete(`/businesses/${businessId}`);
   return response.data;
 };
+
+export const seedChitirChicken = async () => {
+  const response = await api.post('/seed/chitir-chicken');
+  return response.data;
+};
