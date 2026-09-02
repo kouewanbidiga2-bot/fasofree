@@ -212,77 +212,87 @@
   100% { transform: scale(1); }
 }
 
-/* ── Hero sun: CSS-only radial glow ── */
-.hero-sun {
+/* ── Hero sun: visible golden sun with rays ── */
+.hero-sun-wrap {
   position: absolute;
-  top: -40px;
-  right: -40px;
-  width: 220px;
-  height: 220px;
+  top: 20px;
+  right: 20px;
+  width: 80px;
+  height: 80px;
+  z-index: 2;
+  animation: sunSpin 30s linear infinite;
+}
+.hero-sun-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(232,184,109,0.45) 0%, rgba(209,120,67,0.18) 40%, transparent 70%);
-  filter: blur(30px);
-  pointer-events: none;
-  z-index: 1;
-  animation: sunBreath 4s ease-in-out infinite;
+  background: radial-gradient(circle, #E8B86D 30%, #D4A05A 70%, #C1652E 100%);
+  box-shadow: 0 0 20px rgba(232,184,109,0.6), 0 0 40px rgba(232,184,109,0.3);
+  animation: sunPulse 3s ease-in-out infinite;
 }
-.hero-sun-pulse {
-  animation: sunDot 2.5s ease-in-out infinite;
+.hero-sun-ray {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 14px;
+  margin-top: -28px;
+  margin-left: -1px;
+  background: linear-gradient(to top, #D4A05A, transparent);
+  border-radius: 1px;
+  transform-origin: 1px 28px;
+  animation: rayBreath 2s ease-in-out infinite;
 }
-@keyframes sunBreath {
-  0%, 100% { transform: scale(1); opacity: 0.7; }
-  50% { transform: scale(1.15); opacity: 1; }
+.hero-sun-ray:nth-child(2) { animation-delay: 0.25s; }
+.hero-sun-ray:nth-child(3) { animation-delay: 0.5s; }
+.hero-sun-ray:nth-child(4) { animation-delay: 0.75s; }
+.hero-sun-ray:nth-child(5) { animation-delay: 1s; }
+.hero-sun-ray:nth-child(6) { animation-delay: 1.25s; }
+.hero-sun-ray:nth-child(7) { animation-delay: 1.5s; }
+.hero-sun-ray:nth-child(8) { animation-delay: 1.75s; }
+
+@keyframes sunSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
-@keyframes sunDot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.4); opacity: 0.6; }
+@keyframes sunPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(232,184,109,0.6), 0 0 40px rgba(232,184,109,0.3); }
+  50% { transform: scale(1.1); box-shadow: 0 0 28px rgba(232,184,109,0.8), 0 0 56px rgba(232,184,109,0.4); }
+}
+@keyframes rayBreath {
+  0%, 100% { height: 14px; opacity: 0.7; }
+  50% { height: 18px; opacity: 1; }
 }
 
-/* ── Hero button: tactile, no template shimmer ── */
+/* ── Hero button ── */
 .hero-btn {
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.hero-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    160deg,
-    rgba(255,255,255,0.12) 0%,
-    transparent 40%,
-    transparent 60%,
-    rgba(255,255,255,0.06) 100%
-  );
-  pointer-events: none;
-}
-.hero-btn::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 50%;
-  background: linear-gradient(to top, rgba(0,0,0,0.15), transparent);
-  pointer-events: none;
-  border-radius: 0 0 12px 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .hero-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(41,35,30,0.25);
+  box-shadow: 0 6px 20px rgba(193,101,46,0.45);
 }
 .hero-btn:active {
-  transform: translateY(1px) scale(0.98);
-  box-shadow: 0 2px 8px rgba(41,35,30,0.15);
+  transform: translateY(1px) scale(0.97);
+  box-shadow: 0 2px 8px rgba(193,101,46,0.25);
 }
 .hero-btn-arrow {
   transition: transform 0.2s ease;
 }
 .hero-btn:hover .hero-btn-arrow {
-  transform: translateX(2px);
+  transform: translateX(3px);
+}
+
+@media (max-width: 640px) {
+  .hero-sun-wrap { width: 60px; height: 60px; top: 12px; right: 12px; }
+  .hero-sun-core { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+  .hero-sun-ray { height: 10px; margin-top: -21px; transform-origin: 1px 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-sun, .hero-sun-pulse { animation: none; }
+  .hero-sun-wrap, .hero-sun-core, .hero-sun-ray { animation: none; }
 }

@@ -11,9 +11,18 @@ export default function HeroBanner() {
   }, []);
 
   return (
-    <section className="relative overflow-hidden rounded-2xl bg-[#F0E6D6]">
-      {/* ── Sun: pure CSS, no SVG ── */}
-      <div className="hero-sun" aria-hidden="true" />
+    <section className="relative rounded-2xl bg-[#F0E6D6] overflow-hidden">
+      {/* ── Sun visible ── */}
+      <div className="hero-sun-wrap" aria-hidden="true">
+        <div className="hero-sun-core" />
+        {[...Array(8)].map((_, i) => (
+          <div
+            key={i}
+            className="hero-sun-ray"
+            style={{ transform: `rotate(${i * 45}deg)` }}
+          />
+        ))}
+      </div>
 
       <div className="relative grid grid-cols-[1fr_auto] items-stretch min-h-[240px] sm:min-h-[300px]">
         {/* Left: text */}
@@ -26,7 +35,7 @@ export default function HeroBanner() {
               transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div className="w-2 h-2 rounded-full bg-[#C1652E] hero-sun-pulse" />
+            <div className="w-2 h-2 rounded-full bg-[#C1652E]" />
             <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-[#9A7D5A]">
               Ouagadougou
             </span>
@@ -76,7 +85,7 @@ export default function HeroBanner() {
             Vos restaurants préférés, livrés chauds chez vous.
           </p>
 
-          {/* ── Button: solid, tactile, reflection built-in ── */}
+          {/* ── Button: terracotta pill, clean ── */}
           <div
             className="mt-6"
             style={{
@@ -87,12 +96,10 @@ export default function HeroBanner() {
           >
             <a
               href="#restaurants"
-              className="hero-btn inline-flex items-center gap-3 bg-[#29231E] pl-6 pr-2 py-2 rounded-xl text-[11px] font-bold uppercase tracking-[0.12em] text-[#FAF5EE] active:scale-[0.97]"
+              className="hero-btn inline-flex items-center gap-3 rounded-full bg-[#C1652E] px-6 py-3 text-[12px] font-bold uppercase tracking-[0.1em] text-white shadow-[0_4px_14px_rgba(193,101,46,0.35)]"
             >
               Commander
-              <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#C1652E] text-white hero-btn-arrow">
-                <ArrowRight size={15} />
-              </span>
+              <ArrowRight size={15} className="hero-btn-arrow" />
             </a>
 
             <div className="flex items-center gap-2 mt-4 text-[11px] font-bold text-[#8B7355]">
@@ -117,10 +124,7 @@ export default function HeroBanner() {
             className="absolute inset-0 w-full h-full object-cover"
             onLoad={() => setLoaded(true)}
           />
-          {/* Fade left edge into background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-[#F0E6D6] via-transparent to-transparent w-10" />
-          {/* Subtle warm tint */}
-          <div className="absolute inset-0 bg-[#C1652E]/5 mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#F0E6D6] via-[#F0E6D6]/30 to-transparent w-12" />
         </div>
       </div>
     </section>
