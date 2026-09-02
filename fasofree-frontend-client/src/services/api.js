@@ -75,6 +75,16 @@ export const api = {
   },
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
   updateBusiness: (businessId, data) => apiFetch(`/businesses/${businessId}`, { method: 'PATCH', body: data }),
+
+  // Brands & Branches (multi-agences)
+  getBrand: (brandId) => apiFetch(`/brands/${brandId}`, { method: 'GET' }),
+  getBrandBranches: (brandId, lat, lng) => {
+    const params = lat && lng ? `?latitude=${lat}&longitude=${lng}` : '';
+    return apiFetch(`/brands/${brandId}/branches${params}`, { method: 'GET' });
+  },
+  getNearestBranch: (brandId, lat, lng) =>
+    apiFetch(`/brands/${brandId}/nearest-business?latitude=${lat}&longitude=${lng}`, { method: 'GET' }),
+  getAllBrands: () => apiFetch('/brands', { method: 'GET' }),
   
   // Products
   getBusinessProducts: (businessId) => apiFetch(`/products/business/${businessId}`, { method: 'GET' }),

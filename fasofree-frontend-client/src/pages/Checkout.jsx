@@ -58,12 +58,16 @@ const Checkout = () => {
       setQuote({ deliveryFee: 0, platformFee: 100, total: subtotal + 100 });
       return;
     }
+    if (!deliveryCoords) {
+      setQuote(null);
+      return;
+    }
     let cancelled = false;
     setQuoteLoading(true);
     fetchQuote({
       restaurant,
       items,
-      deliveryCoords: deliveryCoords ?? DEFAULT_DELIVERY_COORDS,
+      deliveryCoords,
     })
       .then((result) => {
         if (!cancelled) setQuote(result);
@@ -72,11 +76,12 @@ const Checkout = () => {
         if (!cancelled) setQuoteLoading(false);
       });
     return () => { cancelled = true; };
-  }, [restaurantId, items, deliveryCoords, useCurrentLocation, isDelivery, subtotal]);
+  }, [restaurantId, items, deliveryCoords, isDelivery, subtotal]);
 
   const deliveryFee = isDelivery ? (quote?.deliveryFee ?? 0) : 0;
-  const platformFee = quote?.platformFee ?? 0;
-  const finalTotal = quote?.total ?? subtotal;
+  const platformFee = quote?.platformFee ?? 100;
+  const finalTotal = quote?.total ?? subtotal + platformFee;
+  const hasAddress = !!deliveryCoords;
 
   const [submitting, setSubmitting] = useState(false);
 
@@ -489,26 +494,31 @@ const Checkout = () => {
                   <div className="flex justify-between text-sm text-text-secondary">
                     <span>Frais de livraison</span>
                     <span className="font-mono text-text-primary">
-                      {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
+                      {!hasAddress
+                        ? <span className="italic text-xs">Sélectionnez votre position</span>
+                        : quoteLoading
+                          ? '…'
+                          : `${deliveryFee.toLocaleString()} FCFA`
+                      }
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Frais de service</span>
-                  <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${platformFee.toLocaleString()} FCFA`}
-                  </span>
+                  <span className="font-mono text-text-primary">{platformFee.toLocaleString()} FCFA</span>
                 </div>
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
                   <span>Total</span>
                   <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${finalTotal.toLocaleString()} FCFA`}
+                    {!hasAddress && isDelivery
+                      ? <span className="text-xs">À calculer</span>
+                      : `${finalTotal.toLocaleString()} FCFA`
+                    }
                   </span>
                 </div>
-                {quoteLoading && (
-                  <p className="flex items-center gap-2 text-xs text-text-secondary">
-                    <Loader2 size={14} className="animate-spin" strokeWidth={1.5} />
-                    Calcul du prix…
+                {!hasAddress && isDelivery && (
+                  <p className="text-xs text-accent-primary">
+                    Cliquez sur « Utiliser ma position actuelle » pour calculer les frais
                   </p>
                 )}
               </div>

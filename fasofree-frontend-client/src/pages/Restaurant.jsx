@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Clock, MapPin, Check } from 'lucide-react';
+import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
@@ -35,7 +35,20 @@ const Restaurant = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
   const { addItem, getTotalItems } = useCartStore();
+
+  // Fetch user location for branch sorting
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {} // Silently fail
+      );
+    }
+  }, []);
 
   useEffect(() => {
     // Check if this restaurant is favorited
@@ -87,7 +100,25 @@ const Restaurant = () => {
           promo: business.promo || null,
           categories: [...new Set(menu.map((m) => m.category))],
           menu,
+          brandId: business.brandId,
         });
+
+        // Load branches if this restaurant has a brand
+        if (business.brandId) {
+          try {
+            const branchesData = await api.getBrandBranches(
+              business.brandId,
+              userLocation?.lat,
+              userLocation?.lng
+            );
+            if (!cancelled && Array.isArray(branchesData)) {
+              setBranches(branchesData);
+              setSelectedBranchId(business.id);
+            }
+          } catch {
+            // Silently fail - branch selector won't show
+          }
+        }
       } catch {
         if (!cancelled) setRestaurant(null);
       } finally {
@@ -96,7 +127,7 @@ const Restaurant = () => {
     };
     loadBusiness();
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, userLocation]);
 
   const getRestaurantColor = (name) => {
     const lowerName = name.toLowerCase();
@@ -218,6 +249,65 @@ const Restaurant = () => {
             </div>
           </div>
         </div>
+
+        {/* Branch Selector (Multi-agences) */}
+        {branches.length > 1 && (
+          <div className="mb-6">
+            <div className="app-panel rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Navigation size={16} style={{ color: restaurantColor }} />
+                <span className="text-sm font-medium text-text-primary">Choisir une agence</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {branches.map((branch) => {
+                  const isSelected = selectedBranchId === branch.id;
+                  const distance = branch.distanceMeters
+                    ? branch.distanceMeters < 1000
+                      ? `${branch.distanceMeters} m`
+                      : `${(branch.distanceMeters / 1000).toFixed(1)} km`
+                    : null;
+                  return (
+                    <button
+                      key={branch.id}
+                      onClick={() => {
+                        setSelectedBranchId(branch.id);
+                        // Reload menu from selected branch
+                        navigate(`/restaurant/${branch.id}`, { replace: true });
+                      }}
+                      className={`p-3 rounded-lg text-left transition-all ${
+                        isSelected
+                          ? 'ring-2'
+                          : 'bg-background-secondary hover:bg-background-primary'
+                      }`}
+                      style={{
+                        backgroundColor: isSelected ? restaurantColor + '15' : undefined,
+                        borderColor: isSelected ? restaurantColor : 'transparent',
+                        ringColor: isSelected ? restaurantColor : undefined,
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className={`text-sm font-medium truncate ${isSelected ? 'text-text-primary' : 'text-text-secondary'}`}>
+                            {branch.name}
+                          </p>
+                          <p className="text-xs text-text-secondary mt-0.5 truncate">{branch.address}</p>
+                        </div>
+                        {distance && (
+                          <span className="text-xs font-mono flex-shrink-0" style={{ color: restaurantColor }}>
+                            {distance}
+                          </span>
+                        )}
+                      </div>
+                      {branch.isOpen === false && (
+                        <span className="text-xs text-red-500 mt-1">Fermé</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Search */}
         <div className="mb-4">

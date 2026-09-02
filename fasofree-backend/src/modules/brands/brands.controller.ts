@@ -82,6 +82,21 @@ export class BrandsController {
     return this.brandsService.findNearestBusiness(id, lat, lng);
   }
 
+  // 🏪 Liste des agences d'une marque avec distance (optionnel)
+  @Get(':id/branches')
+  @ApiOperation({
+    summary: 'Lister les agences d\'une marque avec distance optionnelle',
+  })
+  async findBranches(
+    @Param('id') id: string,
+    @Query('latitude') latitude?: string,
+    @Query('longitude') longitude?: string,
+  ) {
+    const lat = latitude ? Number(latitude) : undefined;
+    const lng = longitude ? Number(longitude) : undefined;
+    return this.brandsService.findBranchesWithDistance(id, lat, lng);
+  }
+
   // ⚙️ Mise à jour d'une marque (Admin de commerce / Super Admin)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)

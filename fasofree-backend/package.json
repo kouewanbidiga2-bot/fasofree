@@ -57,6 +57,7 @@
     "jsonwebtoken": "^9.0.3",
     "libphonenumber-js": "^1.13.11",
     "nestjs-command": "^3.1.5",
+    "open-location-code": "^1.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.22.0",

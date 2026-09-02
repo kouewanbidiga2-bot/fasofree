@@ -97,6 +97,39 @@ export class BrandsService {
   }
 
   /**
+   * 🏪 Lister les agences d'une marque avec distance optionnelle
+   * Si latitude/longitude fournis, ajoute la distance (Haversine) et trie du plus proche au plus éloigné.
+   */
+  async findBranchesWithDistance(
+    brandId: string,
+    latitude?: number,
+    longitude?: number,
+  ): Promise<Business[]> {
+    const brand = await this.assertExists(brandId);
+
+    const branches = await this.businessRepository.find({
+      where: { brandId: brand.id },
+      order: { createdAt: 'ASC' },
+    });
+
+    if (latitude === undefined || longitude === undefined) {
+      return branches;
+    }
+
+    // Ajouter la distance Haversine à chaque agence et trier
+    const withDistance = branches.map((b) => {
+      const dist =
+        b.latitude != null && b.longitude != null
+          ? haversineDistanceMeters(latitude, longitude, b.latitude, b.longitude)
+          : Infinity;
+      return { ...b, distanceMeters: Math.round(dist) };
+    });
+
+    withDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
+    return withDistance as Business[];
+  }
+
+  /**
    * 📍 Routage par agence la plus proche (Brand -> Business enfants).
    * Sélectionne l'agence ouverte de la marque la plus proche des coordonnées
    * fournies (PostGIS ST_Distance sinon fallback Haversine).

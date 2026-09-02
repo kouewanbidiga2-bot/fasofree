@@ -1,71 +1,201 @@
-import React from 'react';
-import { ArrowRight, Clock3, MapPin } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ArrowRight, Clock3, MapPin, ChevronDown } from 'lucide-react';
 import bannerBg from '../assets/banner-bg.jpg';
 
-export default function HeroBanner() {
-  return (
-    <section className="home-hero relative isolate overflow-hidden shadow-medium rounded-2xl bg-gradient-to-br from-[#f3ead9] via-[#e6d5ba] to-[#c2a075]">
-      {/* Texture du site pour fondre le banner dans le design global */}
-      <div className="absolute inset-0 bg-texture opacity-30 pointer-events-none" />
-      <div className="absolute inset-x-0 top-0 h-px bg-white/60" />
+const TITLE = 'FASOFREE';
+const SUBTITLE_LETTERS = 'Vos plats favoris, livrés chauds.';
 
-      <div className="relative grid sm:grid-cols-[1.1fr_0.9fr] items-center gap-6 px-5 py-6 sm:gap-8 sm:px-10 sm:py-12 lg:px-14">
-        {/* Colonne texte */}
-        <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
-          <h1 className="hero-reveal hero-reveal-1 mt-1 font-serif text-[30px] sm:text-5xl lg:text-[56px] font-medium leading-[1.04] tracking-[-0.01em] text-[#29231e] max-w-xl">
-            Le bon repas, au{' '}
-            <em className="italic text-[#a34a24]">bon moment</em>.
+function StaggeredCharReveal({ text, className, delay = 0, speed = 60 }) {
+  const [visibleCount, setVisibleCount] = useState(0);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      let i = 0;
+      const interval = setInterval(() => {
+        i++;
+        setVisibleCount(i);
+        if (i >= text.length) clearInterval(interval);
+      }, speed);
+      return () => clearInterval(interval);
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [text.length, delay, speed]);
+
+  return (
+    <span className={className} aria-label={text}>
+      {text.split('').map((char, idx) => (
+        <span
+          key={idx}
+          className="inline-block transition-all duration-500"
+          style={{
+            opacity: idx < visibleCount ? 1 : 0,
+            transform: idx < visibleCount ? 'translateY(0) rotateX(0)' : 'translateY(40%) rotateX(-40deg)',
+            filter: idx < visibleCount ? 'blur(0)' : 'blur(4px)',
+            transitionDelay: `${idx * 30}ms`,
+          }}
+          aria-hidden="true"
+        >
+          {char === ' ' ? '\u00A0' : char}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export default function HeroBanner() {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleMouseMove = (e) => {
+    if (!sectionRef.current) return;
+    const rect = sectionRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setMousePos({ x, y });
+  };
+
+  return (
+    <section
+      ref={sectionRef}
+      onMouseMove={handleMouseMove}
+      className="hero-editorial relative isolate overflow-hidden rounded-2xl bg-[#1a1410]"
+    >
+      {/* Grain texture overlay */}
+      <div className="hero-grain absolute inset-0 pointer-events-none z-30" />
+
+      {/* Background image with parallax */}
+      <div
+        className="absolute inset-0 z-0 transition-transform duration-700 ease-out"
+        style={{
+          transform: `translate(${mousePos.x * -15}px, ${mousePos.y * -15}px) scale(1.15)`,
+        }}
+      >
+        <img
+          src={bannerBg}
+          alt=""
+          className="w-full h-full object-cover opacity-40"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#1a1410]/60 via-[#1a1410]/30 to-[#1a1410]/80" />
+      </div>
+
+      {/* Accent line */}
+      <div
+        className="absolute top-0 left-0 w-full h-[2px] z-20 origin-left"
+        style={{
+          background: 'linear-gradient(90deg, transparent, #C1652E, transparent)',
+          animationDelay: '0.8s',
+          opacity: isVisible ? 1 : 0,
+          transform: isVisible ? 'scaleX(1)' : 'scaleX(0)',
+          transition: 'opacity 0.8s ease 0.8s, transform 1.2s cubic-bezier(0.23, 1, 0.32, 1) 0.8s',
+        }}
+      />
+
+      <div className="relative z-10 px-5 sm:px-10 lg:px-16 py-10 sm:py-16 lg:py-20">
+        {/* Oversized title */}
+        <div className="hero-title-container relative">
+          <h1
+            className="hero-title text-[18vw] sm:text-[14vw] md:text-[11vw] lg:text-[120px] xl:text-[140px] font-black leading-[0.85] tracking-[-0.04em] text-transparent bg-clip-text select-none"
+            style={{
+              backgroundImage: `url(${bannerBg})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              WebkitBackgroundClip: 'text',
+              backgroundClip: 'text',
+              opacity: isVisible ? 1 : 0,
+              transform: isVisible ? 'translateY(0)' : 'translateY(30px)',
+              transition: 'opacity 0.8s ease 0.2s, transform 0.8s cubic-bezier(0.23, 1, 0.32, 1) 0.2s',
+            }}
+          >
+            <StaggeredCharReveal text={TITLE} delay={300} speed={80} />
           </h1>
 
-          <p className="hero-reveal hero-reveal-2 mt-2.5 sm:mt-4 text-sm sm:text-[15px] text-[#6b5a48] max-w-md font-medium">
-            Vos restaurants préférés, livrés chauds chez vous en un rien de temps.
-          </p>
+          {/* Decorative dot */}
+          <div
+            className="absolute -right-2 sm:right-4 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-[#C1652E]"
+            style={{
+              opacity: isVisible ? 1 : 0,
+              transform: isVisible ? 'translateY(-50%) scale(1)' : 'translateY(-50%) scale(0)',
+              transition: 'opacity 0.5s ease 1.2s, transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.2s',
+            }}
+          />
+        </div>
 
-          <div className="hero-reveal hero-reveal-3 mt-5 sm:mt-7 flex flex-col sm:flex-row items-stretch sm:items-center justify-center sm:justify-start gap-2.5 sm:gap-3 w-full">
-            {/* Bouton éditorial : bloc brun + flèche terracotta — pleine largeur sur mobile */}
-            <a
-              href="#restaurants"
-              className="group inline-flex items-center justify-center sm:justify-start gap-4 bg-[#29231e] pl-6 pr-1.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-[0.14em] text-[#faf5ee] transition-all duration-200 hover:bg-[#1e1813] active:scale-[0.97] w-full sm:w-auto"
-            >
-              Commander
-              <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#C1652E] text-white transition-transform duration-200 group-hover:translate-x-1">
-                <ArrowRight size={15} aria-hidden="true" />
-              </span>
-            </a>
-            {/* Chips brun de l'app, côte à côte sous le bouton sur mobile */}
-            <div className="flex items-stretch sm:items-center gap-2.5 sm:gap-3">
-              <div className="hero-reveal hero-reveal-4 flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 bg-[#29231e] px-4 py-2.5 rounded-lg text-xs font-bold text-[#faf5ee] whitespace-nowrap">
-                <MapPin size={13} className="text-[#e8a379]" aria-hidden="true" />
-                Ouagadougou
-              </div>
-              <div className="hero-reveal hero-reveal-5 flex-1 sm:flex-none flex items-center justify-center sm:justify-start gap-2 bg-[#29231e] px-4 py-2.5 rounded-lg text-xs font-bold text-[#faf5ee] whitespace-nowrap">
-                <Clock3 size={13} className="text-[#e8a379]" aria-hidden="true" />
-                25–40 min
-              </div>
+        {/* Subtitle line */}
+        <div
+          className="mt-5 sm:mt-6 lg:mt-8 flex items-center gap-3"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'opacity 0.6s ease 1s, transform 0.6s cubic-bezier(0.23, 1, 0.32, 1) 1s',
+          }}
+        >
+          <div className="w-8 sm:w-12 h-px bg-[#C1652E]" />
+          <p className="text-[13px] sm:text-sm text-[#e8a379]/80 font-medium tracking-wide">
+            <StaggeredCharReveal text={SUBTITLE_LETTERS} delay={1000} speed={35} />
+          </p>
+        </div>
+
+        {/* CTA Row */}
+        <div
+          className="mt-7 sm:mt-10 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
+            transition: 'opacity 0.6s ease 1.4s, transform 0.6s cubic-bezier(0.23, 1, 0.32, 1) 1.4s',
+          }}
+        >
+          <a
+            href="#restaurants"
+            className="hero-cta-editorial group inline-flex items-center gap-4 bg-[#C1652E] pl-6 pr-2 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-[0.14em] text-white transition-all duration-300 hover:bg-[#a8521f] hover:shadow-[0_0_30px_rgba(193,101,46,0.3)] active:scale-[0.97]"
+          >
+            Commander
+            <span className="grid place-items-center w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-white/15 text-white transition-all duration-300 group-hover:translate-x-1 group-hover:bg-white/25">
+              <ArrowRight size={15} aria-hidden="true" />
+            </span>
+          </a>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 px-4 py-2.5 rounded-lg text-xs font-bold text-[#e8a379] whitespace-nowrap">
+              <MapPin size={13} className="text-[#C1652E]" aria-hidden="true" />
+              Ouagadougou
+            </div>
+            <div className="flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 px-4 py-2.5 rounded-lg text-xs font-bold text-[#e8a379] whitespace-nowrap">
+              <Clock3 size={13} className="text-[#C1652E]" aria-hidden="true" />
+              25–40 min
             </div>
           </div>
         </div>
 
-        {/* Image en arche : slide-in depuis la droite + flottement + zoom lent */}
-        <div className="hero-slide-in justify-self-center sm:justify-self-end w-fit">
-          <div className="hero-float relative">
-            <div
-              className="absolute -inset-3 rounded-t-full rounded-b-3xl border border-[#a8825a]/50 pointer-events-none motion-safe:rotate-2"
-              aria-hidden="true"
-            />
-            <div className="relative w-44 sm:w-60 lg:w-72 aspect-[3/4] rounded-t-full rounded-b-2xl overflow-hidden ring-1 ring-[#29231e]/15 shadow-2xl shadow-[#5c4327]/30">
-              <img
-                src={bannerBg}
-                alt="Cuisine FasoFree"
-                className="hero-kenburns w-full h-full object-cover"
-              />
-              {/* Voiles chauds beige/marron pour fondre l'image dans la palette */}
-              <div className="absolute inset-0 bg-gradient-to-t from-[#7a5230]/45 via-transparent to-[#f3ead9]/25 mix-blend-multiply" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#3a2a1c]/35 via-transparent to-transparent" />
-            </div>
+        {/* Scroll indicator */}
+        <div
+          className="mt-10 sm:mt-14 flex justify-center sm:justify-start"
+          style={{
+            opacity: isVisible ? 1 : 0,
+            transition: 'opacity 0.6s ease 2s',
+          }}
+        >
+          <div className="hero-scroll-indicator flex flex-col items-center gap-1 text-[#e8a379]/40">
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase">Scroll</span>
+            <ChevronDown size={14} className="animate-bounce" />
           </div>
         </div>
       </div>
+
+      {/* Bottom accent */}
+      <div
+        className="absolute bottom-0 left-0 w-full h-px z-20"
+        style={{
+          background: 'linear-gradient(90deg, transparent, rgba(193,101,46,0.3), transparent)',
+          opacity: isVisible ? 1 : 0,
+          transition: 'opacity 1s ease 1.5s',
+        }}
+      />
     </section>
   );
 }

@@ -20,6 +20,7 @@ import {
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
+import BrandsManagementTab from './components/BrandsManagementTab';
 import { getFinancialDashboard, getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
@@ -819,6 +820,7 @@ const SuperAdminDashboard = () => {
   const tabs = [
     { id: 'overview', label: 'Vue Globale', icon: Layout },
     { id: 'businesses', label: 'Commerces', icon: Store },
+    { id: 'brands', label: 'Marques & Agences', icon: Store },
     { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
@@ -1873,6 +1875,13 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET MARQUES & AGENCES */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'brands' && (
+          <BrandsManagementTab />
         )}
 
         {/* ──────────────────────────────────────────────────────── */}

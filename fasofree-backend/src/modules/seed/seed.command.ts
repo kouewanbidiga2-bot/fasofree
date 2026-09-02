@@ -55,6 +55,135 @@ export class SeedCommand {
   ) {}
 
   @Command({
+    command: 'seed:chitir-chicken',
+    describe:
+      'Crée la marque Chitir Chicken avec ses 3 agences à Ouagadougou',
+  })
+  async seedChitirChicken(): Promise<void> {
+    console.log('\n🍗 ===== SEED : CHITIR CHICKEN =====');
+
+    // 1. Utilisateurs
+    const admin = await this.findOrCreateUser(
+      'admin@chitirchicken.bf',
+      AppUserRole.BUSINESS_ADMIN,
+      'Chitir Chicken Admin',
+      '+22677000001',
+    );
+
+    // 2. Marque Chitir Chicken
+    let brand = await this.brandRepository.findOne({
+      where: { name: 'Chitir Chicken' },
+    });
+    if (!brand) {
+      brand = await this.brandsService.create(
+        {
+          name: 'Chitir Chicken',
+          description: 'Poulet grillé & frit - Spécialiste du poulet à Ouaga',
+          logoUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=400&fit=crop',
+        },
+        admin.id,
+      );
+      console.log(`✅ Marque créée : ${brand.name} (${brand.id})`);
+    } else {
+      console.log(`ℹ️  Marque existante : ${brand.name}`);
+    }
+
+    // 3. Agences (Branches)
+    // Coordonnées approximatives pour Ouagadougou
+    const branches = [
+      {
+        name: 'Chitir Chicken - Kamboinsin',
+        address: 'Kamboinsin, Ouagadougou',
+        phone: '+22677000011',
+        latitude: 12.3650,
+        longitude: -1.5200,
+      },
+      {
+        name: 'Chitir Chicken - Kamsonghin',
+        address: 'Kamsonghin, Ouagadougou',
+        phone: '+22677000012',
+        latitude: 12.3800,
+        longitude: -1.5100,
+      },
+      {
+        name: 'Chitir Chicken - Ouaga 2000',
+        address: 'Ouaga 2000, Ouagadougou',
+        phone: '+22677000013',
+        latitude: 12.2850,
+        longitude: -1.4918,
+      },
+    ];
+
+    const savedBranches: Business[] = [];
+    for (const b of branches) {
+      const existing = await this.businessRepository.findOne({
+        where: { name: b.name },
+      });
+      if (existing) {
+        if (!existing.brandId) {
+          await this.businessRepository.update(existing.id, { brandId: brand.id });
+        }
+        savedBranches.push(existing);
+        console.log(`ℹ️  Agence existante : ${b.name}`);
+      } else {
+        const newBiz = await this.ensureBusiness(
+          brand,
+          admin.id,
+          b.name,
+          b.address,
+          b.phone,
+          b.latitude,
+          b.longitude,
+        );
+        savedBranches.push(newBiz);
+      }
+    }
+
+    // 4. Produits sur la première agence (partagés entre agences)
+    const sharedMenu = [
+      { name: 'Chitir Chicken (Poulet Entier)', price: 5500, category: 'Poulet', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
+      { name: 'Chitir Chicken (Demi)', price: 3000, category: 'Poulet', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
+      { name: 'Poulet Braisé + Riz', price: 3500, category: 'Plats', imageUrl: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600' },
+      { name: 'Poulet Frit (6 morceaux)', price: 4500, category: 'Poulet Frit', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
+      { name: 'Wings (12)', price: 4000, category: 'Poulet Frit', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
+      { name: 'Tacos Poulet', price: 3000, category: 'Sandwiches', imageUrl: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=600' },
+      { name: 'Salade Poulet Grillé', price: 2500, category: 'Salades', imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=600' },
+      { name: 'Frites', price: 1000, category: 'Accompagnements', imageUrl: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=600' },
+      { name: 'Jus de Baobab', price: 500, category: 'Boissons', imageUrl: 'https://images.unsplash.com/photo-1566633806327-68e152aaf26d?w=600' },
+      { name: 'Eau Minérale', price: 300, category: 'Boissons', imageUrl: 'https://images.unsplash.com/photo-1523362628745-0c100950e180?w=600' },
+    ];
+
+    // Produits sur la première agence seulement
+    if (savedBranches.length > 0) {
+      const mainBranch = savedBranches[0];
+      for (const p of sharedMenu) {
+        const existing = await this.productRepository.findOne({
+          where: { businessId: mainBranch.id, name: p.name },
+        });
+        if (!existing) {
+          await this.productRepository.save(
+            this.productRepository.create({
+              businessId: mainBranch.id,
+              name: p.name,
+              price: p.price,
+              category: p.category,
+              imageUrl: p.imageUrl,
+              isAvailable: true,
+              stockQuantity: 100,
+            }),
+          );
+        }
+      }
+      console.log(`✅ Menu (${sharedMenu.length} produits) rattaché à ${mainBranch.name}`);
+    }
+
+    console.log(`\n🎯 Chitir Chicken seed terminé !`);
+    console.log(`   Marque: ${brand.id}`);
+    console.log(`   Agences: ${savedBranches.map((b) => b.id).join(', ')}`);
+    console.log('==========================================\n');
+  }
+
+  @Command({
     command: 'seed:test-data',
     describe:
       'Crée les données de test FasoFree (client, livreur, marque, agences)',

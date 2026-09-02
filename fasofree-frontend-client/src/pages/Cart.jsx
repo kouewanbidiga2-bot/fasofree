@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { Button } from '../components/ui';
 import Footer from '../components/Footer';
 import useCartStore from '../store/cartStore';
 import api from '../services/api';
-import { fetchQuote, getCartSubtotal } from '../services/pricingService';
+import { getCartSubtotal } from '../services/pricingService';
 import ImageWithFallback from '../components/ImageWithFallback';
+
+const PLATFORM_FEE = 100;
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -22,33 +24,6 @@ const Cart = () => {
       .catch(() => { if (!cancelled) setRestaurant(null); });
     return () => { cancelled = true; };
   }, [restaurantId]);
-
-  // 💬 Devis tarifaire : les frais de livraison et plateforme viennent de l'API
-  const [quote, setQuote] = useState(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-
-  useEffect(() => {
-    if (items.length === 0) {
-      setQuote(null);
-      return;
-    }
-    let cancelled = false;
-    setQuoteLoading(true);
-    fetchQuote({ restaurant, items })
-      .then((result) => {
-        if (!cancelled) setQuote(result);
-      })
-      .finally(() => {
-        if (!cancelled) setQuoteLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [restaurantId, items]);
-
-  const deliveryFee = quote?.deliveryFee ?? 0;
-  const platformFee = quote?.platformFee ?? 0;
-  const finalTotal = quote?.total ?? subtotal;
 
   if (items.length === 0) {
     return (
@@ -168,30 +143,21 @@ const Cart = () => {
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
                   <span>Frais de livraison</span>
-                  <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${deliveryFee.toLocaleString()} FCFA`}
+                  <span className="text-text-secondary italic text-xs">
+                    Calculés à l'étape suivante
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Frais de service / Plateforme</span>
-                  <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${platformFee.toLocaleString()} FCFA`}
-                  </span>
+                  <span>Frais de service</span>
+                  <span className="font-mono text-text-primary">{PLATFORM_FEE.toLocaleString()} FCFA</span>
                 </div>
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
-                  <span>Total</span>
+                  <span>Total estimé</span>
                   <span className="font-mono text-text-primary">
-                    {quoteLoading ? '…' : `${finalTotal.toLocaleString()} FCFA`}
+                    {`≥ ${(subtotal + PLATFORM_FEE).toLocaleString()} FCFA`}
                   </span>
                 </div>
               </div>
-
-              {quoteLoading && (
-                <p className="mt-3 flex items-center gap-2 text-xs text-text-secondary">
-                  <Loader2 size={14} className="animate-spin" strokeWidth={1.5} />
-                  Calcul du prix de livraison…
-                </p>
-              )}
 
               {restaurant && subtotal < restaurant.minOrder && (
                 <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 p-3">
