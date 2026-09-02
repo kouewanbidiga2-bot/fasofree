@@ -139,7 +139,7 @@ export class SeedCommand {
       }
     }
 
-    // 4. Produits sur TOUTES les agences (menu partagé)
+    // 4. Produits sur la première agence (partagés entre agences)
     const sharedMenu = [
       { name: 'Chitir Chicken (Poulet Entier)', price: 5500, category: 'Poulet', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
       { name: 'Chitir Chicken (Demi)', price: 3000, category: 'Poulet', imageUrl: 'https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=600' },
@@ -153,15 +153,17 @@ export class SeedCommand {
       { name: 'Eau Minérale', price: 300, category: 'Boissons', imageUrl: 'https://images.unsplash.com/photo-1523362628745-0c100950e180?w=600' },
     ];
 
-    for (const branch of savedBranches) {
+    // Produits sur la première agence seulement
+    if (savedBranches.length > 0) {
+      const mainBranch = savedBranches[0];
       for (const p of sharedMenu) {
         const existing = await this.productRepository.findOne({
-          where: { businessId: branch.id, name: p.name },
+          where: { businessId: mainBranch.id, name: p.name },
         });
         if (!existing) {
           await this.productRepository.save(
             this.productRepository.create({
-              businessId: branch.id,
+              businessId: mainBranch.id,
               name: p.name,
               price: p.price,
               category: p.category,
@@ -172,7 +174,7 @@ export class SeedCommand {
           );
         }
       }
-      console.log(`✅ Menu (${sharedMenu.length} produits) rattaché à ${branch.name}`);
+      console.log(`✅ Menu (${sharedMenu.length} produits) rattaché à ${mainBranch.name}`);
     }
 
     console.log(`\n🎯 Chitir Chicken seed terminé !`);

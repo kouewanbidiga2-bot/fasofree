@@ -207,7 +207,7 @@ const BrandsManagementTab = () => {
   };
 
   const handleSeedChitirChicken = async () => {
-    if (!window.confirm('Seed Chitir Chicken ? Cela crée la marque, 3 agences et le menu.'));
+    if (!window.confirm('Seed Chitir Chicken ? Cela crée la marque, 3 agences et le menu.')) return;
     setBusy('seed');
     setMsg(null);
     try {
