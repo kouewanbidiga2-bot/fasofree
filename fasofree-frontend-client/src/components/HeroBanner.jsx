@@ -35,9 +35,9 @@ export default function HeroBanner() {
               transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
-            <div className="w-2 h-2 rounded-full bg-[#C1652E]" />
+            <MapPin size={14} className="text-[#C1652E] flex-shrink-0" />
             <span className="text-[10px] font-bold tracking-[0.25em] uppercase text-[#9A7D5A]">
-              Ouagadougou
+              Livraison à · Zone du Bois
             </span>
           </div>
 
@@ -124,7 +124,13 @@ export default function HeroBanner() {
             className="absolute inset-0 w-full h-full object-cover"
             onLoad={() => setLoaded(true)}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#F0E6D6] via-[#F0E6D6]/30 to-transparent w-12" />
+          {/* Smooth blend: wide gradient from bg color to transparent */}
+          <div
+            className="absolute inset-y-0 left-0 w-16 sm:w-24"
+            style={{
+              background: 'linear-gradient(to right, #F0E6D6 0%, #F0E6D6 20%, rgba(240,230,214,0.6) 50%, transparent 100%)',
+            }}
+          />
         </div>
       </div>
     </section>
