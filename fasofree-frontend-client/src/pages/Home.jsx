@@ -109,8 +109,8 @@ const Home = () => {
 
   return (
     <div className="app-page text-text-primary font-sans">
-      {/* Header Lumineux */}
-      <header className="app-header">
+      {/* Header simplifié pour mobile */}
+      <header className="app-header relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between gap-4">
             
@@ -121,14 +121,14 @@ const Home = () => {
                 viewBox="0 0 140 140"
                 fill="none"
               >
-                <ellipse cx="70" cy="70" rx="44" ry="52" stroke="#C1652E" strokeWidth="2" fill="none"/>
-                <path d="M38 50 Q70 22 102 50" stroke="#C1652E" strokeWidth="1.5" fill="none" opacity="0.6"/>
-                <line x1="70" y1="22" x2="70" y2="38" stroke="#C1652E" strokeWidth="1" opacity="0.4"/>
-                <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill="#C1652E" opacity="0.85"/>
-                <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill="#C1652E" opacity="0.85"/>
+                <ellipse cx="70" cy="70" rx="44" ry="52" stroke="#B95B2B" strokeWidth="2" fill="none"/>
+                <path d="M38 50 Q70 22 102 50" stroke="#B95B2B" strokeWidth="1.5" fill="none" opacity="0.6"/>
+                <line x1="70" y1="22" x2="70" y2="38" stroke="#B95B2B" strokeWidth="1" opacity="0.4"/>
+                <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill="#B95B2B" opacity="0.85"/>
+                <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill="#B95B2B" opacity="0.85"/>
                 <path d="M70 62 L64 84 L76 84 Z" fill="#8B7355" opacity="0.7"/>
-                <path d="M56 96 Q70 104 84 96" stroke="#C1652E" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                <circle cx="70" cy="70" r="3" fill="#C1652E" opacity="0.2"/>
+                <path d="M56 96 Q70 104 84 96" stroke="#B95B2B" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                <circle cx="70" cy="70" r="3" fill="#B95B2B" opacity="0.2"/>
               </svg>
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">Livraison à</span>
@@ -138,7 +138,7 @@ const Home = () => {
               </div>
             </button>
 
-            {/* Barre de Recherche */}
+            {/* Barre de Recherche - cachée sur mobile */}
             <div className="hidden flex-1 max-w-xl md:block">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
@@ -147,7 +147,7 @@ const Home = () => {
                   placeholder="Rechercher un plat, un restaurant..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full rounded-md border border-border-light bg-white py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
+                  className="w-full rounded-md border border-border-light bg-white py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
                 />
               </div>
             </div>
@@ -161,7 +161,7 @@ const Home = () => {
                   type="button"
                   aria-label="Se connecter"
                   onClick={() => navigate('/auth')}
-                  className="inline-flex items-center gap-2 rounded-full border border-border-light bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
                 >
                   <LogIn size={16} strokeWidth={1.8} />
                   <span className="hidden sm:inline">Connexion</span>
@@ -170,19 +170,19 @@ const Home = () => {
               <button
                 aria-label="Notifications"
                 onClick={() => setNotifOpen(true)}
-                className="relative rounded-full border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary"
+                className="relative rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
               >
                 <Bell size={17} strokeWidth={1.8} />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent-primary text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B95B2B] text-white text-[9px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
               </button>
-              <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="relative rounded-full border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-accent-primary">
+              <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="relative rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]">
                 <ShoppingBag size={17} strokeWidth={1.8} />
                 {cartCount > 0 && (
-                  <span key={cartCount} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent-primary text-white text-[9px] font-bold flex items-center justify-center" style={{ animation: 'cartPop 0.35s ease' }}>
+                  <span key={cartCount} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B95B2B] text-white text-[9px] font-bold flex items-center justify-center" style={{ animation: 'cartPop 0.35s ease' }}>
                     {cartCount > 9 ? '9+' : cartCount}
                   </span>
                 )}
@@ -190,7 +190,7 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Catégories de recherche */}
+          {/* Catégories de recherche - optimisées mobile */}
           <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-none pt-2">
             {categories.map((category) => {
               const isActive = selectedCategory === category;
@@ -200,8 +200,8 @@ const Home = () => {
                   onClick={() => handleCategoryChange(category)}
                   className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
                     isActive
-                      ? 'bg-accent-primary border-accent-primary text-white shadow-subtle'
-                      : 'bg-white border-border-light text-text-secondary hover:border-accent-primary hover:text-text-primary'
+                      ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
+                      : 'bg-white border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
                   }`}
                 >
                   {category === 'all' ? 'Tous les restaurants' : category}
@@ -209,13 +209,27 @@ const Home = () => {
               );
             })}
           </div>
+
+          {/* Mobile search bar */}
+          <div className="mt-3 md:hidden">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
+              <input
+                type="text"
+                placeholder="Rechercher un plat, un restaurant..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full rounded-md border border-border-light bg-white py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+              />
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Bannière Hero */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-2">
         <HeroBanner />
-      </section>
+      </div>
 
       {/* Section Favoris - Stories */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
@@ -234,23 +248,25 @@ const Home = () => {
               Tous les restaurants
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/ride')}
-            className="app-action gap-2"
-            style={{ marginRight: '0.5rem' }}
-          >
-            <Car size={16} strokeWidth={2} />
-            FasoFree Ride
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/p2p-delivery')}
-            className="app-action gap-2"
-          >
-            <Package size={16} strokeWidth={2} />
-            Envoyer un colis
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/ride')}
+              className="inline-flex items-center gap-2 bg-[#B95B2B] hover:bg-[#D17843] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+            >
+              <Car size={16} strokeWidth={2} />
+              FasoFree Ride
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => navigate('/p2p-delivery')}
+              className="inline-flex items-center gap-2 bg-[#D17843] hover:bg-[#B95B2B] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+            >
+              <Package size={16} strokeWidth={2} />
+              Envoyer un colis
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
@@ -264,7 +280,7 @@ const Home = () => {
         </div>
 
         {filteredRestaurants.length === 0 && (
-          <div className="app-panel rounded-xl text-center py-16">
+          <div className="app-panel rounded-lg text-center py-16">
             <p className="text-[#70645C] text-sm font-medium mb-3">Aucun restaurant ne correspond à votre recherche</p>
             <button
               className="app-action mt-3"

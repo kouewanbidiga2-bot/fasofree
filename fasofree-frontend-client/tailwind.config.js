@@ -93,6 +93,7 @@ export default {
         'slide-up': 'slideUp 0.4s ease-out',
         'slide-down': 'slideDown 0.4s ease-out',
         'scale-in': 'scaleIn 0.3s ease-out',
+        'cart-pop': 'cartPop 0.35s ease',
       },
       keyframes: {
         fadeIn: {
@@ -114,6 +115,11 @@ export default {
         patternShift: {
           '0%': { backgroundPosition: '0 0' },
           '100%': { backgroundPosition: '20px 20px' },
+        },
+        cartPop: {
+          '0%': { transform: 'scale(0.8)' },
+          '50%': { transform: 'scale(1.2)' },
+          '100%': { transform: 'scale(1)' },
         },
       },
     },
