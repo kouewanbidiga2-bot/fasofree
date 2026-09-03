@@ -24,6 +24,38 @@ export const getFinancialOverview = async (period = '30d') => {
 };
 
 /**
+ * Analytics produits (achats, livré/sur place, top/worst)
+ */
+export const getProductAnalytics = async ({ brandId, businessId, period = '30d' } = {}) => {
+  const response = await api.get('/financial/products', { params: { brandId, businessId, period } });
+  return response.data;
+};
+
+/**
+ * Tous les flux d'argent (entrées, sorties, reversals)
+ */
+export const getMoneyFlows = async ({ brandId, businessId, period = '30d' } = {}) => {
+  const response = await api.get('/financial/money-flows', { params: { brandId, businessId, period } });
+  return response.data;
+};
+
+/**
+ * Ventilation par marque et agence
+ */
+export const getBrandBreakdown = async (period = '30d') => {
+  const response = await api.get('/financial/brands', { params: { period } });
+  return response.data;
+};
+
+/**
+ * Finances complètes d'un business (BusinessAdmin)
+ */
+export const getBusinessFinance = async (businessId, period = '30d') => {
+  const response = await api.get(`/financial/business/${businessId}`, { params: { period } });
+  return response.data;
+};
+
+/**
  * Obtenir les litiges en attente
  * @param {string} status - Statut du litige (optionnel)
  * @returns {Promise<Array>} Liste des litiges

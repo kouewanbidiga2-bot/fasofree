@@ -22,7 +22,7 @@ import api from '../services/api';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import BrandsManagementTab from './components/BrandsManagementTab';
 import FinancialChart from './components/BrandChart';
-import { getFinancialDashboard, getFinancialOverview, getPendingDisputes } from '../services/financialService';
+import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
   getSubscriptionPlans,
@@ -71,6 +71,13 @@ const SuperAdminDashboard = () => {
   const [financialOverview, setFinancialOverview] = useState(null);
   const [overviewPeriod, setOverviewPeriod] = useState('30d');
   const [overviewLoading, setOverviewLoading] = useState(false);
+
+  // Product analytics
+  const [productAnalytics, setProductAnalytics] = useState(null);
+  const [moneyFlows, setMoneyFlows] = useState(null);
+  const [brandBreakdown, setBrandBreakdown] = useState(null);
+  const [selectedBrandFilter, setSelectedBrandFilter] = useState(null);
+  const [financeTab, setFinanceTab] = useState('overview'); // overview | products | flows | brands
 
   // Platform stats
   const [platformStats, setPlatformStats] = useState({
@@ -250,18 +257,29 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
-  const loadFinancialOverview = useCallback(async (period) => {
+  const loadFinancialOverview = useCallback(async (period, brandId) => {
     const p = period || overviewPeriod;
     setOverviewLoading(true);
     try {
-      const data = await getFinancialOverview(p);
-      setFinancialOverview(data);
+      const [overview, products, flows, brands] = await Promise.all([
+        getFinancialOverview(p),
+        getProductAnalytics({ brandId: brandId || selectedBrandFilter, period: p }),
+        getMoneyFlows({ brandId: brandId || selectedBrandFilter, period: p }),
+        getBrandBreakdown(p),
+      ]);
+      setFinancialOverview(overview);
+      setProductAnalytics(products);
+      setMoneyFlows(flows);
+      setBrandBreakdown(brands);
     } catch {
       setFinancialOverview(null);
+      setProductAnalytics(null);
+      setMoneyFlows(null);
+      setBrandBreakdown(null);
     } finally {
       setOverviewLoading(false);
     }
-  }, [overviewPeriod]);
+  }, [overviewPeriod, selectedBrandFilter]);
 
   // Load pending validations (litiges à approuver)
   const loadPendingValidations = useCallback(async () => {
@@ -1081,14 +1099,15 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'financial' && (
           <div className="space-y-6 animate-slide-up">
-            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-              <h2 className="text-xl font-bold text-text-primary">Rapports Financiers</h2>
+            {/* Header + controls */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-2">
+              <h2 className="text-xl font-bold text-text-primary">Finances — Vision Complète</h2>
               <div className="flex items-center gap-3">
                 <div className="flex gap-1">
                   {[{k:'7d',l:'7J'},{k:'30d',l:'30J'},{k:'90d',l:'90J'}].map(p => (
                     <button
                       key={p.k}
-                      onClick={() => { setOverviewPeriod(p.k); loadFinancialOverview(p.k); }}
+                      onClick={() => { setOverviewPeriod(p.k); loadFinancialOverview(p.k, selectedBrandFilter); }}
                       className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                         overviewPeriod === p.k
                           ? 'bg-accent-primary text-white'
@@ -1100,107 +1119,272 @@ const SuperAdminDashboard = () => {
                   ))}
                 </div>
                 <button onClick={() => { loadFinancialStats(); loadFinancialOverview(); }} className="btn-secondary gap-2">
-                  <RefreshCw size={14} className={loading.financial || overviewLoading ? 'animate-spin' : ''} />
-                  Actualiser
+                  <RefreshCw size={14} className={overviewLoading ? 'animate-spin' : ''} />
                 </button>
               </div>
             </div>
 
-            {/* Bilan résumé */}
-            {financialOverview?.summary && (
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                <div className="card p-4">
-                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Chiffre d'affaires</p>
-                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalRevenue?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Commission plateforme</p>
-                  <p className="text-lg font-bold text-accent-primary">{financialOverview.summary.totalPlatformCommission?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais de service</p>
-                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalServiceFee?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais livraison</p>
-                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalDeliveryFee?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
-                </div>
-                <div className="card p-4">
-                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Annulés / Remboursés</p>
-                  <p className="text-lg font-bold text-status-error">{financialOverview.summary.totalCancelled} <span className="text-xs font-normal text-text-secondary">({financialOverview.summary.cancelledAmount?.toLocaleString()} FCFA)</span></p>
-                </div>
-              </div>
-            )}
+            {/* Sub-tabs */}
+            <div className="flex gap-1 border-b border-border-light pb-0">
+              {[
+                {k:'overview', l:'Vue d\'ensemble'},
+                {k:'products', l:'Produits'},
+                {k:'flows', l:'Flux d\'argent'},
+                {k:'brands', l:'Par Marque / Agence'},
+              ].map(t => (
+                <button
+                  key={t.k}
+                  onClick={() => setFinanceTab(t.k)}
+                  className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${
+                    financeTab === t.k
+                      ? 'border-accent-primary text-accent-primary'
+                      : 'border-transparent text-text-tertiary hover:text-text-primary'
+                  }`}
+                >
+                  {t.l}
+                </button>
+              ))}
+            </div>
 
-            {/* Graphiques réels */}
             {overviewLoading ? (
               <div className="space-y-4">
-                {[1,2].map(i => <div key={i} className="card h-72"><LoadingSkeleton height="h-full" /></div>)}
+                {[1,2,3].map(i => <div key={i} className="card h-48"><LoadingSkeleton height="h-full" /></div>)}
               </div>
-            ) : financialOverview?.chartData?.length > 0 ? (
-              <>
-                <FinancialChart
-                  data={financialOverview.chartData}
-                  series={[
-                    { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
-                    { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
-                  ]}
-                  title="Revenus & Commissions"
-                  height={320}
-                />
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <FinancialChart
-                    data={financialOverview.chartData}
-                    series={[
-                      { key: 'serviceFee', name: 'Frais service', color: '#22C55E' },
-                      { key: 'deliveryFee', name: 'Frais livraison', color: '#F59E0B' },
-                    ]}
-                    title="Frais collectés"
-                    height={260}
-                  />
-                  <FinancialChart
-                    data={financialOverview.chartData}
-                    series={[
-                      { key: 'merchantPayout', name: 'Paiement marchands', color: '#8B5CF6' },
-                      { key: 'merchantCommission', name: 'Commission marchand', color: '#EC4899' },
-                      { key: 'driverCommission', name: 'Commission livreur', color: '#06B6D4' },
-                    ]}
-                    title="Ventilation paiements"
-                    height={260}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <FinancialChart
-                    data={financialOverview.chartData}
-                    series={[
-                      { key: 'orderCount', name: 'Commandes', color: '#C1652E' },
-                      { key: 'cancelledCount', name: 'Annulées', color: '#EF4444' },
-                    ]}
-                    title="Volume de commandes"
-                    height={260}
-                    formatValue={(v) => v?.toLocaleString()}
-                  />
-                  <FinancialChart
-                    data={financialOverview.chartData}
-                    series={[
-                      { key: 'platformCommission', name: 'Commission', color: '#C1652E' },
-                      { key: 'serviceFee', name: 'Service', color: '#3B82F6' },
-                      { key: 'deliveryFee', name: 'Livraison', color: '#F59E0B' },
-                    ]}
-                    title="Répartition des revenus (Camembert)"
-                    height={260}
-                    pieMode
-                  />
-                </div>
-              </>
             ) : (
-              <div className="card flex flex-col items-center justify-center py-16 text-center">
-                <DollarSign size={48} className="text-text-tertiary mb-4" strokeWidth={1} />
-                <p className="text-text-secondary font-semibold mb-2">Aucune donnée financière</p>
-                <p className="text-text-tertiary text-sm">Les données apparaîtront ici une fois les premières commandes enregistrées.</p>
-              </div>
+              <>
+                {/* ── VUE D'ENSEMBLE ────────────────────────────── */}
+                {financeTab === 'overview' && (
+                  <div className="space-y-6">
+                    {financialOverview?.summary && (
+                      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                        <div className="card p-4">
+                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Chiffre d'affaires</p>
+                          <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalRevenue?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                        </div>
+                        <div className="card p-4">
+                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Commission plateforme</p>
+                          <p className="text-lg font-bold text-accent-primary">{financialOverview.summary.totalPlatformCommission?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                        </div>
+                        <div className="card p-4">
+                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais service</p>
+                          <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalServiceFee?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                        </div>
+                        <div className="card p-4">
+                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais livraison</p>
+                          <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalDeliveryFee?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                        </div>
+                        <div className="card p-4">
+                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Annulés / Remboursés</p>
+                          <p className="text-lg font-bold text-status-error">{financialOverview.summary.totalCancelled} <span className="text-xs text-text-secondary">({financialOverview.summary.cancelledAmount?.toLocaleString()} FCFA)</span></p>
+                        </div>
+                      </div>
+                    )}
+                    {financialOverview?.chartData?.length > 0 && (
+                      <>
+                        <FinancialChart
+                          data={financialOverview.chartData}
+                          series={[
+                            { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
+                            { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
+                          ]}
+                          title="Revenus & Commissions"
+                          height={320}
+                        />
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <FinancialChart
+                            data={financialOverview.chartData}
+                            series={[
+                              { key: 'serviceFee', name: 'Frais service', color: '#22C55E' },
+                              { key: 'deliveryFee', name: 'Frais livraison', color: '#F59E0B' },
+                            ]}
+                            title="Frais collectés"
+                            height={260}
+                          />
+                          <FinancialChart
+                            data={financialOverview.chartData}
+                            series={[
+                              { key: 'merchantPayout', name: 'Paiement marchands', color: '#8B5CF6' },
+                              { key: 'merchantCommission', name: 'Commission marchand', color: '#EC4899' },
+                              { key: 'driverCommission', name: 'Commission livreur', color: '#06B6D4' },
+                            ]}
+                            title="Ventilation paiements"
+                            height={260}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ── PRODUITS ────────────────────────────────────── */}
+                {financeTab === 'products' && productAnalytics && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="card p-4">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Produits vendus</p>
+                        <p className="text-lg font-bold text-text-primary">{productAnalytics.totalProducts}</p>
+                      </div>
+                      <div className="card p-4">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Articles vendus</p>
+                        <p className="text-lg font-bold text-accent-primary">{productAnalytics.totalItemsSold?.toLocaleString()}</p>
+                      </div>
+                      <div className="card p-4">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">CA Produits</p>
+                        <p className="text-lg font-bold text-text-primary">{productAnalytics.products?.reduce((s,p) => s + p.totalRevenue, 0)?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Top produits */}
+                      <div className="card overflow-hidden">
+                        <div className="px-5 py-3 border-b border-border-light">
+                          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Top Produits (les plus vendus)</h3>
+                        </div>
+                        <div className="divide-y divide-border-light">
+                          {productAnalytics.topProducts?.map((p, i) => (
+                            <div key={p.productId} className="px-5 py-3 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="w-6 h-6 rounded-full bg-accent-primary/10 flex items-center justify-center text-[10px] font-bold text-accent-primary">{i+1}</span>
+                                <div>
+                                  <p className="text-sm font-semibold text-text-primary">{p.productName}</p>
+                                  <p className="text-[10px] text-text-tertiary">Livré: {p.deliveryCount} | Sur place: {p.onsiteCount}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-text-primary">{p.totalPurchased} achats</p>
+                                <p className="text-[10px] text-text-tertiary">{p.totalRevenue?.toLocaleString()} FCFA</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Moins vendus */}
+                      <div className="card overflow-hidden">
+                        <div className="px-5 py-3 border-b border-border-light">
+                          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Moins Vendus (à améliorer)</h3>
+                        </div>
+                        <div className="divide-y divide-border-light">
+                          {productAnalytics.worstProducts?.map((p, i) => (
+                            <div key={p.productId} className="px-5 py-3 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span className="w-6 h-6 rounded-full bg-status-error/10 flex items-center justify-center text-[10px] font-bold text-status-error">{i+1}</span>
+                                <div>
+                                  <p className="text-sm font-semibold text-text-primary">{p.productName}</p>
+                                  <p className="text-[10px] text-text-tertiary">Livré: {p.deliveryCount} | Sur place: {p.onsiteCount}</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm font-bold text-text-primary">{p.totalPurchased} achats</p>
+                                <p className="text-[10px] text-text-tertiary">{p.totalRevenue?.toLocaleString()} FCFA</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── FLUX D'ARGENT ──────────────────────────────── */}
+                {financeTab === 'flows' && moneyFlows && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="card p-4 border-l-4 border-[#22C55E]">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Entrées d'argent</p>
+                        <p className="text-lg font-bold text-[#22C55E]">{moneyFlows.summary?.totalEntries?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      </div>
+                      <div className="card p-4 border-l-4 border-status-error">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Sorties d'argent</p>
+                        <p className="text-lg font-bold text-status-error">{moneyFlows.summary?.totalExits?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      </div>
+                      <div className="card p-4 border-l-4 border-[#F59E0B]">
+                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Reversals / Remboursements</p>
+                        <p className="text-lg font-bold text-[#F59E0B]">{moneyFlows.summary?.totalReversals?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      </div>
+                    </div>
+
+                    {/* Détail par motif */}
+                    <div className="card overflow-hidden">
+                      <div className="px-5 py-3 border-b border-border-light">
+                        <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Détail par motif</h3>
+                      </div>
+                      <div className="divide-y divide-border-light">
+                        {Object.entries(moneyFlows.summary?.byReason || {}).map(([reason, data]) => (
+                          <div key={reason} className="px-5 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className={`w-2 h-2 rounded-full ${
+                                data.type === 'CREDIT' ? 'bg-[#22C55E]' : 'bg-status-error'
+                              }`} />
+                              <span className="text-sm font-medium text-text-primary">{reason.replace(/_/g, ' ')}</span>
+                            </div>
+                            <div className="text-right">
+                              <p className={`text-sm font-bold ${data.type === 'CREDIT' ? 'text-[#22C55E]' : 'text-status-error'}`}>
+                                {data.type === 'CREDIT' ? '+' : '-'}{data.amount?.toLocaleString()} FCFA
+                              </p>
+                              <p className="text-[10px] text-text-tertiary">{data.count} transaction(s)</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Graphique flux */}
+                    {moneyFlows.chartData?.length > 0 && (
+                      <FinancialChart
+                        data={moneyFlows.chartData}
+                        series={[
+                          { key: 'entries', name: 'Entrées', color: '#22C55E' },
+                          { key: 'exits', name: 'Sorties', color: '#EF4444' },
+                          { key: 'reversals', name: 'Reversals', color: '#F59E0B' },
+                        ]}
+                        title="Flux d'argent par jour"
+                        height={300}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* ── PAR MARQUE / AGENCE ─────────────────────────── */}
+                {financeTab === 'brands' && brandBreakdown && (
+                  <div className="space-y-6">
+                    {brandBreakdown.brands?.map(brand => (
+                      <div key={brand.brandId} className="card overflow-hidden">
+                        <div className="px-5 py-4 border-b border-border-light flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-bold text-text-primary">{brand.brandName}</h3>
+                            <p className="text-[10px] text-text-tertiary">
+                              {brand.totals?.orders} commandes | {brand.totals?.revenue?.toLocaleString()} FCFA | {brand.totals?.commission?.toLocaleString()} FCFA commission
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => { setSelectedBrandFilter(brand.brandId); loadFinancialOverview(overviewPeriod, brand.brandId); setFinanceTab('overview'); }}
+                            className="text-accent-primary text-xs font-semibold"
+                          >
+                            Voir détail
+                          </button>
+                        </div>
+                        {brand.branches?.length > 0 && (
+                          <div className="divide-y divide-border-light">
+                            {brand.branches.map(b => (
+                              <div key={b.branchId} className="px-5 py-3 flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-medium text-text-primary">{b.branchName}</p>
+                                  <p className="text-[10px] text-text-tertiary">{b.orderCount} commandes</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-bold text-text-primary">{b.revenue?.toLocaleString()} FCFA</p>
+                                  <p className="text-[10px] text-text-tertiary">Commission: {b.commission?.toLocaleString()} FCFA</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

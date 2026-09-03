@@ -2,8 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Wallet } from '../../wallets/entities/wallet.entity';
+import { WalletTransaction, TransactionType, TransactionReason } from '../../wallets/entities/wallet-transaction.entity';
 import { PayoutRequest, PayoutStatus } from '../entities/payout-request.entity';
-import { Order, OrderStatus } from '../../orders/entities/order.entity';
+import { Order, OrderStatus, FulfillmentType } from '../../orders/entities/order.entity';
+import { OrderItem } from '../../orders/entities/order-item.entity';
+import { Business } from '../../businesses/entities/business.entity';
+import { Brand } from '../../brands/entities/brand.entity';
 import { LigdiCashService } from '../../payments/providers/ligdicash.service';
 import { WalletService } from '../../wallets/wallet.service';
 export interface FinancialDashboardSummary {
@@ -32,10 +36,18 @@ export class FinancialMonitoringService {
   constructor(
     @InjectRepository(Wallet)
     private readonly walletRepository: Repository<Wallet>,
+    @InjectRepository(WalletTransaction)
+    private readonly walletTxRepository: Repository<WalletTransaction>,
     @InjectRepository(PayoutRequest)
     private readonly payoutRepository: Repository<PayoutRequest>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(OrderItem)
+    private readonly orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
     private readonly ligdiCashService: LigdiCashService,
     private readonly walletService: WalletService,
   ) {}
@@ -239,5 +251,219 @@ export class FinancialMonitoringService {
     });
 
     return { period, summary, chartData };
+  }
+
+  // ─── ANALYTICS PRODUITS ────────────────────────────────────────────
+  async getProductAnalytics(filters: { brandId?: string; businessId?: string; period?: string }) {
+    const days = filters.period === '7d' ? 7 : filters.period === '90d' ? 90 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    let qb = this.orderItemRepository
+      .createQueryBuilder('item')
+      .innerJoin('item.order', 'o')
+      .select('item.productId', 'productId')
+      .addSelect('item.productName', 'productName')
+      .addSelect('SUM(item.quantity)', 'totalPurchased')
+      .addSelect('SUM(item.totalPrice)', 'totalRevenue')
+      .addSelect('SUM(CASE WHEN o.fulfillmentType = :delivery THEN item.quantity ELSE 0 END)', 'deliveryCount')
+      .addSelect('SUM(CASE WHEN o.fulfillmentType IN (:pickup, :dineIn) THEN item.quantity ELSE 0 END)', 'onsiteCount')
+      .where('o.createdAt >= :since', { since })
+      .andWhere("o.status NOT IN (:...excluded)", {
+        excluded: [OrderStatus.CANCELLED, OrderStatus.FAILED],
+      })
+      .setParameters({ delivery: FulfillmentType.DELIVERY, pickup: FulfillmentType.PICKUP, dineIn: FulfillmentType.DINE_IN });
+
+    if (filters.businessId) {
+      qb = qb.andWhere('o.businessId = :businessId', { businessId: filters.businessId });
+    } else if (filters.brandId) {
+      const branches = await this.businessRepository.find({ where: { brand: { id: filters.brandId } } });
+      const branchIds = branches.map(b => b.id);
+      if (branchIds.length > 0) {
+        qb = qb.andWhere('o.businessId IN (:...branchIds)', { branchIds });
+      }
+    }
+
+    const items = await qb
+      .groupBy('item.productId')
+      .addGroupBy('item.productName')
+      .orderBy('totalPurchased', 'DESC')
+      .getRawMany();
+
+    const products = items.map(row => ({
+      productId: row.productId,
+      productName: row.productName,
+      totalPurchased: Number(row.totalPurchased) || 0,
+      totalRevenue: Number(row.totalRevenue) || 0,
+      deliveryCount: Number(row.deliveryCount) || 0,
+      onsiteCount: Number(row.onsiteCount) || 0,
+    }));
+
+    return {
+      period: filters.period || '30d',
+      totalProducts: products.length,
+      totalItemsSold: products.reduce((s, p) => s + p.totalPurchased, 0),
+      topProducts: products.slice(0, 10),
+      worstProducts: products.slice(-10).reverse(),
+      products,
+    };
+  }
+
+  // ─── FLUX D'ARGENT COMPLET (Wallet Transactions) ──────────────────
+  async getMoneyFlows(filters: { brandId?: string; businessId?: string; period?: string }) {
+    const days = filters.period === '7d' ? 7 : filters.period === '90d' ? 90 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    let qb = this.walletTxRepository
+      .createQueryBuilder('tx')
+      .innerJoin('tx.wallet', 'w')
+      .select('tx.reason', 'reason')
+      .addSelect('tx.type', 'type')
+      .addSelect('COUNT(tx.id)', 'count')
+      .addSelect('SUM(tx.amount)', 'totalAmount')
+      .addSelect("TO_CHAR(tx.createdAt AT TIME ZONE 'Africa/Ouagadougou', 'YYYY-MM-DD')", 'date')
+      .where('tx.createdAt >= :since', { since })
+      .andWhere('tx.status = :status', { status: 'COMPLETED' });
+
+    if (filters.businessId) {
+      const wallet = await this.walletRepository.findOne({ where: { userId: filters.businessId, userRole: 'MERCHANT' as any } });
+      if (wallet) {
+        qb = qb.andWhere('tx.walletId = :walletId', { walletId: wallet.id });
+      }
+    } else if (filters.brandId) {
+      const branches = await this.businessRepository.find({ where: { brand: { id: filters.brandId } } });
+      const branchIds = branches.map(b => b.id);
+      if (branchIds.length > 0) {
+        qb = qb.andWhere('(w.branchId IN (:...branchIds) OR w.branchId IS NULL)', { branchIds });
+      }
+    }
+
+    const rows = await qb
+      .groupBy('tx.reason')
+      .addGroupBy('tx.type')
+      .addGroupBy('date')
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    // Classification des flux
+    const ENTRIES = [TransactionReason.ORDER_PAYMENT, TransactionReason.TOPUP, TransactionReason.REFERRAL_REWARD, TransactionReason.DELIVERY_FEE];
+    const EXITS = [TransactionReason.WITHDRAWAL, TransactionReason.PAYOUT, TransactionReason.COMMISSION, TransactionReason.SERVICE_FEE, TransactionReason.DAILY_PASS_FEE, TransactionReason.SUBSCRIPTION_FEE];
+    const REVERSALS = [TransactionReason.REFUND];
+
+    const summary = {
+      totalEntries: 0,
+      totalExits: 0,
+      totalReversals: 0,
+      byReason: {} as Record<string, { count: number; amount: number; type: string }>,
+    };
+
+    const chartData: Record<string, any> = {};
+
+    rows.forEach(row => {
+      const reason = row.reason;
+      const amount = Number(row.totalAmount) || 0;
+      const count = Number(row.count) || 0;
+      const date = row.date;
+
+      if (!summary.byReason[reason]) {
+        summary.byReason[reason] = { count: 0, amount: 0, type: row.type };
+      }
+      summary.byReason[reason].count += count;
+      summary.byReason[reason].amount += amount;
+
+      if (ENTRIES.includes(reason)) summary.totalEntries += amount;
+      else if (EXITS.includes(reason)) summary.totalExits += amount;
+      else if (REVERSALS.includes(reason)) summary.totalReversals += amount;
+
+      if (!chartData[date]) {
+        chartData[date] = { date, entries: 0, exits: 0, reversals: 0 };
+      }
+      if (ENTRIES.includes(reason)) chartData[date].entries += amount;
+      else if (EXITS.includes(reason)) chartData[date].exits += amount;
+      else if (REVERSALS.includes(reason)) chartData[date].reversals += amount;
+    });
+
+    return {
+      period: filters.period || '30d',
+      summary,
+      chartData: Object.values(chartData),
+    };
+  }
+
+  // ─── VUE PAR MARQUE / AGENCE ──────────────────────────────────────
+  async getBrandBreakdown(period: string = '30d') {
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const brands = await this.brandRepository.find({ relations: { businesses: true } as any });
+
+    const breakdown = await Promise.all(brands.map(async (brand) => {
+      const branchIds = (brand as any).businesses?.map(b => b.id) || [];
+      if (branchIds.length === 0) return { brandId: brand.id, brandName: brand.name, branches: [], totals: { revenue: 0, orders: 0, commission: 0 } };
+
+      const branchStats = await this.orderRepository
+        .createQueryBuilder('o')
+        .select('o.branchId', 'branchId')
+        .addSelect('b.name', 'branchName')
+        .addSelect('SUM(o.totalAmount)', 'revenue')
+        .addSelect('SUM(o.platformCommission)', 'commission')
+        .addSelect('SUM(o.serviceFee)', 'serviceFee')
+        .addSelect('SUM(o.deliveryFee)', 'deliveryFee')
+        .addSelect('COUNT(o.id)', 'orderCount')
+        .innerJoin(Business, 'b', 'b.id = o.branchId')
+        .where('o.branchId IN (:...branchIds)', { branchIds })
+        .andWhere('o.createdAt >= :since', { since })
+        .andWhere("o.status NOT IN (:...excluded)", {
+          excluded: [OrderStatus.CANCELLED, OrderStatus.FAILED],
+        })
+        .groupBy('o.branchId')
+        .addGroupBy('b.name')
+        .getRawMany();
+
+      const totals = branchStats.reduce((acc, r) => ({
+        revenue: acc.revenue + (Number(r.revenue) || 0),
+        orders: acc.orders + (Number(r.orderCount) || 0),
+        commission: acc.commission + (Number(r.commission) || 0),
+      }), { revenue: 0, orders: 0, commission: 0 });
+
+      return {
+        brandId: brand.id,
+        brandName: brand.name,
+        branches: branchStats.map(r => ({
+          branchId: r.branchId,
+          branchName: r.branchName,
+          revenue: Number(r.revenue) || 0,
+          commission: Number(r.commission) || 0,
+          serviceFee: Number(r.serviceFee) || 0,
+          deliveryFee: Number(r.deliveryFee) || 0,
+          orderCount: Number(r.orderCount) || 0,
+        })),
+        totals,
+      };
+    }));
+
+    return { period, brands: breakdown };
+  }
+
+  // ─── FINANCES PAR BUSINESS (pour BusinessAdmin) ───────────────────
+  async getBusinessFinance(businessId: string, period: string = '30d') {
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const overview = await this.getOverview(period);
+    const productAnalytics = await this.getProductAnalytics({ businessId, period });
+    const moneyFlows = await this.getMoneyFlows({ businessId, period });
+
+    const business = await this.businessRepository.findOne({ where: { id: businessId } });
+
+    return {
+      business: business ? { id: business.id, name: business.name } : null,
+      overview,
+      products: productAnalytics,
+      moneyFlows,
+    };
   }
 }
