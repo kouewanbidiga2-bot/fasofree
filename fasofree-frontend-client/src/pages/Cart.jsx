@@ -154,7 +154,7 @@ const Cart = () => {
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
                   <span>Total estimé</span>
                   <span className="font-mono text-text-primary">
-                    {`≥ ${(subtotal + PLATFORM_FEE).toLocaleString()} FCFA`}
+                    {`À partir de ${(subtotal + PLATFORM_FEE).toLocaleString()} FCFA`}
                   </span>
                 </div>
               </div>

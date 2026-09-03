@@ -57,16 +57,30 @@ export class PaymentsService {
       order.merchantCommissionAmount ?? order.platformCommission ?? 0,
     );
 
-    // Enregistrement de la transaction PENDING en BDD
-    const transaction = this.transactionRepository.create({
-      reference,
-      orderId: order.id,
-      amount: order.totalAmount,
-      commissionAmount,
-      paymentMethod: dto.paymentMethod,
-      status: TransactionStatus.PENDING,
+    // Mettre à jour la transaction existante (créée lors de la création de la commande)
+    let transaction = await this.transactionRepository.findOne({
+      where: { orderId: order.id },
     });
-    await this.transactionRepository.save(transaction);
+
+    if (transaction) {
+      // Transaction déjà créée avec la commande → la mettre à jour
+      transaction.reference = reference;
+      transaction.paymentMethod = dto.paymentMethod;
+      transaction.amount = order.totalAmount;
+      transaction.commissionAmount = commissionAmount;
+      await this.transactionRepository.save(transaction);
+    } else {
+      // Pas de transaction existante → en créer une (rétro-compatibilité)
+      transaction = this.transactionRepository.create({
+        reference,
+        orderId: order.id,
+        amount: order.totalAmount,
+        commissionAmount,
+        paymentMethod: dto.paymentMethod,
+        status: TransactionStatus.PENDING,
+      });
+      await this.transactionRepository.save(transaction);
+    }
 
     // Routing vers le provider actif
     const provider = resolvePaymentProvider(this.configService);
