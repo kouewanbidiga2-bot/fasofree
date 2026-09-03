@@ -21,8 +21,8 @@ import useAuthStore from '../store/authStore';
 import api from '../services/api';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import BrandsManagementTab from './components/BrandsManagementTab';
-import BrandChart from './components/BrandChart';
-import { getFinancialDashboard, getPendingDisputes } from '../services/financialService';
+import FinancialChart from './components/BrandChart';
+import { getFinancialDashboard, getFinancialOverview, getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
   getSubscriptionPlans,
@@ -66,6 +66,11 @@ const SuperAdminDashboard = () => {
     pendingDisputes: 0,
     floatHealth: 'unknown',
   });
+
+  // Financial overview (real time-series data)
+  const [financialOverview, setFinancialOverview] = useState(null);
+  const [overviewPeriod, setOverviewPeriod] = useState('30d');
+  const [overviewLoading, setOverviewLoading] = useState(false);
 
   // Platform stats
   const [platformStats, setPlatformStats] = useState({
@@ -245,6 +250,19 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
+  const loadFinancialOverview = useCallback(async (period) => {
+    const p = period || overviewPeriod;
+    setOverviewLoading(true);
+    try {
+      const data = await getFinancialOverview(p);
+      setFinancialOverview(data);
+    } catch {
+      setFinancialOverview(null);
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, [overviewPeriod]);
+
   // Load pending validations (litiges à approuver)
   const loadPendingValidations = useCallback(async () => {
     setLoading(prev => ({ ...prev, pending: true }));
@@ -319,12 +337,13 @@ const SuperAdminDashboard = () => {
 
   useEffect(() => {
     loadFinancialStats();
+    loadFinancialOverview();
     loadPendingValidations();
     loadKyc();
     loadUsers();
     loadBanRequests();
     loadSettings();
-  }, [loadFinancialStats, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings]);
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings]);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -390,62 +409,6 @@ const SuperAdminDashboard = () => {
       message: chatInput.trim(),
     });
     setChatInput('');
-  };
-
-  // ─── Données graphiques ──────────────────────────────────────────────
-  const generateDaysArray = (days) => {
-    const result = [];
-    const now = new Date();
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      result.push(d.toISOString().slice(0, 10));
-    }
-    return result;
-  };
-
-  const generateRevenueChartData = () => {
-    const days = generateDaysArray(30);
-    const base = financialStats.totalRevenue / 30 || 50000;
-    return days.map((date, i) => ({
-      time: date,
-      value: Math.round(base + (Math.random() - 0.3) * base * 0.4),
-    }));
-  };
-
-  const generateCommissionChartData = () => {
-    const days = generateDaysArray(30);
-    const base = financialStats.totalCommission / 30 || 15000;
-    return days.map((date, i) => ({
-      time: date,
-      value: Math.round(base + (Math.random() - 0.3) * base * 0.5),
-    }));
-  };
-
-  const generateTransactionChartData = () => {
-    const days = generateDaysArray(14);
-    const base = financialStats.totalTransactions / 14 || 20;
-    return days.map((date, i) => ({
-      time: date,
-      value: Math.round(base + (Math.random() - 0.4) * base * 0.6),
-    }));
-  };
-
-  const generateFeeChartData = () => {
-    const days = generateDaysArray(14);
-    const base = financialStats.totalCommission / 14 * 0.3 || 5000;
-    return days.map((date, i) => ({
-      time: date,
-      value: Math.round(base + (Math.random() - 0.3) * base * 0.5),
-    }));
-  };
-
-  const generateReversalChartData = () => {
-    const days = generateDaysArray(14);
-    return days.map((date, i) => ({
-      time: date,
-      value: Math.round(Math.random() * 5),
-    }));
   };
 
   const handleLogout = () => {
@@ -1118,52 +1081,127 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'financial' && (
           <div className="space-y-6 animate-slide-up">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <h2 className="text-xl font-bold text-text-primary">Rapports Financiers</h2>
-              <button onClick={loadFinancialStats} className="btn-secondary gap-2">
-                <RefreshCw size={14} className={loading.financial ? 'animate-spin' : ''} />
-                Actualiser
-              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1">
+                  {[{k:'7d',l:'7J'},{k:'30d',l:'30J'},{k:'90d',l:'90J'}].map(p => (
+                    <button
+                      key={p.k}
+                      onClick={() => { setOverviewPeriod(p.k); loadFinancialOverview(p.k); }}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                        overviewPeriod === p.k
+                          ? 'bg-accent-primary text-white'
+                          : 'text-text-tertiary hover:text-text-primary hover:bg-background-secondary border border-border-light'
+                      }`}
+                    >
+                      {p.l}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => { loadFinancialStats(); loadFinancialOverview(); }} className="btn-secondary gap-2">
+                  <RefreshCw size={14} className={loading.financial || overviewLoading ? 'animate-spin' : ''} />
+                  Actualiser
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <BrandChart
-                data={generateRevenueChartData()}
-                type="area"
-                title="Evolution des Revenus (FCFA)"
-                height={280}
-                formatValue={(v) => `${v?.toLocaleString()} FCFA`}
-              />
-              <BrandChart
-                data={generateCommissionChartData()}
-                type="area"
-                title="Evolution des Commissions (FCFA)"
-                height={280}
-                formatValue={(v) => `${v?.toLocaleString()} FCFA`}
-              />
-            </div>
+            {/* Bilan résumé */}
+            {financialOverview?.summary && (
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="card p-4">
+                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Chiffre d'affaires</p>
+                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalRevenue?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Commission plateforme</p>
+                  <p className="text-lg font-bold text-accent-primary">{financialOverview.summary.totalPlatformCommission?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais de service</p>
+                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalServiceFee?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais livraison</p>
+                  <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalDeliveryFee?.toLocaleString()} <span className="text-xs font-normal text-text-secondary">FCFA</span></p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Annulés / Remboursés</p>
+                  <p className="text-lg font-bold text-status-error">{financialOverview.summary.totalCancelled} <span className="text-xs font-normal text-text-secondary">({financialOverview.summary.cancelledAmount?.toLocaleString()} FCFA)</span></p>
+                </div>
+              </div>
+            )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <BrandChart
-                data={generateTransactionChartData()}
-                type="bar"
-                title="Transactions par Jour"
-                height={220}
-              />
-              <BrandChart
-                data={generateFeeChartData()}
-                type="area"
-                title="Frais de Plateforme (FCFA)"
-                height={220}
-                formatValue={(v) => `${v?.toLocaleString()} FCFA`}
-              />
-              <BrandChart
-                data={generateReversalChartData()}
-                type="bar"
-                title="Reversals / Remboursements"
-                height={220}
-              />
-            </div>
+            {/* Graphiques réels */}
+            {overviewLoading ? (
+              <div className="space-y-4">
+                {[1,2].map(i => <div key={i} className="card h-72"><LoadingSkeleton height="h-full" /></div>)}
+              </div>
+            ) : financialOverview?.chartData?.length > 0 ? (
+              <>
+                <FinancialChart
+                  data={financialOverview.chartData}
+                  series={[
+                    { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
+                    { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
+                  ]}
+                  title="Revenus & Commissions"
+                  height={320}
+                />
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <FinancialChart
+                    data={financialOverview.chartData}
+                    series={[
+                      { key: 'serviceFee', name: 'Frais service', color: '#22C55E' },
+                      { key: 'deliveryFee', name: 'Frais livraison', color: '#F59E0B' },
+                    ]}
+                    title="Frais collectés"
+                    height={260}
+                  />
+                  <FinancialChart
+                    data={financialOverview.chartData}
+                    series={[
+                      { key: 'merchantPayout', name: 'Paiement marchands', color: '#8B5CF6' },
+                      { key: 'merchantCommission', name: 'Commission marchand', color: '#EC4899' },
+                      { key: 'driverCommission', name: 'Commission livreur', color: '#06B6D4' },
+                    ]}
+                    title="Ventilation paiements"
+                    height={260}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <FinancialChart
+                    data={financialOverview.chartData}
+                    series={[
+                      { key: 'orderCount', name: 'Commandes', color: '#C1652E' },
+                      { key: 'cancelledCount', name: 'Annulées', color: '#EF4444' },
+                    ]}
+                    title="Volume de commandes"
+                    height={260}
+                    formatValue={(v) => v?.toLocaleString()}
+                  />
+                  <FinancialChart
+                    data={financialOverview.chartData}
+                    series={[
+                      { key: 'platformCommission', name: 'Commission', color: '#C1652E' },
+                      { key: 'serviceFee', name: 'Service', color: '#3B82F6' },
+                      { key: 'deliveryFee', name: 'Livraison', color: '#F59E0B' },
+                    ]}
+                    title="Répartition des revenus (Camembert)"
+                    height={260}
+                    pieMode
+                  />
+                </div>
+              </>
+            ) : (
+              <div className="card flex flex-col items-center justify-center py-16 text-center">
+                <DollarSign size={48} className="text-text-tertiary mb-4" strokeWidth={1} />
+                <p className="text-text-secondary font-semibold mb-2">Aucune donnée financière</p>
+                <p className="text-text-tertiary text-sm">Les données apparaîtront ici une fois les premières commandes enregistrées.</p>
+              </div>
+            )}
           </div>
         )}
 

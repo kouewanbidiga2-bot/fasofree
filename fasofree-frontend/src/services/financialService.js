@@ -14,6 +14,16 @@ export const getFinancialDashboard = async () => {
 };
 
 /**
+ * Obtenir les données financières agrégées par jour
+ * @param {string} period - '7d' | '30d' | '90d'
+ * @returns {Promise<{period, summary, chartData}>}
+ */
+export const getFinancialOverview = async (period = '30d') => {
+  const response = await api.get('/financial/overview', { params: { period } });
+  return response.data;
+};
+
+/**
  * Obtenir les litiges en attente
  * @param {string} status - Statut du litige (optionnel)
  * @returns {Promise<Array>} Liste des litiges

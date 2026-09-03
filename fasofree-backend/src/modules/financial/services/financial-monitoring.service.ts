@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Wallet } from '../../wallets/entities/wallet.entity';
 import { PayoutRequest, PayoutStatus } from '../entities/payout-request.entity';
+import { Order, OrderStatus } from '../../orders/entities/order.entity';
 import { LigdiCashService } from '../../payments/providers/ligdicash.service';
 import { WalletService } from '../../wallets/wallet.service';
 export interface FinancialDashboardSummary {
@@ -33,6 +34,8 @@ export class FinancialMonitoringService {
     private readonly walletRepository: Repository<Wallet>,
     @InjectRepository(PayoutRequest)
     private readonly payoutRepository: Repository<PayoutRequest>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
     private readonly ligdiCashService: LigdiCashService,
     private readonly walletService: WalletService,
   ) {}
@@ -140,5 +143,101 @@ export class FinancialMonitoringService {
         },
       };
     }
+  }
+
+  async getOverview(period: string = '30d') {
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .select("TO_CHAR(o.createdAt AT TIME ZONE 'Africa/Ouagadougou', 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(o.id)', 'orderCount')
+      .addSelect('SUM(o.totalAmount)', 'revenue')
+      .addSelect('SUM(o.platformCommission)', 'platformCommission')
+      .addSelect('SUM(o.serviceFee)', 'serviceFee')
+      .addSelect('SUM(o.deliveryFee)', 'deliveryFee')
+      .addSelect('SUM(o.merchantPayoutAmount)', 'merchantPayout')
+      .addSelect('SUM(o.merchantCommissionAmount)', 'merchantCommission')
+      .addSelect('SUM(o.driverCommissionAmount)', 'driverCommission')
+      .where('o.createdAt >= :since', { since })
+      .andWhere("o.status NOT IN (:...excluded)", {
+        excluded: [OrderStatus.CANCELLED, OrderStatus.FAILED],
+      })
+      .groupBy("date")
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    const cancelled = await this.orderRepository
+      .createQueryBuilder('o')
+      .select("TO_CHAR(o.createdAt AT TIME ZONE 'Africa/Ouagadougou', 'YYYY-MM-DD')", 'date')
+      .addSelect('COUNT(o.id)', 'count')
+      .addSelect('SUM(o.totalAmount)', 'amount')
+      .where('o.createdAt >= :since', { since })
+      .andWhere("o.status IN (:...statuses)", {
+        statuses: [OrderStatus.CANCELLED, OrderStatus.REFUNDED],
+      })
+      .groupBy("date")
+      .orderBy('date', 'ASC')
+      .getRawMany();
+
+    const cancelledMap: Record<string, { count: number; amount: number }> = {};
+    cancelled.forEach((c) => {
+      cancelledMap[c.date] = { count: Number(c.count), amount: Number(c.amount) || 0 };
+    });
+
+    const summary = {
+      totalRevenue: 0,
+      totalPlatformCommission: 0,
+      totalServiceFee: 0,
+      totalDeliveryFee: 0,
+      totalMerchantPayout: 0,
+      totalMerchantCommission: 0,
+      totalDriverCommission: 0,
+      totalOrders: 0,
+      totalCancelled: 0,
+      cancelledAmount: 0,
+    };
+
+    const chartData = orders.map((row) => {
+      const date = row.date;
+      const revenue = Number(row.revenue) || 0;
+      const platformCommission = Number(row.platformCommission) || 0;
+      const serviceFee = Number(row.serviceFee) || 0;
+      const deliveryFee = Number(row.deliveryFee) || 0;
+      const merchantPayout = Number(row.merchantPayout) || 0;
+      const merchantCommission = Number(row.merchantCommission) || 0;
+      const driverCommission = Number(row.driverCommission) || 0;
+      const orderCount = Number(row.orderCount) || 0;
+      const cancelled = cancelledMap[date] || { count: 0, amount: 0 };
+
+      summary.totalRevenue += revenue;
+      summary.totalPlatformCommission += platformCommission;
+      summary.totalServiceFee += serviceFee;
+      summary.totalDeliveryFee += deliveryFee;
+      summary.totalMerchantPayout += merchantPayout;
+      summary.totalMerchantCommission += merchantCommission;
+      summary.totalDriverCommission += driverCommission;
+      summary.totalOrders += orderCount;
+      summary.totalCancelled += cancelled.count;
+      summary.cancelledAmount += cancelled.amount;
+
+      return {
+        date,
+        revenue,
+        platformCommission,
+        serviceFee,
+        deliveryFee,
+        merchantPayout,
+        merchantCommission,
+        driverCommission,
+        orderCount,
+        cancelledCount: cancelled.count,
+        cancelledAmount: cancelled.amount,
+      };
+    });
+
+    return { period, summary, chartData };
   }
 }
