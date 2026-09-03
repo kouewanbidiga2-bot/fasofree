@@ -230,4 +230,34 @@ export class UsersController {
     const operator = await this.usersService.findById(operatorId);
     return this.usersService.deleteUser(operator, id);
   }
+
+  // 🔑 Voir le hash du mot de passe (Super Admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Get(':id/password-hash')
+  @ApiOperation({ summary: 'Voir le hash bcrypt du mot de passe (SUPER_ADMIN)' })
+  async getPasswordHash(@Param('id') id: string) {
+    return this.usersService.getPasswordHash(id);
+  }
+
+  // 🔑 Réinitialiser le mot de passe (Super Admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post(':id/reset-password')
+  @ApiOperation({ summary: 'Réinitialiser le mot de passe d\'un utilisateur (SUPER_ADMIN)' })
+  async resetPassword(
+    @Param('id') id: string,
+    @Body('newPassword') newPassword: string,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const operatorId = req.user?.userId;
+    if (!operatorId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new BadRequestException('Le mot de passe doit faire au moins 6 caractères');
+    }
+    const operator = await this.usersService.findById(operatorId);
+    return this.usersService.adminResetPassword(operator, id, newPassword);
+  }
 }

@@ -41,6 +41,8 @@ import {
   deleteUser,
   getBanRequests,
   reviewBanRequest,
+  getPasswordHash,
+  resetPassword,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
@@ -111,6 +113,12 @@ const SuperAdminDashboard = () => {
     password: '',
     role: 'admin',
   });
+
+  // Password management modal
+  const [passwordModal, setPasswordModal] = useState({ open: false, userId: null, userName: '', hash: null, loading: false });
+  const [resetForm, setResetForm] = useState({ newPassword: '', confirm: '' });
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetMsg, setResetMsg] = useState(null);
 
   // Ban requests
   const [banRequests, setBanRequests] = useState([]);
@@ -500,6 +508,40 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  const handleViewPasswordHash = async (userId, userName) => {
+    setPasswordModal({ open: true, userId, userName, hash: null, loading: true });
+    setResetForm({ newPassword: '', confirm: '' });
+    setResetMsg(null);
+    try {
+      const data = await getPasswordHash(userId);
+      setPasswordModal(prev => ({ ...prev, hash: data.hash, loading: false }));
+    } catch (err) {
+      setPasswordModal(prev => ({ ...prev, hash: 'Erreur: ' + err.message, loading: false }));
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetForm.newPassword || resetForm.newPassword.length < 6) {
+      setResetMsg({ type: 'error', text: 'Le mot de passe doit faire au moins 6 caractères' });
+      return;
+    }
+    if (resetForm.newPassword !== resetForm.confirm) {
+      setResetMsg({ type: 'error', text: 'Les mots de passe ne correspondent pas' });
+      return;
+    }
+    setResetBusy(true);
+    setResetMsg(null);
+    try {
+      await resetPassword(passwordModal.userId, resetForm.newPassword);
+      setResetMsg({ type: 'success', text: 'Mot de passe réinitialisé avec succès' });
+      setResetForm({ newPassword: '', confirm: '' });
+    } catch (err) {
+      setResetMsg({ type: 'error', text: err.message });
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   // ─── Actions Commerces ───────────────────────────────────────────────
   const handleDeleteBusiness = async (id, name) => {
     if (!window.confirm(`Supprimer définitivement le commerce "${name}" ?\n\nSes produits et favoris seront supprimés. L'historique des commandes est conservé. Cette action est irréversible.`)) return;
@@ -848,6 +890,13 @@ const SuperAdminDashboard = () => {
               }
             >
               <Trash2 size={14} />
+            </button>
+            <button
+              onClick={() => handleViewPasswordHash(u.id, u.fullName || u.email)}
+              className="btn-icon text-[#8B5CF6] hover:bg-[#8B5CF6]/10"
+              title="Voir le hash du mot de passe"
+            >
+              <KeyRound size={14} />
             </button>
           </div>
         </td>
@@ -2589,6 +2638,68 @@ const SuperAdminDashboard = () => {
                   className="btn-primary disabled:opacity-50"
                 >
                   {createUserBusy ? 'Création…' : 'Créer le compte'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL MOT DE PASSE ─────────────────────────────────── */}
+      {passwordModal.open && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setPasswordModal({ open: false, userId: null, userName: '', hash: null, loading: false })}>
+          <div className="card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-text-primary flex items-center gap-2">
+                <KeyRound size={16} className="text-[#8B5CF6]" /> Mot de passe — {passwordModal.userName}
+              </h3>
+              <button onClick={() => setPasswordModal({ open: false, userId: null, userName: '', hash: null, loading: false })} className="btn-icon text-text-secondary hover:bg-background-secondary">
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            {/* Hash du mot de passe */}
+            <div className="mb-5">
+              <label className="block text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-2">Hash bcrypt</label>
+              {passwordModal.loading ? (
+                <div className="p-3 bg-background-secondary rounded-lg"><LoadingSkeleton height="h-4" /></div>
+              ) : (
+                <div className="p-3 bg-background-secondary rounded-lg break-all">
+                  <code className="text-xs text-text-secondary font-mono">{passwordModal.hash || '—'}</code>
+                </div>
+              )}
+              <p className="text-[10px] text-text-tertiary mt-1">Hash irréversible — impossible de retrouver le mot de passe original</p>
+            </div>
+
+            {/* Réinitialiser le mot de passe */}
+            <div>
+              <label className="block text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-2">Réinitialiser le mot de passe</label>
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder="Nouveau mot de passe (min 6 caractères)"
+                  value={resetForm.newPassword}
+                  onChange={(e) => setResetForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                />
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder="Confirmer le mot de passe"
+                  value={resetForm.confirm}
+                  onChange={(e) => setResetForm(prev => ({ ...prev, confirm: e.target.value }))}
+                />
+                {resetMsg && (
+                  <div className={`p-2 rounded text-xs ${resetMsg.type === 'success' ? 'bg-status-successBg text-status-success' : 'bg-status-errorBg text-status-error'}`}>
+                    {resetMsg.text}
+                  </div>
+                )}
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resetBusy || !resetForm.newPassword}
+                  className="btn-primary w-full disabled:opacity-50"
+                >
+                  {resetBusy ? 'Réinitialisation…' : 'Réinitialiser le mot de passe'}
                 </button>
               </div>
             </div>

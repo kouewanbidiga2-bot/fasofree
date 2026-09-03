@@ -442,4 +442,32 @@ export class UsersService implements OnModuleInit {
 
     return this.userRepository.save(user);
   }
+
+  // ─── Hash du mot de passe (Super Admin) ───────────────────────────
+  async getPasswordHash(userId: string): Promise<{ userId: string; hash: string }> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) throw new NotFoundException(`Utilisateur ${userId} introuvable`);
+
+    return { userId, hash: (user as any).passwordHash };
+  }
+
+  // ─── Réinitialiser le mot de passe par Admin (Super Admin) ────────
+  async adminResetPassword(
+    operator: User,
+    targetUserId: string,
+    newPassword: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const targetUser = await this.findById(targetUserId);
+    await this.assertCanModify(operator, targetUser);
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.update(targetUserId, { passwordHash: hashedPassword } as any);
+
+    return { success: true, message: `Mot de passe de ${targetUser.fullName} réinitialisé avec succès` };
+  }
 }

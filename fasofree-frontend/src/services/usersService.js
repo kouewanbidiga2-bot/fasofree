@@ -58,3 +58,14 @@ export const getChatHistory = async (orderId, channel) => {
   const response = await api.get(`/chat/${orderId}`, { params });
   return response.data;
 };
+
+// ─── Password Management (Super Admin) ──────────────────────────
+export const getPasswordHash = async (userId) => {
+  const response = await api.get(`/users/${userId}/password-hash`);
+  return response.data;
+};
+
+export const resetPassword = async (userId, newPassword) => {
+  const response = await api.post(`/users/${userId}/reset-password`, { newPassword });
+  return response.data;
+};
