@@ -1,10 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
+import React, { useEffect, useRef } from 'react';
+import { createChart, ColorType, CrosshairMode, AreaSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
 
-/**
- * Graphique TradingView avec lightweight-charts v5
- * Supporte : line, area, histogram
- */
 const BrandChart = ({
   data = [],
   type = 'area',
@@ -47,13 +43,8 @@ const BrandChart = ({
         vertLine: { color: 'rgba(193,101,46,0.3)', width: 1, style: 2 },
         horzLine: { color: 'rgba(193,101,46,0.3)', width: 1, style: 2 },
       },
-      rightPriceScale: {
-        borderColor: 'rgba(193,101,46,0.1)',
-      },
-      timeScale: {
-        borderColor: 'rgba(193,101,46,0.1)',
-        timeVisible: false,
-      },
+      rightPriceScale: { borderColor: 'rgba(193,101,46,0.1)' },
+      timeScale: { borderColor: 'rgba(193,101,46,0.1)', timeVisible: false },
       width: container.clientWidth,
       height,
     });
@@ -65,15 +56,14 @@ const BrandChart = ({
       position: absolute; z-index: 100; pointer-events: none;
       background: #29231e; color: #fff; padding: 8px 12px;
       border-radius: 8px; font-size: 11px; font-family: Manrope, sans-serif;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none;
     `;
     container.appendChild(toolTip);
     tooltipRef.current = toolTip;
 
     let series;
     if (type === 'area') {
-      series = chart.addAreaSeries({
+      series = chart.addSeries(AreaSeries, {
         lineColor: colors.line,
         topColor: colors.top,
         bottomColor: colors.bottom,
@@ -81,13 +71,13 @@ const BrandChart = ({
         priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
       });
     } else if (type === 'line') {
-      series = chart.addLineSeries({
+      series = chart.addSeries(LineSeries, {
         color: colors.line,
         lineWidth: 2,
         priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
       });
     } else {
-      series = chart.addHistogramSeries({
+      series = chart.addSeries(HistogramSeries, {
         color: colors.line,
         priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
       });
@@ -107,18 +97,14 @@ const BrandChart = ({
         <div>${value}</div>
       `;
       toolTip.style.display = 'block';
-      const x = param.point.x;
-      const y = param.point.y;
-      toolTip.style.left = `${Math.min(x + 16, container.clientWidth - 150)}px`;
-      toolTip.style.top = `${Math.max(y - 40, 8)}px`;
+      toolTip.style.left = `${Math.min(param.point.x + 16, container.clientWidth - 150)}px`;
+      toolTip.style.top = `${Math.max(param.point.y - 40, 8)}px`;
     });
 
     chart.timeScale().fitContent();
 
     const handleResize = () => {
-      if (container) {
-        chart.applyOptions({ width: container.clientWidth });
-      }
+      if (container) chart.applyOptions({ width: container.clientWidth });
     };
     window.addEventListener('resize', handleResize);
 
@@ -136,7 +122,7 @@ const BrandChart = ({
   return (
     <div className="bg-background-card rounded-xl border border-border-light overflow-hidden">
       {title && (
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <div className="px-5 pt-4 pb-2">
           <h3 className="text-sm font-bold text-text-primary">{title}</h3>
         </div>
       )}
