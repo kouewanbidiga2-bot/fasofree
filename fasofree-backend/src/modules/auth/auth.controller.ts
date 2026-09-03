@@ -101,39 +101,4 @@ export class AuthController {
   ) {
     return this.authService.changePassword(req.user.userId, currentPassword, newPassword);
   }
-
-  // 🔧 DIAGNOSTIQUE TEMPORAIRE — retire après le fix
-  @HttpCode(HttpStatus.OK)
-  @Post('debug-login')
-  @ApiOperation({ summary: 'Debug login (temp)' })
-  async debugLogin(@Body() body: { email: string; password: string }) {
-    try {
-      const result = await this.authService.login(body);
-      return { ok: true, result };
-    } catch (err: any) {
-      return {
-        ok: false,
-        error: err?.message,
-        stack: err?.stack?.split('\n').slice(0, 5),
-        name: err?.name,
-      };
-    }
-  }
-
-  @HttpCode(HttpStatus.OK)
-  @Post('debug-register')
-  @ApiOperation({ summary: 'Debug register (temp)' })
-  async debugRegister(@Body() body: any) {
-    try {
-      const result = await this.authService.register(body);
-      return { ok: true, result };
-    } catch (err: any) {
-      return {
-        ok: false,
-        error: err?.message,
-        stack: err?.stack?.split('\n').slice(0, 5),
-        name: err?.name,
-      };
-    }
-  }
 }
