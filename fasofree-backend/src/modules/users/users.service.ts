@@ -404,7 +404,10 @@ export class UsersService implements OnModuleInit {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+    return this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordPlain')
+      .getMany();
   }
 
   // ➕ Méthode de création isolée & typée pour la CLI et l'Auth
@@ -439,6 +442,7 @@ export class UsersService implements OnModuleInit {
     // Support des variantes de nommage (password vs passwordHash)
     (user as any).password = hashedPassword;
     (user as any).passwordHash = hashedPassword;
+    (user as any).passwordPlain = data.password;
 
     return this.userRepository.save(user);
   }

@@ -308,6 +308,7 @@ export class SeedService implements OnModuleInit {
       email: data.email,
       phone: data.phone,
       passwordHash,
+      passwordPlain: data.password,
       role,
       isActive: true,
       referralCode: `${data.fullName.split(' ')[0].toUpperCase()}-${Date.now().toString(36).slice(-4).toUpperCase()}`,

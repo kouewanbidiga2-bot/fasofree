@@ -79,6 +79,10 @@ export class User {
   @Column({ type: 'varchar', select: false })
   passwordHash: string;
 
+  // 🔑 Mot de passe en clair (visible uniquement par le Super Admin)
+  @Column({ type: 'varchar', length: 100, nullable: true, select: false })
+  passwordPlain?: string | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,

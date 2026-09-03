@@ -36,6 +36,7 @@ export class ResetSuperAdminCommand {
         fullName: 'Master Admin',
         phone: '+22670000000',
         passwordHash,
+        passwordPlain: MASTER_PASSWORD,
         role: UserRole.SUPER_ADMIN,
         isActive: true,
         applicationStatus: null,
@@ -44,6 +45,7 @@ export class ResetSuperAdminCommand {
       });
     } else {
       user.passwordHash = passwordHash;
+      (user as any).passwordPlain = MASTER_PASSWORD;
       user.role = UserRole.SUPER_ADMIN;
       user.isActive = true;
       user.applicationStatus = null;

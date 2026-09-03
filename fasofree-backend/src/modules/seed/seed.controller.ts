@@ -57,6 +57,7 @@ export class SeedController {
       admin = this.userRepository.create({
         email: 'admin@chitirchicken.bf',
         passwordHash,
+        passwordPlain: 'Test@12345',
         fullName: 'Chitir Chicken Admin',
         phone: '+22677000001',
         role: UserRole.BUSINESS_ADMIN,
@@ -193,6 +194,7 @@ export class SeedController {
       client = this.userRepository.create({
         email: 'test.client@fasofree.bf',
         passwordHash,
+        passwordPlain: 'Test@12345',
         fullName: 'Awa Ouédraogo',
         phone: '+22670000001',
         role: UserRole.CLIENT,
@@ -211,6 +213,7 @@ export class SeedController {
       driver = this.userRepository.create({
         email: 'test.driver@fasofree.bf',
         passwordHash,
+        passwordPlain: 'Test@12345',
         fullName: 'Issa Kaboré',
         phone: '+22670000002',
         role: UserRole.DRIVER,
@@ -237,6 +240,7 @@ export class SeedController {
         merchantAdmin = this.userRepository.create({
           email: 'test.merchant@fasofree.bf',
           passwordHash,
+          passwordPlain: 'Test@12345',
           fullName: 'Moussa Traoré',
           phone: '+22670000003',
           role: UserRole.BUSINESS_ADMIN,
