@@ -96,28 +96,29 @@ export class GeniusPayService {
     successUrl?: string;
     errorUrl?: string;
   }): Promise<GeniusPayPayment> {
-    // Mapper nos méthodes vers les codes GeniusPay + PAL gateway pour le BF
-    const gatewayMap: Record<string, { gateway: string; mmo_provider?: string }> = {
-      orange_money: { gateway: 'pal', mmo_provider: 'ORANGE_BF' },
-      moov_money: { gateway: 'pal', mmo_provider: 'MOOV_BF' },
-      wave: { gateway: 'wave' },
-      mtn_money: { gateway: 'pal', mmo_provider: 'MTN_MOMO_BF' },
+    // Mapper nos méthodes vers les codes GeniusPay (pas de gateway pour le BF — routing automatique)
+    const methodMap: Record<string, string> = {
+      orange_money: 'orange_money',
+      moov_money: 'moov_money',
+      wave: 'wave',
+      mtn_money: 'mtn_money',
     };
-
-    const mapped = gatewayMap[params.paymentMethod || ''] || { gateway: 'pal' };
 
     const body: any = {
       amount: params.amount,
       currency: 'XOF',
-      gateway: mapped.gateway,
     };
 
-    if (mapped.mmo_provider) {
-      body.mmo_provider = mapped.mmo_provider;
+    // Utiliser payment_method directement (GeniusPay routage automatique pour BF)
+    if (params.paymentMethod && methodMap[params.paymentMethod]) {
+      body.payment_method = methodMap[params.paymentMethod];
     }
+    // Si pas de paymentMethod → mode checkout GeniusPay (client choisit)
 
     if (params.description) body.description = params.description;
-    if (params.customer) body.customer = params.customer;
+    if (params.customer) {
+      body.customer = { ...params.customer, country: 'BF' };
+    }
     if (params.metadata) body.metadata = params.metadata;
     if (params.successUrl) body.success_url = params.successUrl;
     if (params.errorUrl) body.error_url = params.errorUrl;
@@ -136,7 +137,12 @@ export class GeniusPayService {
       this.logger.log(`✅ GeniusPay payment created: ${response.data.data.reference}`);
       return response.data.data;
     } catch (error: any) {
+      const errData = error.response?.data;
       this.logger.error(`❌ GeniusPay createPayment error: ${error.message}`);
+      if (errData) {
+        this.logger.error(`❌ GeniusPay response body: ${JSON.stringify(errData)}`);
+      }
+      this.logger.error(`❌ GeniusPay request body sent: ${JSON.stringify(body)}`);
       throw error;
     }
   }
