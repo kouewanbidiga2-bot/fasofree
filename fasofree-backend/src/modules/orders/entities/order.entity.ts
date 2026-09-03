@@ -68,6 +68,11 @@ export class Order {
   @Column({ type: 'varchar', nullable: true })
   businessId: string;
 
+  // 🏷️ Agence (branch) — null = commande legacy
+  @Index()
+  @Column({ type: 'varchar', nullable: true })
+  branchId: string;
+
   @Column({ type: 'enum', enum: OrderType, default: OrderType.MERCHANT })
   orderType: OrderType;
 

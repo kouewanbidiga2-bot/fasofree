@@ -11,10 +11,12 @@ import { Order } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, Product, Transaction]),
+    TypeOrmModule.forFeature([Order, OrderItem, Product, Transaction, Brand, Business]),
 
     // Cache: Redis si configuré, sinon in-memory (par défaut)
     ...(process.env.REDIS_URL || process.env.REDIS_HOST

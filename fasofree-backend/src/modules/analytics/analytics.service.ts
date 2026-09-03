@@ -9,6 +9,8 @@ import { Order, OrderStatus, OrderType } from '../orders/entities/order.entity';
 import { OrderItem } from '../orders/entities/order-item.entity';
 import { Product } from '../products/entities/product.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 // DTOs
 import {
@@ -56,6 +58,10 @@ export class AnalyticsService {
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
     @Inject(CACHE_MANAGER) private readonly cacheManager?: Cache,
   ) {}
 
@@ -381,5 +387,160 @@ export class AnalyticsService {
     return Array.from(groupedMap.values()).sort((a, b) =>
       a.date.localeCompare(b.date),
     );
+  }
+
+  // ========================================================================
+  // 🏷️ ANALYTICS PAR MARQUE (agrégés sur toutes les agences)
+  // ========================================================================
+
+  async getBrandOverview(
+    brandId: string,
+    userId: string,
+    filter: AnalyticsFilterDto,
+  ) {
+    const { startDate, endDate } = this.resolveDateRange(filter);
+
+    // 1. Vérifier que la marque appartient au marchand
+    const brand = await this.brandRepository.findOne({
+      where: { id: brandId, ownerId: userId },
+      relations: { businesses: true },
+    });
+    if (!brand) {
+      throw new Error('Marque introuvable ou accès refusé');
+    }
+
+    const businessIds = brand.businesses.map((b) => b.id);
+    if (businessIds.length === 0) {
+      return {
+        summary: {
+          totalRevenue: 0,
+          netEarnings: 0,
+          platformCommission: 0,
+          totalOrders: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
+          averageOrderValue: 0,
+        },
+        branches: [],
+        salesChart: [],
+      };
+    }
+
+    // 2. Stats agrégées sur toutes les agences
+    const query = this.orderRepository
+      .createQueryBuilder('o')
+      .select('COUNT(o.id)', 'totalOrders')
+      .addSelect(
+        'SUM(CASE WHEN o.status = :deliveredStatus THEN o.totalAmount ELSE 0 END)',
+        'totalRevenue',
+      )
+      .addSelect(
+        'COUNT(CASE WHEN o.status = :deliveredStatus THEN 1 END)',
+        'completedOrders',
+      )
+      .addSelect(
+        'COUNT(CASE WHEN o.status = :cancelledStatus THEN 1 END)',
+        'cancelledOrders',
+      )
+      .where('o.businessId IN (:...businessIds)', { businessIds })
+      .setParameters({
+        deliveredStatus: OrderStatus.DELIVERED,
+        cancelledStatus: OrderStatus.CANCELLED,
+      });
+
+    if (startDate && endDate) {
+      query.andWhere('o.createdAt BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    }
+
+    const raw = await query.getRawOne();
+    const totalOrders = Number(raw?.totalOrders ?? 0);
+    const completedOrders = Number(raw?.completedOrders ?? 0);
+    const cancelledOrders = Number(raw?.cancelledOrders ?? 0);
+    const totalRevenue = parseFloat(String(raw?.totalRevenue ?? '0'));
+    const platformCommission = totalRevenue * this.COMMISSION_RATE;
+    const netEarnings = totalRevenue - platformCommission;
+    const averageOrderValue = completedOrders > 0 ? Math.round(totalRevenue / completedOrders) : 0;
+
+    // 3. Détail par agence
+    const branchStats = await Promise.all(
+      brand.businesses.map(async (biz) => {
+        const bQuery = this.orderRepository
+          .createQueryBuilder('o')
+          .select('COUNT(o.id)', 'totalOrders')
+          .addSelect(
+            'SUM(CASE WHEN o.status = :deliveredStatus THEN o.totalAmount ELSE 0 END)',
+            'revenue',
+          )
+          .where('o.businessId = :businessId', { businessId: biz.id })
+          .setParameters({ deliveredStatus: OrderStatus.DELIVERED });
+
+        if (startDate && endDate) {
+          bQuery.andWhere('o.createdAt BETWEEN :startDate AND :endDate', {
+            startDate,
+            endDate,
+          });
+        }
+
+        const bRaw = await bQuery.getRawOne();
+        return {
+          businessId: biz.id,
+          name: biz.name,
+          totalOrders: Number(bRaw?.totalOrders ?? 0),
+          revenue: parseFloat(String(bRaw?.revenue ?? '0')),
+        };
+      }),
+    );
+
+    // 4. Graphique ventes par jour
+    const ordersInRange = await this.orderRepository.find({
+      where: businessIds.map((id) => ({ businessId: id, status: OrderStatus.DELIVERED })),
+    });
+    const salesChart = this.groupSalesByDay(ordersInRange);
+
+    return {
+      summary: {
+        totalRevenue,
+        netEarnings,
+        platformCommission,
+        totalOrders,
+        completedOrders,
+        cancelledOrders,
+        averageOrderValue,
+      },
+      branches: branchStats,
+      salesChart,
+    };
+  }
+
+  async compareBranches(
+    brandId: string,
+    userId: string,
+    filter: AnalyticsFilterDto,
+  ) {
+    const { startDate, endDate } = this.resolveDateRange(filter);
+
+    const brand = await this.brandRepository.findOne({
+      where: { id: brandId, ownerId: userId },
+      relations: { businesses: true },
+    });
+    if (!brand) {
+      throw new Error('Marque introuvable ou accès refusé');
+    }
+
+    const branches = await Promise.all(
+      brand.businesses.map(async (biz) => {
+        const overview = await this.getBusinessOverview(biz.id, filter);
+        return {
+          businessId: biz.id,
+          name: biz.name,
+          ...overview,
+        };
+      }),
+    );
+
+    return branches;
   }
 }
