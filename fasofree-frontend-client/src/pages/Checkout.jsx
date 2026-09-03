@@ -93,6 +93,7 @@ const Checkout = () => {
     const paymentMethodMap = {
       orange: 'orange_money',
       moov: 'moov_money',
+      wave: 'wave',
       cash: 'cash',
     };
     const paymentMethod = paymentMethodMap[paymentMethodRaw] || paymentMethodRaw.toLowerCase();

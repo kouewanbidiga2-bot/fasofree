@@ -11,6 +11,7 @@ import { getAbsoluteImageUrl } from '../utils/images';
 const MOBILE_MONEY_PROVIDERS = [
   { value: 'ORANGE_MONEY', label: 'Orange Money' },
   { value: 'MOOV_MONEY', label: 'Moov Money' },
+  { value: 'WAVE', label: 'Wave' },
 ];
 
 const Profile = () => {
