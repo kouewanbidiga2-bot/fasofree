@@ -166,7 +166,11 @@ const Checkout = () => {
           // Si le message est un array (format NestJS), prendre le premier
           errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
         }
-        alert(`Erreur de paiement: ${errorMsg}. Votre commande a été enregistrée.`);
+        // Annuler la commande côté backend (déjà fait par le service)
+        alert(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
+        // Retourner au panier au lieu d'afficher un reçu
+        navigate('/cart', { replace: true });
+        return;
       }
 
       navigate('/receipt', {

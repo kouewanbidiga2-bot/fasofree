@@ -19,6 +19,7 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
 import { YengaPayService, YengaPayWebhookPayload } from './providers/yengapay.service';
 import { PayDunyaService } from './providers/paydunya.service';
+import { GeniusPayService } from './providers/geniuspay.service';
 import { resolvePaymentProvider } from '../../config/payment.config';
 
 @Injectable()
@@ -36,6 +37,7 @@ export class PaymentsService {
     private readonly ordersService: OrdersService,
     private readonly yengaPayService: YengaPayService,
     private readonly payDunyaService: PayDunyaService,
+    private readonly geniusPayService: GeniusPayService,
   ) {}
 
   // 1. Initier un paiement — route vers le provider actif
@@ -85,16 +87,67 @@ export class PaymentsService {
     // Routing vers le provider actif
     const provider = resolvePaymentProvider(this.configService);
 
-    if (provider === 'paydunya' && this.payDunyaService.isConfigured()) {
-      return this.initiatePayDunya(order, reference, dto);
-    }
+    try {
+      if (provider === 'geniuspay' && this.geniusPayService) {
+        return await this.initiateGeniusPay(order, reference, dto);
+      }
 
-    if (provider === 'yengapay' && this.yengaPayService.isConfigured()) {
-      return this.initiateYengaPay(order, reference, dto);
-    }
+      if (provider === 'ligdicash') {
+        // LigdiCash est géré par le LigdiCashController séparé
+        // Ici on retourne une erreur pour guider vers le bon endpoint
+        throw new BadRequestException('Utilisez l\'endpoint /payments/ligdicash/payin pour LigdiCash');
+      }
 
-    // Fallback CinetPay
-    return this.initiateCinetPay(order, reference, dto);
+      if (provider === 'paydunya' && this.payDunyaService.isConfigured()) {
+        return this.initiatePayDunya(order, reference, dto);
+      }
+
+      if (provider === 'yengapay' && this.yengaPayService.isConfigured()) {
+        return this.initiateYengaPay(order, reference, dto);
+      }
+
+      // Fallback CinetPay
+      return this.initiateCinetPay(order, reference, dto);
+    } catch (error) {
+      // Si le paiement échoue, annuler la commande
+      this.logger.error(`❌ Payment failed for order ${order.id}: ${error.message}`);
+      await this.orderRepository.update(order.id, {
+        status: OrderStatus.CANCELLED,
+      } as any);
+      await this.transactionRepository.update(
+        { orderId: order.id },
+        { status: TransactionStatus.FAILED },
+      );
+      throw error;
+    }
+  }
+
+  // 💳 GeniusPay: créer un paiement et retourner l'URL checkout
+  private async initiateGeniusPay(
+    order: Order,
+    reference: string,
+    dto: InitiatePaymentDto,
+  ) {
+    const payment = await this.geniusPayService.createPayment({
+      amount: Number(order.totalAmount),
+      description: `Commande #${order.id.substring(0, 8)}`,
+      paymentMethod: dto.paymentMethod,
+      customer: {
+        phone: dto.phoneNumber,
+      },
+      metadata: {
+        order_id: order.id,
+        reference,
+      },
+    });
+
+    return {
+      reference,
+      checkoutUrl: payment.checkout_url || payment.payment_url,
+      paymentUrl: payment.payment_url,
+      status: payment.status,
+      message: 'Paiement GeniusPay initié',
+    };
   }
 
   // YengaPay: créer un PaymentIntent et retourner l'URL checkout

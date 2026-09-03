@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
  * - `wave`     : Wave Mobile Money
  * - `yengapay` : Mobile Money via YengaPay (Orange, Moov, Telecel, Coris, Sank)
  */
-export type PaymentProvider = 'mock' | 'ligdicash' | 'cinetpay' | 'wave' | 'yengapay' | 'paydunya';
+export type PaymentProvider = 'mock' | 'ligdicash' | 'cinetpay' | 'wave' | 'yengapay' | 'paydunya' | 'geniuspay';
 
 export const PAYMENT_PROVIDER_KEY = 'PAYMENT_PROVIDER';
 
@@ -52,6 +52,13 @@ export function resolvePaymentProvider(
 
   if (!isPlaceholder(apiKey) && !isPlaceholder(authToken)) {
     return 'ligdicash';
+  }
+
+  // GeniusPay si les clés sont présentes
+  const geniuspayKey = configService.get<string>('GENIUSPAY_API_KEY', '');
+  const geniuspaySecret = configService.get<string>('GENIUSPAY_API_SECRET', '');
+  if (geniuspayKey && geniuspaySecret && geniuspayKey.startsWith('pk_')) {
+    return 'geniuspay';
   }
 
   return 'mock';
