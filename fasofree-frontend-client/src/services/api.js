@@ -73,6 +73,9 @@ export const api = {
       : `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
     return apiFetch(url, { method: 'GET' });
   },
+  getGroupedBusinesses: (lat, lng) => {
+    return apiFetch(`/businesses/grouped?lat=${lat}&lng=${lng}`, { method: 'GET' });
+  },
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
   updateBusiness: (businessId, data) => apiFetch(`/businesses/${businessId}`, { method: 'PATCH', body: data }),
 

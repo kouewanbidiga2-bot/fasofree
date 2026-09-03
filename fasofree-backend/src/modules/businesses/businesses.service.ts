@@ -161,6 +161,120 @@ export class BusinessesService {
     });
   }
 
+  // 🏷️ 2ter. Retourne les marques groupées avec leurs agences
+  // Chaque marque = 1 carte sur le front, les agences sont à l'intérieur
+  async findGrouped(latitude?: number, longitude?: number): Promise<any[]> {
+    // 1. Charger toutes les marques
+    const brands = await this.businessRepository
+      .createQueryBuilder('b')
+      .select([
+        'b.brandId',
+        'b.id',
+        'b.name',
+        'b.address',
+        'b.phone',
+        'b.logo',
+        'b.coverImage',
+        'b.category',
+        'b.isOpen',
+        'b.enableDelivery',
+        'b.enablePickup',
+        'b.latitude',
+        'b.longitude',
+      ])
+      .where('b.isOpen = true')
+      .getMany();
+
+    // 2. Grouper par brandId
+    const brandMap = new Map<string, Business[]>();
+    const noBrand: Business[] = [];
+
+    for (const b of brands) {
+      if (b.brandId) {
+        const list = brandMap.get(b.brandId) || [];
+        list.push(b);
+        brandMap.set(b.brandId, list);
+      } else {
+        noBrand.push(b);
+      }
+    }
+
+    // 3. Construire le résultat groupé
+    const result: any[] = [];
+
+    // Marques avec agences : 1 entrée par marque
+    for (const [brandId, branches] of brandMap) {
+      // Si coordonnées fournies, calculer la distance de la plus proche agence
+      let nearestBranch = branches[0];
+      if (latitude != null && longitude != null) {
+        const R = 6371e3;
+        let minDist = Infinity;
+        for (const b of branches) {
+          if (b.latitude != null && b.longitude != null) {
+            const dLat = ((b.latitude - latitude) * Math.PI) / 180;
+            const dLon = ((b.longitude - longitude) * Math.PI) / 180;
+            const a =
+              Math.sin(dLat / 2) ** 2 +
+              Math.cos((latitude * Math.PI) / 180) *
+                Math.cos((b.latitude * Math.PI) / 180) *
+                Math.sin(dLon / 2) ** 2;
+            const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            if (dist < minDist) {
+              minDist = dist;
+              nearestBranch = b;
+            }
+          }
+        }
+      }
+
+      result.push({
+        id: nearestBranch.id, // Le front utilise l'id du business le plus proche
+        brandId,
+        name: nearestBranch.name.replace(/ - .+$/, ''), // "Chitir Chicken" au lieu de "Chitir Chicken - Kamboinsin"
+        displayName: nearestBranch.name, // Nom complet de la branche la plus proche
+        isBrand: true,
+        branchCount: branches.length,
+        branches: branches.map((b) => ({
+          id: b.id,
+          name: b.name,
+          address: b.address,
+          isOpen: b.isOpen,
+          latitude: b.latitude,
+          longitude: b.longitude,
+        })),
+        logo: nearestBranch.logo,
+        coverImage: nearestBranch.coverImage,
+        category: nearestBranch.category,
+        phone: nearestBranch.phone,
+        deliveryTime: '25-40 min',
+        latitude: nearestBranch.latitude,
+        longitude: nearestBranch.longitude,
+      });
+    }
+
+    // Business sans marque : carte individuelle
+    for (const b of noBrand) {
+      result.push({
+        id: b.id,
+        brandId: null,
+        name: b.name,
+        displayName: b.name,
+        isBrand: false,
+        branchCount: 0,
+        branches: [],
+        logo: b.logo,
+        coverImage: b.coverImage,
+        category: b.category,
+        phone: b.phone,
+        deliveryTime: '25-40 min',
+        latitude: b.latitude,
+        longitude: b.longitude,
+      });
+    }
+
+    return result;
+  }
+
   // 🔍 3. Trouver un commerce par son ID (UUID) ou par nom (fallback)
   async findOne(id: string): Promise<Business> {
     // 1. Essayer par UUID

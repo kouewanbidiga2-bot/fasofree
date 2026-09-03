@@ -73,6 +73,22 @@ export class BusinessesController {
     });
   }
 
+  // 🏷️ Route publique : Marques groupées avec leurs agences
+  // 1 marque = 1 carte sur le front (pas 1 carte par agence)
+  @Get('grouped')
+  @ApiOperation({ summary: 'Marques groupées avec leurs agences (1 carte par marque)' })
+  async findGrouped(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('latitude') latitude: string,
+    @Query('longitude') longitude: string,
+    @Query('category') category: string,
+  ) {
+    const latVal = parseFloat(lat ?? latitude) || undefined;
+    const lngVal = parseFloat(lng ?? longitude) || undefined;
+    return this.businessesService.findGrouped(latVal, lngVal);
+  }
+
   // 🏪 Mon commerce (marchand connecté)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)

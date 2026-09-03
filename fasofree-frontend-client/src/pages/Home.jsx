@@ -16,7 +16,7 @@ import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandN
 const mapBusinessToRestaurant = (b) => {
   const category = b.category || 'Fast Food';
   const rawName = b.name || b.fullName || 'Restaurant';
-  const name = getBrandName(rawName) || rawName;
+  const name = b.isBrand ? rawName : (getBrandName(rawName) || rawName);
   const brandImage = getBrandImage(rawName);
   // Priorité aux URLs hébergées (Cloudinary/DB), fallback sur l'image locale de marque
   const coverUrl = b.coverImage || b.coverUrl || b.cover_url || b.banner || b.cover_image || brandImage;
@@ -24,9 +24,13 @@ const mapBusinessToRestaurant = (b) => {
   
   return {
     id: b.id,
+    brandId: b.brandId || null,
     name: name,
     tagline: category,
     description: name,
+    isBrand: b.isBrand || false,
+    branchCount: b.branchCount || 0,
+    branches: b.branches || [],
     logo: b.logo || b.logoUrl || b.logo_url || brandImage,
     coverImage: coverUrl ? (coverUrl.startsWith('/') ? coverUrl : getAbsoluteImageUrl(coverUrl)) : getCategoryFallbackImage(category),
     signatureImage: signatureUrl ? (signatureUrl.startsWith('/') ? signatureUrl : getAbsoluteImageUrl(signatureUrl)) : null,
@@ -69,7 +73,7 @@ const Home = () => {
     let cancelled = false;
     const loadBusinesses = async () => {
       try {
-        const data = await api.getNearbyBusinesses(12.37, -1.52, 10000, selectedCategory);
+        const data = await api.getGroupedBusinesses(12.37, -1.52);
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }

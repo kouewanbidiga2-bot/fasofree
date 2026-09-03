@@ -53,9 +53,16 @@ const RestaurantCard = ({ restaurant, onClick }) => {
         <h3 className="font-display text-sm sm:text-[15px] font-bold tracking-tight text-[#29231e] leading-tight truncate group-hover:text-[#C1652E] transition-colors">
           {restaurant.name}
         </h3>
-        <p className="font-mono text-[11px] sm:text-xs text-[#74695F] mt-1 font-medium truncate">
-          {restaurant.deliveryTime}
-        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="font-mono text-[11px] sm:text-xs text-[#74695F] font-medium truncate">
+            {restaurant.deliveryTime}
+          </p>
+          {restaurant.isBrand && restaurant.branchCount > 1 && (
+            <span className="text-[10px] font-bold text-[#C1652E] bg-[#C1652E]/10 px-1.5 py-0.5 rounded">
+              {restaurant.branchCount} agences
+            </span>
+          )}
+        </div>
       </div>
     </article>
   );
