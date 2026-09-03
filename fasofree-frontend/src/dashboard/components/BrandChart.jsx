@@ -2,32 +2,36 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, ColorType, CrosshairMode } from 'lightweight-charts';
 
 /**
- * Graphique TradingView avec lightweight-charts
- * Supporte : line, area, histogram, candlestick
+ * Graphique TradingView avec lightweight-charts v5
+ * Supporte : line, area, histogram
  */
 const BrandChart = ({
   data = [],
-  type = 'area', // 'line' | 'area' | 'histogram' | 'candlestick'
+  type = 'area',
   title = '',
   height = 300,
   colors = { line: '#C1652E', top: 'rgba(193,101,46,0.28)', bottom: 'rgba(193,101,46,0.02)' },
   formatValue = (v) => `${v?.toLocaleString()} FCFA`,
-  multiSeries = [], // [{name: 'Agence 1', data: [...]}]
 }) => {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
-  const [timeframe, setTimeframe] = useState('ALL');
+  const tooltipRef = useRef(null);
 
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
 
-    // Cleanup previous chart
     if (chartRef.current) {
       chartRef.current.remove();
       chartRef.current = null;
     }
+    if (tooltipRef.current && tooltipRef.current.parentNode) {
+      tooltipRef.current.parentNode.removeChild(tooltipRef.current);
+      tooltipRef.current = null;
+    }
 
-    const chart = createChart(chartContainerRef.current, {
+    const container = chartContainerRef.current;
+
+    const chart = createChart(container, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#74695F',
@@ -50,13 +54,12 @@ const BrandChart = ({
         borderColor: 'rgba(193,101,46,0.1)',
         timeVisible: false,
       },
-      width: chartContainerRef.current.clientWidth,
+      width: container.clientWidth,
       height,
     });
 
     chartRef.current = chart;
 
-    // Tooltip
     const toolTip = document.createElement('div');
     toolTip.style.cssText = `
       position: absolute; z-index: 100; pointer-events: none;
@@ -65,23 +68,40 @@ const BrandChart = ({
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       display: none;
     `;
-    chartContainerRef.current.appendChild(toolTip);
+    container.appendChild(toolTip);
+    tooltipRef.current = toolTip;
+
+    let series;
+    if (type === 'area') {
+      series = chart.addAreaSeries({
+        lineColor: colors.line,
+        topColor: colors.top,
+        bottomColor: colors.bottom,
+        lineWidth: 2,
+        priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
+      });
+    } else if (type === 'line') {
+      series = chart.addLineSeries({
+        color: colors.line,
+        lineWidth: 2,
+        priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
+      });
+    } else {
+      series = chart.addHistogramSeries({
+        color: colors.line,
+        priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
+      });
+    }
+
+    series.setData(data);
 
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.point) {
         toolTip.style.display = 'none';
         return;
       }
-      let value = '';
-      if (multiSeries.length > 0) {
-        value = multiSeries.map((s) => {
-          const d = param.seriesData.get(s.series);
-          return `<span style="color:${s.color}">${s.name}</span>: <b>${d ? formatValue(d.value) : '-'}</b>`;
-        }).join('<br/>');
-      } else {
-        const d = param.seriesData.get(series);
-        value = d ? formatValue(d.value) : '-';
-      }
+      const d = param.seriesData.get(series);
+      const value = d ? formatValue(d.value ?? d) : '-';
       toolTip.innerHTML = `
         <div style="font-weight:600;margin-bottom:4px;color:#C1652E">${param.time}</div>
         <div>${value}</div>
@@ -89,53 +109,15 @@ const BrandChart = ({
       toolTip.style.display = 'block';
       const x = param.point.x;
       const y = param.point.y;
-      toolTip.style.left = `${Math.min(x + 16, chartContainerRef.current.clientWidth - 150)}px`;
+      toolTip.style.left = `${Math.min(x + 16, container.clientWidth - 150)}px`;
       toolTip.style.top = `${Math.max(y - 40, 8)}px`;
     });
-
-    // Add series
-    let series;
-    const seriesList = [];
-
-    if (multiSeries.length > 0) {
-      multiSeries.forEach((s) => {
-        const sType = chart.addSeries(
-          type === 'area' || type === 'line' ? 'Area' : 'Histogram',
-          {
-            lineColor: s.color || colors.line,
-            topColor: s.topColor || colors.top,
-            bottomColor: s.bottomColor || colors.bottom,
-            lineWidth: 2,
-            priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
-          }
-        );
-        sType.setData(s.data);
-        s.series = sType;
-        seriesList.push(sType);
-      });
-    } else {
-      if (type === 'area' || type === 'line') {
-        series = chart.addSeries('Area', {
-          lineColor: colors.line,
-          topColor: colors.top,
-          bottomColor: colors.bottom,
-          lineWidth: 2,
-          priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
-        });
-      } else if (type === 'histogram') {
-        series = chart.addSeries('Histogram', {
-          color: colors.line,
-          priceFormat: { type: 'custom', formatter: (v) => formatValue(v) },
-        });
-      }
-      series.setData(data);
-    }
 
     chart.timeScale().fitContent();
 
     const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      if (container) {
+        chart.applyOptions({ width: container.clientWidth });
       }
     };
     window.addEventListener('resize', handleResize);
@@ -144,36 +126,18 @@ const BrandChart = ({
       window.removeEventListener('resize', handleResize);
       chart.remove();
       chartRef.current = null;
-      if (toolTip.parentNode) toolTip.parentNode.removeChild(toolTip);
+      if (tooltipRef.current && tooltipRef.current.parentNode) {
+        tooltipRef.current.parentNode.removeChild(tooltipRef.current);
+        tooltipRef.current = null;
+      }
     };
-  }, [data, type, height, multiSeries, colors, formatValue]);
-
-  // Timeframe filter
-  const filterDataByTimeframe = (tf) => {
-    setTimeframe(tf);
-    // Data filtering is handled by the parent component via API
-  };
+  }, [data, type, height, colors, formatValue]);
 
   return (
     <div className="bg-background-card rounded-xl border border-border-light overflow-hidden">
       {title && (
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h3 className="text-sm font-bold text-text-primary">{title}</h3>
-          <div className="flex gap-1">
-            {['Jour', 'Semaine', 'Mois', 'ALL'].map((tf) => (
-              <button
-                key={tf}
-                onClick={() => filterDataByTimeframe(tf === 'ALL' ? 'ALL' : tf.toUpperCase())}
-                className={`px-2.5 py-1 text-[10px] font-bold rounded transition-colors ${
-                  timeframe === (tf === 'ALL' ? 'ALL' : tf.toUpperCase())
-                    ? 'bg-accent-primary text-white'
-                    : 'text-text-tertiary hover:text-text-primary hover:bg-background-secondary'
-                }`}
-              >
-                {tf}
-              </button>
-            ))}
-          </div>
         </div>
       )}
       <div ref={chartContainerRef} className="w-full" />
