@@ -125,4 +125,48 @@ export class WalletController {
 
     return this.walletService.getOrCreateWallet(userId, walletRole);
   }
+
+  /**
+   * 🏷️ Wallet par agence spécifique
+   * GET /wallets/MERCHANT/:userId/branch/:branchId
+   */
+  @Get(':userRole/:userId/branch/:branchId')
+  @ApiOperation({ summary: 'Wallet d\'une agence spécifique' })
+  async getWalletByBranch(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('userId') userId: string,
+    @Param('userRole') userRoleRaw: string,
+    @Param('branchId') branchId: string,
+  ) {
+    const user = req.user;
+    if (user?.role !== AppUserRole.SUPER_ADMIN && user?.userId !== userId) {
+      throw new ForbiddenException('Vous ne pouvez consulter que votre portefeuille');
+    }
+
+    const walletRole = userRoleRaw === 'MERCHANT' || userRoleRaw === 'BUSINESS_ADMIN'
+      ? UserRole.MERCHANT
+      : UserRole.DRIVER;
+
+    return this.walletService.getOrCreateWallet(userId, walletRole, branchId);
+  }
+
+  /**
+   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
+   * GET /wallets/brand/:brandId
+   */
+  @Get('brand/:brandId')
+  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
+  async getBrandWallets(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('brandId') brandId: string,
+  ) {
+    const user = req.user;
+    if (!user?.userId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    return this.walletService.getBrandWallets(brandId, user.userId);
+  }
 }

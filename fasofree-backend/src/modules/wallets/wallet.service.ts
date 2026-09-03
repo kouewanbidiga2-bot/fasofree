@@ -51,21 +51,24 @@ export class WalletService {
 
   /**
    * Obtient ou crée automatiquement le portefeuille d'un utilisateur
+   * branchId optionnel : pour les marchands, 1 wallet par agence
    */
-  async getOrCreateWallet(userId: string, userRole: UserRole): Promise<Wallet> {
-    let wallet = await this.walletRepository.findOne({
-      where: { userId, userRole },
-    });
+  async getOrCreateWallet(userId: string, userRole: UserRole, branchId?: string): Promise<Wallet> {
+    const where: any = { userId, userRole };
+    if (branchId) where.branchId = branchId;
+
+    let wallet = await this.walletRepository.findOne({ where });
 
     if (!wallet) {
       wallet = this.walletRepository.create({
         userId,
         userRole,
+        branchId: branchId || null,
         balance: 0,
       });
       await this.walletRepository.save(wallet);
       this.logger.log(
-        `[Wallet Created] NOUVEAU portefeuille pour ${userRole} ${userId}`,
+        `[Wallet Created] NOUVEAU portefeuille pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
       );
     }
 
@@ -83,6 +86,7 @@ export class WalletService {
     reference?: string,
     description?: string,
     transactionType: TransactionType = TransactionType.CREDIT,
+    branchId?: string,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
@@ -94,8 +98,11 @@ export class WalletService {
 
     try {
       // 1. Récupérer le wallet avec verrouillage écriture
+      const whereCredit: any = { userId, userRole };
+      if (branchId) whereCredit.branchId = branchId;
+
       let wallet = await queryRunner.manager.findOne(Wallet, {
-        where: { userId, userRole },
+        where: whereCredit,
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -103,6 +110,7 @@ export class WalletService {
         wallet = queryRunner.manager.create(Wallet, {
           userId,
           userRole,
+          branchId: branchId || null,
           balance: 0,
         });
         await queryRunner.manager.save(wallet);
@@ -115,6 +123,7 @@ export class WalletService {
       // 3. Enregistrer l'écriture au grand livre (Ledger)
       const transaction = queryRunner.manager.create(WalletTransaction, {
         walletId: wallet.id,
+        branchId: branchId || null,
         type: transactionType,
         reason,
         status: TransactionStatus.COMPLETED,
@@ -162,6 +171,7 @@ export class WalletService {
     reason: TransactionReason,
     reference?: string,
     description?: string,
+    branchId?: string,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
@@ -172,14 +182,17 @@ export class WalletService {
     await queryRunner.startTransaction();
 
     try {
+      const whereDebit: any = { userId, userRole };
+      if (branchId) whereDebit.branchId = branchId;
+
       const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: { userId, userRole },
+        where: whereDebit,
         lock: { mode: 'pessimistic_write' },
       });
 
       if (!wallet) {
         throw new NotFoundException(
-          `Portefeuille introuvable pour ${userRole} ${userId}`,
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
         );
       }
 
@@ -194,6 +207,7 @@ export class WalletService {
 
       const transaction = queryRunner.manager.create(WalletTransaction, {
         walletId: wallet.id,
+        branchId: branchId || null,
         type: TransactionType.DEBIT,
         reason,
         status: TransactionStatus.COMPLETED,
@@ -243,6 +257,7 @@ export class WalletService {
     reason: TransactionReason,
     reference?: string,
     description?: string,
+    branchId?: string,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
@@ -253,14 +268,17 @@ export class WalletService {
     await queryRunner.startTransaction();
 
     try {
+      const whereNegative: any = { userId, userRole };
+      if (branchId) whereNegative.branchId = branchId;
+
       const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: { userId, userRole },
+        where: whereNegative,
         lock: { mode: 'pessimistic_write' },
       });
 
       if (!wallet) {
         throw new NotFoundException(
-          `Portefeuille introuvable pour ${userRole} ${userId}`,
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
         );
       }
 
@@ -269,6 +287,7 @@ export class WalletService {
 
       const transaction = queryRunner.manager.create(WalletTransaction, {
         walletId: wallet.id,
+        branchId: branchId || null,
         type: TransactionType.DEBIT,
         reason,
         status: TransactionStatus.COMPLETED,
@@ -312,11 +331,15 @@ export class WalletService {
     userRole: UserRole,
     reference: string,
     reason: TransactionReason,
+    branchId?: string,
   ): Promise<boolean> {
     if (!reference) return false;
 
+    const whereLedger: any = { userId, userRole };
+    if (branchId) whereLedger.branchId = branchId;
+
     const wallet = await this.walletRepository.findOne({
-      where: { userId, userRole },
+      where: whereLedger,
     });
     if (!wallet) return false;
 
@@ -617,6 +640,27 @@ export class WalletService {
       amount: availableBalance,
       message:
         "Demande de payout enregistrée. En attente d'approbation Super Admin.",
+    };
+  }
+
+  // ========================================================================
+  // 🏷️ Wallets d'une marque (toutes les agences)
+  // ========================================================================
+  async getBrandWallets(
+    brandId: string,
+    userId: string,
+  ): Promise<{ wallets: Wallet[]; totalBalance: number }> {
+    const wallets = await this.walletRepository.find({
+      where: { userId, userRole: UserRole.MERCHANT },
+    });
+
+    // Filtrer les wallets qui ont un branchId (agences)
+    const brandWallets = wallets.filter((w) => w.branchId != null);
+    const totalBalance = brandWallets.reduce((sum, w) => sum + Number(w.balance), 0);
+
+    return {
+      wallets: brandWallets,
+      totalBalance,
     };
   }
 }

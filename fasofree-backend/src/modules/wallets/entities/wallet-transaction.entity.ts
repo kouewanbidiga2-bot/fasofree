@@ -50,6 +50,11 @@ export class WalletTransaction {
   @JoinColumn({ name: 'walletId' })
   wallet: Wallet;
 
+  // 🏷️ Agence (branch) — null = transaction globale
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  branchId: string | null;
+
   @Column({ type: 'enum', enum: TransactionType })
   type: TransactionType;
 

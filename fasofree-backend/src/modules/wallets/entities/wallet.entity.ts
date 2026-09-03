@@ -17,7 +17,7 @@ export enum UserRole {
 }
 
 @Entity('wallets')
-@Index(['userId', 'userRole'], { unique: true })
+@Index(['userId', 'userRole', 'branchId'], { unique: true })
 export class Wallet {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -27,6 +27,11 @@ export class Wallet {
 
   @Column({ type: 'enum', enum: UserRole })
   userRole: UserRole;
+
+  // 🏷️ Agence (branch) — null = wallet global (client, livreur)
+  // Pour les marchands : 1 wallet par agence
+  @Column({ type: 'uuid', nullable: true })
+  branchId: string | null;
 
   @Column({
     type: 'decimal',

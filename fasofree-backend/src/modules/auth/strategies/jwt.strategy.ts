@@ -6,6 +6,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomBytes, createHash } from 'crypto';
 import { User } from '../../users/entities/user.entity';
+import { UserRole } from '../../users/entities/user-role.enum';
+import { Brand } from '../../brands/entities/brand.entity';
+import { Business } from '../../businesses/entities/business.entity';
 
 export interface JwtPayload {
   sub: string;
@@ -38,6 +41,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
   ) {
     const secret = JwtStrategy.resolveSecret(configService);
     super({
@@ -62,6 +69,34 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Ce compte est désactivé');
     }
 
-    return { userId: user.id, role: user.role };
+    const result: Record<string, any> = { userId: user.id, role: user.role };
+
+    // 🏷️ Pour les marchands : inclure brandId et branches dans le token validé
+    if (user.role === UserRole.BUSINESS_ADMIN) {
+      const brands = await this.brandRepository.find({
+        where: { ownerId: user.id },
+        relations: { businesses: true },
+      });
+
+      if (brands.length > 0) {
+        const brand = brands[0];
+        result.brandId = brand.id;
+        result.branches = brand.businesses.map((b) => ({
+          id: b.id,
+          name: b.name,
+          isOpen: b.isOpen,
+        }));
+        result.businessId = brand.businesses[0]?.id || null;
+      } else {
+        const business = await this.businessRepository.findOne({
+          where: { ownerId: user.id },
+        });
+        if (business) {
+          result.businessId = business.id;
+        }
+      }
+    }
+
+    return result;
   }
 }

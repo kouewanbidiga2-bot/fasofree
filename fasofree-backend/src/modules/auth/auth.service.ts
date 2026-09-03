@@ -6,6 +6,8 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { User, NotificationChannel } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { Brand } from '../brands/entities/brand.entity';
+import { Business } from '../businesses/entities/business.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ApplyDto } from './dto/apply.dto';
@@ -31,6 +33,10 @@ export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
     private readonly jwtService: JwtService,
     private readonly events: EventEmitter2,
     private readonly subscriptionService: SubscriptionService,
@@ -301,7 +307,7 @@ export class AuthService {
       throw new UnauthorizedException('Utilisateur introuvable');
     }
 
-    return {
+    const result: Record<string, any> = {
       id: user.id,
       fullName: user.fullName,
       email: user.email,
@@ -316,6 +322,36 @@ export class AuthService {
       applicationType: user.applicationType,
       vehicleType: user.vehicleType,
     };
+
+    // 🏷️ Pour les marchands : inclure les marques et agences
+    if (user.role === UserRole.BUSINESS_ADMIN) {
+      const brands = await this.brandRepository.find({
+        where: { ownerId: user.id },
+        relations: { businesses: true },
+      });
+
+      if (brands.length > 0) {
+        const brand = brands[0];
+        result.brandId = brand.id;
+        result.brandName = brand.name;
+        result.branches = brand.businesses.map((b) => ({
+          id: b.id,
+          name: b.name,
+          address: b.address,
+          isOpen: b.isOpen,
+        }));
+        result.businessId = brand.businesses[0]?.id || null;
+      } else {
+        const business = await this.businessRepository.findOne({
+          where: { ownerId: user.id },
+        });
+        if (business) {
+          result.businessId = business.id;
+        }
+      }
+    }
+
+    return result;
   }
 
   // 💎 Client abonné FasoFree Pass VIP ? (frais de plateforme offerts)
@@ -381,6 +417,36 @@ export class AuthService {
           isPhoneVerified: user.isPhoneVerified,
         },
       };
+
+      // 🏷️ Pour les marchands : inclure les marques et agences
+      if (user.role === UserRole.BUSINESS_ADMIN) {
+        const brands = await this.brandRepository.find({
+          where: { ownerId: user.id },
+          relations: { businesses: true },
+        });
+
+        if (brands.length > 0) {
+          const brand = brands[0]; // Marchand = 1 marque
+          result.user.brandId = brand.id;
+          result.user.brandName = brand.name;
+          result.user.branches = brand.businesses.map((b) => ({
+            id: b.id,
+            name: b.name,
+            address: b.address,
+            isOpen: b.isOpen,
+          }));
+          // L'agence par défaut est la première
+          result.user.businessId = brand.businesses[0]?.id || null;
+        } else {
+          // Fallback : chercher le business par ownerId (pas de marque)
+          const business = await this.businessRepository.findOne({
+            where: { ownerId: user.id },
+          });
+          if (business) {
+            result.user.businessId = business.id;
+          }
+        }
+      }
 
       if (requiresVerification) {
         result.requiresVerification = true;

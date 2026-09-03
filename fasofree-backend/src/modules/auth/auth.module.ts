@@ -7,6 +7,8 @@ import { randomBytes } from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Business } from '../businesses/entities/business.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { KycModule } from '../kyc/kyc.module';
@@ -34,8 +36,8 @@ function normalizeExpiresIn(
 
 @Module({
   imports: [
-    // 1. Accès à la table User
-    TypeOrmModule.forFeature([User]),
+    // 1. Accès aux tables User, Brand, Business
+    TypeOrmModule.forFeature([User, Brand, Business]),
 
     // 2. Configuration de Passport JWT
     PassportModule.register({ defaultStrategy: 'jwt' }),
