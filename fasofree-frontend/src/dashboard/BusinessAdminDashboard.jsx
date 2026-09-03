@@ -16,23 +16,27 @@ import {
   Layout, Package, ShoppingBag, Settings, LogOut,
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
-  ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare
+  ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
+  BarChart3
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
-import { getBusinessAnalytics } from '../services/analyticsService';
+import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
 import { getMyOrders, getBusinessOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
   getProductsByBusiness, createProduct, updateProduct,
   deleteProduct, toggleProductAvailability,
 } from '../services/productService';
-import { getWallet } from '../services/walletService';
+import { getWallet, getWalletByBranch, getBrandWallets } from '../services/walletService';
 import { getBusinessProducts, getLowStockAlerts, updateStock, generateSKU } from '../services/inventoryService';
 import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket } from '../services/realtime';
 import { ProductType, InventoryStatus } from '../types';
 import ImageUpload from '../components/ImageUpload';
+import BranchSelector from './components/BranchSelector';
+import BrandChart from './components/BrandChart';
+import BranchFinancialCard from './components/BranchFinancialCard';
 
 // ─── Product Modal with Inventory Management ─────────────────────────────
 const ProductModal = ({ product, businessId, onSave, onClose }) => {
@@ -333,21 +337,25 @@ const BusinessAdminDashboard = () => {
 
   // ID du commerce depuis le profil utilisateur
   const businessId = user?.businessId || user?.business?.id;
+  const brandId = user?.brandId || null;
+  const branches = user?.branches || [];
+
+  // Sélection d'agence (null = vue marque)
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
+  const [brandAnalytics, setBrandAnalytics] = useState(null);
+  const [branchWallets, setBranchWallets] = useState({});
 
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
   const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
 
-  // Toggle business settings
   const toggleSetting = (key) => {
     setBusinessSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Save business settings
   const handleSaveSettings = async () => {
     setLoading(prev => ({ ...prev, settings: true }));
     try {
       await api.patch(`/businesses/${businessId}`, businessSettings);
-      // Reload business data to confirm
       const updatedBusiness = (await api.get(`/businesses/${businessId}`)).data;
       setBusinessSettings({
         enableDelivery: updatedBusiness.enableDelivery ?? true,
@@ -365,69 +373,106 @@ const BusinessAdminDashboard = () => {
 
   // ─── Chargement des données ────────────────────────────────────────
   const loadAnalytics = useCallback(async () => {
-    if (!businessId) return;
+    const targetId = selectedBranchId || businessId;
+    if (!targetId) return;
     setLoad('analytics', true);
     try {
-      const data = await getBusinessAnalytics(businessId);
+      const data = await getBusinessAnalytics(targetId);
       setAnalytics(data);
     } catch (err) {
       setError('analytics', err.message);
     } finally {
       setLoad('analytics', false);
     }
-  }, [businessId]);
+  }, [selectedBranchId, businessId]);
+
+  const loadBrandAnalytics = useCallback(async () => {
+    if (!brandId) return;
+    try {
+      const data = await getBrandAnalytics(brandId);
+      setBrandAnalytics(data);
+    } catch {
+      // Silently fail
+    }
+  }, [brandId]);
 
   const loadOrders = useCallback(async () => {
-    if (!businessId) return;
+    const targetId = selectedBranchId || businessId;
+    if (!targetId) return;
     setLoad('orders', true);
     try {
-      const data = await getBusinessOrders(businessId);
+      const data = await getBusinessOrders(targetId);
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('orders', err.message);
     } finally {
       setLoad('orders', false);
     }
-  }, [businessId]);
+  }, [selectedBranchId, businessId]);
 
   const loadProducts = useCallback(async () => {
-    if (!businessId) return;
+    const targetId = selectedBranchId || businessId;
+    if (!targetId) return;
     setLoad('products', true);
     try {
-      const data = await getBusinessProducts(businessId);
+      const data = await getBusinessProducts(targetId);
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('products', err.message);
     } finally {
       setLoad('products', false);
     }
-  }, [businessId]);
+  }, [selectedBranchId, businessId]);
 
   const loadLowStockAlerts = useCallback(async () => {
-    if (!businessId) return;
+    const targetId = selectedBranchId || businessId;
+    if (!targetId) return;
     setLoad('alerts', true);
     try {
-      const data = await getLowStockAlerts(businessId);
+      const data = await getLowStockAlerts(targetId);
       setLowStockAlerts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('alerts', err.message);
     } finally {
       setLoad('alerts', false);
     }
-  }, [businessId]);
+  }, [selectedBranchId, businessId]);
 
   const loadWallet = useCallback(async () => {
     if (!user?.id) return;
     setLoad('wallet', true);
     try {
-      const data = await getWallet('business_admin', user.id);
-      setWallet(data);
+      if (selectedBranchId && brandId) {
+        const data = await getWalletByBranch('business_admin', user.id, selectedBranchId);
+        setWallet(data);
+      } else {
+        const data = await getWallet('business_admin', user.id);
+        setWallet(data);
+      }
     } catch {
       setLoad('wallet', false);
     } finally {
       setLoad('wallet', false);
     }
-  }, [user?.id]);
+  }, [user?.id, selectedBranchId, brandId]);
+
+  const loadBranchWallets = useCallback(async () => {
+    if (!brandId || branches.length === 0) return;
+    try {
+      const wallets = {};
+      for (const branch of branches) {
+        try {
+          const data = await getWalletByBranch('business_admin', user.id, branch.id);
+          wallets[branch.id] = data;
+        } catch {
+          wallets[branch.id] = { balance: 0 };
+        }
+      }
+      setBranchWallets(wallets);
+    } catch {
+      // Silently fail
+    }
+  }, [brandId, branches, user?.id]);
 
   useEffect(() => {
     loadAnalytics();
@@ -435,13 +480,21 @@ const BusinessAdminDashboard = () => {
     loadProducts();
     loadLowStockAlerts();
     loadWallet();
+    if (brandId) {
+      loadBrandAnalytics();
+      loadBranchWallets();
+    }
 
     const ordersInterval = setInterval(() => {
       loadOrders();
     }, 12000);
 
     return () => clearInterval(ordersInterval);
-  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet]);
+  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadBrandAnalytics, loadBranchWallets, brandId]);
+
+  const handleBranchChange = useCallback((branchId) => {
+    setSelectedBranchId(branchId);
+  }, []);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -681,17 +734,60 @@ const BusinessAdminDashboard = () => {
           {/* ──────────────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <div className="animate-slide-up">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
-                  <h1 className="text-xl font-bold text-text-primary">Vue d'ensemble</h1>
+                  <h1 className="text-xl font-bold text-text-primary">
+                    {selectedBranchId ? branches.find(b => b.id === selectedBranchId)?.name || 'Agence' : 'Vue Marque'}
+                  </h1>
                   <p className="text-text-secondary text-sm mt-0.5">
                     {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
                 </div>
-                <button onClick={() => { loadAnalytics(); loadOrders(); loadProducts(); }} className="btn-secondary gap-2">
-                  <RefreshCw size={14} /> Actualiser
-                </button>
+                <div className="flex items-center gap-3">
+                  {branches.length > 0 && (
+                    <BranchSelector
+                      branches={branches}
+                      selectedBranchId={selectedBranchId}
+                      onSelectBranch={handleBranchChange}
+                    />
+                  )}
+                  <button onClick={() => { loadAnalytics(); loadOrders(); loadProducts(); }} className="btn-secondary gap-2">
+                    <RefreshCw size={14} /> Actualiser
+                  </button>
+                </div>
               </div>
+
+              {/* Graphique Revenus TradingView */}
+              {brandAnalytics?.salesChart?.length > 0 && (
+                <div className="mb-6">
+                  <BrandChart
+                    data={brandAnalytics.salesChart.map(d => ({ time: d.date, value: d.sales }))}
+                    type="area"
+                    title="Evolution des revenus"
+                    height={280}
+                    formatValue={(v) => `${v?.toLocaleString()} FCFA`}
+                  />
+                </div>
+              )}
+
+              {/* Cartes financières par agence (vue marque) */}
+              {!selectedBranchId && brandAnalytics?.branches?.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-3 ml-1">Agences</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {brandAnalytics.branches.map((branch) => (
+                      <BranchFinancialCard
+                        key={branch.businessId}
+                        branch={branches.find(b => b.id === branch.businessId) || { name: branch.name, isOpen: true }}
+                        analytics={branch}
+                        wallet={branchWallets[branch.businessId]}
+                        isSelected={selectedBranchId === branch.businessId}
+                        onClick={() => setSelectedBranchId(branch.businessId)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Stock Alerts */}
               {lowStockAlerts.length > 0 && (
