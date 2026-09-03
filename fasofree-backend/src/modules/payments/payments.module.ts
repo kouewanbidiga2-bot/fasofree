@@ -6,6 +6,8 @@ import { PaymentsService } from './payments.service';
 import { PayoutsService } from './payouts.service';
 import { WebhooksService } from './webhooks.service';
 import { PaymentsController } from './payments.controller';
+import { GeniusPayService } from './providers/geniuspay.service';
+import { GeniusPayController } from './geniuspay.controller';
 
 import { MerchantPayout } from './entities/merchant-payout.entity';
 import { Transaction } from './entities/transaction.entity';
@@ -32,8 +34,8 @@ import { PayDunyaService } from './providers/paydunya.service';
       Business,
     ]),
   ],
-  controllers: [PaymentsController],
-  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, TypeOrmModule],
+  controllers: [PaymentsController, GeniusPayController],
+  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, GeniusPayService],
+  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, GeniusPayService, TypeOrmModule],
 })
 export class PaymentsModule {}
