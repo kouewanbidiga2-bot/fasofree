@@ -176,7 +176,7 @@ const Cart = () => {
               </button>
 
               <p className="text-xs text-text-secondary text-center mt-4">
-                Paiement sécurisé avec Wave, Orange Money, Moov Money
+                Paiement sécurisé avec Orange Money & Moov Money
               </p>
             </div>
           </div>

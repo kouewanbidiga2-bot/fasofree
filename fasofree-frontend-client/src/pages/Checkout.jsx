@@ -93,10 +93,6 @@ const Checkout = () => {
     const paymentMethodMap = {
       orange: 'orange_money',
       moov: 'moov_money',
-      telecel: 'telecel_money',
-      wave: 'wave',
-      visa: 'card',
-      mastercard: 'card',
       cash: 'cash',
     };
     const paymentMethod = paymentMethodMap[paymentMethodRaw] || paymentMethodRaw.toLowerCase();

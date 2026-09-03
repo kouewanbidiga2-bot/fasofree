@@ -15,8 +15,6 @@ const CATEGORIES = [
 const MOBILE_MONEY_PROVIDERS = [
   { value: 'ORANGE_MONEY', label: 'Orange Money' },
   { value: 'MOOV_MONEY', label: 'Moov Money' },
-  { value: 'WAVE', label: 'Wave' },
-  { value: 'TELECEL_MONEY', label: 'Telecel Money' },
 ];
 
 function Switch({ checked, onChange, disabled = false }) {

@@ -6,8 +6,6 @@ import api from '../services/api';
 const PROVIDERS = [
   { value: 'ORANGE_MONEY', label: 'Orange Money', color: '#FF6600' },
   { value: 'MOOV_MONEY', label: 'Moov Money', color: '#0066FF' },
-  { value: 'WAVE', label: 'Wave', color: '#1DC4E9' },
-  { value: 'TELECEL_MONEY', label: 'Telecel Money', color: '#E30613' },
 ];
 
 function formatFCFA(amount) {
