@@ -96,13 +96,27 @@ export class GeniusPayService {
     successUrl?: string;
     errorUrl?: string;
   }): Promise<GeniusPayPayment> {
+    // Mapper nos méthodes vers les codes GeniusPay + PAL gateway pour le BF
+    const gatewayMap: Record<string, { gateway: string; mmo_provider?: string }> = {
+      orange_money: { gateway: 'pal', mmo_provider: 'ORANGE_BF' },
+      moov_money: { gateway: 'pal', mmo_provider: 'MOOV_BF' },
+      wave: { gateway: 'wave' },
+      mtn_money: { gateway: 'pal', mmo_provider: 'MTN_MOMO_BF' },
+    };
+
+    const mapped = gatewayMap[params.paymentMethod || ''] || { gateway: 'pal' };
+
     const body: any = {
       amount: params.amount,
       currency: 'XOF',
+      gateway: mapped.gateway,
     };
 
+    if (mapped.mmo_provider) {
+      body.mmo_provider = mapped.mmo_provider;
+    }
+
     if (params.description) body.description = params.description;
-    if (params.paymentMethod) body.payment_method = params.paymentMethod;
     if (params.customer) body.customer = params.customer;
     if (params.metadata) body.metadata = params.metadata;
     if (params.successUrl) body.success_url = params.successUrl;
