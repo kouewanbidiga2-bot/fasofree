@@ -1,7 +1,17 @@
-import { Controller, Get, Post, Query, Body, Logger, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, Logger, HttpCode, HttpStatus, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { WhatsAppService } from './whatsapp.service';
+
+const ORDER_STATUS_MAP: Record<string, string> = {
+  PENDING: 'En attente',
+  CONFIRMED: 'Confirmee',
+  PREPARING: 'En preparation',
+  READY: 'Pret',
+  OUT_FOR_DELIVERY: 'En cours de livraison',
+  DELIVERED: 'Livree',
+  CANCELLED: 'Annulee',
+};
 
 @ApiTags('Webhooks')
 @Controller('webhooks')
@@ -19,10 +29,6 @@ export class WhatsAppWebhookController {
     );
   }
 
-  /**
-   * 🔗 Meta Webhook Verification (GET)
-   * Meta sends this to verify your webhook URL during setup.
-   */
   @Get('whatsapp')
   @ApiOperation({ summary: 'WhatsApp webhook verification (Meta)' })
   handleVerification(
@@ -37,14 +43,10 @@ export class WhatsAppWebhookController {
       return challenge;
     }
 
-    this.logger.warn('[WhatsApp Webhook] Verification failed — invalid token');
+    this.logger.warn('[WhatsApp Webhook] Verification failed -- invalid token');
     return 'Verification failed';
   }
 
-  /**
-   * 📩 WhatsApp Webhook Events (POST)
-   * Receives incoming messages and status updates from Meta.
-   */
   @Post('whatsapp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'WhatsApp webhook events (Meta)' })
@@ -52,7 +54,6 @@ export class WhatsAppWebhookController {
     this.logger.debug(`[WhatsApp Webhook] Event received: ${JSON.stringify(payload).slice(0, 500)}`);
 
     try {
-      // Meta sends an array of entries
       const entries = payload?.entry || [];
       for (const entry of entries) {
         const changes = entry?.changes || [];
@@ -70,22 +71,72 @@ export class WhatsAppWebhookController {
   }
 
   private processMessageChange(value: any): void {
-    // Handle incoming messages
     const messages = value?.messages || [];
     for (const msg of messages) {
       this.logger.log(
         `[WhatsApp Inbound] From: ${msg.from} | Type: ${msg.type} | Text: ${msg.text?.body || '(non-text)'}`,
       );
-      // TODO: process inbound messages (support chat, order tracking, etc.)
+
+      if (msg.type === 'text') {
+        this.handleTextMessage(msg.from, msg.text?.body || '');
+      }
     }
 
-    // Handle status updates
     const statuses = value?.statuses || [];
     for (const status of statuses) {
       this.logger.log(
         `[WhatsApp Status] ID: ${status.id} | Status: ${status.status} | Timestamp: ${status.timestamp}`,
       );
-      // TODO: update order notification status in DB
     }
+  }
+
+  private async handleTextMessage(from: string, text: string): Promise<void> {
+    const normalized = text.trim().toLowerCase();
+
+    if (normalized === 'suivi' || normalized === 'suivre' || normalized === 'track') {
+      await this.whatsappService.sendTextMessage(
+        from,
+        'Envoyez le numero de votre commande (ex: FF12345678) pour suivre sa livraison.',
+      );
+      return;
+    }
+
+    if (normalized === 'aide' || normalized === 'help' || normalized === 'menu') {
+      await this.whatsappService.sendTextMessage(
+        from,
+        'Bienvenue sur FasoFree!\n\n' +
+        'Commandes disponibles:\n' +
+        '- SUIVI + numero de commande -> statut de livraison\n' +
+        '- AIDE -> ce message\n' +
+        '- STORIES -> decouvrir les stories des restaurants',
+      );
+      return;
+    }
+
+    if (normalized.startsWith('ff') && normalized.length >= 10) {
+      const orderId = normalized.toUpperCase();
+      await this.whatsappService.sendTextMessage(
+        from,
+        `Commande ${orderId}: en cours de verification.\n` +
+        'Vous recevrez une notification des que le statut change.',
+      );
+      this.logger.log(`[WhatsApp] Order tracking request: ${orderId} from ${from}`);
+      return;
+    }
+
+    if (normalized === 'stories') {
+      await this.whatsappService.sendTextMessage(
+        from,
+        'Decouvrez les stories des restaurants sur FasoFree!\n' +
+        'Ouvrez l\'application pour voir les dernieres creations.',
+      );
+      return;
+    }
+
+    await this.whatsappService.sendTextMessage(
+      from,
+      'Merci de nous avoir contactes!\n' +
+      'Tapez AIDE pour voir les commandes disponibles.',
+    );
   }
 }

@@ -176,6 +176,34 @@ export const api = {
 
   // OTP Verification
   getMe: () => apiFetch('/auth/me', { method: 'GET' }),
+
+  // Stories
+  getStories: () => apiFetch('/stories', { method: 'GET' }),
+  createStory: (data) => apiFetch('/stories', { method: 'POST', body: data }),
+  viewStory: (storyId) => apiFetch(`/stories/${storyId}/view`, { method: 'POST' }),
+  getStoryViewers: (storyId) => apiFetch(`/stories/${storyId}/viewers`, { method: 'GET' }),
+  deleteStory: (storyId) => apiFetch(`/stories/${storyId}`, { method: 'DELETE' }),
+
+  // Loyalty
+  getLoyaltyPoints: () => apiFetch('/loyalty/me', { method: 'GET' }),
+  getLoyaltyHistory: () => apiFetch('/loyalty/me/history', { method: 'GET' }),
+  getReferralCode: () => apiFetch('/loyalty/referral/code', { method: 'GET' }),
+  getReferralStats: () => apiFetch('/loyalty/referral/stats', { method: 'GET' }),
+  applyReferralCode: (code) => apiFetch('/loyalty/referral/apply', { method: 'POST', body: { code } }),
+
+  // Upload (image directe)
+  uploadImage: (formData) => {
+    const token = localStorage.getItem('access_token');
+    return fetch(`${API_URL}/uploads/image?folder=stories`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    }).then((r) => r.json());
+  },
+
+  // Personnalisation
+  getTrending: (limit = 10) => apiFetch(`/businesses/trending?limit=${limit}`, { method: 'GET' }),
+  getRecentOrders: () => apiFetch('/orders/my-recent', { method: 'GET' }),
 };
 
 export default api;

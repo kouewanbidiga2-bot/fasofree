@@ -4,6 +4,7 @@ import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCa
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
 import ImageWithFallback from '../components/ImageWithFallback';
+import LoyaltyWidget from '../components/loyalty/LoyaltyWidget';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl } from '../utils/images';
@@ -392,6 +393,11 @@ const Profile = () => {
                 <p className="text-text-tertiary text-xs mt-1">Ajoutez des restaurants en cliquant sur le cœur</p>
               </div>
             )}
+          </div>
+
+          {/* Loyalty & Referral */}
+          <div>
+            <LoyaltyWidget />
           </div>
 
           {/* Menu Items */}

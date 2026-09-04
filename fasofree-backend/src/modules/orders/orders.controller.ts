@@ -119,6 +119,16 @@ export class OrdersController {
     return this.ordersService.findClientOrders(userId);
   }
 
+  @Get('my-recent')
+  @ApiOperation({ summary: 'Recent orders for personalization' })
+  async getMyRecentOrders(@NestRequest() req: RequestWithUser) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifie');
+    }
+    return this.ordersService.findRecentForUser(userId, 5);
+  }
+
   // 🏪 Commandes d'un commerce (marchand connecté)
   @Get('business/:businessId')
   @UseGuards(AuthGuard('jwt'), RolesGuard)

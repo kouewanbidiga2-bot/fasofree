@@ -99,6 +99,13 @@ export class CreateOrderDto {
   @IsLongitude()
   deliveryLongitude?: number;
 
+  @ApiPropertyOptional({
+    description: 'Repere local pour la livraison (ex: a cote de la pharmacie X)',
+  })
+  @IsOptional()
+  @IsString()
+  landmark?: string;
+
   @ApiProperty({
     description: 'Type de commande (ex: LIVRAISON, EMPORTER)',
     enum: OrderType,

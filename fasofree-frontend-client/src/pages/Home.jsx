@@ -4,7 +4,7 @@ import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn } from 'lucide-r
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
-import FavoritesStories from '../components/FavoritesStories';
+import StoryStrip from '../components/stories/StoryStrip';
 import UserMenu from '../components/UserMenu';
 import NotificationDropdown from '../components/NotificationDropdown';
 import api from '../services/api';
@@ -235,13 +235,9 @@ const Home = () => {
         <HeroBanner />
       </div>
 
-      {/* Section Favoris - Stories */}
+      {/* Section Stories */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <h2 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-4 ml-1">Favoris</h2>
-        <FavoritesStories
-          onFavoriteClick={(favorite) => navigate(`/restaurant/${favorite.id}`)}
-          onAddClick={() => navigate('/')}
-        />
+        <StoryStrip />
       </section>
 
       {/* Grille de Restaurants */}

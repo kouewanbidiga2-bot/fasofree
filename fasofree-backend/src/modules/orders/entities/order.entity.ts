@@ -204,6 +204,9 @@ export class Order {
   @Column({ type: 'jsonb', nullable: true })
   deliveryLocation?: { latitude: number; longitude: number };
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  landmark?: string;
+
   // --- 🚚 P2P DELIVERY FIELDS (Course à la demande) ---
   @Column({ type: 'jsonb', nullable: true })
   pickupLocation?: {

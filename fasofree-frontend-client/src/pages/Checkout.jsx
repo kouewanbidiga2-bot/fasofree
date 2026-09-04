@@ -28,6 +28,7 @@ const Checkout = () => {
     name: '',
     phone: '',
     address: '',
+    landmark: '',
     notes: '',
     tableNumber: '',
     numberOfGuests: '',
@@ -130,6 +131,9 @@ const Checkout = () => {
       if (isDelivery) {
         payload.deliveryLatitude = coords.latitude;
         payload.deliveryLongitude = coords.longitude;
+      }
+      if (formData.landmark) {
+        payload.landmark = formData.landmark;
       }
       if (fulfillmentType === 'DINE_IN' && formData.tableNumber) {
         payload.fulfillmentDetails.tableNumber = formData.tableNumber;
@@ -291,13 +295,24 @@ const Checkout = () => {
                   </button>
 
                   <div className="mb-4">
-                    <label className="block text-xs text-text-secondary mb-2">Adresse complète</label>
+                    <label className="block text-xs text-text-secondary mb-2">Adresse complete</label>
                     <input
                       type="text"
-                      placeholder="Quartier, rue, numéro..."
+                      placeholder="Quartier, rue, numero..."
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       required
+                      className="app-input"
+                    />
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-xs text-text-secondary mb-2">Repere local (optionnel)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: a cote de la pharmacie X, devant la mosquee..."
+                      value={formData.landmark}
+                      onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                       className="app-input"
                     />
                   </div>

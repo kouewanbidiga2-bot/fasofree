@@ -47,6 +47,10 @@
     outline: 2px solid #B95B2B;
     outline-offset: 3px;
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
 
 :root {

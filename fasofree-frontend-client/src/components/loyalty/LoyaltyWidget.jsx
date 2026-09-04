@@ -1,0 +1,125 @@
+import React, { useState, useEffect } from 'react';
+import { Gift, Users, Copy, Check, Star, TrendingUp } from 'lucide-react';
+import { api } from '../../services/api';
+
+const LoyaltyWidget = () => {
+  const [balance, setBalance] = useState(null);
+  const [referralStats, setReferralStats] = useState(null);
+  const [referralCode, setReferralCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [balanceRes, statsRes, codeRes] = await Promise.all([
+        api.getLoyaltyPoints(),
+        api.getReferralStats(),
+        api.getReferralCode(),
+      ]);
+      setBalance(balanceRes?.data?.balance ?? 0);
+      setReferralStats(statsRes?.data);
+      setReferralCode(codeRes?.data?.code || '');
+    } catch {
+      setBalance(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(referralCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-[#e8e0d4] p-5">
+        <div className="animate-pulse flex gap-3">
+          <div className="w-10 h-10 rounded-full bg-[#f0e6d6]" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-[#f0e6d6] rounded w-1/3" />
+            <div className="h-3 bg-[#f0e6d6] rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Points balance */}
+      <div className="bg-gradient-to-br from-[#C1652E] to-[#a85522] rounded-2xl p-5 text-white">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white/70 text-xs font-medium uppercase tracking-wider">Mes points</p>
+            <p className="text-3xl font-bold mt-1">{balance ?? 0}</p>
+            <p className="text-white/60 text-xs mt-1">1 point / 100 FCFA depenses</p>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+            <Star size={24} className="text-white" />
+          </div>
+        </div>
+        <div className="mt-4 pt-3 border-t border-white/20">
+          <p className="text-white/60 text-xs">
+            equivalents: {Math.floor((balance ?? 0) / 100)} 000 FCFA de reduction
+          </p>
+        </div>
+      </div>
+
+      {/* Referral section */}
+      <div className="bg-white rounded-2xl border border-[#e8e0d4] p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-[#f0e6d6] flex items-center justify-center">
+            <Users size={18} className="text-[#C1652E]" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-[#29231e]">Parrainer un ami</h3>
+            <p className="text-xs text-[#70645C]">
+              {referralStats?.completedReferrals || 0} ami(s) inscrit(s)
+            </p>
+          </div>
+        </div>
+
+        {referralCode && (
+          <div className="flex items-center gap-2 mb-3">
+            <div className="flex-1 bg-[#f5f0ea] rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-[#29231e] tracking-wider">
+              {referralCode}
+            </div>
+            <button
+              onClick={handleCopyCode}
+              className="w-10 h-10 rounded-lg bg-[#f0e6d6] flex items-center justify-center hover:bg-[#e8e0d4] transition-colors"
+            >
+              {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-[#70645C]" />}
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <div className="bg-[#f5f0ea] rounded-lg p-3 text-center">
+            <p className="text-lg font-bold text-[#C1652E]">{referralStats?.totalReferred || 0}</p>
+            <p className="text-[10px] text-[#70645C] font-medium">Parraines</p>
+          </div>
+          <div className="bg-[#f5f0ea] rounded-lg p-3 text-center">
+            <p className="text-lg font-bold text-[#C1652E]">{referralStats?.pendingBonus || 0}</p>
+            <p className="text-[10px] text-[#70645C] font-medium">Points en attente</p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 text-xs text-[#70645C]">
+          <Gift size={14} className="text-[#C1652E]" />
+          <span>Parrain: +500 pts | Filleul: +200 pts au 1er achat</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default LoyaltyWidget;

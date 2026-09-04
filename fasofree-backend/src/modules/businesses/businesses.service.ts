@@ -368,4 +368,38 @@ export class BusinessesService {
       id,
     };
   }
+
+  async findTrending(limit = 10): Promise<Business[]> {
+    return this.businessRepository
+      .createQueryBuilder('b')
+      .where('b.isActive = :active', { active: true })
+      .orderBy('b.rating', 'DESC')
+      .addOrderBy('b.reviewCount', 'DESC')
+      .limit(limit)
+      .getMany();
+  }
+
+  async findRecommendedForUser(userVisitedBusinessIds: string[], limit = 6): Promise<Business[]> {
+    if (!userVisitedBusinessIds.length) {
+      return this.findTrending(limit);
+    }
+
+    const businesses = await this.businessRepository
+      .createQueryBuilder('b')
+      .where('b.isActive = :active', { active: true })
+      .andWhere('b.id NOT IN (:...visited)', { visited: userVisitedBusinessIds })
+      .orderBy('b.rating', 'DESC')
+      .limit(limit)
+      .getMany();
+
+    if (businesses.length < limit) {
+      const extra = await this.findTrending(limit - businesses.length);
+      const existingIds = new Set(businesses.map((b) => b.id));
+      for (const b of extra) {
+        if (!existingIds.has(b.id)) businesses.push(b);
+      }
+    }
+
+    return businesses;
+  }
 }

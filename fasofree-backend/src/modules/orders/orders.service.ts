@@ -376,6 +376,7 @@ export class OrdersService {
       promotionCode,
       promotionDiscount,
       deliveryLocation,
+      landmark: dto.landmark ?? undefined,
       status: OrderStatus.PENDING,
       deliveryPinCode: isDelivery ? this.generatePinCode() : null,
       driverId: null,
@@ -859,6 +860,24 @@ export class OrdersService {
       relations: { items: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findRecentForUser(userId: string, limit = 5): Promise<any[]> {
+    const orders = await this.orderRepository.find({
+      where: { clientId: userId },
+      relations: { items: true },
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+
+    return orders.map((o) => ({
+      id: o.id,
+      businessId: o.businessId,
+      status: o.status,
+      totalAmount: o.totalAmount,
+      items: o.items?.map((i) => ({ name: i.productName, quantity: i.quantity })),
+      createdAt: o.createdAt,
+    }));
   }
 
   async findAllByBusiness(businessId: string): Promise<Order[]> {

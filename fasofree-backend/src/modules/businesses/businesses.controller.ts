@@ -113,7 +113,13 @@ export class BusinessesController {
     return this.businessesService.findAll();
   }
 
-  // 🔍 Route publique : Obtenir un commerce avec ses produits
+  @Get('trending')
+  @ApiOperation({ summary: 'Top restaurants by rating' })
+  async findTrending(@Query('limit') limit?: string) {
+    const max = Math.min(parseInt(limit || '10', 10), 20);
+    return this.businessesService.findTrending(max);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtenir un commerce et son catalogue' })
   async findOne(@Param('id') id: string) {
