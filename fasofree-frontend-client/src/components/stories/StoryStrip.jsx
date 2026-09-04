@@ -3,21 +3,29 @@ import { Plus } from 'lucide-react';
 import { api } from '../../services/api';
 import useAuthStore from '../../store/authStore';
 import StoryViewer from './StoryViewer';
+import StoryCreator from './StoryCreator';
 
 const StoryStrip = () => {
   const [storyGroups, setStoryGroups] = useState([]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [merchantBusinessId, setMerchantBusinessId] = useState(null);
   const { isAuthenticated, user } = useAuthStore();
+
+  const isMerchant = user?.role === 'BUSINESS_ADMIN' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     loadStories();
-  }, []);
+    if (isMerchant) {
+      loadMerchantBusiness();
+    }
+  }, [isMerchant]);
 
   const loadStories = async () => {
     try {
-      const res = await api.get('/stories');
+      const res = await api.getStories();
       if (res?.data) {
         setStoryGroups(res.data);
       }
@@ -28,21 +36,30 @@ const StoryStrip = () => {
     }
   };
 
+  const loadMerchantBusiness = async () => {
+    try {
+      const res = await api.getMyBusiness();
+      if (res?.id) {
+        setMerchantBusinessId(res.id);
+      }
+    } catch {
+      // silent
+    }
+  };
+
   const handleStoryClick = (index) => {
     setViewerIndex(index);
     setViewerOpen(true);
   };
 
-  const isMerchant = user?.role === 'BUSINESS_ADMIN' || user?.role === 'SUPER_ADMIN';
-
-  if (loading || storyGroups.length === 0) return null;
+  if (loading) return null;
 
   return (
     <>
       <div className="flex gap-3 overflow-x-auto scrollbar-none py-3 px-1">
         {isMerchant && (
           <button
-            onClick={() => {}}
+            onClick={() => setCreatorOpen(true)}
             className="flex flex-col items-center gap-1.5 flex-shrink-0"
           >
             <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#C1652E]/40 flex items-center justify-center bg-[#C1652E]/5 hover:bg-[#C1652E]/10 transition-colors">
@@ -103,6 +120,17 @@ const StoryStrip = () => {
           stories={storyGroups}
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
+        />
+      )}
+
+      {creatorOpen && merchantBusinessId && (
+        <StoryCreator
+          businessId={merchantBusinessId}
+          onClose={() => setCreatorOpen(false)}
+          onCreated={() => {
+            setCreatorOpen(false);
+            loadStories();
+          }}
         />
       )}
     </>
