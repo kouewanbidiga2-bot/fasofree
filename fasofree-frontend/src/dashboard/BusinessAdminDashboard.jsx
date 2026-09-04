@@ -844,7 +844,7 @@ const BusinessAdminDashboard = () => {
                 />
               </div>
 
-              {errors.analytics && (
+              {errors.analytics && !errors.analytics.includes('401') && !errors.analytics.includes('Non autorisé') && (
                 <div className="mb-6 p-3 bg-status-warningBg border border-status-warning/30 rounded-md text-status-warning text-sm flex items-center gap-2">
                   <AlertCircle size={14} /> Analytics indisponibles (backend requis). Données partielles affichées.
                 </div>
