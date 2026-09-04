@@ -9,7 +9,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 15000,
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,8 +39,8 @@ api.interceptors.response.use(
         localStorage.removeItem('fasofree_token');
         localStorage.removeItem('fasofree_user');
         // Redirection vers login si pas déjà dessus
-        if (!window.location.pathname.includes('/auth')) {
-          window.location.href = '/auth';
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login';
         }
       }
 
