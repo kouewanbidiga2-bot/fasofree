@@ -354,17 +354,7 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-    loadFinancialStats();
-    loadFinancialOverview();
-    loadPendingValidations();
-    loadKyc();
-    loadUsers();
-    loadBanRequests();
-    loadSettings();
-    loadConversations();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
-
+  // Load conversations
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
     try {
@@ -376,6 +366,17 @@ const SuperAdminDashboard = () => {
       setChatLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadFinancialStats();
+    loadFinancialOverview();
+    loadPendingValidations();
+    loadKyc();
+    loadUsers();
+    loadBanRequests();
+    loadSettings();
+    loadConversations();
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
 
   useEffect(() => {
     return () => {
