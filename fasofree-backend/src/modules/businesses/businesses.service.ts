@@ -373,8 +373,7 @@ export class BusinessesService {
     return this.businessRepository
       .createQueryBuilder('b')
       .where('b.isActive = :active', { active: true })
-      .orderBy('b.rating', 'DESC')
-      .addOrderBy('b.reviewCount', 'DESC')
+      .orderBy('b.name', 'ASC')
       .limit(limit)
       .getMany();
   }

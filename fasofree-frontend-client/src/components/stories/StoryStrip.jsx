@@ -14,7 +14,7 @@ const StoryStrip = () => {
   const [merchantBusinessId, setMerchantBusinessId] = useState(null);
   const { isAuthenticated, user } = useAuthStore();
 
-  const isMerchant = user?.role === 'BUSINESS_ADMIN' || user?.role === 'SUPER_ADMIN';
+  const isMerchant = user?.role === 'business_admin' || user?.role === 'BUSINESS_ADMIN' || user?.role === 'super_admin' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     loadStories();
