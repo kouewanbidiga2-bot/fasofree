@@ -47,7 +47,7 @@ const Checkout = () => {
     let cancelled = false;
     api.getBusiness(restaurantId).then((b) => {
       if (!cancelled) {
-        setRestaurant({ id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude, deliveryFee: b.deliveryFee });
+        setRestaurant({ id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude, deliveryFee: b.deliveryFee, deliveryTime: b.deliveryTime });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -89,6 +89,16 @@ const Checkout = () => {
     e.preventDefault();
     if (submitting) return;
 
+    if (!formData.phone || !formData.phone.replace(/\s/g, '').match(/^\+?\d{8,15}$/)) {
+      alert('Numéro de téléphone invalide. Utilisez le format +226 XX XX XX XX');
+      return;
+    }
+
+    if (isDelivery && !deliveryCoords) {
+      alert('Veuillez sélectionner votre position de livraison');
+      return;
+    }
+
     const paymentMethodRaw = e.target.payment?.value || 'orange';
     const paymentMethodMap = {
       orange: 'orange_money',
@@ -110,7 +120,7 @@ const Checkout = () => {
 
       const payload = {
         businessId: restaurantId,
-        totalAmount: subtotal,
+        totalAmount: finalTotal,
         items: orderItems,
         orderType: 'MERCHANT',
         fulfillmentType,

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import * as crypto from 'crypto';
 
 export interface GeniusPayPayment {
   id: number;
@@ -263,16 +264,23 @@ export class GeniusPayService {
     timestamp: string,
     webhookSecret: string,
   ): boolean {
-    const crypto = require('crypto');
-    const data = `${timestamp}.${payload}`;
-    const expectedSignature = crypto
-      .createHmac('sha256', webhookSecret)
-      .update(data)
-      .digest('hex');
+    try {
+      const data = `${timestamp}.${payload}`;
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(data)
+        .digest('hex');
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expectedSignature),
-    );
+      const sigBuf = Buffer.from(signature, 'utf8');
+      const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+
+      if (sigBuf.length !== expectedBuf.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(sigBuf, expectedBuf);
+    } catch {
+      return false;
+    }
   }
 }

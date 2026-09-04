@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Layout, Shield, Users, Store, Settings, LogOut,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
-  Plus, CreditCard, MapPin, Activity, DollarSign, Crown, Pencil, Calendar,
+  Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
   Truck, Car
 } from 'lucide-react';
@@ -184,6 +184,7 @@ const SuperAdminDashboard = () => {
     users: true,
   });
   const [errors, setErrors] = useState({});
+  const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -361,7 +362,8 @@ const SuperAdminDashboard = () => {
     loadUsers();
     loadBanRequests();
     loadSettings();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings]);
+    loadConversations();
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -795,11 +797,6 @@ const SuperAdminDashboard = () => {
         </td>
         <td>
           <p className="text-text-secondary text-xs">{u.phone || '—'}</p>
-        </td>
-        <td>
-          <span className="px-2 py-1 rounded text-[11px] font-mono bg-background-secondary text-text-secondary">
-            {u.passwordPlain || '—'}
-          </span>
         </td>
         <td>
           <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
@@ -2238,9 +2235,8 @@ const SuperAdminDashboard = () => {
                         <tr>
                           <th>Utilisateur</th>
                           <th>Email</th>
-                          <th>Téléphone</th>
-                          <th>Mot de passe</th>
-                          <th>Rôle</th>
+                           <th>Téléphone</th>
+                           <th>Rôle</th>
                           <th>Statut</th>
                           <th>Actions</th>
                         </tr>
@@ -2269,9 +2265,8 @@ const SuperAdminDashboard = () => {
                         <tr>
                           <th>Utilisateur</th>
                           <th>Email</th>
-                          <th>Téléphone</th>
-                          <th>Mot de passe</th>
-                          <th>Rôle</th>
+                           <th>Téléphone</th>
+                           <th>Rôle</th>
                           <th>Statut</th>
                           <th>Actions</th>
                         </tr>

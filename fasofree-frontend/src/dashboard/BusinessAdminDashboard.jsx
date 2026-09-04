@@ -1073,7 +1073,7 @@ const BusinessAdminDashboard = () => {
                             <td>
                               <div className="flex items-center gap-3">
                                 {product.imageUrl && (
-                                  <img src={product.imageUrl.startsWith('/') ? (import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1').replace(/\/api\/v1$/, '') + product.imageUrl : product.imageUrl} alt={product.name} className="w-10 h-10 rounded object-cover" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} />
+                                  <img src={product.imageUrl.startsWith('/') ? (import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1').replace(/\/api\/v1$/, '') + product.imageUrl : product.imageUrl} alt={product.name} className="w-10 h-10 rounded object-cover" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} />
                                 )}
                                 <div>
                                   <p className="font-bold text-text-primary text-sm">{product.name}</p>

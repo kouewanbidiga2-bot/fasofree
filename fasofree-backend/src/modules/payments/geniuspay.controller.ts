@@ -9,14 +9,18 @@ import {
   HttpStatus,
   Logger,
   Req,
+  UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from '../orders/entities/order.entity';
 import { Transaction, TransactionStatus, PaymentMethod } from './entities/transaction.entity';
+import { OrdersService } from '../orders/orders.service';
 
 @ApiTags('GeniusPay')
 @Controller('geniuspay')
@@ -26,6 +30,7 @@ export class GeniusPayController {
   constructor(
     private readonly geniusPayService: GeniusPayService,
     private readonly configService: ConfigService,
+    private readonly ordersService: OrdersService,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Transaction)
@@ -36,17 +41,18 @@ export class GeniusPayController {
    * 💳 Initier un paiement GeniusPay
    */
   @Post('pay')
+  @UseGuards(AuthGuard('jwt'))
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Initier un paiement GeniusPay' })
   async createPayment(
     @Body() body: {
       orderId: string;
-      amount: number;
       paymentMethod?: string;
       customer?: { name?: string; email?: string; phone?: string };
       successUrl?: string;
       errorUrl?: string;
     },
+    @Req() req: any,
   ) {
     const order = await this.orderRepository.findOne({
       where: { id: body.orderId },
@@ -56,8 +62,14 @@ export class GeniusPayController {
       return { success: false, error: 'Commande introuvable' };
     }
 
+    if (order.clientId !== req.user?.userId) {
+      throw new ForbiddenException('Cette commande ne vous appartient pas');
+    }
+
+    const amount = Number(order.totalAmount);
+
     const payment = await this.geniusPayService.createPayment({
-      amount: body.amount,
+      amount,
       description: `Commande #${order.id.slice(0, 8)}`,
       paymentMethod: body.paymentMethod,
       customer: body.customer,
@@ -69,15 +81,13 @@ export class GeniusPayController {
       errorUrl: body.errorUrl,
     });
 
-    // Calculer la commission (1.5%)
-    const commissionAmount = body.amount * 0.015;
+    const commissionAmount = Number(order.merchantCommissionAmount ?? order.platformCommission ?? 0);
 
-    // Sauvegarder la transaction
     const tx = this.transactionRepository.create({
       orderId: order.id,
-      amount: body.amount,
+      amount,
       commissionAmount,
-      paymentMethod: PaymentMethod.CASH, // Sera mis à jour via webhook
+      paymentMethod: PaymentMethod.CASH,
       reference: payment.reference,
       paymentGatewayId: String(payment.id),
       status: TransactionStatus.PENDING,
@@ -99,6 +109,7 @@ export class GeniusPayController {
    * 🔍 Vérifier le statut d'un paiement
    */
   @Get('payment/:reference')
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Vérifier le statut d\'un paiement GeniusPay' })
   async getPayment(@Param('reference') reference: string) {
     const payment = await this.geniusPayService.getPayment(reference);
@@ -109,6 +120,7 @@ export class GeniusPayController {
    * 💰 Solde du compte GeniusPay
    */
   @Get('balance')
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Consulter le solde GeniusPay' })
   async getBalance() {
     const balance = await this.geniusPayService.getBalance();
@@ -119,6 +131,7 @@ export class GeniusPayController {
    * 🏪 Informations du compte
    */
   @Get('account')
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Informations du compte GeniusPay' })
   async getAccount() {
     const account = await this.geniusPayService.getAccount();
@@ -171,7 +184,11 @@ export class GeniusPayController {
 
     // Vérifier la signature
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
-    if (webhookSecret && signature && timestamp) {
+    if (webhookSecret) {
+      if (!signature || !timestamp) {
+        this.logger.error('❌ Missing webhook signature or timestamp');
+        return { success: false, error: 'Missing signature' };
+      }
       const bodyStr = JSON.stringify(payload);
       const isValid = this.geniusPayService.verifyWebhookSignature(
         bodyStr,
@@ -217,17 +234,14 @@ export class GeniusPayController {
     const orderId = data.metadata?.order_id;
 
     if (orderId) {
-      // Mettre à jour la commande
-      await this.orderRepository.update(orderId, {
-        paymentStatus: 'paid',
-        status: 'CONFIRMED',
-      } as any);
+      const transactionRef = data.reference || String(data.id);
 
-      // Mettre à jour la transaction
       await this.transactionRepository.update(
-        { reference: data.reference },
+        { reference: transactionRef },
         { status: TransactionStatus.SUCCESS },
       );
+
+      await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);
 
       this.logger.log(`✅ Order ${orderId} marked as paid via GeniusPay`);
     }
@@ -238,10 +252,6 @@ export class GeniusPayController {
     const orderId = data.metadata?.order_id;
 
     if (orderId) {
-      await this.orderRepository.update(orderId, {
-        paymentStatus: 'failed',
-      } as any);
-
       await this.transactionRepository.update(
         { reference: data.reference },
         { status: TransactionStatus.FAILED },
@@ -253,13 +263,8 @@ export class GeniusPayController {
 
   private async handlePaymentCancelled(payload: any) {
     const data = payload.data;
-    const orderId = data.metadata?.order_id;
 
-    if (orderId) {
-      await this.orderRepository.update(orderId, {
-        paymentStatus: 'cancelled',
-      } as any);
-
+    if (data.reference) {
       await this.transactionRepository.update(
         { reference: data.reference },
         { status: TransactionStatus.FAILED },
@@ -269,13 +274,8 @@ export class GeniusPayController {
 
   private async handlePaymentRefunded(payload: any) {
     const data = payload.data;
-    const orderId = data.metadata?.order_id;
 
-    if (orderId) {
-      await this.orderRepository.update(orderId, {
-        paymentStatus: 'refunded',
-      } as any);
-
+    if (data.reference) {
       await this.transactionRepository.update(
         { reference: data.reference },
         { status: TransactionStatus.REFUNDED },

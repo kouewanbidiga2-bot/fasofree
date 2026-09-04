@@ -93,32 +93,26 @@ export class PaymentsService {
       }
 
       if (provider === 'ligdicash') {
-        // LigdiCash est géré par le LigdiCashController séparé
-        // Ici on retourne une erreur pour guider vers le bon endpoint
         throw new BadRequestException('Utilisez l\'endpoint /payments/ligdicash/payin pour LigdiCash');
       }
 
       if (provider === 'paydunya' && this.payDunyaService.isConfigured()) {
-        return this.initiatePayDunya(order, reference, dto);
+        return await this.initiatePayDunya(order, reference, dto);
       }
 
       if (provider === 'yengapay' && this.yengaPayService.isConfigured()) {
-        return this.initiateYengaPay(order, reference, dto);
+        return await this.initiateYengaPay(order, reference, dto);
       }
 
-      // Fallback CinetPay
-      return this.initiateCinetPay(order, reference, dto);
+      return await this.initiateCinetPay(order, reference, dto);
     } catch (error) {
-      // Si le paiement échoue, annuler la commande
       this.logger.error(`❌ Payment failed for order ${order.id}: ${error.message}`);
-      await this.orderRepository.update(order.id, {
-        status: OrderStatus.CANCELLED,
-      } as any);
-      await this.transactionRepository.update(
-        { orderId: order.id },
-        { status: TransactionStatus.FAILED },
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        'Impossible de contacter la passerelle de paiement. Veuillez réessayer.',
       );
-      throw error;
     }
   }
 

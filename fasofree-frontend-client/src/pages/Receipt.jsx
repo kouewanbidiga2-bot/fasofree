@@ -91,9 +91,20 @@ const Receipt = () => {
           paymentMethod: order.paymentMethod || incoming.paymentMethod || 'Orange Money',
           items,
           subtotal: order.totalAmount || incoming.subtotal || 0,
-          deliveryFee: order.deliveryFee || incoming.deliveryFee || 800,
+          deliveryFee: order.deliveryFee || incoming.deliveryFee || 0,
           platformFee: incoming.platformFee || 100,
           total: order.totalAmount || incoming.total || 0,
+        });
+
+        addReceipt({
+          orderId: order.id,
+          items,
+          subtotal: order.totalAmount || incoming.subtotal || 0,
+          deliveryFee: order.deliveryFee || incoming.deliveryFee || 0,
+          platformFee: incoming.platformFee || 100,
+          total: order.totalAmount || incoming.total || 0,
+          paymentMethod: order.paymentMethod || incoming.paymentMethod || 'Orange Money',
+          status: order.status || 'PENDING',
         });
       })
       .catch(() => {
@@ -124,20 +135,6 @@ const Receipt = () => {
     total: incoming.total || 0,
   };
 
-  // Save receipt to authStore on mount
-  React.useEffect(() => {
-    addReceipt({
-      orderId: details.id,
-      items: details.items,
-      subtotal: details.subtotal,
-      deliveryFee: details.deliveryFee,
-      platformFee: details.platformFee,
-      total: details.total,
-      paymentMethod: details.paymentMethod,
-      status: details.status,
-    });
-  }, []);
-
   const handlePrint = () => {
     window.print();
   };
@@ -147,7 +144,7 @@ const Receipt = () => {
     navigate('/order-tracking', {
       replace: true,
       state: {
-        orderId: orderDetails.id
+        orderId: details.id
       }
     });
   };
@@ -182,8 +179,14 @@ const Receipt = () => {
             <div className="w-16 h-16 bg-success rounded-full flex items-center justify-center mx-auto mb-4 shadow-subtle" style={{ backgroundColor: '#5C6B3C' }}>
               <Check size={32} className="text-white" strokeWidth={2} />
             </div>
-            <h2 className="text-2xl font-display font-bold text-text-primary mb-2">Commande confirmée !</h2>
-            <p className="text-text-secondary">Votre commande a été payée avec succès</p>
+            <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
+              {details.status === 'PAID' || details.status === 'COMPLETED' ? 'Commande confirmée !' : 'Commande en cours...'}
+            </h2>
+            <p className="text-text-secondary">
+              {details.status === 'PAID' || details.status === 'COMPLETED'
+                ? 'Votre commande a été payée avec succès'
+                : 'Votre commande est en attente de confirmation'}
+            </p>
           </div>
 
           {/* Order Details */}

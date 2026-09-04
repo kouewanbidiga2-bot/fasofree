@@ -156,14 +156,14 @@ export const api = {
   getMyDispute: (id) => apiFetch(`/disputes/me/${id}`, { method: 'GET' }),
 
   // Promotions
-  getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'GET', body: data }),
+  getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'POST', body: data }),
 
   // Subscriptions marchand
   subscribeMerchant: (businessId, planCode = 'PRO', autoRenew = true) =>
     apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { businessId, planCode, autoRenew } }),
 
   // Orders
-  cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED' } }),
+  cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED', reason } }),
   disputeOrder: (id, data) => apiFetch(`/disputes/orders/${id}`, { method: 'POST', body: data }),
 
   // Notifications
@@ -175,9 +175,6 @@ export const api = {
   getFavoriteIds: () => apiFetch('/users/favorites/ids', { method: 'GET' }),
 
   // OTP Verification
-  sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),
-  verifyOtp: (code) => apiFetch('/auth/verify-otp', { method: 'POST', body: { code } }),
-  checkVerification: () => apiFetch('/auth/check-verification', { method: 'POST' }),
   getMe: () => apiFetch('/auth/me', { method: 'GET' }),
 };
 

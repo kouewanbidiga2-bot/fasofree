@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { disconnectRealtime } from '../services/realtime';
 
 const loadInitial = () => {
   try {
@@ -73,6 +74,7 @@ const useAuthStore = create((set) => ({
   }),
 
   logout: () => {
+    disconnectRealtime();
     localStorage.removeItem('access_token');
     localStorage.removeItem('fasofree_user');
     set({ user: null, isAuthenticated: false, orders: [], receipts: [] });

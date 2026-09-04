@@ -21,7 +21,7 @@ import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components
 import { getApplications, approveApplication, rejectApplication } from '../services/onboardingService';
 import { getKycPending, getKycDocumentUrl } from '../services/kycService';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1';
 const API_ORIGIN = API_URL.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
 const resolveFileUrl = (u) => (u && !u.startsWith('http') ? `${API_ORIGIN}${u}` : u);
 
