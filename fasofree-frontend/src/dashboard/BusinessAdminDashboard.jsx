@@ -336,9 +336,13 @@ const BusinessAdminDashboard = () => {
   const chatSocketRef = useRef(null);
 
   // ID du commerce depuis le profil utilisateur
-  const businessId = user?.businessId || user?.business?.id;
-  const brandId = user?.brandId || null;
-  const branches = user?.branches || [];
+  const [resolvedBusinessId, setResolvedBusinessId] = useState(null);
+  const [resolvedBrandId, setResolvedBrandId] = useState(null);
+  const [resolvedBranches, setResolvedBranches] = useState([]);
+
+  const businessId = resolvedBusinessId || user?.businessId || user?.business?.id;
+  const brandId = resolvedBrandId || user?.brandId || null;
+  const branches = resolvedBranches.length > 0 ? resolvedBranches : (user?.branches || []);
 
   // Sélection d'agence (null = vue marque)
   const [selectedBranchId, setSelectedBranchId] = useState(null);
@@ -351,6 +355,15 @@ const BusinessAdminDashboard = () => {
   const toggleSetting = (key) => {
     setBusinessSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
+
+  useEffect(() => {
+    if (!user?.businessId && !user?.brandId) {
+      api.get('/businesses/me').then((data) => {
+        if (data?.id) setResolvedBusinessId(data.id);
+        if (data?.brandId) setResolvedBrandId(data.brandId);
+      }).catch(() => {});
+    }
+  }, [user]);
 
   const handleSaveSettings = async () => {
     setLoading(prev => ({ ...prev, settings: true }));
