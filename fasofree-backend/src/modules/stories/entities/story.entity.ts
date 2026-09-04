@@ -47,6 +47,9 @@ export class Story {
   @Column({ type: 'int', default: 0 })
   viewsCount: number;
 
+  @Column({ type: 'int', default: 0 })
+  likesCount: number;
+
   @Column({ type: 'timestamp' })
   expiresAt: Date;
 

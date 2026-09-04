@@ -1,15 +1,33 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { X, ChevronLeft, ChevronRight, Eye, Clock } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Eye, Clock, Heart } from 'lucide-react';
 import { api } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 
 const StoryViewer = ({ stories, initialIndex, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex || 0);
   const [progress, setProgress] = useState(0);
+  const [likedStates, setLikedStates] = useState({});
+  const [likesCounts, setLikesCounts] = useState({});
   const timerRef = useRef(null);
   const STORY_DURATION = 5000;
+  const { user } = useAuthStore();
+  const isMerchant = user?.role === 'business_admin' || user?.role === 'BUSINESS_ADMIN' || user?.role === 'super_admin' || user?.role === 'SUPER_ADMIN';
 
   const currentGroup = stories[currentIndex];
   const currentStory = currentGroup?.stories?.[0];
+
+  useEffect(() => {
+    const initialLiked = {};
+    const initialCounts = {};
+    stories.forEach((g) => {
+      g.stories?.forEach((s) => {
+        initialLiked[s.id] = s.isLiked || false;
+        initialCounts[s.id] = s.likesCount || 0;
+      });
+    });
+    setLikedStates(initialLiked);
+    setLikesCounts(initialCounts);
+  }, [stories]);
 
   const startProgress = useCallback(() => {
     setProgress(0);
@@ -59,6 +77,31 @@ const StoryViewer = ({ stories, initialIndex, onClose }) => {
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [goNext, goPrev, onClose]);
+
+  const handleLike = async () => {
+    if (!currentStory?.id) return;
+    const isCurrentlyLiked = likedStates[currentStory.id];
+
+    setLikedStates((prev) => ({ ...prev, [currentStory.id]: !isCurrentlyLiked }));
+    setLikesCounts((prev) => ({
+      ...prev,
+      [currentStory.id]: Math.max(0, (prev[currentStory.id] || 0) + (isCurrentlyLiked ? -1 : 1)),
+    }));
+
+    try {
+      if (isCurrentlyLiked) {
+        await api.unlikeStory(currentStory.id);
+      } else {
+        await api.likeStory(currentStory.id);
+      }
+    } catch {
+      setLikedStates((prev) => ({ ...prev, [currentStory.id]: isCurrentlyLiked }));
+      setLikesCounts((prev) => ({
+        ...prev,
+        [currentStory.id]: (prev[currentStory.id] || 0) + (isCurrentlyLiked ? 1 : -1),
+      }));
+    }
+  };
 
   if (!currentGroup || !currentStory) return null;
 
@@ -134,19 +177,38 @@ const StoryViewer = ({ stories, initialIndex, onClose }) => {
           </div>
         )}
 
-        {/* Viewers count */}
-        <div className="absolute bottom-6 left-0 right-0 z-20 flex items-center justify-center gap-4 px-4">
-          <div className="flex items-center gap-1.5 text-white/70 text-xs">
-            <Eye size={14} />
-            <span>{currentStory.viewsCount || 0}</span>
+        {/* Bottom bar: likes (all) + views (merchants only) + timer */}
+        <div className="absolute bottom-6 left-0 right-0 z-20 flex items-center justify-between px-4">
+          <div className="flex items-center gap-4">
+            {/* Like button (all users) */}
+            <button
+              onClick={handleLike}
+              className="flex items-center gap-1.5 text-white/80 hover:text-white transition-colors"
+            >
+              <Heart
+                size={18}
+                className={likedStates[currentStory.id] ? 'fill-red-500 text-red-500' : ''}
+              />
+              <span className="text-xs">{likesCounts[currentStory.id] || 0}</span>
+            </button>
+
+            {/* View count (merchants only) */}
+            {isMerchant && (
+              <div className="flex items-center gap-1.5 text-white/60 text-xs">
+                <Eye size={14} />
+                <span>{currentStory.viewsCount || 0}</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 text-white/70 text-xs">
-            <Clock size={14} />
+
+          {/* Time remaining */}
+          <div className="flex items-center gap-1.5 text-white/50 text-xs">
+            <Clock size={12} />
             <span>
               {Math.max(
                 0,
                 Math.round((new Date(currentStory.expiresAt) - Date.now()) / 3600000)
-              )}h restante(s)
+              )}h
             </span>
           </div>
         </div>

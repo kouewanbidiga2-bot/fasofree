@@ -181,6 +181,8 @@ export const api = {
   getStories: () => apiFetch('/stories', { method: 'GET' }),
   createStory: (data) => apiFetch('/stories', { method: 'POST', body: data }),
   viewStory: (storyId) => apiFetch(`/stories/${storyId}/view`, { method: 'POST' }),
+  likeStory: (storyId) => apiFetch(`/stories/${storyId}/like`, { method: 'POST' }),
+  unlikeStory: (storyId) => apiFetch(`/stories/${storyId}/like`, { method: 'DELETE' }),
   getStoryViewers: (storyId) => apiFetch(`/stories/${storyId}/viewers`, { method: 'GET' }),
   deleteStory: (storyId) => apiFetch(`/stories/${storyId}`, { method: 'DELETE' }),
 

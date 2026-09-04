@@ -53,6 +53,22 @@ export class StoriesController {
     return { success: true };
   }
 
+  @Post(':id/like')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Like a story' })
+  async likeStory(@Param('id') id: string, @Req() req: any) {
+    const result = await this.storiesService.likeStory(id, req.user.userId);
+    return { success: true, data: result };
+  }
+
+  @Delete(':id/like')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Unlike a story' })
+  async unlikeStory(@Param('id') id: string, @Req() req: any) {
+    const result = await this.storiesService.unlikeStory(id, req.user.userId);
+    return { success: true, data: result };
+  }
+
   @Get(':id/viewers')
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Get story viewers (owner only)' })

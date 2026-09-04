@@ -1,8 +1,9 @@
-import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { Repository, LessThanOrEqual, In } from 'typeorm';
 import { Story, StoryMediaType } from './entities/story.entity';
 import { StoryView } from './entities/story-view.entity';
+import { StoryLike } from './entities/story-like.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 
@@ -15,6 +16,8 @@ export class StoriesService {
     private readonly storyRepository: Repository<Story>,
     @InjectRepository(StoryView)
     private readonly storyViewRepository: Repository<StoryView>,
+    @InjectRepository(StoryLike)
+    private readonly storyLikeRepository: Repository<StoryLike>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
   ) {}
@@ -34,7 +37,6 @@ export class StoriesService {
       throw new BadRequestException('Business not found');
     }
 
-    // 🔒 Un marchand ne peut créer une story que sur un commerce qui lui appartient
     if (role !== UserRole.SUPER_ADMIN) {
       const owned = await this.businessRepository
         .createQueryBuilder('biz')
@@ -46,7 +48,7 @@ export class StoriesService {
         .getOne();
       if (!owned) {
         throw new ForbiddenException(
-          'Vous ne pouvez créer une story que sur votre propre commerce',
+          'Vous ne pouvez creer une story que sur votre propre commerce',
         );
       }
     }
@@ -78,6 +80,23 @@ export class StoriesService {
       .orderBy('story.createdAt', 'DESC')
       .getMany();
 
+    const storyIds = stories.map((s) => s.id);
+
+    let viewedStoryIds = new Set<string>();
+    let likedStoryIds = new Set<string>();
+
+    if (userId && storyIds.length > 0) {
+      const views = await this.storyViewRepository.find({
+        where: { storyId: In(storyIds), userId },
+      });
+      viewedStoryIds = new Set(views.map((v) => v.storyId));
+
+      const likes = await this.storyLikeRepository.find({
+        where: { storyId: In(storyIds), userId },
+      });
+      likedStoryIds = new Set(likes.map((l) => l.storyId));
+    }
+
     const grouped: Record<string, any> = {};
 
     for (const story of stories) {
@@ -91,21 +110,15 @@ export class StoriesService {
         };
       }
 
-      let viewed = false;
-      if (userId) {
-        const existingView = await this.storyViewRepository.findOne({
-          where: { storyId: story.id, userId },
-        });
-        viewed = !!existingView;
-      }
-
       grouped[bid].stories.push({
         id: story.id,
         mediaUrl: story.mediaUrl,
         mediaType: story.mediaType,
         caption: story.caption,
         viewsCount: story.viewsCount,
-        viewed,
+        likesCount: story.likesCount,
+        viewed: viewedStoryIds.has(story.id),
+        isLiked: likedStoryIds.has(story.id),
         expiresAt: story.expiresAt,
         createdAt: story.createdAt,
       });
@@ -135,6 +148,47 @@ export class StoriesService {
       );
       await this.storyRepository.increment({ id: storyId }, 'viewsCount', 1);
     }
+  }
+
+  async likeStory(storyId: string, userId: string): Promise<{ liked: boolean; likesCount: number }> {
+    const story = await this.storyRepository.findOne({ where: { id: storyId } });
+    if (!story) throw new NotFoundException('Story introuvable');
+    if (new Date() > story.expiresAt) throw new BadRequestException('Story expiree');
+
+    const existing = await this.storyLikeRepository.findOne({
+      where: { storyId, userId },
+    });
+
+    if (existing) {
+      return { liked: true, likesCount: story.likesCount };
+    }
+
+    await this.storyLikeRepository.save(
+      this.storyLikeRepository.create({ storyId, userId }),
+    );
+    await this.storyRepository.increment({ id: storyId }, 'likesCount', 1);
+
+    const updated = await this.storyRepository.findOne({ where: { id: storyId } });
+    return { liked: true, likesCount: updated!.likesCount };
+  }
+
+  async unlikeStory(storyId: string, userId: string): Promise<{ liked: boolean; likesCount: number }> {
+    const story = await this.storyRepository.findOne({ where: { id: storyId } });
+    if (!story) throw new NotFoundException('Story introuvable');
+
+    const existing = await this.storyLikeRepository.findOne({
+      where: { storyId, userId },
+    });
+
+    if (!existing) {
+      return { liked: false, likesCount: story.likesCount };
+    }
+
+    await this.storyLikeRepository.remove(existing);
+    await this.storyRepository.decrement({ id: storyId }, 'likesCount', 1);
+
+    const updated = await this.storyRepository.findOne({ where: { id: storyId } });
+    return { liked: false, likesCount: Math.max(0, updated!.likesCount) };
   }
 
   async getStoryViewers(storyId: string, ownerId: string): Promise<any[]> {
