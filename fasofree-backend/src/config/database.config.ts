@@ -16,10 +16,10 @@ export const getDatabaseConfig = (
   const migrationsOverride = envBool(configService, 'DB_MIGRATIONS_RUN');
   const isProd = configService.get<string>('NODE_ENV') === 'production';
 
-  // synchronize et migrationsRun sont mutuellement exclusifs :
-  // synchronize=true → migrationsRun=false (TypeORM gère le schema)
-  // synchronize=false → migrationsRun=true en prod (les migrations gèrent le schema)
-  const synchronize = syncOverride ?? !isProd;
+  // 🛡️ SÉCURITÉ DB : en production, on INTERDIT synchronize (modifications de
+  // schéma destructives/non versionnées). Le schéma est géré par les migrations.
+  // La surcharge DB_SYNCHRONIZE n'a AUCUN effet en production.
+  const synchronize = !isProd && (syncOverride ?? true);
   const migrationsRun = synchronize ? false : (migrationsOverride ?? isProd);
 
   return {

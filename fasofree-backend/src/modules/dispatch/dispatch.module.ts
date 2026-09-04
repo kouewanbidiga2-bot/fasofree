@@ -1,7 +1,6 @@
 import { Module, Global, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { DispatchGateway } from './dispatch.gateway';
@@ -15,13 +14,13 @@ import { BusinessesModule } from '../businesses/businesses.module';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { Order } from '../orders/entities/order.entity';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Global()
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([User, Business, Order]),
-    ScheduleModule.forRoot(),
     forwardRef(() => OrdersModule),
     forwardRef(() => UsersModule),
     forwardRef(() => BusinessesModule),
@@ -29,10 +28,7 @@ import { Order } from '../orders/entities/order.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>(
-          'JWT_SECRET',
-          'SUPER_SECRET_KEY_CHANGEME',
-        ),
+        secret: resolveJwtSecret(configService),
         signOptions: { expiresIn: '7d' },
       }),
     }),

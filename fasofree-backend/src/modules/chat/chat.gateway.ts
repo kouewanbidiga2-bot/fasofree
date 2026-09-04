@@ -23,6 +23,7 @@ import { ChatService, TERMINAL_STATUSES } from './chat.service';
 import { ChatChannel } from './entities/order-chat-message.entity';
 import { OrdersService } from '../orders/orders.service';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 type ChatSocket = Socket & { data: { user?: JwtPayload } };
 
@@ -72,10 +73,7 @@ export class ChatGateway
         return;
       }
 
-      const secret = this.configService.get<string>(
-        'JWT_SECRET',
-        'SUPER_SECRET_KEY_CHANGEME',
-      );
+      const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify<JwtPayload>(token, { secret });
 
       client.data.user = payload;

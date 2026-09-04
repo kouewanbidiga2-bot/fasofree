@@ -285,6 +285,16 @@ export class PaymentsService {
       const orderId = data.client_reference;
       const transactionRef = data.id;
       if (orderId && transactionRef) {
+        const amountOk = await this.validatePaymentAmount(
+          orderId,
+          data.amount,
+        );
+        if (!amountOk) {
+          this.logger.error(
+            `Webhook Wave: montant incohérent (${data.amount}) pour la commande ${orderId} — rejeté`,
+          );
+          return { ok: false, error: 'Amount mismatch' };
+        }
         await this.processSuccessfulPayment(orderId, transactionRef, 'WAVE');
       }
     }
@@ -317,6 +327,16 @@ export class PaymentsService {
       const orderId = body.custom_data as string;
       const transactionRef = body.token as string;
       if (orderId && transactionRef) {
+        const amountOk = await this.validatePaymentAmount(
+          orderId,
+          body.amount as number,
+        );
+        if (!amountOk) {
+          this.logger.error(
+            `Webhook LigdiCash: montant incohérent (${String(body.amount)}) pour la commande ${orderId} — rejeté`,
+          );
+          return { ok: false, error: 'Amount mismatch' };
+        }
         await this.processSuccessfulPayment(
           orderId,
           transactionRef,
@@ -328,6 +348,27 @@ export class PaymentsService {
   }
 
   // ✅ 3. Validation globale d'un paiement réussi
+  async validatePaymentAmount(
+    orderId: string,
+    receivedAmount: number | string | undefined | null,
+  ): Promise<boolean> {
+    if (receivedAmount === undefined || receivedAmount === null) {
+      this.logger.warn(`Webhook: montant absent pour la commande ${orderId}`);
+      return false;
+    }
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+    if (!order) {
+      this.logger.warn(`Webhook: commande ${orderId} introuvable (montant non validé)`);
+      return false;
+    }
+    const expected = Number(order.totalAmount);
+    const received = Number(receivedAmount);
+    // Tolérance de 1 FCFA pour les conversions d'arrondi entre providers.
+    return Math.abs(expected - received) <= 1;
+  }
+
   async processSuccessfulPayment(
     orderId: string,
     transactionRef: string,
@@ -353,16 +394,16 @@ export class PaymentsService {
     }
 
     // Utiliser le système transactionnel d'OrdersService
-    try {
-      await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);
-      this.logger.log(
-        `Commande ${orderId} validée avec succès via ${paymentMethod}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Erreur lors du traitement du paiement: ${error.message}`,
-      );
-    }
+    // Authenticité + montant déjà validés en amont (signature + amount check).
+    // Ici on ne fait QUE marquer PAID de façon atomique/idempotente :
+    // `markAsPaidAndDispatch` utilise un lock pessimiste + garde-fou de statut,
+    // donc un webhook dupliqué (même commande) est ignoré sans double crédit.
+    // En cas d'erreur RÉELLE, on relance l'exception pour que le provider
+    // retente le webhook (on ne répond pas "OK" à tort).
+    await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);
+    this.logger.log(
+      `Commande ${orderId} validée avec succès via ${paymentMethod}`,
+    );
   }
 
   // 🔍 4. Méthode interne : Interrogation directe des serveurs CinetPay

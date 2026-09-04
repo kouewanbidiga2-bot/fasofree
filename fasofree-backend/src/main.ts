@@ -6,9 +6,40 @@ import { writeFileSync } from 'fs';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 
+/**
+ * Secrets indispensables au fonctionnement de l'API. En production, leur
+ * absence empêche le démarrage (fail-fast) afin de ne JAMAIS tourner avec
+ * une configuration dégradée ou des valeurs codées en dur.
+ */
+const CRITICAL_KEYS = ['JWT_SECRET', 'DATABASE_URL'];
+
+function validateCriticalConfig(logger: Logger): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  const missing = CRITICAL_KEYS.filter(
+    (k) => !process.env[k] || process.env[k]!.trim() === '',
+  );
+  if (missing.length === 0) return;
+
+  if (isProd) {
+    logger.error(
+      `Configuration critique manquante en production : ${missing.join(', ')}. ` +
+        'Démarrage refusé (fail-fast).',
+    );
+    process.exit(1);
+  }
+  logger.warn(
+    `Configuration critique manquante (mode dev) : ${missing.join(', ')}`,
+  );
+}
+
 async function bootstrap() {
   const startTime = Date.now();
   const logger = new Logger('Bootstrap');
+
+  // 0. Validation de configuration critique au démarrage.
+  //    En production, on REFUSE de démarrer sans les secrets vitaux
+  //    (pas de valeur par défaut, pas de secret codé en dur).
+  validateCriticalConfig(logger);
 
   // 1. Initialisation de l'application avec Raw Body (pour Webhooks Wave/Orange)
   const app = await NestFactory.create(AppModule, {
@@ -55,10 +86,13 @@ async function bootstrap() {
   app.enableCors({
     origin: (origin, callback) => {
       if (!origin || !isProduction || isOriginAllowed(origin)) {
+        // Pas d'origine (curl, serveur-à-serveur, outils) ou origine autorisée.
         callback(null, true);
       } else {
-        logger.warn(`CORS bloquee : ${origin}`);
-        callback(null, true); // Temporairement ouvert pour debug
+        // 🛡️ Origine refusée : on REJETTE réellement la requête
+        // (l'ancien code faisait callback(null, true) = origine interdite autorisée).
+        logger.warn(`CORS bloquée : ${origin}`);
+        callback(new Error('Not allowed by CORS'));
       }
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',

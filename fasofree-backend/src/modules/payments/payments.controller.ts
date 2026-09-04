@@ -155,7 +155,12 @@ export class PaymentsController {
       return { ok: false, error: 'YengaPay not configured' };
     }
 
-    if (webhookHash && !this.yengaPayService.verifyWebhookSignature(payload, webhookHash)) {
+    if (!webhookHash) {
+      this.logger.warn('Webhook YengaPay: signature manquante (x-webhook-hash)');
+      return { ok: false, error: 'Missing signature' };
+    }
+
+    if (!this.yengaPayService.verifyWebhookSignature(payload, webhookHash)) {
       this.logger.warn('Webhook YengaPay: signature invalide');
       return { ok: false, error: 'Invalid signature' };
     }
@@ -169,6 +174,16 @@ export class PaymentsController {
     }
 
     if (status === 'SUCCESS') {
+      const amountOk = await this.paymentsService.validatePaymentAmount(
+        orderId,
+        amount,
+      );
+      if (!amountOk) {
+        this.logger.error(
+          `Webhook YengaPay: montant incohérent (${amount}) pour la commande ${orderId} — rejeté`,
+        );
+        return { ok: false, error: 'Amount mismatch' };
+      }
       await this.paymentsService.processSuccessfulPayment(
         orderId,
         transactionRef,
@@ -246,6 +261,16 @@ export class PaymentsController {
     }
 
     if (status === 'SUCCESS') {
+      const amountOk = await this.paymentsService.validatePaymentAmount(
+        orderId,
+        amount,
+      );
+      if (!amountOk) {
+        this.logger.error(
+          `Webhook PayDunya: montant incohérent (${amount}) pour la commande ${orderId} — rejeté`,
+        );
+        return { response_code: '00', response_text: 'OK' };
+      }
       await this.paymentsService.processSuccessfulPayment(
         orderId,
         transactionRef,

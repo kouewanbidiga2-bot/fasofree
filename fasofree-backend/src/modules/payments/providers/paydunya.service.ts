@@ -253,8 +253,8 @@ export class PayDunyaService {
    */
   verifyWebhookHash(payload: PayDunyaWebhookPayload, receivedHash: string): boolean {
     if (!this.masterKey) {
-      this.logger.warn('PAYDUNYA_MASTER_KEY non configuré — hash non vérifié');
-      return true;
+      this.logger.error('PAYDUNYA_MASTER_KEY non configuré — hash non vérifié (webhook rejeté)');
+      return false;
     }
 
     try {
@@ -264,7 +264,11 @@ export class PayDunyaService {
         .update(this.masterKey)
         .digest('hex');
 
-      return expectedHash === receivedHash;
+      if (!receivedHash) return false;
+      const expected = Buffer.from(expectedHash, 'hex');
+      const received = Buffer.from(receivedHash, 'hex');
+      if (expected.length !== received.length) return false;
+      return crypto.timingSafeEqual(expected, received);
     } catch (error) {
       this.logger.error('Erreur vérification hash PayDunya', error.message);
       return false;

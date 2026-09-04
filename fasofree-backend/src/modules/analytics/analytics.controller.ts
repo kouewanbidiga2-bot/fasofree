@@ -33,7 +33,7 @@ export class AnalyticsController {
     return this.analyticsService.getBusinessOverview(
       businessId,
       user.userId,
-      user.role || '',
+      user.role,
       filter,
     );
   }

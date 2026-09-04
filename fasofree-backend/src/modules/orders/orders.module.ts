@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ScheduleModule } from '@nestjs/schedule';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { GeoDispatchService } from './dispatch.service';
@@ -28,7 +27,6 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem, Transaction]),
-    ScheduleModule.forRoot(),
     forwardRef(() => DispatchModule),
     forwardRef(() => AnalyticsModule),
     forwardRef(() => PaymentsModule),

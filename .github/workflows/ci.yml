@@ -1,0 +1,69 @@
+name: CI
+
+# GitHub Actions lira ce workflow UNIQUEMENT depuis la racine du dépôt.
+# (L'ancien fichier fasofree-backend/.github/workflows/ci.yml était inactif.)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  backend:
+    name: Backend (gate)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fasofree-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: fasofree-backend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Check secrets (aucune clé hardcodée)
+        run: npm run check:secrets
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test --silent
+      - name: Audit (non bloquant)
+        run: npm audit --audit-level=high || true
+      # Dette lint pré-existante (~772 erreurs prettier auto-fixables + ~22 logiques) :
+      # on affiche le rapport pour information SANS bloquer la livraison.
+      - name: Lint (non bloquant — dette connue)
+        run: npx eslint "{src,apps,libs,test}/**/*.ts" --max-warnings 999999
+        continue-on-error: true
+
+  frontend:
+    name: Frontend admin (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [ fasofree-frontend, fasofree-frontend-client ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: npm ci
+      - name: Build (${{ matrix.app }})
+        working-directory: ${{ matrix.app }}
+        run: npm run build

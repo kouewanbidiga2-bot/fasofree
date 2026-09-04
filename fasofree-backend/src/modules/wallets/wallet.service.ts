@@ -116,6 +116,30 @@ export class WalletService {
         await queryRunner.manager.save(wallet);
       }
 
+      // 🔒 Idempotence forte : si une opération avec la même référence a DÉJÀ été
+      // créditée sur ce wallet, on ignore (pas de double crédit). Le lock
+      // pessimiste sur le wallet sérialise les écritures concurrentes du même wallet.
+      if (reference) {
+        const existing = await queryRunner.manager.findOne(WalletTransaction, {
+          where: {
+            walletId: wallet.id,
+            reference,
+            reason,
+            status: TransactionStatus.COMPLETED,
+          },
+        });
+        if (existing) {
+          await queryRunner.rollbackTransaction();
+          this.logger.warn(
+            `[Wallet Credit] Ignoré (déjà crédité) : ref=${reference} pour ${userRole} ${userId}`,
+          );
+          return {
+            wallet,
+            transaction: existing,
+          };
+        }
+      }
+
       // 2. Calculer le nouveau solde
       wallet.balance = Number(wallet.balance) + Number(amount);
       await queryRunner.manager.save(wallet);

@@ -17,6 +17,7 @@ import {
   InternalChatService,
   InternalChannel,
 } from './internal-chat.service';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 type InternalSocket = Socket & { data: { user?: JwtPayload } };
 
@@ -63,7 +64,7 @@ export class InternalChatGateway
         return;
       }
 
-      const secret = this.configService.get<string>('JWT_SECRET', 'SUPER_SECRET_KEY_CHANGEME');
+      const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify<JwtPayload>(token, { secret });
 
       this.internalChatService.assertTeamAccess(payload.role);

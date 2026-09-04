@@ -14,10 +14,23 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
   ) {}
 
-  @Get()
+  @Get('live')
   @HealthCheck()
   @ApiOperation({
-    summary: "Vérifie l'état de santé de l'API et de la base de données",
+    summary: "Liveness : l'instance est vivante (sans dépendance à la DB)",
+  })
+  live() {
+    return this.health.check([
+      () => ({ uptime: { status: 'up' } }),
+    ]);
+  }
+
+  @Get()
+  @Get('ready')
+  @HealthCheck()
+  @ApiOperation({
+    summary:
+      "Readiness : l'API est prête à servir (vérifie la base de données)",
   })
   check() {
     return this.health.check([

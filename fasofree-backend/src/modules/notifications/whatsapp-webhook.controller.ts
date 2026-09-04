@@ -1,6 +1,19 @@
-import { Controller, Get, Post, Query, Body, Logger, HttpCode, HttpStatus, Inject } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Body,
+  Req,
+  Logger,
+  HttpCode,
+  HttpStatus,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { WhatsAppService } from './whatsapp.service';
 
 const ORDER_STATUS_MAP: Record<string, string> = {
@@ -17,16 +30,36 @@ const ORDER_STATUS_MAP: Record<string, string> = {
 @Controller('webhooks')
 export class WhatsAppWebhookController {
   private readonly logger = new Logger(WhatsAppWebhookController.name);
-  private readonly verifyToken: string;
+  private readonly verifyToken: string | undefined;
+  private readonly appSecret: string | undefined;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly whatsappService: WhatsAppService,
   ) {
+    // 🛡️ AUCUN secret codé en dur : si WHATSAPP_VERIFY_TOKEN n'est pas
+    // configuré, la vérification échoue systématiquement (fail-closed).
     this.verifyToken = this.configService.get<string>(
       'WHATSAPP_VERIFY_TOKEN',
-      'fasofree_webhook_secret_2026',
     );
+    this.appSecret = this.configService.get<string>('WHATSAPP_APP_SECRET');
+  }
+
+  private verifyMetaSignature(rawBody: Buffer, signature: string): boolean {
+    if (!this.appSecret) {
+      this.logger.warn(
+        '[WhatsApp Webhook] WHATSAPP_APP_SECRET non configuré — événement rejeté',
+      );
+      return false;
+    }
+    if (!signature?.startsWith('sha256=')) return false;
+    const computed = createHmac('sha256', this.appSecret)
+      .update(rawBody)
+      .digest('hex');
+    const expected = Buffer.from(computed, 'hex');
+    const received = Buffer.from(signature.slice('sha256='.length), 'hex');
+    if (expected.length !== received.length) return false;
+    return timingSafeEqual(expected, received);
   }
 
   @Get('whatsapp')
@@ -50,7 +83,18 @@ export class WhatsAppWebhookController {
   @Post('whatsapp')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'WhatsApp webhook events (Meta)' })
-  handleEvents(@Body() payload: any): { status: string } {
+  handleEvents(
+    @Body() payload: any,
+    @Req() req: Request,
+  ): { status: string } {
+    // 🛡️ Vérification d'authenticité Meta (HMAC-SHA256 du corps brut).
+    // Sans signature valide, l'événement est rejeté (fail-closed).
+    const signature = req.header('x-hub-signature-256') || '';
+    const rawBody = (req as any).rawBody as Buffer | undefined;
+    if (!this.verifyMetaSignature(rawBody || Buffer.alloc(0), signature)) {
+      throw new UnauthorizedException('Invalid X-Hub-Signature-256');
+    }
+
     this.logger.debug(`[WhatsApp Webhook] Event received: ${JSON.stringify(payload).slice(0, 500)}`);
 
     try {

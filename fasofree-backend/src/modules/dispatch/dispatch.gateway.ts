@@ -18,6 +18,7 @@ import { WsEvents, WsRooms } from './constants/dispatch-events.enum';
 import { LocationHandler } from './handlers/location.handler';
 import { RoomHandler } from './handlers/room.handler';
 import { Order } from '../orders/entities/order.entity';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 @WebSocketGateway({
   cors: { origin: '*' },
@@ -57,10 +58,7 @@ export class DispatchGateway
         return;
       }
 
-      const secret = this.configService.get<string>(
-        'JWT_SECRET',
-        'SUPER_SECRET_KEY_CHANGEME',
-      );
+      const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify(token, { secret });
 
       client.data.user = payload;

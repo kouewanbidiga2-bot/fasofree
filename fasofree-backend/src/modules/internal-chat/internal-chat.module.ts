@@ -6,6 +6,7 @@ import { InternalMessage } from './entities/internal-message.entity';
 import { InternalChatService } from './internal-chat.service';
 import { InternalChatController } from './internal-chat.controller';
 import { InternalChatGateway } from './internal-chat.gateway';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { InternalChatGateway } from './internal-chat.gateway';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const secret = config.get('JWT_SECRET') || 'SUPER_SECRET_KEY_CHANGEME';
+        const secret = resolveJwtSecret(config);
         const expiresIn = config.get('JWT_EXPIRES_IN') || '7d';
         return { secret, signOptions: { expiresIn: expiresIn as any } };
       },

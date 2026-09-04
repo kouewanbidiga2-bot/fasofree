@@ -59,13 +59,19 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     RedisModule,
     EventEmitterModule.forRoot(),
 
-    // 🛡️ Protection Anti-Spam / Rate Limiting (100 requêtes / minute par IP)
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // Fenêtre de 60 secondes (en millisecondes)
-        limit: 100, // Limite de 100 requêtes
-      },
-    ]),
+    // 🛡️ Protection Anti-Spam / Rate Limiting (par IP)
+    // Fenêtre (THROTTLE_TTL_MS) et limite (THROTTLE_LIMIT) configurables par
+    // variable d'environnement (défauts : 60s / 100 req — comportement historique).
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        {
+          ttl: Number(config.get<string>('THROTTLE_TTL_MS') || 60000),
+          limit: Number(config.get<string>('THROTTLE_LIMIT') || 100),
+        },
+      ],
+    }),
 
     // 📦 Modules Métier (Domaines Fonctionnels)
     UsersModule,

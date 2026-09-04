@@ -10,9 +10,8 @@
 #        - JWT_SECRET         (min 32 caractères)
 #        - FIREBASE_*         (projet, client_email, private_key)
 #        - REDIS_URL          (optionnel, Upstash recommandé)
-#   3. DB_SYNCHRONIZE=true + DB_MIGRATIONS_RUN=false : le schéma existant
-#      est réparé de façon idempotente au boot.
-#      APRÈS un 1er démarrage réussi, basculez DB_SYNCHRONIZE=false.
+#   3. Les migrations TypeORM s'exécutent au boot (DB_MIGRATIONS_RUN=true).
+#      synchronize est INTERDIT en production (géré par le code).
 # ============================================================
 
 services:
@@ -23,7 +22,7 @@ services:
     plan: free
     dockerfilePath: ./fasofree-backend/Dockerfile
     dockerContext: ./fasofree-backend
-    healthCheckPath: /api/v1/health
+    healthCheckPath: /api/v1/health/ready
     envVars:
       - key: NODE_ENV
         value: production
@@ -31,10 +30,11 @@ services:
         value: "1000"
       - key: CORS_ORIGIN
         value: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
+      # synchronize interdit en prod (le code l'impose); les migrations gèrent le schéma.
       - key: DB_SYNCHRONIZE
-        value: "true"
-      - key: DB_MIGRATIONS_RUN
         value: "false"
+      - key: DB_MIGRATIONS_RUN
+        value: "true"
       - key: PAYMENT_ENV
         value: sandbox
       - key: PAYMENT_PROVIDER

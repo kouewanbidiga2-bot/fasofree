@@ -141,8 +141,10 @@ export class YengaPayService {
     receivedHash: string,
   ): boolean {
     if (!this.webhookSecret) {
-      this.logger.warn('YENGAPAY_WEBHOOK_SECRET non configuré — signature non vérifiée');
-      return true;
+      this.logger.error(
+        'YENGAPAY_WEBHOOK_SECRET non configuré — signature non vérifiée (webhook rejeté)',
+      );
+      return false;
     }
 
     try {

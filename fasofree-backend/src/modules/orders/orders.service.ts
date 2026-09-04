@@ -31,6 +31,7 @@ import { DispatchGateway } from '../dispatch/dispatch.gateway';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { PayoutsService } from '../payments/payouts.service';
+import { PayoutStatus } from '../payments/entities/merchant-payout.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
 import { PromotionsService } from '../promotions/promotions.service';
@@ -1642,8 +1643,17 @@ export class OrdersService {
 
   // ========================================================================
   // ⏳ CRON : Séquestre financier 3h — libération des fonds après holding
-  // Vérifie toutes les 5 minutes les commandes dont le payoutScheduledAt est dépassé
-  // et dont aucun litige n'a été créé.
+  // Vérifie toutes les 5 minutes les commandes dont le payoutScheduledAt est
+  // dépassé et dont aucun litige n'a été créé.
+  //
+  // Machine à états du payout (anti-double-paiement) :
+  //   due → payout UNIQUE créé → processing → succès CONFIRMÉ → payoutReleased=true
+  //   échec certain (FAILED/PENDING) → retry (réclamation atomique)
+  //   timeout / état inconnu (PROCESSING) → PAS de 2e payout ; réconcilier
+  //
+  // Deux instances concurrentes sont sûres :
+  //   • création : index UNIQUE sur merchant_payouts.orderId (+ garde-fou)
+  //   • retry     : réclamation atomique UPDATE conditionnelle (claimAndExecute)
   // ========================================================================
   @Cron('*/5 * * * *')
   async releaseHeldPayouts(): Promise<void> {
@@ -1667,23 +1677,40 @@ export class OrdersService {
 
     for (const order of heldOrders) {
       try {
-        // Marquer comme libéré
-        order.payoutReleased = true;
-        await this.orderRepository.save(order);
-
-        // Déclencher le payout automatique (marchand + livreur)
-        this.payoutsService
-          .processAutomaticPayout(order.id)
-          .catch((err) => {
-            this.logger.error(
-              `[Holding Cron] Erreur payout libéré #${order.id}`,
-              err,
-            );
-          });
-
-        this.logger.log(
-          `[Holding Released] Commande #${order.id} — fonds libérés (pas de litige)`,
+        // Délègue à PayoutsService la logique idempotente (payout unique +
+        // réconciliation). Returns le payout (créé ou existant) et son statut.
+        const payout = await this.payoutsService.processAutomaticPayout(
+          order.id,
         );
+
+        if (payout?.status === PayoutStatus.SUCCESS) {
+          // ✅ Virement CONFIRMÉ → on libère seulement maintenant.
+          await this.orderRepository.update(order.id, {
+            payoutReleased: true,
+          });
+          this.logger.log(
+            `[Holding Released] Commande #${order.id} — payout SUCCESS, fonds libérés (pas de litige)`,
+          );
+        } else if (
+          payout?.status === PayoutStatus.FAILED ||
+          payout?.status === PayoutStatus.PENDING
+        ) {
+          // ❌ Échec certain → retry explicite (réclamation atomique).
+          // payoutReleased reste false : retenté au prochain cycle.
+          await this.payoutsService.processAutomaticPayout(order.id, {
+            retryFailed: true,
+          });
+          this.logger.warn(
+            `[Holding Cron] Commande #${order.id} — payout ${payout.status}, new retry`,
+          );
+        } else {
+          // ⏳ PROCESSING / état inconnu → on NE crée PAS un 2e payout et on
+          // ne marque PAS libéré. À réconcilier. Re-vérifié au prochain cycle.
+          this.logger.warn(
+            `[Holding Cron] Commande #${order.id} — payout en ${payout?.status} (état inconnu). ` +
+              `Aucun nouveau virement, à réconcilier.`,
+          );
+        }
       } catch (error) {
         this.logger.error(
           `[Holding Cron] Échec libération #${order.id}: ${error.message}`,

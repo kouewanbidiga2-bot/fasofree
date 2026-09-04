@@ -249,7 +249,7 @@ export class AnalyticsService {
   async getBusinessOverview(
     businessId: string,
     userId: string,
-    role: string,
+    role: UserRole | undefined,
     filter: AnalyticsFilterDto,
   ) {
     const { startDate, endDate } = this.resolveDateRange(filter);
