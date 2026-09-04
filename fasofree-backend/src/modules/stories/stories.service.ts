@@ -4,6 +4,7 @@ import { Repository, LessThanOrEqual } from 'typeorm';
 import { Story, StoryMediaType } from './entities/story.entity';
 import { StoryView } from './entities/story-view.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { UserRole } from '../users/entities/user-role.enum';
 
 @Injectable()
 export class StoriesService {
@@ -21,6 +22,7 @@ export class StoriesService {
   async createStory(
     businessId: string,
     userId: string,
+    role: string,
     mediaUrl: string,
     mediaType: StoryMediaType,
     caption?: string,
@@ -30,6 +32,23 @@ export class StoriesService {
     });
     if (!business) {
       throw new BadRequestException('Business not found');
+    }
+
+    // 🔒 Un marchand ne peut créer une story que sur un commerce qui lui appartient
+    if (role !== UserRole.SUPER_ADMIN) {
+      const owned = await this.businessRepository
+        .createQueryBuilder('biz')
+        .leftJoin('biz.brand', 'brand')
+        .where('biz.id = :businessId', { businessId })
+        .andWhere('(biz.ownerId = :userId OR brand.ownerId = :userId)', {
+          userId,
+        })
+        .getOne();
+      if (!owned) {
+        throw new ForbiddenException(
+          'Vous ne pouvez créer une story que sur votre propre commerce',
+        );
+      }
     }
 
     const expiresAt = new Date();

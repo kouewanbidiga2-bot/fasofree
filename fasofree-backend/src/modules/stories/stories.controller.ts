@@ -19,6 +19,7 @@ export class StoriesController {
   constructor(private readonly storiesService: StoriesService) {}
 
   @Get()
+  @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Get active stories grouped by business' })
   async getActiveStories(@Req() req: any) {
     const userId = req.user?.userId;
@@ -36,6 +37,7 @@ export class StoriesController {
     const story = await this.storiesService.createStory(
       body.businessId,
       req.user.userId,
+      req.user.role,
       body.mediaUrl,
       (body.mediaType as StoryMediaType) || StoryMediaType.IMAGE,
       body.caption,

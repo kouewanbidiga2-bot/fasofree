@@ -24,12 +24,19 @@ export class AnalyticsController {
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Obtenir les indicateurs d\'un commerce' })
   async getBusinessOverview(
+    @NestRequest() req: RequestWithUser,
     @Param('businessId') businessId: string,
     @Query() filter: AnalyticsFilterDto,
   ) {
-    return this.analyticsService.getBusinessOverview(businessId, filter);
+    const user = req.user;
+    if (!user?.userId) throw new ForbiddenException('Utilisateur non authentifié');
+    return this.analyticsService.getBusinessOverview(
+      businessId,
+      user.userId,
+      user.role || '',
+      filter,
+    );
   }
-
   // 🏷️ Analytics agrégés d'une marque (toutes les agences)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)

@@ -18,6 +18,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Roles } from '../../core/security/roles.decorator';
+import { RolesGuard } from '../../core/security/roles.guard';
+import { UserRole } from '../users/entities/user-role.enum';
 import { Order } from '../orders/entities/order.entity';
 import { Transaction, TransactionStatus, PaymentMethod } from './entities/transaction.entity';
 import { OrdersService } from '../orders/orders.service';
@@ -106,10 +109,11 @@ export class GeniusPayController {
   }
 
   /**
-   * 🔍 Vérifier le statut d'un paiement
+   * 🔍 Vérifier le statut d'un paiement (client propriétaire / admin)
    */
   @Get('payment/:reference')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Vérifier le statut d\'un paiement GeniusPay' })
   async getPayment(@Param('reference') reference: string) {
     const payment = await this.geniusPayService.getPayment(reference);
@@ -117,10 +121,11 @@ export class GeniusPayController {
   }
 
   /**
-   * 💰 Solde du compte GeniusPay
+   * 💰 Solde du compte GeniusPay (admin uniquement)
    */
   @Get('balance')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Consulter le solde GeniusPay' })
   async getBalance() {
     const balance = await this.geniusPayService.getBalance();
@@ -128,10 +133,11 @@ export class GeniusPayController {
   }
 
   /**
-   * 🏪 Informations du compte
+   * 🏪 Informations du compte (admin uniquement)
    */
   @Get('account')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @ApiOperation({ summary: 'Informations du compte GeniusPay' })
   async getAccount() {
     const account = await this.geniusPayService.getAccount();
@@ -139,7 +145,7 @@ export class GeniusPayController {
   }
 
   /**
-   * 📱 Fournisseurs MMO disponibles
+   * 📱 Fournisseurs MMO disponibles (public authentifié)
    */
   @Get('providers')
   @ApiOperation({ summary: 'Fournisseurs MMO disponibles' })
@@ -150,9 +156,11 @@ export class GeniusPayController {
   }
 
   /**
-   * 📋 Lister les paiements
+   * 📋 Lister les paiements (admin uniquement)
    */
   @Get('payments')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Lister les paiements GeniusPay' })
   async listPayments(@Req() req: any) {
     const result = await this.geniusPayService.listPayments({
@@ -182,25 +190,29 @@ export class GeniusPayController {
   ) {
     this.logger.log(`🔔 GeniusPay webhook received: ${event}`);
 
-    // Vérifier la signature
+    // Vérifier la signature — obligatoire (fail-closed). Sans secret configuré,
+    // on rejette les webhooks plutôt que de les accepter silencieusement.
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
-    if (webhookSecret) {
-      if (!signature || !timestamp) {
-        this.logger.error('❌ Missing webhook signature or timestamp');
-        return { success: false, error: 'Missing signature' };
-      }
-      const bodyStr = JSON.stringify(payload);
-      const isValid = this.geniusPayService.verifyWebhookSignature(
-        bodyStr,
-        signature,
-        timestamp,
-        webhookSecret,
-      );
+    if (!webhookSecret) {
+      this.logger.error('❌ GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
+      return { success: false, error: 'Webhook not configured' };
+    }
 
-      if (!isValid) {
-        this.logger.error('❌ Invalid GeniusPay webhook signature');
-        return { success: false, error: 'Invalid signature' };
-      }
+    if (!signature || !timestamp) {
+      this.logger.error('❌ Missing webhook signature or timestamp');
+      return { success: false, error: 'Missing signature' };
+    }
+    const bodyStr = JSON.stringify(payload);
+    const isValid = this.geniusPayService.verifyWebhookSignature(
+      bodyStr,
+      signature,
+      timestamp,
+      webhookSecret,
+    );
+
+    if (!isValid) {
+      this.logger.error('❌ Invalid GeniusPay webhook signature');
+      return { success: false, error: 'Invalid signature' };
     }
 
     // Traiter l'événement

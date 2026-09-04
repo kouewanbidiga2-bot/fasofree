@@ -225,6 +225,16 @@ export class PaymentsController {
       return { response_code: '00', response_text: 'OK' };
     }
 
+    // 🔒 Vérifier l'authenticité du webhook (fail-closed)
+    // PayDunya envoie un champ `hash` = SHA-512 du Master Key.
+    // Sans vérification valide, on NE marque PAS la commande payée.
+    const receivedHash = data.hash || payload.hash;
+    const hashValid = this.payDunyaService.verifyWebhookHash(data, receivedHash);
+    if (!hashValid) {
+      this.logger.error(`Webhook PayDunya REJETÉ — hash invalide (commande via custom_data.orderId?)`);
+      return { response_code: '00', response_text: 'OK' };
+    }
+
     const { orderId, transactionRef, status, amount } =
       this.payDunyaService.extractOrderInfo(data);
 
@@ -265,14 +275,14 @@ export class PaymentsController {
   }
 
   /**
-   * 7. Endpoint test — vérifier la config PayDunya (pas d'auth requise)
+   * 7. Endpoint de vérification de la configuration PayDunya (réservé aux admins)
+   * Ne renvoie PAS les clés — uniquement un statut booléen pour le debogage.
    */
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'))
   @Get('paydunya/test-config')
-  @ApiOperation({ summary: '[Test] Vérifier la configuration PayDunya' })
+  @ApiOperation({ summary: '[Admin] Vérifier la configuration PayDunya' })
   testPayDunyaConfig() {
-    const masterKey = this.configService.get<string>('PAYDUNYA_MASTER_KEY', '');
-    const privateKey = this.configService.get<string>('PAYDUNYA_PRIVATE_KEY', '');
-    const token = this.configService.get<string>('PAYDUNYA_TOKEN', '');
     const mode = this.configService.get<string>('PAYDUNYA_MODE', 'test');
     const provider = this.configService.get<string>('PAYMENT_PROVIDER', '');
 
@@ -280,12 +290,6 @@ export class PaymentsController {
       configured: this.payDunyaService.isConfigured(),
       mode,
       provider,
-      masterKeyLast4: masterKey ? masterKey.slice(-4) : null,
-      privateKeyLast4: privateKey ? privateKey.slice(-4) : null,
-      tokenLast4: token ? token.slice(-4) : null,
-      masterKeyLength: masterKey.length,
-      privateKeyLength: privateKey.length,
-      tokenLength: token.length,
     };
   }
 }

@@ -11,6 +11,7 @@ import { Product } from '../products/entities/product.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { UserRole } from '../users/entities/user-role.enum';
 
 // DTOs
 import {
@@ -245,8 +246,27 @@ export class AnalyticsService {
   /**
    * 📈 2. Vue d'ensemble du business (Graphiques et distribution)
    */
-  async getBusinessOverview(businessId: string, filter: AnalyticsFilterDto) {
+  async getBusinessOverview(
+    businessId: string,
+    userId: string,
+    role: string,
+    filter: AnalyticsFilterDto,
+  ) {
     const { startDate, endDate } = this.resolveDateRange(filter);
+
+    // 🔒 Vérifier l'accès : un BUSINESS_ADMIN ne peut consulter que ses propres
+    // commerces (via ses marques). SUPER_ADMIN peut tout voir.
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const owned = await this.businessRepository
+        .createQueryBuilder('biz')
+        .innerJoin('biz.brand', 'brand')
+        .where('biz.id = :businessId', { businessId })
+        .andWhere('brand.ownerId = :userId', { userId })
+        .getOne();
+      if (!owned) {
+        throw new Error('Commerce introuvable ou accès refusé');
+      }
+    }
 
     const query = this.orderRepository
       .createQueryBuilder('o')
@@ -532,7 +552,12 @@ export class AnalyticsService {
 
     const branches = await Promise.all(
       brand.businesses.map(async (biz) => {
-        const overview = await this.getBusinessOverview(biz.id, filter);
+        const overview = await this.getBusinessOverview(
+          biz.id,
+          userId,
+          UserRole.SUPER_ADMIN,
+          filter,
+        );
         return {
           businessId: biz.id,
           name: biz.name,
