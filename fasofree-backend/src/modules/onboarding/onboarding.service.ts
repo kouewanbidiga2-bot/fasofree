@@ -15,7 +15,7 @@ import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../notifications/email.service';
 import { KycService } from '../kyc/kyc.service';
-import { KycStatus } from '../kyc/entities/kyc-document.entity';
+import { KycDocumentType, KycStatus } from '../kyc/entities/kyc-document.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { PromotionsService } from '../promotions/promotions.service';
 import { PromotionKind } from '../promotions/entities/promotion.entity';
@@ -75,17 +75,26 @@ export class OnboardingService {
   ): Promise<{ user: User; tempPassword: string }> {
     const user = await this.findPendingApplication(applicationId);
 
-    // Check KYC status - warn if not all documents are approved
-    try {
-      const kycDocs = await this.kycService.mine(applicationId);
-      const hasApprovedDocs = kycDocs.some(d => d.status === KycStatus.APPROVED);
-      if (kycDocs.length === 0) {
-        this.logger.warn(`[Onboarding] Aucun document KYC pour ${user.email} - approbation sans vérification KYC`);
-      } else if (!hasApprovedDocs) {
-        this.logger.warn(`[Onboarding] Documents KYC non approuvés pour ${user.email} - approbation avec mise en garde`);
+    // Vérification KYC obligatoire
+    const kycDocs = await this.kycService.mine(applicationId);
+    const approvedTypes = new Set(
+      kycDocs
+        .filter((d) => d.status === KycStatus.APPROVED)
+        .map((d) => d.type),
+    );
+
+    if (!approvedTypes.has(KycDocumentType.IDENTITY_CARD)) {
+      throw new BadRequestException(
+        'La pièce d\'identité (CNI ou passeport) doit être validée par l\'administration avant l\'approbation.',
+      );
+    }
+
+    if (user.applicationType === 'DRIVER') {
+      if (!approvedTypes.has(KycDocumentType.DRIVER_LICENSE)) {
+        throw new BadRequestException(
+          'Le permis de conduire doit être validé par l\'administration avant l\'approbation.',
+        );
       }
-    } catch {
-      this.logger.warn(`[Onboarding] Impossible de vérifier le KYC pour ${user.email}`);
     }
 
     const applicationType = user.applicationType;

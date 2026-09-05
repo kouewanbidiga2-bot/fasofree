@@ -1,14 +1,12 @@
 /**
  * FasoFree — Page d'authentification Dashboard
- * Login email+password et inscription avec rôle
- * Design aligné sur l'identité visuelle officielle (favicon dark + papillon terracotta)
+ * Login email+password uniquement — pas d'inscription
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, Eye, EyeOff, ArrowRight, ChevronRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
-/* ─── FasoFree Official Brand Logo (dark bg + terracotta butterfly) ──── */
 const FasoFreeLogo = ({ size = 64 }) => (
   <svg width={size} height={size} viewBox="0 0 140 140" fill="none">
     <rect width="140" height="140" rx="28" fill="#0D0D0D" />
@@ -22,7 +20,6 @@ const FasoFreeLogo = ({ size = 64 }) => (
   </svg>
 );
 
-/* ─── Dark Design Tokens (matching dashboard) ─────────────────────────── */
 const T = {
   bg: '#0D0D0D',
   bgCard: '#1A1A1A',
@@ -32,7 +29,6 @@ const T = {
   textTer: '#6B6359',
   border: '#2A2520',
   accent: '#C1652E',
-  accentSec: '#D9753E',
   error: '#EF4444',
   errorBg: 'rgba(239,68,68,0.12)',
   shadow: '0 20px 60px rgba(0,0,0,0.6)',
@@ -88,19 +84,11 @@ const InputField = ({ label, type = 'text', placeholder, value, onChange, icon: 
 
 const PhoneAuth = () => {
   const navigate = useNavigate();
-  const { login, register, isLoading, error, clearError } = useAuthStore();
+  const { login, isLoading, error, clearError } = useAuthStore();
 
-  const [mode, setMode] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
-
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-
-  const [regFullName, setRegFullName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-
   const [localErrors, setLocalErrors] = useState({});
 
   const validateLogin = () => {
@@ -112,31 +100,13 @@ const PhoneAuth = () => {
     return Object.keys(errs).length === 0;
   };
 
-  const validateRegister = () => {
-    const errs = {};
-    if (!regFullName.trim()) errs.fullName = 'Nom complet requis';
-    if (!regEmail) errs.email = 'Email requis';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail)) errs.email = 'Email invalide';
-    if (!regPhone) errs.phone = 'Téléphone requis';
-    else if (!/^\+?[0-9\s]{8,}$/.test(regPhone)) errs.phone = 'Format: +226XXXXXXXX';
-    if (!regPassword) errs.password = 'Mot de passe requis';
-    else if (regPassword.length < 8) errs.password = 'Minimum 8 caractères';
-    setLocalErrors(errs);
-    return Object.keys(errs).length === 0;
-  };
-
   const redirectByRole = (user) => {
     const role = (user?.role || '').toLowerCase().replace('-', '_');
     const roleRoutes = {
       'business_admin': '/designer',
-      'business': '/designer',
-      'merchant': '/designer',
-      'restaurant': '/designer',
       'driver': '/livreur',
       'courier': '/livreur',
-      'livreur': '/livreur',
       'super_admin': '/admin/super',
-      'superadmin': '/admin/super',
       'admin': '/admin/manager',
       'support': '/admin/support',
     };
@@ -151,31 +121,7 @@ const PhoneAuth = () => {
       const user = await login(loginEmail, loginPassword);
       redirectByRole(user);
     } catch {
-      // Erreur déjà dans le store
     }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    clearError();
-    if (!validateRegister()) return;
-    try {
-      const user = await register({
-        fullName: regFullName,
-        email: regEmail,
-        phone: regPhone,
-        password: regPassword,
-      });
-      redirectByRole(user);
-    } catch {
-      // Erreur déjà dans le store
-    }
-  };
-
-  const switchMode = (newMode) => {
-    setMode(newMode);
-    setLocalErrors({});
-    clearError();
   };
 
   return (
@@ -189,7 +135,6 @@ const PhoneAuth = () => {
       fontFamily: T.font,
       position: 'relative',
     }}>
-      {/* Ambient glow */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
         <div style={{
           position: 'absolute',
@@ -206,7 +151,6 @@ const PhoneAuth = () => {
       </div>
 
       <div style={{ width: '100%', maxWidth: 400, position: 'relative', animation: 'slideUp 0.4s ease-out' }}>
-        {/* Brand — centered butterfly logo on dark bg */}
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
             <FasoFreeLogo size={72} />
@@ -219,7 +163,6 @@ const PhoneAuth = () => {
           </p>
         </div>
 
-        {/* Card */}
         <div style={{
           background: T.bgCard,
           borderRadius: T.radius,
@@ -227,40 +170,6 @@ const PhoneAuth = () => {
           padding: 32,
           border: `1px solid ${T.border}`,
         }}>
-          {/* Toggle */}
-          <div style={{
-            display: 'flex',
-            gap: 4,
-            padding: 4,
-            background: T.bgSecondary,
-            borderRadius: T.radiusSm,
-            marginBottom: 28,
-          }}>
-            {[{ id: 'login', label: 'Connexion' }, { id: 'register', label: 'Inscription' }].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => switchMode(tab.id)}
-                style={{
-                  flex: 1,
-                  padding: '11px 0',
-                  fontSize: 13,
-                  fontWeight: 700,
-                  fontFamily: T.font,
-                  borderRadius: 8,
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  background: mode === tab.id ? T.accent : 'transparent',
-                  color: mode === tab.id ? '#fff' : T.textSec,
-                  boxShadow: mode === tab.id ? `0 0 12px rgba(193,101,46,0.25)` : 'none',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Error */}
           {error && (
             <div style={{
               marginBottom: 20,
@@ -273,141 +182,68 @@ const PhoneAuth = () => {
               gap: 10,
               animation: 'fadeIn 0.3s ease-in-out',
             }}>
-              <span style={{ color: T.error, fontSize: 14 }}>⚠</span>
+              <span style={{ color: T.error, fontSize: 14 }}>!</span>
               <p style={{ color: T.error, fontSize: 13, margin: 0, fontFamily: T.font }}>{error}</p>
             </div>
           )}
 
-          {/* ─── LOGIN ───────────────────────────────────────────── */}
-          {mode === 'login' && (
-            <form onSubmit={handleLogin} style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-              <InputField label="Email" type="email" placeholder="vous@exemple.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} icon={Mail} error={localErrors.email} />
-              <InputField
-                label="Mot de passe"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                icon={Lock}
-                error={localErrors.password}
-                rightEl={
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textTer, padding: 0, display: 'flex' }}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                }
-              />
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                style={{
-                  width: '100%',
-                  marginTop: 8,
-                  padding: '14px 0',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  fontFamily: T.font,
-                  color: '#fff',
-                  background: T.accent,
-                  border: 'none',
-                  borderRadius: T.radiusSm,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  transition: 'all 0.2s',
-                  boxShadow: '0 4px 14px rgba(193,101,46,0.3)',
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'fasofree-spin 0.8s linear infinite', display: 'inline-block' }} />
-                    Connexion en cours...
-                  </>
-                ) : (
-                  <>Se connecter <ArrowRight size={16} /></>
-                )}
-              </button>
-
-              <p style={{ textAlign: 'center', color: T.textTer, fontSize: 12, marginTop: 20, fontFamily: T.font }}>
-                Pas encore de compte ?{' '}
-                <button type="button" onClick={() => switchMode('register')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent, fontWeight: 700, fontSize: 12, fontFamily: T.font, padding: 0 }}>
-                  Créer un compte
+          <form onSubmit={handleLogin} style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
+            <InputField label="Email" type="email" placeholder="vous@exemple.com" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} icon={Mail} error={localErrors.email} />
+            <InputField
+              label="Mot de passe"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="••••••••"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              icon={Lock}
+              error={localErrors.password}
+              rightEl={
+                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textTer, padding: 0, display: 'flex' }}>
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
-              </p>
-            </form>
-          )}
+              }
+            />
 
-          {/* ─── REGISTER ──────────────────────────────────────── */}
-          {mode === 'register' && (
-            <form onSubmit={handleRegister} style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
-              <InputField label="Nom complet" placeholder="Aminata Ouédraogo" value={regFullName} onChange={(e) => setRegFullName(e.target.value)} icon={User} error={localErrors.fullName} />
-              <InputField label="Email" type="email" placeholder="vous@exemple.com" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} icon={Mail} error={localErrors.email} />
-              <InputField label="Téléphone" type="tel" placeholder="+226 70 00 00 00" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} icon={Phone} error={localErrors.phone} />
-              <InputField
-                label="Mot de passe"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Minimum 8 caractères"
-                value={regPassword}
-                onChange={(e) => setRegPassword(e.target.value)}
-                icon={Lock}
-                error={localErrors.password}
-                rightEl={
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.textTer, padding: 0, display: 'flex' }}>
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                }
-              />
+            <button
+              type="submit"
+              disabled={isLoading}
+              style={{
+                width: '100%',
+                marginTop: 8,
+                padding: '14px 0',
+                fontSize: 14,
+                fontWeight: 700,
+                fontFamily: T.font,
+                color: '#fff',
+                background: T.accent,
+                border: 'none',
+                borderRadius: T.radiusSm,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                transition: 'all 0.2s',
+                boxShadow: '0 4px 14px rgba(193,101,46,0.3)',
+              }}
+            >
+              {isLoading ? (
+                <>
+                  <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'fasofree-spin 0.8s linear infinite', display: 'inline-block' }} />
+                  Connexion en cours...
+                </>
+              ) : (
+                <>Se connecter <ArrowRight size={16} /></>
+              )}
+            </button>
+          </form>
 
-              <div style={{ marginBottom: 20, padding: '12px 14px', background: T.bgSecondary, border: `1px solid ${T.border}`, borderRadius: T.radiusSm }}>
-                <p style={{ fontSize: 12, color: T.textSec, lineHeight: 1.6, margin: 0, fontFamily: T.font }}>
-                  L'inscription publique crée un compte <strong style={{ color: T.accent }}>Client</strong>. Les comptes
-                  commerçants, livreurs et administrateurs sont créés par l'administration.
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                style={{
-                  width: '100%',
-                  marginTop: 4,
-                  padding: '14px 0',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  fontFamily: T.font,
-                  color: '#fff',
-                  background: T.accent,
-                  border: 'none',
-                  borderRadius: T.radiusSm,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 8,
-                  transition: 'all 0.2s',
-                  boxShadow: '0 4px 14px rgba(193,101,46,0.3)',
-                }}
-              >
-                {isLoading ? (
-                  <>
-                    <span style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'fasofree-spin 0.8s linear infinite', display: 'inline-block' }} />
-                    Création en cours...
-                  </>
-                ) : (
-                  <>Créer mon compte <ChevronRight size={16} /></>
-                )}
-              </button>
-
-              <p style={{ textAlign: 'center', color: T.textTer, fontSize: 12, marginTop: 20, fontFamily: T.font }}>
-                Déjà inscrit ?{' '}
-                <button type="button" onClick={() => switchMode('login')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.accent, fontWeight: 700, fontSize: 12, fontFamily: T.font, padding: 0 }}>
-                  Se connecter
-                </button>
-              </p>
-            </form>
-          )}
+          <div style={{ marginTop: 20, padding: '12px 14px', background: T.bgSecondary, border: `1px solid ${T.border}`, borderRadius: T.radiusSm }}>
+            <p style={{ fontSize: 12, color: T.textSec, lineHeight: 1.6, margin: 0, fontFamily: T.font }}>
+              Ce tableau de bord est reserve aux administrateurs et gestionnaires de la plateforme.
+              Pour creer un compte marchand ou livreur, utilisez l'application client.
+            </p>
+          </div>
         </div>
 
         <p style={{ textAlign: 'center', color: T.textTer, fontSize: 11, marginTop: 24, fontFamily: T.font }}>
