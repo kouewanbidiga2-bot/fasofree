@@ -1,27 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
 import { api } from '../../services/api';
-import useAuthStore from '../../store/authStore';
 import StoryViewer from './StoryViewer';
-import StoryCreator from './StoryCreator';
 
 const StoryStrip = () => {
   const [storyGroups, setStoryGroups] = useState([]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
-  const [creatorOpen, setCreatorOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [merchantBusinessId, setMerchantBusinessId] = useState(null);
-  const { isAuthenticated, user } = useAuthStore();
-
-  const isMerchant = user?.role === 'business_admin' || user?.role === 'BUSINESS_ADMIN' || user?.role === 'super_admin' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     loadStories();
-    if (isMerchant) {
-      loadMerchantBusiness();
-    }
-  }, [isMerchant]);
+  }, []);
 
   const loadStories = async () => {
     try {
@@ -36,39 +25,17 @@ const StoryStrip = () => {
     }
   };
 
-  const loadMerchantBusiness = async () => {
-    try {
-      const res = await api.getMyBusiness();
-      if (res?.id) {
-        setMerchantBusinessId(res.id);
-      }
-    } catch {
-      // silent
-    }
-  };
-
   const handleStoryClick = (index) => {
     setViewerIndex(index);
     setViewerOpen(true);
   };
 
   if (loading) return null;
+  if (storyGroups.length === 0) return null;
 
   return (
     <>
       <div className="flex gap-3 overflow-x-auto scrollbar-none py-3 px-1">
-        {isMerchant && (
-          <button
-            onClick={() => setCreatorOpen(true)}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0"
-          >
-            <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#C1652E]/40 flex items-center justify-center bg-[#C1652E]/5 hover:bg-[#C1652E]/10 transition-colors">
-              <Plus size={22} className="text-[#C1652E]" />
-            </div>
-            <span className="text-[11px] text-[#70645C] font-medium">Votre story</span>
-          </button>
-        )}
-
         {storyGroups.map((group, index) => {
           const hasUnviewed = group.stories?.some((s) => !s.viewed);
           return (
@@ -120,17 +87,6 @@ const StoryStrip = () => {
           stories={storyGroups}
           initialIndex={viewerIndex}
           onClose={() => setViewerOpen(false)}
-        />
-      )}
-
-      {creatorOpen && merchantBusinessId && (
-        <StoryCreator
-          businessId={merchantBusinessId}
-          onClose={() => setCreatorOpen(false)}
-          onCreated={() => {
-            setCreatorOpen(false);
-            loadStories();
-          }}
         />
       )}
     </>
