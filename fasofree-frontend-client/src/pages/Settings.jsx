@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Shield, Globe, Moon, ChevronRight, Eye, Trash2, Lock,
-  Download, Bell, ChevronDown, Check
+  ArrowLeft, Shield, Globe, Moon, Sun, ChevronRight, Eye, Trash2, Lock,
+  Download, Bell, ChevronDown, Check, Loader2
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import { api } from '../services/api';
+import { useDarkMode } from '../contexts/DarkModeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { logout } = useAuthStore();
+  const { dark, toggle: toggleDark } = useDarkMode();
+  const { lang, setLanguage, t } = useLanguage();
   const [openSection, setOpenSection] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const toggle = (key) => setOpenSection(openSection === key ? null : key);
 
@@ -21,7 +27,7 @@ export default function Settings() {
             <button onClick={() => navigate(-1)} className="p-2 hover:bg-background-secondary transition-colors">
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">Parametres</h1>
+            <h1 className="text-lg font-display font-bold text-text-primary">{t('settings')}</h1>
           </div>
         </div>
       </header>
@@ -29,49 +35,21 @@ export default function Settings() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="max-w-3xl mx-auto space-y-3">
 
-          {/* Confidentialite */}
-          <div className="border border-border-light">
+          {/* Mode sombre */}
+          <div className="border border-border-light p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {dark ? <Moon size={18} className="text-text-secondary" /> : <Sun size={18} className="text-text-secondary" />}
+              <div>
+                <p className="text-sm font-medium text-text-primary">{t('darkMode') || 'Mode sombre'}</p>
+                <p className="text-xs text-text-secondary">{dark ? (t('darkModeOn') || 'Actif') : (t('darkModeOff') || 'Inactif — Mode clair')}</p>
+              </div>
+            </div>
             <button
-              onClick={() => toggle('privacy')}
-              className="w-full flex items-center justify-between p-4 hover:bg-background-secondary transition-colors text-left"
+              onClick={toggleDark}
+              className={`relative w-10 h-5 rounded-full transition-colors ${dark ? 'bg-[#C1652E]' : 'bg-gray-300'}`}
             >
-              <div className="flex items-center gap-4">
-                <Shield size={18} className="text-text-secondary" />
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Confidentialite</p>
-                  <p className="text-xs text-text-secondary">Gerez vos donnees personnelles</p>
-                </div>
-              </div>
-              <ChevronDown
-                size={16}
-                className={`text-text-secondary transition-transform ${openSection === 'privacy' ? 'rotate-180' : ''}`}
-              />
+              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${dark ? 'translate-x-5' : ''}`} />
             </button>
-            {openSection === 'privacy' && (
-              <div className="border-t border-border-light p-4 space-y-3 bg-background-secondary/50">
-                <button className="w-full flex items-center gap-3 p-3 hover:bg-background-secondary transition-colors text-left">
-                  <Eye size={16} className="text-text-secondary" />
-                  <div>
-                    <p className="text-sm text-text-primary">Qui peut voir mon profil</p>
-                    <p className="text-xs text-text-secondary">Visible par les partenaires uniquement</p>
-                  </div>
-                </button>
-                <button className="w-full flex items-center gap-3 p-3 hover:bg-background-secondary transition-colors text-left">
-                  <Download size={16} className="text-text-secondary" />
-                  <div>
-                    <p className="text-sm text-text-primary">Telecharger mes donnees</p>
-                    <p className="text-xs text-text-secondary">Recuperez une copie de vos informations</p>
-                  </div>
-                </button>
-                <button className="w-full flex items-center gap-3 p-3 hover:bg-red-50 transition-colors text-left">
-                  <Trash2 size={16} className="text-red-500" />
-                  <div>
-                    <p className="text-sm text-red-600">Supprimer mon compte</p>
-                    <p className="text-xs text-text-secondary">Action irreversible</p>
-                  </div>
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Langue */}
@@ -83,8 +61,8 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Globe size={18} className="text-text-secondary" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">Langue</p>
-                  <p className="text-xs text-text-secondary">Francais</p>
+                  <p className="text-sm font-medium text-text-primary">{t('language')}</p>
+                  <p className="text-xs text-text-secondary">{lang === 'fr' ? 'Francais' : lang === 'en' ? 'English' : 'Moore'}</p>
                 </div>
               </div>
               <ChevronDown
@@ -93,10 +71,10 @@ export default function Settings() {
               />
             </button>
             {openSection === 'lang' && (
-              <div className="border-t border-border-light p-4 bg-background-secondary/50">
-                <LangOption label="Francais" code="fr" active />
-                <LangOption label="English" code="en" />
-                <LangOption label="Moore" code="mo" />
+              <div className="border-t border-border-light bg-background-secondary/50">
+                <LangOption label="Francais" code="fr" active={lang === 'fr'} onSelect={setLanguage} />
+                <LangOption label="English" code="en" active={lang === 'en'} onSelect={setLanguage} />
+                <LangOption label="Moore" code="mo" active={lang === 'mo'} onSelect={setLanguage} />
               </div>
             )}
           </div>
@@ -110,8 +88,8 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Bell size={18} className="text-text-secondary" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">Notifications</p>
-                  <p className="text-xs text-text-secondary">Gerez vos alertes</p>
+                  <p className="text-sm font-medium text-text-primary">{t('notifications')}</p>
+                  <p className="text-xs text-text-secondary">{t('notificationsDesc')}</p>
                 </div>
               </div>
               <ChevronDown
@@ -120,10 +98,10 @@ export default function Settings() {
               />
             </button>
             {openSection === 'notif' && (
-              <div className="border-t border-border-light p-4 space-y-3 bg-background-secondary/50">
-                <ToggleRow label="Commandes" desc="Statut de vos commandes" defaultOn />
-                <ToggleRow label="Promotions" desc="Offres et bons plans" defaultOn />
-                <ToggleRow label="Nouveaux restaurants" desc="Quand un partenaire rejoint FasoFree" />
+              <div className="border-t border-border-light bg-background-secondary/50">
+                <ToggleRow label={t('notifOrders')} desc={t('notifOrdersDesc')} defaultOn storageKey="notif_orders" />
+                <ToggleRow label={t('notifPromos')} desc={t('notifPromosDesc')} defaultOn storageKey="notif_promos" />
+                <ToggleRow label={t('notifNewRestaurants')} desc={t('notifNewRestaurantsDesc')} storageKey="notif_restaurants" />
               </div>
             )}
           </div>
@@ -137,8 +115,8 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Lock size={18} className="text-text-secondary" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">Securite</p>
-                  <p className="text-xs text-text-secondary">Mot de passe et securite du compte</p>
+                  <p className="text-sm font-medium text-text-primary">{t('security')}</p>
+                  <p className="text-xs text-text-secondary">{t('securityDesc')}</p>
                 </div>
               </div>
               <ChevronDown
@@ -147,13 +125,80 @@ export default function Settings() {
               />
             </button>
             {openSection === 'security' && (
-              <div className="border-t border-border-light p-4 space-y-3 bg-background-secondary/50">
-                <button className="w-full flex items-center gap-3 p-3 hover:bg-background-secondary transition-colors text-left">
-                  <Lock size={16} className="text-text-secondary" />
+              <div className="border-t border-border-light bg-background-secondary/50 p-4">
+                <ChangePasswordForm t={t} setLoading={setLoading} />
+              </div>
+            )}
+          </div>
+
+          {/* Confidentialite */}
+          <div className="border border-border-light">
+            <button
+              onClick={() => toggle('privacy')}
+              className="w-full flex items-center justify-between p-4 hover:bg-background-secondary transition-colors text-left"
+            >
+              <div className="flex items-center gap-4">
+                <Shield size={18} className="text-text-secondary" />
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{t('privacy')}</p>
+                  <p className="text-xs text-text-secondary">{t('privacyDesc')}</p>
+                </div>
+              </div>
+              <ChevronDown
+                size={16}
+                className={`text-text-secondary transition-transform ${openSection === 'privacy' ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {openSection === 'privacy' && (
+              <div className="border-t border-border-light bg-background-secondary/50 p-4 space-y-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      setLoading(true);
+                      const data = await api.exportData();
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `fasofree_donnees_${new Date().toISOString().slice(0, 10)}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch (err) {
+                      alert(t('downloadError') + ': ' + err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-background-secondary transition-colors text-left"
+                >
+                  <Download size={16} className="text-text-secondary" />
                   <div className="flex-1">
-                    <p className="text-sm text-text-primary">Changer le mot de passe</p>
+                    <p className="text-sm text-text-primary">{t('downloadData')}</p>
+                    <p className="text-xs text-text-secondary">{t('downloadDataDesc')}</p>
                   </div>
-                  <ChevronRight size={14} className="text-text-secondary" />
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!window.confirm(t('deleteConfirmTitle') + '\n\n' + t('deleteConfirmDesc'))) return;
+                    try {
+                      setLoading(true);
+                      await api.deleteAccount();
+                      logout();
+                      navigate('/');
+                      alert(t('deleteSuccess'));
+                    } catch (err) {
+                      alert(t('deleteError') + ': ' + err.message);
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="w-full flex items-center gap-3 p-3 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
+                >
+                  <Trash2 size={16} className="text-red-500" />
+                  <div className="flex-1">
+                    <p className="text-sm text-red-600">{t('deleteAccount')}</p>
+                    <p className="text-xs text-text-secondary">{t('deleteAccountDesc')}</p>
+                  </div>
                 </button>
               </div>
             )}
@@ -168,8 +213,8 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Globe size={18} className="text-text-secondary" />
                 <div>
-                  <p className="text-sm font-medium text-text-primary">A propos</p>
-                  <p className="text-xs text-text-secondary">Version 1.0.0</p>
+                  <p className="text-sm font-medium text-text-primary">{t('about')}</p>
+                  <p className="text-xs text-text-secondary">{t('version')}</p>
                 </div>
               </div>
               <ChevronDown
@@ -178,10 +223,10 @@ export default function Settings() {
               />
             </button>
             {openSection === 'about' && (
-              <div className="border-t border-border-light p-4 bg-background-secondary/50 space-y-2">
-                <p className="text-xs text-text-secondary">FasoFree — Livraison rapide au Burkina Faso</p>
-                <a href="/terms" className="block text-sm text-[#C1652E]">Conditions generales</a>
-                <a href="/privacy" className="block text-sm text-[#C1652E]">Politique de confidentialite</a>
+              <div className="border-t border-border-light bg-background-secondary/50 p-4 space-y-2">
+                <p className="text-xs text-text-secondary">{t('aboutDesc')}</p>
+                <a href="/terms" className="block text-sm text-[#C1652E]">{t('terms')}</a>
+                <a href="/privacy" className="block text-sm text-[#C1652E]">{t('privacyPolicy')}</a>
               </div>
             )}
           </div>
@@ -189,27 +234,112 @@ export default function Settings() {
           {/* Deconnexion */}
           <button
             onClick={() => { logout(); navigate('/'); }}
-            className="w-full border border-red-200 p-4 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors mt-6"
+            className="w-full border border-red-200 dark:border-red-800 p-4 text-red-600 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors mt-6"
           >
-            Se deconnecter
+            {t('logout')}
           </button>
         </div>
       </div>
+
+      {loading && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-background-card p-6 flex items-center gap-3">
+            <Loader2 size={20} className="animate-spin text-[#C1652E]" />
+            <span className="text-sm text-text-primary">{t('loading')}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function LangOption({ label, code, active }) {
+function ChangePasswordForm({ t, setLoading }) {
+  const [current, setCurrent] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [msg, setMsg] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMsg(null);
+    if (newPass.length < 6) { setMsg({ type: 'error', text: t('passwordTooShort') }); return; }
+    if (newPass !== confirm) { setMsg({ type: 'error', text: t('passwordMismatch') }); return; }
+    setSaving(true);
+    try {
+      await api.changePassword(current, newPass);
+      setMsg({ type: 'success', text: t('passwordChanged') });
+      setCurrent(''); setNewPass(''); setConfirm('');
+    } catch (err) {
+      setMsg({ type: 'error', text: err.message || t('passwordError') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <button className="w-full flex items-center justify-between p-3 hover:bg-background-secondary transition-colors text-left">
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <input
+        type="password"
+        placeholder={t('currentPassword')}
+        value={current}
+        onChange={(e) => setCurrent(e.target.value)}
+        className="w-full px-3 py-2.5 bg-background-secondary border border-border-light text-sm text-text-primary"
+        required
+      />
+      <input
+        type="password"
+        placeholder={t('newPassword')}
+        value={newPass}
+        onChange={(e) => setNewPass(e.target.value)}
+        className="w-full px-3 py-2.5 bg-background-secondary border border-border-light text-sm text-text-primary"
+        required
+      />
+      <input
+        type="password"
+        placeholder={t('confirmPassword')}
+        value={confirm}
+        onChange={(e) => setConfirm(e.target.value)}
+        className="w-full px-3 py-2.5 bg-background-secondary border border-border-light text-sm text-text-primary"
+        required
+      />
+      {msg && (
+        <p className={`text-xs ${msg.type === 'error' ? 'text-red-500' : 'text-green-600'}`}>{msg.text}</p>
+      )}
+      <button
+        type="submit"
+        disabled={saving || !current || !newPass || !confirm}
+        className="w-full bg-[#C1652E] text-white py-2.5 text-sm font-semibold disabled:opacity-50"
+      >
+        {saving ? <Loader2 size={16} className="animate-spin mx-auto" /> : t('save')}
+      </button>
+    </form>
+  );
+}
+
+function LangOption({ label, code, active, onSelect }) {
+  return (
+    <button
+      onClick={() => onSelect(code)}
+      className="w-full flex items-center justify-between p-3 hover:bg-background-secondary transition-colors text-left"
+    >
       <span className="text-sm text-text-primary">{label}</span>
       {active ? <Check size={14} className="text-[#C1652E]" /> : <span className="w-3.5" />}
     </button>
   );
 }
 
-function ToggleRow({ label, desc, defaultOn = false }) {
-  const [on, setOn] = useState(defaultOn);
+function ToggleRow({ label, desc, defaultOn = false, storageKey }) {
+  const [on, setOn] = useState(() => {
+    const saved = localStorage.getItem(`fasofree_${storageKey}`);
+    if (saved !== null) return saved === 'true';
+    return defaultOn;
+  });
+  const handleToggle = () => {
+    const next = !on;
+    setOn(next);
+    localStorage.setItem(`fasofree_${storageKey}`, String(next));
+  };
   return (
     <div className="flex items-center justify-between p-3">
       <div>
@@ -217,7 +347,7 @@ function ToggleRow({ label, desc, defaultOn = false }) {
         <p className="text-xs text-text-secondary">{desc}</p>
       </div>
       <button
-        onClick={() => setOn(!on)}
+        onClick={handleToggle}
         className={`relative w-10 h-5 rounded-full transition-colors ${on ? 'bg-[#C1652E]' : 'bg-gray-300'}`}
       >
         <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${on ? 'translate-x-5' : ''}`} />

@@ -56,6 +56,9 @@ export const api = {
   updatePaymentInfo: (data) => apiFetch('/users/me/payment-info', { method: 'PATCH', body: data }),
   forgotPassword: (email) => apiFetch('/auth/forgot-password', { method: 'POST', body: { email } }),
   resetPassword: (token, newPassword) => apiFetch('/auth/reset-password', { method: 'POST', body: { token, newPassword } }),
+  changePassword: (currentPassword, newPassword) => apiFetch('/auth/change-password', { method: 'POST', body: { currentPassword, newPassword } }),
+  deleteAccount: () => apiFetch('/users/me', { method: 'DELETE' }),
+  exportData: () => apiFetch('/users/me/export', { method: 'GET' }),
 
   // OTP Verification
   sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),

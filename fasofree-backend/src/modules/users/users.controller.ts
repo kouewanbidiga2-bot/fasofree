@@ -143,6 +143,30 @@ export class UsersController {
     return this.usersService.setDriverStatus(userId, dto);
   }
 
+  // 🗑️ Auto-suppression de compte (self-service)
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('me')
+  @ApiOperation({ summary: 'Supprimer son propre compte (self-service)' })
+  async selfDelete(@NestRequest() req: RequestWithUser) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.usersService.selfDelete(userId);
+  }
+
+  // 📦 Exporter mes données personnelles (RGPD)
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me/export')
+  @ApiOperation({ summary: 'Exporter toutes ses données personnelles (RGPD)' })
+  async exportData(@NestRequest() req: RequestWithUser) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.usersService.exportUserData(userId);
+  }
+
   // 🛡️ Lister tous les utilisateurs (Super Admin)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)

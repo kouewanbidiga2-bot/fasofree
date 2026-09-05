@@ -460,6 +460,55 @@ export class UsersService implements OnModuleInit {
     return { userId, hash: (user as any).passwordHash };
   }
 
+  // ─── Auto-suppression (self-service) ─────────────────────────────
+  async selfDelete(userId: string): Promise<{ message: string }> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('user.id = :userId', { userId })
+      .getOne();
+
+    if (!user) throw new NotFoundException('Utilisateur introuvable');
+
+    // Anonymiser puis desactiver
+    user.fullName = 'Compte supprimé';
+    user.email = `deleted_${Date.now()}@removed.local`;
+    user.phone = `deleted_${Date.now()}`;
+    user.passwordHash = 'REMOVED';
+    user.isActive = false;
+    user.avatarUrl = undefined;
+    user.mobileMoneyNumber = undefined;
+    user.mobileMoneyProvider = undefined as any;
+    user.fcmToken = undefined;
+
+    await this.userRepository.save(user);
+    return { message: 'Votre compte a été supprimé avec succès' };
+  }
+
+  // ─── Export des données personnelles (RGPD) ──────────────────────
+  async exportUserData(userId: string): Promise<Record<string, unknown>> {
+    const user = await this.findById(userId);
+    return {
+      profil: {
+        nom: user.fullName,
+        email: user.email,
+        telephone: user.phone,
+        role: user.role,
+        dateCreation: user.createdAt,
+        avatar: user.avatarUrl,
+      },
+      paiement: {
+        mobileMoneyNumber: user.mobileMoneyNumber,
+        mobileMoneyProvider: user.mobileMoneyProvider,
+      },
+      preferences: {
+        canalNotification: user.preferredNotificationChannel,
+      },
+      pointsFidelite: user.averageRating,
+      exportDate: new Date().toISOString(),
+    };
+  }
+
   // ─── Réinitialiser le mot de passe par Admin (Super Admin) ────────
   async adminResetPassword(
     operator: User,

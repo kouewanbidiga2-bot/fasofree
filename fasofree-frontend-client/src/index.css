@@ -55,7 +55,37 @@
 
 :root {
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --bg-primary: #FBF8F3;
+  --bg-secondary: #F4EEE5;
+  --bg-card: #FFFDFC;
+  --text-primary: #29231E;
+  --text-secondary: #74695F;
+  --border-light: #E9E0D5;
 }
+
+.dark {
+  --bg-primary: #121212;
+  --bg-secondary: #1E1E1E;
+  --bg-card: #1A1A1A;
+  --text-primary: #F0ECE3;
+  --text-secondary: #A99F93;
+  --border-light: #333333;
+}
+
+.dark body {
+  background-color: #121212 !important;
+  color: #F0ECE3 !important;
+}
+
+.dark .bg-background-primary { background-color: #121212 !important; }
+.dark .bg-background-secondary { background-color: #1E1E1E !important; }
+.dark .bg-background-card { background-color: #1A1A1A !important; }
+.dark .text-text-primary { color: #F0ECE3 !important; }
+.dark .text-text-secondary { color: #A99F93 !important; }
+.dark .border-border-light { border-color: #333333 !important; }
+.dark .border-border-medium { border-color: #404040 !important; }
+.dark input, .dark textarea, .dark select { background-color: #1E1E1E !important; color: #F0ECE3 !important; border-color: #333333 !important; }
+.dark .bg-background-secondary\/50 { background-color: rgba(30,30,30,0.5) !important; }
 
 .home-hero { border-radius: 10px; }
 .hero-image { animation: hero-image-in 700ms var(--ease-out) both; }
