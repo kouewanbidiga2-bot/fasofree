@@ -104,12 +104,11 @@ export default function HeroBanner() {
           >
             <a
               href="#restaurants"
-              className="hero-btn group relative inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.15em] text-[#C1652E]"
+              className="inline-flex items-center gap-3 bg-[#C1652E] px-6 py-3 text-[12px] font-bold uppercase tracking-[0.1em] text-white"
+              style={{ borderRadius: '4px', boxShadow: '0 3px 12px rgba(193,101,46,0.4)' }}
             >
-              Explorer
-              <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
-              <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#C1652E]/30 rounded-full" />
-              <span className="absolute bottom-0 left-0 h-[2px] bg-[#C1652E] rounded-full transition-all duration-500 group-hover:w-full w-0" />
+              Commander
+              <ArrowRight size={14} />
             </a>
 
             <div className="flex items-center gap-2 mt-2 text-[10px] font-bold text-[#8B7355]">
