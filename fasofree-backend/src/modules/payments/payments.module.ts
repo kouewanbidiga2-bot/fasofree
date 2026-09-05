@@ -14,9 +14,11 @@ import { FinancialLedger } from './entities/financial-ledger.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { OrdersModule } from '../orders/orders.module';
+import { RedisModule } from '../../core/redis/redis.module';
 
 @Module({
   imports: [
+    RedisModule,
     forwardRef(() => OrdersModule),
     TypeOrmModule.forFeature([
       MerchantPayout,
