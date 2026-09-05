@@ -65,17 +65,17 @@ const SearchPage = () => {
   const handleClear = () => setQuery('');
 
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
-      <div className="sticky top-0 z-20 bg-white border-b border-[#e8e0d4] px-4 py-3">
+    <div className="min-h-screen bg-background-primary">
+      <div className="sticky top-0 z-20 bg-background-primary border-b border-border-light px-4 py-3">
         <div className="relative">
-          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a09388]" size={18} />
+          <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={18} />
           <input
             autoFocus
             type="text"
             placeholder="Rechercher un plat, un restaurant..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-xl border border-[#e8e0d4] bg-[#FBF8F3] py-3 pl-10 pr-10 text-sm text-[#29231e] placeholder:text-[#a09388] outline-none focus:border-[#C1652E] transition-colors"
+            className="w-full rounded-xl border border-border-light bg-background-secondary py-3 pl-10 pr-10 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent-primary transition-colors"
           />
           {query && (
             <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a09388]">

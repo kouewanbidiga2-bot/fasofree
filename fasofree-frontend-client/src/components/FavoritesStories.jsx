@@ -23,7 +23,7 @@ const FavoriteStory = ({ favorite, onClick }) => {
       className="flex flex-col items-center gap-2 flex-shrink-0 group hover-scale"
     >
       <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#C1652E] to-[#e8a379] shadow-subtle hover:shadow-medium transition-shadow duration-200">
-        <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-[#eadfd2] flex items-center justify-center border-2 border-white overflow-hidden">
+        <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full bg-background-secondary flex items-center justify-center border-2 border-background-card overflow-hidden">
           {favorite.image && !imageError ? (
             <img
               src={favorite.image}

@@ -137,7 +137,7 @@ const VerifyAccount = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-[#FAF6F1] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#C1652E] flex items-center justify-center">
@@ -146,16 +146,16 @@ const VerifyAccount = () => {
           <h1 className="text-2xl font-semibold text-[#2D2A26] mb-2">Vérifiez votre compte</h1>
           <p className="text-sm text-[#70645C]">
             Un code à 6 chiffres a été envoyé à<br />
-            <span className="font-medium text-[#2D2A26]">{email || 'votre adresse'}</span>
+            <span className="font-medium text-text-primary">{email || 'votre adresse'}</span>
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border border-[#E8E0D8] p-6">
+        <div className="bg-background-card rounded-xl border border-border-light p-6">
           {success ? (
             <div className="text-center py-8">
               <CheckCircle size={48} className="mx-auto text-green-500 mb-4" />
-              <p className="text-lg font-medium text-[#2D2A26] mb-2">Compte vérifié !</p>
-              <p className="text-sm text-[#70645C]">Redirection en cours...</p>
+              <p className="text-lg font-medium text-text-primary mb-2">Compte verifie !</p>
+              <p className="text-sm text-text-secondary">Redirection en cours...</p>
             </div>
           ) : (
             <>

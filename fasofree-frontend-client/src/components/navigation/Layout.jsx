@@ -4,7 +4,7 @@ import BottomNav from './BottomNav';
 
 const Layout = () => {
   return (
-    <div className="min-h-screen bg-[#FBF8F3]">
+    <div className="min-h-screen bg-background-primary">
       <main className="pb-20 md:pb-0">
         <Outlet />
       </main>

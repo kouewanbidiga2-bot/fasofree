@@ -147,7 +147,7 @@ const Home = () => {
                   placeholder="Rechercher un plat, un restaurant..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full rounded-md border border-border-light bg-white py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
                 />
               </div>
             </div>
@@ -159,7 +159,7 @@ const Home = () => {
                   type="button"
                   aria-label="Profil"
                   onClick={() => navigate('/profile')}
-                  className="rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                  className="rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
                 >
                   <User size={17} strokeWidth={1.8} />
                 </button>
@@ -168,7 +168,7 @@ const Home = () => {
                   type="button"
                   aria-label="Se connecter"
                   onClick={() => navigate('/auth')}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-white px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-background-card px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
                 >
                   <LogIn size={16} strokeWidth={1.8} />
                   <span className="hidden sm:inline">Connexion</span>
@@ -177,7 +177,7 @@ const Home = () => {
               <button
                 aria-label="Notifications"
                 onClick={() => setNotifOpen(true)}
-                className="relative rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                className="relative rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
               >
                 <Bell size={17} strokeWidth={1.8} />
                 {unreadCount > 0 && (
@@ -200,7 +200,7 @@ const Home = () => {
                   className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
                     isActive
                       ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
-                      : 'bg-white border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
+                      : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
                   }`}
                 >
                   {category === 'all' ? 'Tous les restaurants' : category}
@@ -218,7 +218,7 @@ const Home = () => {
                 placeholder="Rechercher un plat, un restaurant..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-full rounded-md border border-border-light bg-white py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
               />
             </div>
           </div>

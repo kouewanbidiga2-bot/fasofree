@@ -41,7 +41,7 @@ const BottomNav = () => {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#e8e0d4] safe-area-bottom md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background-primary border-t border-border-light safe-area-bottom md:hidden">
       <div className="flex items-center justify-around h-16 px-2">
         {tabs.map((tab) => {
           const active = isActive(tab);

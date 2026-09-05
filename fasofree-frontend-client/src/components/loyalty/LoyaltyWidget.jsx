@@ -41,12 +41,12 @@ const LoyaltyWidget = () => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl border border-[#e8e0d4] p-5">
+      <div className="bg-background-card rounded-2xl border border-border-light p-5">
         <div className="animate-pulse flex gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#f0e6d6]" />
+          <div className="w-10 h-10 rounded-full bg-background-secondary" />
           <div className="flex-1 space-y-2">
-            <div className="h-4 bg-[#f0e6d6] rounded w-1/3" />
-            <div className="h-3 bg-[#f0e6d6] rounded w-1/2" />
+            <div className="h-4 bg-background-secondary rounded w-1/3" />
+            <div className="h-3 bg-background-secondary rounded w-1/2" />
           </div>
         </div>
       </div>
@@ -75,14 +75,14 @@ const LoyaltyWidget = () => {
       </div>
 
       {/* Referral section */}
-      <div className="bg-white rounded-2xl border border-[#e8e0d4] p-5">
+      <div className="bg-background-card rounded-2xl border border-border-light p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-[#f0e6d6] flex items-center justify-center">
-            <Users size={18} className="text-[#C1652E]" />
+          <div className="w-10 h-10 rounded-full bg-background-secondary flex items-center justify-center">
+            <Users size={18} className="text-accent-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-[#29231e]">Parrainer un ami</h3>
-            <p className="text-xs text-[#70645C]">
+            <h3 className="text-sm font-semibold text-text-primary">Parrainer un ami</h3>
+            <p className="text-xs text-text-secondary">
               {referralStats?.completedReferrals || 0} ami(s) inscrit(s)
             </p>
           </div>
@@ -90,26 +90,26 @@ const LoyaltyWidget = () => {
 
         {referralCode && (
           <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 bg-[#f5f0ea] rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-[#29231e] tracking-wider">
+            <div className="flex-1 bg-background-secondary rounded-lg px-4 py-2.5 font-mono text-sm font-semibold text-text-primary tracking-wider">
               {referralCode}
             </div>
             <button
               onClick={handleCopyCode}
-              className="w-10 h-10 rounded-lg bg-[#f0e6d6] flex items-center justify-center hover:bg-[#e8e0d4] transition-colors"
+              className="w-10 h-10 rounded-lg bg-background-secondary flex items-center justify-center hover:bg-background-tertiary transition-colors"
             >
-              {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-[#70645C]" />}
+              {copied ? <Check size={16} className="text-green-600" /> : <Copy size={16} className="text-text-secondary" />}
             </button>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-3 mt-3">
-          <div className="bg-[#f5f0ea] rounded-lg p-3 text-center">
-            <p className="text-lg font-bold text-[#C1652E]">{referralStats?.totalReferred || 0}</p>
-            <p className="text-[10px] text-[#70645C] font-medium">Parraines</p>
+          <div className="bg-background-secondary rounded-lg p-3 text-center">
+            <p className="text-lg font-bold text-accent-primary">{referralStats?.totalReferred || 0}</p>
+            <p className="text-[10px] text-text-secondary font-medium">Parraines</p>
           </div>
-          <div className="bg-[#f5f0ea] rounded-lg p-3 text-center">
-            <p className="text-lg font-bold text-[#C1652E]">{referralStats?.pendingBonus || 0}</p>
-            <p className="text-[10px] text-[#70645C] font-medium">Points en attente</p>
+          <div className="bg-background-secondary rounded-lg p-3 text-center">
+            <p className="text-lg font-bold text-accent-primary">{referralStats?.pendingBonus || 0}</p>
+            <p className="text-[10px] text-text-secondary font-medium">Points en attente</p>
           </div>
         </div>
 
