@@ -120,19 +120,14 @@ const Profile = () => {
     setPaymentLoading(true);
     setPaymentSaved(false);
     try {
-      const payload = {
+      await api.updatePaymentInfo({
         mobileMoneyNumber: paymentData.mobileMoneyNumber || undefined,
         mobileMoneyProvider: paymentData.mobileMoneyProvider || undefined,
-      };
-      console.log('[Profile] Sending payment info:', payload);
-      await api.updatePaymentInfo(payload);
-      console.log('[Profile] Payment info saved successfully');
+      });
       setPaymentSaved(true);
       setTimeout(() => setPaymentSaved(false), 3000);
     } catch (err) {
-      console.error('[Profile] Payment save error:', err);
-      const msg = err?.message || err?.response?.data?.message || 'Erreur lors de l\'enregistrement';
-      alert(msg);
+      alert(err.message || 'Erreur lors de la mise à jour des informations de paiement.');
     } finally {
       setPaymentLoading(false);
     }

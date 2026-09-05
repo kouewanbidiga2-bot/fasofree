@@ -5,15 +5,16 @@ export class FixOrderItemProductIdType1724700000000 implements MigrationInterfac
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      ALTER TABLE order_items
-      ALTER COLUMN "productId" TYPE varchar
+      DO $$ BEGIN
+        ALTER TABLE order_items ALTER COLUMN "productId" TYPE varchar;
+      EXCEPTION WHEN undefined_column THEN NULL;
+      END $$;
     `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      ALTER TABLE order_items
-      ALTER COLUMN "productId" TYPE uuid USING "productId"::uuid
+      ALTER TABLE order_items ALTER COLUMN "productId" TYPE uuid USING "productId"::uuid
     `);
   }
 }
