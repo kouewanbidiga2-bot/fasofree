@@ -104,21 +104,12 @@ export default function HeroBanner() {
           >
             <a
               href="#restaurants"
-              className="hero-btn group relative inline-flex items-center gap-2.5 px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#29231E] overflow-hidden"
-              style={{
-                background: 'linear-gradient(135deg, #F5E6D0 0%, #EDD8BF 50%, #E5CBA8 100%)',
-                borderRadius: '10px',
-                border: '1.5px solid #C1652E',
-                boxShadow: '0 2px 8px rgba(193,101,46,0.15), inset 0 1px 0 rgba(255,255,255,0.5)',
-                animation: 'btn-breathe 3s ease-in-out infinite',
-              }}
+              className="hero-btn group relative inline-flex items-center gap-2 text-[13px] font-extrabold uppercase tracking-[0.15em] text-[#C1652E]"
             >
-              <span className="relative z-10 flex items-center gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-[#C1652E] flex items-center justify-center">
-                  <ArrowRight size={10} className="text-white -rotate-45" />
-                </span>
-                Explorer
-              </span>
+              Explorer
+              <ArrowRight size={14} className="transition-transform duration-300 group-hover:translate-x-1" />
+              <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#C1652E]/30 rounded-full" />
+              <span className="absolute bottom-0 left-0 h-[2px] bg-[#C1652E] rounded-full transition-all duration-500 group-hover:w-full w-0" />
             </a>
 
             <div className="flex items-center gap-2 mt-2 text-[10px] font-bold text-[#8B7355]">
