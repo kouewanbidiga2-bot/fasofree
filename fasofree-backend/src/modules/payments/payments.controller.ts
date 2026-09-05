@@ -28,7 +28,8 @@ import { LigdiCashService } from './providers/ligdicash.service';
 import { MockPaymentService } from './providers/mock-payment.service';
 import { YengaPayService } from './providers/yengapay.service';
 import { PayDunyaService } from './providers/paydunya.service';
-import { isMockProvider } from '../../config/payment.config';
+import { GeniusPayService } from './providers/geniuspay.service';
+import { isMockProvider, resolvePaymentProvider } from '../../config/payment.config';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -41,6 +42,7 @@ export class PaymentsController {
     private readonly mockPaymentService: MockPaymentService,
     private readonly yengaPayService: YengaPayService,
     private readonly payDunyaService: PayDunyaService,
+    private readonly geniusPayService: GeniusPayService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -67,15 +69,42 @@ export class PaymentsController {
   @ApiBearerAuth('JWT-auth')
   @UseGuards(AuthGuard('jwt'))
   @Post('topup')
-  @ApiOperation({ summary: 'Recharger son portefeuille (Mock ou Mobile Money)' })
+  @ApiOperation({ summary: 'Recharger son portefeuille (Mock, GeniusPay ou Mobile Money)' })
   async topup(
     @Request() req: Request & { user?: { userId?: string } },
     @Body() dto: TopupDto,
   ) {
     const userId = req.user?.userId as string;
+
     if (isMockProvider(this.configService)) {
       return this.mockPaymentService.topup(userId, dto);
     }
+
+    const provider = resolvePaymentProvider(this.configService);
+    if (provider === 'geniuspay') {
+      try {
+        const payment = await this.geniusPayService.createPayment({
+          amount: dto.amount,
+          description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
+          customer: {
+            name: dto.customerName || 'Client FasoFree',
+            email: dto.customerEmail || 'client@fasofree.bf',
+          },
+          metadata: { type: 'topup', userId },
+        });
+        return {
+          success: true,
+          transactionId: payment.reference,
+          checkoutUrl: payment.checkout_url || payment.payment_url,
+          paymentUrl: payment.payment_url,
+          message: 'Redirection vers GeniusPay pour le paiement.',
+        };
+      } catch (err) {
+        this.logger.error(`GeniusPay topup failed: ${err.message}`);
+        throw err;
+      }
+    }
+
     return this.ligdiCashService.initiateTopup(userId, dto);
   }
 

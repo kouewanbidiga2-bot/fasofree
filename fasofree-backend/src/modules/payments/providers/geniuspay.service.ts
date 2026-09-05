@@ -62,7 +62,7 @@ export interface GeniusPayAccount {
 @Injectable()
 export class GeniusPayService {
   private readonly logger = new Logger(GeniusPayService.name);
-  private readonly baseUrl = 'https://geniuspay.ci/api/v1/merchant';
+  private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
 
@@ -70,10 +70,18 @@ export class GeniusPayService {
     this.apiKey = this.configService.get<string>('GENIUSPAY_API_KEY', '');
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
 
+    const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
+    if (paymentEnv === 'sandbox') {
+      this.baseUrl = 'https://sandbox.geniuspay.ci/api/v1/merchant';
+      this.logger.log('⚠️ GeniusPay SANDBOX mode');
+    } else {
+      this.baseUrl = 'https://geniuspay.ci/api/v1/merchant';
+    }
+
     if (!this.apiKey || !this.apiSecret) {
       this.logger.warn('⚠️ GeniusPay API keys not configured');
     } else {
-      this.logger.log('✅ GeniusPay service initialized');
+      this.logger.log(`✅ GeniusPay service initialized (${paymentEnv}) — URL: ${this.baseUrl}`);
     }
   }
 
@@ -140,8 +148,13 @@ export class GeniusPayService {
     } catch (error: any) {
       const errData = error.response?.data;
       this.logger.error(`❌ GeniusPay createPayment error: ${error.message}`);
+      this.logger.error(`❌ GeniusPay URL: ${this.baseUrl}/payments`);
+      this.logger.error(`❌ GeniusPay apiKey present: ${!!this.apiKey}, prefix: ${this.apiKey?.substring(0, 5)}`);
       if (errData) {
         this.logger.error(`❌ GeniusPay response body: ${JSON.stringify(errData)}`);
+      }
+      if (error.response?.status) {
+        this.logger.error(`❌ GeniusPay HTTP status: ${error.response.status}`);
       }
       this.logger.error(`❌ GeniusPay request body sent: ${JSON.stringify(body)}`);
       throw error;
