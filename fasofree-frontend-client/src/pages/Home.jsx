@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn, User } from 'lucide-react';
+import { Search, MapPin, Bell, Package, Car, LogIn, User } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
@@ -8,7 +8,6 @@ import StoryStrip from '../components/stories/StoryStrip';
 import NotificationDropdown from '../components/NotificationDropdown';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
-import useCartStore from '../store/cartStore';
 import useNotificationStore from '../store/notificationStore';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
@@ -56,8 +55,6 @@ const Home = () => {
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
-  const cartItems = useCartStore((s) => s.items);
-  const cartCount = cartItems.reduce((n, i) => n + (i.quantity || 1), 0);
 
   // Refetch businesses when selectedCategory changes OR when returning via browser back button
   const [refreshKey, setRefreshKey] = useState(0);
@@ -186,14 +183,6 @@ const Home = () => {
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B95B2B] text-white text-[9px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              <button aria-label="Ouvrir le panier" onClick={() => navigate('/cart')} className="relative rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]">
-                <ShoppingBag size={17} strokeWidth={1.8} />
-                {cartCount > 0 && (
-                  <span key={cartCount} className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B95B2B] text-white text-[9px] font-bold flex items-center justify-center" style={{ animation: 'cartPop 0.35s ease' }}>
-                    {cartCount > 9 ? '9+' : cartCount}
                   </span>
                 )}
               </button>
