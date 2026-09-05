@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation } from 'lucide-react';
+import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation, Mic, MicOff } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
-import VoiceOrderButton from '../components/VoiceOrderButton';
 import useCartStore from '../store/cartStore';
 import { useVoiceOrder } from '../hooks/useVoiceOrder';
 import { api } from '../services/api';
@@ -45,6 +44,7 @@ const Restaurant = () => {
   const menu = restaurant?.menu || [];
 
   const voiceOrder = useVoiceOrder(menu);
+  const [voiceToast, setVoiceToast] = useState('');
 
   const handleVoiceAddResults = useCallback((matched) => {
     if (!restaurant) return;
@@ -53,7 +53,26 @@ const Restaurant = () => {
         addItem(item, restaurant.id);
       }
     });
+    const names = matched.map(r => `${r.quantity}x ${r.item.name}`).join(', ');
+    setVoiceToast(`Ajouté : ${names}`);
+    setTimeout(() => setVoiceToast(''), 3000);
   }, [restaurant, addItem]);
+
+  // Auto-add when voice results come in
+  const addedRef = React.useRef(false);
+  useEffect(() => {
+    if (voiceOrder.phase === 'done' && voiceOrder.results.length > 0 && !addedRef.current) {
+      addedRef.current = true;
+      handleVoiceAddResults(voiceOrder.results);
+      setTimeout(() => {
+        voiceOrder.reset();
+        addedRef.current = false;
+      }, 500);
+    }
+    if (voiceOrder.phase === 'idle') {
+      addedRef.current = false;
+    }
+  }, [voiceOrder.phase, voiceOrder.results, handleVoiceAddResults, voiceOrder]);
 
   // Fetch user location for branch sorting
   useEffect(() => {
@@ -324,16 +343,48 @@ const Restaurant = () => {
           </div>
         )}
 
-        {/* Search */}
-        <div className="mb-4">
+        {/* Search + Voice */}
+        <div className="mb-4 relative">
           <input
             type="text"
-            placeholder="Rechercher un plat..."
-            value={searchQuery}
+            placeholder={voiceOrder.isListening ? "Ecoute en cours..." : "Rechercher un plat..."}
+            value={voiceOrder.isListening ? (voiceOrder.transcript || '') : searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="app-input truncate"
+            disabled={voiceOrder.isListening}
+            className="app-input truncate pr-12"
           />
+          {voiceOrder.supported && (
+            <button
+              onClick={voiceOrder.isListening ? voiceOrder.stopListening : voiceOrder.startListening}
+              className={`absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                voiceOrder.isListening
+                  ? 'bg-red-500 animate-pulse'
+                  : 'bg-background-secondary hover:bg-[#C1652E] hover:text-white'
+              }`}
+              aria-label="Commande vocale"
+            >
+              {voiceOrder.isListening ? (
+                <MicOff size={16} className="text-white" />
+              ) : (
+                <Mic size={16} className="text-text-secondary" />
+              )}
+            </button>
+          )}
         </div>
+
+        {/* Voice toast */}
+        {voiceToast && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+            <p className="text-sm text-green-700 font-medium">{voiceToast}</p>
+          </div>
+        )}
+
+        {/* Voice error */}
+        {voiceOrder.error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-center">
+            <p className="text-sm text-red-600">{voiceOrder.error}</p>
+          </div>
+        )}
 
         {/* Categories */}
         <div className="flex gap-1 overflow-x-auto pb-2 mb-6">
@@ -395,20 +446,6 @@ const Restaurant = () => {
           )}
         </div>
       </div>
-
-      {/* Voice Order Button */}
-      <VoiceOrderButton
-        phase={voiceOrder.phase}
-        transcript={voiceOrder.transcript}
-        results={voiceOrder.results}
-        supported={voiceOrder.supported}
-        error={voiceOrder.error}
-        onStart={voiceOrder.startListening}
-        onStop={voiceOrder.stopListening}
-        onReset={voiceOrder.reset}
-        onRetry={voiceOrder.retry}
-        onAddResults={handleVoiceAddResults}
-      />
 
       {/* Floating Cart Button */}
       {getTotalItems() > 0 && (
