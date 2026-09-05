@@ -14,9 +14,9 @@ import { Business } from '../businesses/entities/business.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Product } from '../products/entities/product.entity';
 
-// Modules fournissant LigdiCashService et WalletService
+// Modules fournissant GeniusPayService et WalletService
 import { WalletModule } from '../wallets/wallet.module';
-import { LigdiCashModule } from '../payments/ligdicash.module';
+import { PaymentsModule } from '../payments/payments.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 
 // Modèle financier hybride FasoFree (commissions ultra-basses / abonnements)
@@ -29,7 +29,7 @@ import { MerchantFinancialService } from './merchant-financial.service';
   imports: [
     TypeOrmModule.forFeature([PayoutRequest, Wallet, WalletTransaction, Order, OrderItem, Business, Brand, Product]),
     WalletModule,
-    LigdiCashModule,
+    PaymentsModule,
     SubscriptionsModule,
     ReceiptsModule,
   ],

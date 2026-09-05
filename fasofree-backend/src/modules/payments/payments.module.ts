@@ -1,6 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HttpModule } from '@nestjs/axios';
 
 import { PaymentsService } from './payments.service';
 import { PayoutsService } from './payouts.service';
@@ -14,18 +13,11 @@ import { Transaction } from './entities/transaction.entity';
 import { FinancialLedger } from './entities/financial-ledger.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
-import { RedisModule } from '../../core/redis/redis.module';
 import { OrdersModule } from '../orders/orders.module';
-import { LigdiCashModule } from './ligdicash.module';
-import { YengaPayService } from './providers/yengapay.service';
-import { PayDunyaService } from './providers/paydunya.service';
 
 @Module({
   imports: [
-    RedisModule,
-    HttpModule,
     forwardRef(() => OrdersModule),
-    forwardRef(() => LigdiCashModule),
     TypeOrmModule.forFeature([
       MerchantPayout,
       Transaction,
@@ -35,7 +27,7 @@ import { PayDunyaService } from './providers/paydunya.service';
     ]),
   ],
   controllers: [PaymentsController, GeniusPayController],
-  providers: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, GeniusPayService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, YengaPayService, PayDunyaService, GeniusPayService, TypeOrmModule],
+  providers: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService],
+  exports: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, TypeOrmModule],
 })
 export class PaymentsModule {}

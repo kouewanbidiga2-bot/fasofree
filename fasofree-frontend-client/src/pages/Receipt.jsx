@@ -14,60 +14,13 @@ const Receipt = () => {
   
   const incoming = location.state || {};
   const orderIdFromParams = searchParams.get('orderId') || searchParams.get('reference');
-  const paydunyaToken = searchParams.get('token');
   const orderId = incoming.orderId || orderIdFromParams;
   const [orderDetails, setOrderDetails] = React.useState(null);
   const [loading, setLoading] = React.useState(!!orderId);
   const [error, setError] = React.useState(null);
-  const [verifying, setVerifying] = React.useState(!!paydunyaToken);
-
-  // Si on revient de PayDunya avec un token, vérifier le statut du paiement
-  React.useEffect(() => {
-    if (!paydunyaToken) return;
-    let cancelled = false;
-    const verify = async () => {
-      try {
-        const result = await api.checkPayDunyaStatus(paydunyaToken);
-        if (cancelled) return;
-        if (result?.status === 'completed' && orderId) {
-          // Re-fetch l'order pour avoir le statut à jour
-          const order = await api.getOrder(orderId);
-          if (!cancelled) {
-            setOrderDetails({
-              id: order.id,
-              date: new Date(order.createdAt).toLocaleDateString('fr-FR', {
-                day: 'numeric', month: 'long', year: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              }),
-              status: order.status || 'PAID',
-              paymentMethod: order.paymentMethod || 'Orange Money',
-              items: (order.items || []).map((i) => ({
-                name: i.productName || i.name || 'Article',
-                quantity: i.quantity || 1,
-                price: i.unitPrice || i.price || 0,
-              })),
-              subtotal: order.totalAmount || 0,
-              deliveryFee: order.deliveryFee || 0,
-              platformFee: 100,
-              total: order.totalAmount || 0,
-            });
-          }
-        }
-      } catch (err) {
-        console.warn('PayDunya verification failed:', err);
-      } finally {
-        if (!cancelled) {
-          setVerifying(false);
-          setLoading(false);
-        }
-      }
-    };
-    verify();
-    return () => { cancelled = true; };
-  }, [paydunyaToken, orderId]);
 
   React.useEffect(() => {
-    if (!orderId || paydunyaToken) return;
+    if (!orderId) return;
     let cancelled = false;
     setLoading(true);
     api.getOrder(orderId)

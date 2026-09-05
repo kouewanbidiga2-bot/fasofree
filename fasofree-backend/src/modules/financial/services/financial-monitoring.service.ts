@@ -8,7 +8,7 @@ import { Order, OrderStatus, FulfillmentType } from '../../orders/entities/order
 import { OrderItem } from '../../orders/entities/order-item.entity';
 import { Business } from '../../businesses/entities/business.entity';
 import { Brand } from '../../brands/entities/brand.entity';
-import { LigdiCashService } from '../../payments/providers/ligdicash.service';
+import { GeniusPayService } from '../../payments/providers/geniuspay.service';
 import { WalletService } from '../../wallets/wallet.service';
 export interface FinancialDashboardSummary {
   ligdiCash: {
@@ -48,26 +48,26 @@ export class FinancialMonitoringService {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(Brand)
     private readonly brandRepository: Repository<Brand>,
-    private readonly ligdiCashService: LigdiCashService,
+    private readonly geniusPayService: GeniusPayService,
     private readonly walletService: WalletService,
   ) {}
 
   async getDashboardSummary(): Promise<FinancialDashboardSummary> {
     try {
-      // 1. Solde réel chez LigdiCash (Appel API) - garde des valeurs par défaut en cas d'échec
-      const ligdiBalancesRaw = await this.ligdiCashService
-        .getAccountBalances()
+      // 1. Solde réel chez GeniusPay (Appel API)
+      const geniusPayBalance = await this.geniusPayService
+        .getBalance()
         .catch((err) => {
           this.logger.error(
-            'Échec récupération soldes LigdiCash',
+            'Échec récupération solde GeniusPay',
             err?.stack ?? err,
           );
           return null;
         });
 
-      const ligdiBalances = {
-        payinBalance: Number(ligdiBalancesRaw?.payinBalance ?? 0),
-        payoutBalance: Number(ligdiBalancesRaw?.payoutBalance ?? 0),
+      const balances = {
+        available: Number(geniusPayBalance?.available ?? 0),
+        pending: Number(geniusPayBalance?.pending ?? 0),
       };
 
       // 2. Passifs virtuels (Dette interne envers les livreurs et marchands)
@@ -102,11 +102,10 @@ export class FinancialMonitoringService {
       const pendingPayoutsAmount = Number(pendingStatsRaw?.total ?? 0) || 0;
 
       // 4. Calcul du Ratio de Couverture
-      // Formula: Solde Payout Réel / Total Passifs Virtuels
-      const payoutBalance = Number(ligdiBalances.payoutBalance) || 0;
+      const coverageBalance = Number(balances.available) || 0;
       const coverageRatio =
         totalVirtualLiabilities > 0
-          ? payoutBalance / totalVirtualLiabilities
+          ? coverageBalance / totalVirtualLiabilities
           : 1.0;
 
       let status: 'GREEN' | 'ORANGE' | 'RED' = 'GREEN';
@@ -118,9 +117,9 @@ export class FinancialMonitoringService {
 
       return {
         ligdiCash: {
-          payinBalance: ligdiBalances.payinBalance,
-          payoutBalance: payoutBalance,
-          totalRealCash: ligdiBalances.payinBalance + payoutBalance,
+          payinBalance: balances.available,
+          payoutBalance: balances.pending,
+          totalRealCash: balances.available + balances.pending,
         },
         internalLiabilities: {
           driversTotalBalance: driversTotal,

@@ -165,12 +165,11 @@ describe('Payments webhook anti-fraud guards', () => {
     });
   });
 
-  describe('LigdiCash token (fail-closed)', () => {
-    it('rejette si aucun token Jeton configuré / fourni', () => {
-      const expected = undefined as string | undefined;
-      const token = '';
-      const ok = !!token && token === expected;
-      expect(ok).toBe(false);
+  describe('GeniusPay webhook (fail-closed)', () => {
+    it('rejette si aucun order_id dans metadata', () => {
+      const payload: any = { status: 'SUCCESS', amount: 1000 };
+      const orderId = payload.metadata?.order_id;
+      expect(orderId).toBeUndefined();
     });
   });
 });

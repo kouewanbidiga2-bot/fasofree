@@ -1,14 +1,14 @@
 /**
  * FasoFree — Service Paiements
  * Endpoints: /payments
- * Méthodes: orange_money | moov_money | card | cash | ligdicash
+ * Provider: GeniusPay (Orange Money, Moov Money, Wave)
  */
 import api from './api';
 
 /**
- * Initier un paiement pour une commande (via Wave/LigdiCash)
+ * Initier un paiement pour une commande via GeniusPay
  * @param {Object} data - { orderId, paymentMethod, phoneNumber }
- * paymentMethod: 'orange_money' | 'moov_money' | 'card' | 'cash'
+ * paymentMethod: 'orange_money' | 'moov_money' | 'wave'
  */
 export const initiatePayment = async (data) => {
   const response = await api.post('/payments/initiate', {
@@ -20,20 +20,24 @@ export const initiatePayment = async (data) => {
 };
 
 /**
- * Créer une demande de paiement LigdiCash (payin)
- * @param {Object} data - { orderId, amount, customerName, customerEmail }
+ * Recharger le portefeuille FasoFree via GeniusPay
+ * @param {Object} data - { amount, customerName, customerEmail }
  */
-export const initiateLigdiCashPayin = async (data) => {
-  const response = await api.post('/payments/ligdicash/payin', {
-    orderId: data.orderId,
-    amount: data.amount,
-    customerName: data.customerName,
-    customerEmail: data.customerEmail,
-  });
+export const topupWallet = async (data) => {
+  const response = await api.post('/payments/topup', data);
   return response.data;
 };
 
-// ─── Méthodes de paiement disponibles ──────────────────────────────────
+/**
+ * Vérifier le statut d'un paiement GeniusPay
+ * @param {string} ref - Référence du paiement
+ */
+export const checkPaymentStatus = async (ref) => {
+  const response = await api.get(`/payments/geniuspay/status/${ref}`);
+  return response.data;
+};
+
+// ─── Méthodes de paiement disponibles (via GeniusPay) ──────────────────
 export const PAYMENT_METHODS = [
   {
     id: 'orange_money',
@@ -52,11 +56,11 @@ export const PAYMENT_METHODS = [
     requiresPhone: true,
   },
   {
-    id: 'ligdicash',
-    label: 'LigdiCash',
-    description: 'Paiement mobile LigdiCash',
-    color: '#8B5CF6',
-    icon: '💜',
+    id: 'wave',
+    label: 'Wave',
+    description: 'Paiement mobile Wave',
+    color: '#1DC3F0',
+    icon: '🌊',
     requiresPhone: true,
   },
   {
@@ -65,14 +69,6 @@ export const PAYMENT_METHODS = [
     description: 'Espèces à la livraison',
     color: '#F59E0B',
     icon: '💵',
-    requiresPhone: false,
-  },
-  {
-    id: 'card',
-    label: 'Carte bancaire',
-    description: 'Visa / Mastercard',
-    color: '#22C55E',
-    icon: '💳',
     requiresPhone: false,
   },
 ];
