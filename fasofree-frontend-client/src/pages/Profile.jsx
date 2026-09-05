@@ -88,10 +88,10 @@ const Profile = () => {
 
   const menuItems = [
     { icon: Crown, label: 'FasoFree Pass VIP', action: () => navigate('/vip-pass'), highlight: user?.isPremium },
-    { icon: MapPin, label: 'Adresses de livraison', action: () => {} },
+    { icon: MapPin, label: 'Adresses de livraison', action: () => navigate('/addresses') },
     { icon: CreditCard, label: 'Informations de paiement', action: () => setShowPaymentInfo(!showPaymentInfo) },
     { icon: Bell, label: 'Notifications', action: () => setNotifOpen(true) },
-    { icon: Settings, label: 'Paramètres', action: () => {} },
+    { icon: Settings, label: 'Paramètres', action: () => navigate('/settings') },
     { icon: LogOut, label: 'Déconnexion', action: handleLogout, variant: 'danger' },
   ];
 

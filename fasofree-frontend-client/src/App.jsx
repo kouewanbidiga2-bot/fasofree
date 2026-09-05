@@ -11,6 +11,8 @@ import OrderTracking from './pages/OrderTracking';
 import OrderHistory from './pages/Orders';
 import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
+import Addresses from './pages/Addresses';
+import Settings from './pages/Settings';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
 import MerchantProducts from './pages/MerchantProducts';
@@ -88,6 +90,8 @@ function App() {
           <Route path="/order-history" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
+          <Route path="/addresses" element={<ProtectedRoute><Addresses /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         </Route>
 
         {/* Merchant pages */}
