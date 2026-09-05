@@ -38,25 +38,24 @@ api.interceptors.response.use(
       if (status === 401) {
         localStorage.removeItem('fasofree_token');
         localStorage.removeItem('fasofree_user');
-        // Redirection vers login si pas déjà dessus
         if (!window.location.pathname.includes('/login')) {
           window.location.href = '/login';
         }
       }
 
-      // Formater le message d'erreur proprement
+      // Reponse vide ou non-JSON
+      const data = error.response.data;
       const message =
-        error.response.data?.message ||
-        error.response.data?.error ||
+        (typeof data === 'object' && data !== null ? (data.message || data.error) : null) ||
         `Erreur ${status}`;
       return Promise.reject(new Error(Array.isArray(message) ? message.join(', ') : message));
     }
 
     if (error.code === 'ECONNABORTED') {
-      return Promise.reject(new Error('Délai de connexion dépassé. Vérifiez votre réseau.'));
+      return Promise.reject(new Error('Délai de connexion dépassé.'));
     }
 
-    return Promise.reject(new Error('Impossible de contacter le serveur. Réessayez.'));
+    return Promise.reject(new Error('Impossible de contacter le serveur.'));
   }
 );
 
