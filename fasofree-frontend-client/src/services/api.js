@@ -209,6 +209,12 @@ export const api = {
   // Personnalisation
   getTrending: (limit = 10) => apiFetch(`/businesses/trending?limit=${limit}`, { method: 'GET' }),
   getRecentOrders: () => apiFetch('/orders/my-recent', { method: 'GET' }),
+
+  // Adresses de livraison
+  getAddresses: () => apiFetch('/users/me/addresses', { method: 'GET' }),
+  createAddress: (data) => apiFetch('/users/me/addresses', { method: 'POST', body: data }),
+  updateAddress: (id, data) => apiFetch(`/users/me/addresses/${id}`, { method: 'PATCH', body: data }),
+  deleteAddress: (id) => apiFetch(`/users/me/addresses/${id}`, { method: 'DELETE' }),
 };
 
 export default api;

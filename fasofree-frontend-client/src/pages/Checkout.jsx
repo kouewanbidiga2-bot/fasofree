@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils, Navigation, Check, Plus } from 'lucide-react';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -36,6 +36,9 @@ const Checkout = () => {
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [fulfillmentType, setFulfillmentType] = useState('DELIVERY');
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [addressMode, setAddressMode] = useState('saved');
 
   const subtotal = getCartSubtotal(items);
   const isDelivery = fulfillmentType === 'DELIVERY';
@@ -53,6 +56,18 @@ const Checkout = () => {
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [restaurantId]);
+
+  useEffect(() => {
+    api.getAddresses().then((addrs) => {
+      setSavedAddresses(Array.isArray(addrs) ? addrs : []);
+      const def = (Array.isArray(addrs) ? addrs : []).find(a => a.isDefault);
+      if (def) {
+        setSelectedAddressId(def.id);
+        setFormData(f => ({ ...f, address: def.address }));
+        if (def.latitude && def.longitude) setDeliveryCoords({ lat: def.latitude, lng: def.longitude });
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!isDelivery) {
@@ -286,14 +301,69 @@ const Checkout = () => {
                     Adresse de livraison
                   </h2>
 
-                  <button
-                    className="app-action-secondary w-full mb-4"
-                    onClick={handleGetCurrentLocation}
-                    type="button"
-                  >
-                    Utiliser ma position actuelle
-                  </button>
+                  {/* Saved addresses */}
+                  {savedAddresses.length > 0 && addressMode === 'saved' && (
+                    <div className="mb-4 space-y-2">
+                      <p className="text-xs text-text-secondary mb-2">Vos adresses sauvegardees</p>
+                      {savedAddresses.map((addr) => (
+                        <button
+                          key={addr.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedAddressId(addr.id);
+                            setFormData(f => ({ ...f, address: addr.address }));
+                            if (addr.latitude && addr.longitude) setDeliveryCoords({ lat: addr.latitude, lng: addr.longitude });
+                          }}
+                          className={`w-full text-left p-3 border transition-colors ${
+                            selectedAddressId === addr.id
+                              ? 'border-accent-primary bg-accent-primary/5'
+                              : 'border-border-light hover:border-border-medium'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <MapPin size={12} className={selectedAddressId === addr.id ? 'text-accent-primary' : 'text-text-secondary'} />
+                            <span className="text-xs font-semibold text-text-primary">{addr.label}</span>
+                            {addr.isDefault && <span className="text-[9px] text-accent-primary font-bold">DEFAUT</span>}
+                          </div>
+                          <p className="text-xs text-text-secondary mt-0.5 truncate">{addr.address}</p>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setAddressMode('new')}
+                        className="w-full text-center py-2 text-xs text-accent-primary hover:underline"
+                      >
+                        <Plus size={12} className="inline mr-1" />
+                        Entrer une autre adresse
+                      </button>
+                    </div>
+                  )}
 
+                  {/* Manual / new address */}
+                  {(savedAddresses.length === 0 || addressMode === 'new') && (
+                    <>
+                      <button
+                        className="app-action-secondary w-full mb-4"
+                        onClick={handleGetCurrentLocation}
+                        type="button"
+                      >
+                        <Navigation size={14} className="inline mr-2" />
+                        Utiliser ma position actuelle
+                      </button>
+
+                      {savedAddresses.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAddressMode('saved')}
+                          className="w-full text-center py-2 mb-4 text-xs text-accent-primary hover:underline"
+                        >
+                          Choisir une adresse sauvegardee
+                        </button>
+                      )}
+                    </>
+                  )}
+
+                  {/* Adresse texte */}
                   <div className="mb-4">
                     <label className="block text-xs text-text-secondary mb-2">Adresse complete</label>
                     <input
@@ -321,7 +391,7 @@ const Checkout = () => {
                     <label className="block text-xs text-text-secondary mb-2">Instructions de livraison (optionnel)</label>
                     <input
                       type="text"
-                      placeholder="Ex: Sonnette en panne, code d'accès..."
+                      placeholder="Ex: Sonnette en panne, code d'acces..."
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       className="app-input"
