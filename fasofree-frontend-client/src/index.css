@@ -215,6 +215,33 @@
 .dark .bg-black\/30 { background-color: rgba(0,0,0,0.6) !important; }
 .dark .bg-black\/50 { background-color: rgba(0,0,0,0.7) !important; }
 
+/* ── DARK MODE: hover / active / focus — plus de flash blanc ── */
+.dark .hover\:bg-background-secondary:hover { background-color: #282828 !important; }
+.dark .hover\:bg-background-secondary\/50:hover { background-color: rgba(40,40,40,0.5) !important; }
+.dark .hover\:bg-background-tertiary:hover { background-color: #303030 !important; }
+.dark .hover\:bg-white:hover { background-color: #282828 !important; }
+.dark .hover\:bg-red-50:hover { background-color: #2D1515 !important; }
+.dark .hover\:bg-red-900\/20:hover { background-color: rgba(127,29,29,0.3) !important; }
+
+.dark .active\:bg-background-secondary:active { background-color: #303030 !important; }
+.dark .active\:bg-background-card:active { background-color: #222 !important; }
+.dark .active\:bg-white:active { background-color: #303030 !important; }
+
+.dark .focus\:bg-background-secondary:focus { background-color: #282828 !important; }
+.dark .focus\:bg-white:focus { background-color: #282828 !important; }
+.dark .focus\:border-accent-primary:focus { border-color: #C1652E !important; }
+
+.dark .peer-checked\:bg-white:checked ~ * { background-color: #282828 !important; }
+.dark .peer-checked\:bg-white { background-color: #282828 !important; }
+
+/* Transitions : pas de flash — fond sombre stable */
+.dark * { transition-property: color, border-color, opacity, transform, box-shadow !important; }
+.dark button, .dark a, .dark [role="button"] {
+  transition-property: color, border-color, opacity, transform, box-shadow, background-color !important;
+  transition-duration: 150ms !important;
+  transition-timing-function: ease !important;
+}
+
 .home-hero { border-radius: 10px; }
 .hero-image { animation: hero-image-in 700ms var(--ease-out) both; }
 .hero-reveal { opacity: 0; animation: home-reveal 520ms var(--ease-out) forwards; }

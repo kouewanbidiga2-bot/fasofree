@@ -604,7 +604,7 @@ const OrderTracking = () => {
                       className={`max-w-[80%] px-3 py-2 rounded-lg ${
                         mine
                           ? 'ml-auto text-white'
-                          : 'bg-white border border-border-light text-text-primary'
+                          : 'bg-background-card border border-border-light text-text-primary'
                       }`}
                       style={mine ? { backgroundColor: '#C1652E' } : {}}
                     >

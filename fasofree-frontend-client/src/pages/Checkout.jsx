@@ -445,7 +445,7 @@ const Checkout = () => {
                         className="sr-only peer"
                         required
                       />
-                      <div className="relative flex min-h-[104px] flex-col justify-between rounded-md border border-border-light bg-background-secondary p-3 transition duration-200 hover:-translate-y-0.5 hover:border-border-medium hover:shadow-subtle peer-checked:border-accent-primary peer-checked:bg-white peer-focus-visible:ring-2 peer-focus-visible:ring-accent-primary peer-focus-visible:ring-offset-2">
+                      <div className="relative flex min-h-[104px] flex-col justify-between rounded-md border border-border-light bg-background-secondary p-3 transition duration-200 hover:-translate-y-0.5 hover:border-border-medium hover:shadow-subtle peer-checked:border-accent-primary peer-checked:bg-background-card peer-focus-visible:ring-2 peer-focus-visible:ring-accent-primary peer-focus-visible:ring-offset-2">
                         <div className="h-10 w-full">
                           <PaymentLogo method={method.id} />
                         </div>

@@ -84,7 +84,7 @@ const StoryStrip = () => {
                     : 'bg-[#d6cfc4]'
                 }`}
               >
-                <div className="w-full h-full rounded-full bg-[#fbf8f3] p-[2px] overflow-hidden">
+                <div className="w-full h-full rounded-full bg-background-primary p-[2px] overflow-hidden">
                   {group.businessImage ? (
                     <img
                       src={group.businessImage}

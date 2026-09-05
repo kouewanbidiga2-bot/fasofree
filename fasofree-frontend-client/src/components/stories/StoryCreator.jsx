@@ -82,10 +82,10 @@ const StoryCreator = ({ businessId, onClose, onCreated }) => {
 
   return (
     <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#e8e0d4]">
-          <h3 className="font-semibold text-[#29231e]">Nouvelle story</h3>
-          <button onClick={onClose} className="text-[#70645C] hover:text-[#29231e] p-1">
+      <div className="bg-background-card rounded-2xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-light">
+          <h3 className="font-semibold text-text-primary">Nouvelle story</h3>
+          <button onClick={onClose} className="text-text-secondary hover:text-text-primary p-1">
             <X size={20} />
           </button>
         </div>

@@ -47,7 +47,7 @@ export default function UserMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-full border border-border-light bg-white px-3 py-2 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+        className="flex items-center gap-2 rounded-full border border-border-light bg-background-card px-3 py-2 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
       >
         <span
           className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
@@ -61,7 +61,7 @@ export default function UserMenu() {
 
       {open && (
         <div
-          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border-light bg-white py-2 shadow-elevated"
+          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border-light bg-background-card py-2 shadow-elevated"
           style={{ animation: 'fadeIn 0.15s ease-out' }}
         >
           <div className="border-b border-border-light px-4 py-3">

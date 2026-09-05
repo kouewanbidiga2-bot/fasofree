@@ -26,7 +26,7 @@ const RestaurantCard = ({ restaurant, onClick }) => {
       onClick={onClick}
     >
       {/* Visuel carré style Pinterest : le logo seul, bord à bord, coins légèrement arrondis */}
-      <div className="relative w-full aspect-square bg-white border border-[#E9E0D5] overflow-hidden rounded-xl group-hover:border-[#C1652E]/60 transition-colors">
+      <div className="relative w-full aspect-square bg-background-card border border-border-light overflow-hidden rounded-xl group-hover:border-accent-primary/60 transition-colors">
         {!mainImageError ? (
           <img
             src={imageUrl}
