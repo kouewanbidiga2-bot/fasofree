@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
+import VoiceOrderButton from '../components/VoiceOrderButton';
 import useCartStore from '../store/cartStore';
+import { useVoiceOrder } from '../hooks/useVoiceOrder';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
@@ -39,6 +41,19 @@ const Restaurant = () => {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const { addItem, getTotalItems } = useCartStore();
+
+  const menu = restaurant?.menu || [];
+
+  const handleVoiceItemsMatched = useCallback((matched) => {
+    if (!restaurant) return;
+    matched.forEach(({ item, quantity }) => {
+      for (let i = 0; i < quantity; i++) {
+        addItem(item, restaurant.id);
+      }
+    });
+  }, [restaurant, addItem]);
+
+  const voiceOrder = useVoiceOrder(menu, handleVoiceItemsMatched);
 
   // Fetch user location for branch sorting
   useEffect(() => {
@@ -380,6 +395,17 @@ const Restaurant = () => {
           )}
         </div>
       </div>
+
+      {/* Voice Order Button */}
+      <VoiceOrderButton
+        isListening={voiceOrder.isListening}
+        transcript={voiceOrder.transcript}
+        results={voiceOrder.results}
+        supported={voiceOrder.supported}
+        error={voiceOrder.error}
+        onToggle={voiceOrder.toggleListening}
+        onDismiss={() => voiceOrder.stopListening()}
+      />
 
       {/* Floating Cart Button */}
       {getTotalItems() > 0 && (
