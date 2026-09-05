@@ -44,7 +44,9 @@ const Restaurant = () => {
 
   const menu = restaurant?.menu || [];
 
-  const handleVoiceItemsMatched = useCallback((matched) => {
+  const voiceOrder = useVoiceOrder(menu);
+
+  const handleVoiceAddResults = useCallback((matched) => {
     if (!restaurant) return;
     matched.forEach(({ item, quantity }) => {
       for (let i = 0; i < quantity; i++) {
@@ -52,8 +54,6 @@ const Restaurant = () => {
       }
     });
   }, [restaurant, addItem]);
-
-  const voiceOrder = useVoiceOrder(menu, handleVoiceItemsMatched);
 
   // Fetch user location for branch sorting
   useEffect(() => {
@@ -398,13 +398,16 @@ const Restaurant = () => {
 
       {/* Voice Order Button */}
       <VoiceOrderButton
-        isListening={voiceOrder.isListening}
+        phase={voiceOrder.phase}
         transcript={voiceOrder.transcript}
         results={voiceOrder.results}
         supported={voiceOrder.supported}
         error={voiceOrder.error}
-        onToggle={voiceOrder.toggleListening}
-        onDismiss={() => voiceOrder.stopListening()}
+        onStart={voiceOrder.startListening}
+        onStop={voiceOrder.stopListening}
+        onReset={voiceOrder.reset}
+        onRetry={voiceOrder.retry}
+        onAddResults={handleVoiceAddResults}
       />
 
       {/* Floating Cart Button */}
