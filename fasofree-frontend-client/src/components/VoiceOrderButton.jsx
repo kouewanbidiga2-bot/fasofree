@@ -29,7 +29,7 @@ const VoiceOrderButton = ({ isListening, transcript, results, supported, error, 
       {/* Floating mic button */}
       <button
         onClick={handleMicClick}
-        className={`fixed bottom-24 left-4 sm:left-6 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+        className={`fixed bottom-24 right-20 sm:right-24 z-50 w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
           isListening
             ? 'bg-red-500 animate-pulse scale-110'
             : 'bg-[#C1652E] hover:bg-[#a85522] active:scale-95'

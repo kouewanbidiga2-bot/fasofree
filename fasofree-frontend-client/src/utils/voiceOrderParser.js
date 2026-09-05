@@ -8,13 +8,54 @@ const FRENCH_NUMBERS = {
 const STOP_WORDS = new Set([
   'je', 'veux', 'voudrais', 'voudrait', 'aimerais', 'aimerait',
   'prends', 'prendre', 'prenons',
-  'des', 'de', 'du', 'le', 'la', 'les', 'un', 'une',
   'et', 'aussi', 'puis', 'ensuite', 'avec',
   "s'il vous plaît", 'svp', 'merci',
   "j'aimerais", "j'veux", "je prends",
-  'avec ça', 'voilà', "c'est tout", 'rien d\'autre',
+  'voilà', "c'est tout", "rien d'autre",
   'pour moi', 'pour nous',
 ]);
+
+const ALIASES = {
+  'bouaboua': 'bouye',
+  'bouye': 'bouye',
+  'boule': 'boule',
+  'thieb': 'thieboudienne',
+  'thieboudienne': 'thieboudienne',
+  'tieb': 'thieboudienne',
+  'poulet': 'poulet',
+  'braisé': 'braise',
+  'braise': 'braise',
+  'frites': 'frites',
+  'frit': 'frites',
+  'riz': 'riz',
+  'poisson': 'poisson',
+  'boeuf': 'boeuf',
+  'beuf': 'boeuf',
+  'mouton': 'mouton',
+  'jus': 'jus',
+  'bissap': 'bissap',
+  'bisap': 'bissap',
+  'gingembre': 'gingembre',
+  'dombou': 'dombou',
+  'hâtogo': 'hatogo',
+  'hatogo': 'hatogo',
+  'lait': 'lait',
+  'cafe': 'cafe',
+  'the': 'the',
+  'eau': 'eau',
+  'soda': 'soda',
+  'coca': 'coca',
+  'sprite': 'sprite',
+  'fanta': 'fanta',
+  'minute': 'minute',
+  'maidis': 'minute maid',
+  'chips': 'chips',
+  'salade': 'salade',
+  'sauce': 'sauce',
+  'arachide': 'arachide',
+  'tomate': 'tomate',
+  'oignon': 'oignon',
+};
 
 function normalize(text) {
   return text
@@ -58,6 +99,10 @@ function similarity(a, b) {
   return 1 - levenshtein(a, b) / maxLen;
 }
 
+function applyAlias(word) {
+  return ALIASES[word] || word;
+}
+
 function splitIntoChunks(text) {
   const normalized = normalize(text);
   const chunks = [];
@@ -74,16 +119,18 @@ function splitIntoChunks(text) {
     let foundQuantity = false;
 
     for (let i = 0; i < words.length; i++) {
-      if (STOP_WORDS.has(words[i])) continue;
+      const w = words[i];
 
-      const num = parseFrenchNumber(words[i]);
+      if (STOP_WORDS.has(w)) continue;
+
+      const num = parseFrenchNumber(w);
       if (num > 0 && !foundQuantity) {
         quantity = num;
         foundQuantity = true;
         continue;
       }
 
-      dishWords.push(words[i]);
+      dishWords.push(applyAlias(w));
     }
 
     if (dishWords.length > 0) {
@@ -98,6 +145,52 @@ function splitIntoChunks(text) {
   return chunks;
 }
 
+function itemMatchesChunk(dishWords, itemNameNorm, itemDescNorm) {
+  const itemNameWords = itemNameNorm.split(/\s+/);
+  const fullText = itemNameNorm + ' ' + itemDescNorm;
+
+  let matchedWords = 0;
+  for (const dw of dishWords) {
+    let wordMatched = false;
+    for (const nw of itemNameWords) {
+      if (
+        nw.includes(dw) || dw.includes(nw) ||
+        similarity(dw, nw) > 0.6
+      ) {
+        wordMatched = true;
+        break;
+      }
+    }
+    if (!wordMatched) {
+      // Check if the word appears anywhere in item name or description
+      if (fullText.includes(dw) || dw.length >= 4 && fullText.includes(dw.substring(0, Math.ceil(dw.length * 0.7)))) {
+        wordMatched = true;
+      }
+    }
+    if (wordMatched) matchedWords++;
+  }
+
+  const wordScore = dishWords.length > 0 ? matchedWords / dishWords.length : 0;
+
+  // Check if ANY dish word matches ANY menu item word
+  let anyMatch = false;
+  for (const dw of dishWords) {
+    for (const nw of itemNameWords) {
+      if (
+        nw.includes(dw) || dw.includes(nw) ||
+        similarity(dw, nw) > 0.55 ||
+        fullText.includes(dw)
+      ) {
+        anyMatch = true;
+        break;
+      }
+    }
+    if (anyMatch) break;
+  }
+
+  return { wordScore, anyMatch, matchedWords };
+}
+
 export function matchMenuItems(text, menuItems) {
   const chunks = splitIntoChunks(text);
   const results = [];
@@ -107,6 +200,7 @@ export function matchMenuItems(text, menuItems) {
     if (!chunk.dishText) continue;
 
     const dishNorm = normalize(chunk.dishText);
+    const dishWords = dishNorm.split(/\s+/);
     let bestMatch = null;
     let bestScore = 0;
 
@@ -116,41 +210,37 @@ export function matchMenuItems(text, menuItems) {
       const itemNameNorm = normalize(item.name);
       const itemDescNorm = normalize(item.description || '');
 
-      // Exact substring match
+      // Exact substring match — highest priority
       if (itemNameNorm.includes(dishNorm) || dishNorm.includes(itemNameNorm)) {
         bestMatch = item;
         bestScore = 1;
         break;
       }
 
-      // Word-level matching
-      const dishWords = dishNorm.split(/\s+/);
-      const nameWords = itemNameNorm.split(/\s+/);
-      let matchedWords = 0;
-      for (const dw of dishWords) {
-        for (const nw of nameWords) {
-          if (nw.includes(dw) || dw.includes(nw) || similarity(dw, nw) > 0.75) {
-            matchedWords++;
-            break;
-          }
-        }
-      }
-      const wordScore = dishWords.length > 0 ? matchedWords / dishWords.length : 0;
+      // Word-level + fuzzy matching
+      const { wordScore, anyMatch } = itemMatchesChunk(dishWords, itemNameNorm, itemDescNorm);
 
       // Fuzzy full-name match
       const fuzzyScore = similarity(dishNorm, itemNameNorm);
 
-      // Boost if dish words appear in description too
-      let descBoost = 0;
-      if (itemDescNorm) {
-        for (const dw of dishWords) {
-          if (itemDescNorm.includes(dw)) descBoost += 0.1;
+      // Partial match: check each dish word individually against item name
+      let partialHits = 0;
+      for (const dw of dishWords) {
+        if (itemNameNorm.includes(dw) || itemDescNorm.includes(dw)) {
+          partialHits++;
         }
       }
+      const partialScore = dishWords.length > 0 ? partialHits / dishWords.length : 0;
 
-      const score = Math.max(wordScore * 0.7 + descBoost, fuzzyScore * 0.6 + descBoost);
+      // Pick the best scoring method
+      const score = Math.max(
+        wordScore,
+        fuzzyScore,
+        partialScore,
+        anyMatch ? 0.5 : 0,
+      );
 
-      if (score > bestScore && score > 0.45) {
+      if (score > bestScore && score > 0.3) {
         bestScore = score;
         bestMatch = item;
       }
