@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn } from 'lucide-react';
+import { Search, MapPin, Bell, ShoppingBag, Package, Car, LogIn, User } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
 import StoryStrip from '../components/stories/StoryStrip';
-import UserMenu from '../components/UserMenu';
 import NotificationDropdown from '../components/NotificationDropdown';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
@@ -159,7 +158,14 @@ const Home = () => {
             {/* Boutons d'action */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
               {isAuthenticated ? (
-                <UserMenu />
+                <button
+                  type="button"
+                  aria-label="Profil"
+                  onClick={() => navigate('/profile')}
+                  className="rounded-lg border border-border-light bg-white p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                >
+                  <User size={17} strokeWidth={1.8} />
+                </button>
               ) : (
                 <button
                   type="button"
