@@ -24,6 +24,7 @@ const Profile = () => {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
+    address: '',
     preferredNotificationChannel: user?.preferredNotificationChannel || 'EMAIL',
   });
   const [notifOpen, setNotifOpen] = useState(false);
@@ -246,56 +247,6 @@ const Profile = () => {
             )}
           </div>
 
-          {/* Mobile Money Section */}
-          {showPaymentInfo && (
-            <div className="border border-border-light p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Smartphone size={16} className="text-accent-primary" strokeWidth={1.5} />
-                <h2 className="text-sm font-medium text-text-secondary">Informations de paiement</h2>
-              </div>
-              <p className="text-xs text-text-secondary mb-4">
-                Configurez votre numéro Mobile Money pour les retraits et dépôts d'argent.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">Numéro Mobile Money</label>
-                  <input
-                    type="tel"
-                    placeholder="+226 70 12 34 56"
-                    value={paymentData.mobileMoneyNumber}
-                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyNumber: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">Opérateur</label>
-                  <select
-                    value={paymentData.mobileMoneyProvider}
-                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyProvider: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  >
-                    <option value="">Sélectionner un opérateur</option>
-                    {MOBILE_MONEY_PROVIDERS.map((p) => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  onClick={handleSavePaymentInfo}
-                  disabled={paymentLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white transition-colors"
-                  style={{ backgroundColor: '#C1652E' }}
-                >
-                  {paymentLoading ? 'Enregistrement...' : paymentSaved ? (
-                    <><Check size={16} /> Enregistré</>
-                  ) : 'Enregistrer'}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Orders */}
           <div className="border border-border-light p-4">
             <div className="flex items-center gap-2 mb-6">
@@ -429,6 +380,56 @@ const Profile = () => {
               })}
             </div>
           </div>
+
+          {/* Mobile Money Section — appears right after the menu */}
+          {showPaymentInfo && (
+            <div className="border border-border-light p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Smartphone size={16} className="text-accent-primary" strokeWidth={1.5} />
+                <h2 className="text-sm font-medium text-text-secondary">Informations de paiement</h2>
+              </div>
+              <p className="text-xs text-text-secondary mb-4">
+                Configurez votre numero Mobile Money pour les retraits et depots d'argent.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Numero Mobile Money</label>
+                  <input
+                    type="tel"
+                    placeholder="+226 70 12 34 56"
+                    value={paymentData.mobileMoneyNumber}
+                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyNumber: e.target.value })}
+                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Operateur</label>
+                  <select
+                    value={paymentData.mobileMoneyProvider}
+                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyProvider: e.target.value })}
+                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
+                  >
+                    <option value="">Selectionner un operateur</option>
+                    {MOBILE_MONEY_PROVIDERS.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={handleSavePaymentInfo}
+                  disabled={paymentLoading}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white transition-colors"
+                  style={{ backgroundColor: '#C1652E' }}
+                >
+                  {paymentLoading ? 'Enregistrement...' : paymentSaved ? (
+                    <><Check size={16} /> Enregistre</>
+                  ) : 'Enregistrer'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="grid grid-cols-2 gap-3">
