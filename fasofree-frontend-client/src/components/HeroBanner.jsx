@@ -50,11 +50,11 @@ export default function HeroBanner() {
         ))}
       </div>
 
-      <div className="relative grid grid-cols-[1fr_auto] items-stretch min-h-[240px] sm:min-h-[300px]">
+      <div className="relative grid grid-cols-[1fr_auto] items-stretch min-h-[170px] sm:min-h-[240px]">
         {/* Left: text */}
-        <div className="relative z-10 flex flex-col justify-center px-5 py-8 sm:px-8 sm:py-12">
+        <div className="relative z-10 flex flex-col justify-center px-4 py-5 sm:px-8 sm:py-10">
           <div
-            className="flex items-center gap-2 mb-4"
+            className="flex items-center gap-2 mb-2"
             style={{
               opacity: loaded ? 1 : 0,
               transform: loaded ? 'none' : 'translateX(-12px)',
@@ -68,7 +68,7 @@ export default function HeroBanner() {
           </div>
 
           <h1
-            className="text-[28px] sm:text-[36px] lg:text-[44px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#29231E]"
+            className="text-[22px] sm:text-[32px] lg:text-[44px] font-extrabold leading-[1.05] tracking-[-0.03em] text-[#29231E]"
             style={{
               opacity: loaded ? 1 : 0,
               transform: loaded ? 'none' : 'translateY(16px)',
@@ -88,14 +88,14 @@ export default function HeroBanner() {
           </h1>
 
           <p
-            className="mt-4 text-[13px] sm:text-sm text-[#6B5A48] max-w-[280px] leading-relaxed"
+            className="mt-2 text-[12px] sm:text-sm text-[#6B5A48] max-w-[240px] leading-relaxed"
             style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.5s ease 0.3s' }}
           >
             Vos restaurants préférés, livrés chauds chez vous.
           </p>
 
           <div
-            className="mt-6"
+            className="mt-4"
             style={{
               opacity: loaded ? 1 : 0,
               transform: loaded ? 'none' : 'translateY(12px)',
@@ -110,7 +110,7 @@ export default function HeroBanner() {
               <ArrowRight size={15} className="hero-btn-arrow" />
             </a>
 
-            <div className="flex items-center gap-2 mt-4 text-[11px] font-bold text-[#8B7355]">
+            <div className="flex items-center gap-2 mt-2 text-[10px] font-bold text-[#8B7355]">
               <MapPin size={12} className="text-[#C1652E]" />
               25–40 min
             </div>
@@ -119,7 +119,7 @@ export default function HeroBanner() {
 
         {/* Right: food image */}
         <div
-          className="relative w-[140px] sm:w-[200px] lg:w-[260px] self-stretch overflow-hidden"
+          className="relative w-[110px] sm:w-[200px] lg:w-[260px] self-stretch overflow-hidden"
           style={{ opacity: loaded ? 1 : 0, transition: 'opacity 0.6s ease 0.15s' }}
         >
           <img ref={imgRef} src={bannerBg} alt="Plat FasoFree"
