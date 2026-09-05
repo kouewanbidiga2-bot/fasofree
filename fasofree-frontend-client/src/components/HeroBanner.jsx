@@ -107,23 +107,14 @@ export default function HeroBanner() {
               className="hero-btn group relative inline-flex items-center gap-2.5 px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#29231E] overflow-hidden"
               style={{
                 background: 'linear-gradient(135deg, #F5E6D0 0%, #EDD8BF 50%, #E5CBA8 100%)',
-                borderRadius: '999px',
+                borderRadius: '10px',
                 border: '1.5px solid #C1652E',
                 boxShadow: '0 2px 8px rgba(193,101,46,0.15), inset 0 1px 0 rgba(255,255,255,0.5)',
+                animation: 'btn-breathe 3s ease-in-out infinite',
               }}
             >
               <span className="relative z-10 flex items-center gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-[#C1652E] flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-                  <ArrowRight size={10} className="text-white -rotate-45" />
-                </span>
-                Explorer
-              </span>
-              <span
-                className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                style={{ background: 'linear-gradient(135deg, #C1652E 0%, #D4823A 100%)' }}
-              />
-              <span className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-2.5 px-5 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-white">
-                <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-[#C1652E] flex items-center justify-center">
                   <ArrowRight size={10} className="text-white -rotate-45" />
                 </span>
                 Explorer
