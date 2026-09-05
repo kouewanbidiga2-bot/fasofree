@@ -168,8 +168,7 @@ export class StoriesService {
     );
     await this.storyRepository.increment({ id: storyId }, 'likesCount', 1);
 
-    const updated = await this.storyRepository.findOne({ where: { id: storyId } });
-    return { liked: true, likesCount: updated!.likesCount };
+    return { liked: true, likesCount: story.likesCount + 1 };
   }
 
   async unlikeStory(storyId: string, userId: string): Promise<{ liked: boolean; likesCount: number }> {
@@ -187,8 +186,7 @@ export class StoriesService {
     await this.storyLikeRepository.remove(existing);
     await this.storyRepository.decrement({ id: storyId }, 'likesCount', 1);
 
-    const updated = await this.storyRepository.findOne({ where: { id: storyId } });
-    return { liked: false, likesCount: Math.max(0, updated!.likesCount) };
+    return { liked: false, likesCount: Math.max(0, story.likesCount - 1) };
   }
 
   async getStoryViewers(storyId: string, ownerId: string): Promise<any[]> {

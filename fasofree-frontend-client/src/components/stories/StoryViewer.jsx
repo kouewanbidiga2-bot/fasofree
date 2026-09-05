@@ -83,23 +83,17 @@ const StoryViewer = ({ stories, initialIndex, onClose }) => {
     const isCurrentlyLiked = likedStates[currentStory.id];
 
     setLikedStates((prev) => ({ ...prev, [currentStory.id]: !isCurrentlyLiked }));
-    setLikesCounts((prev) => ({
-      ...prev,
-      [currentStory.id]: Math.max(0, (prev[currentStory.id] || 0) + (isCurrentlyLiked ? -1 : 1)),
-    }));
 
     try {
       if (isCurrentlyLiked) {
-        await api.unlikeStory(currentStory.id);
+        const res = await api.unlikeStory(currentStory.id);
+        setLikesCounts((prev) => ({ ...prev, [currentStory.id]: res.data.likesCount }));
       } else {
-        await api.likeStory(currentStory.id);
+        const res = await api.likeStory(currentStory.id);
+        setLikesCounts((prev) => ({ ...prev, [currentStory.id]: res.data.likesCount }));
       }
     } catch {
       setLikedStates((prev) => ({ ...prev, [currentStory.id]: isCurrentlyLiked }));
-      setLikesCounts((prev) => ({
-        ...prev,
-        [currentStory.id]: (prev[currentStory.id] || 0) + (isCurrentlyLiked ? 1 : -1),
-      }));
     }
   };
 
@@ -179,36 +173,35 @@ const StoryViewer = ({ stories, initialIndex, onClose }) => {
 
         {/* Bottom bar: likes (all) + views (merchants only) + timer */}
         <div className="absolute bottom-6 left-0 right-0 z-20 flex items-center justify-between px-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {/* Like button (all users) */}
             <button
               onClick={handleLike}
-              className="flex items-center gap-1.5 text-white/80 hover:text-white transition-colors"
+              className="flex items-center gap-2 bg-black/50 hover:bg-black/70 rounded-full px-4 py-2 transition-all border border-white/20 hover:border-white/40"
             >
               <Heart
-                size={18}
-                className={likedStates[currentStory.id] ? 'fill-red-500 text-red-500' : ''}
+                size={22}
+                className={likedStates[currentStory.id] ? 'fill-red-500 text-red-400' : 'text-white'}
               />
-              <span className="text-xs">{likesCounts[currentStory.id] || 0}</span>
+              <span className={`text-sm font-semibold ${likedStates[currentStory.id] ? 'text-red-400' : 'text-white'}`}>
+                {likesCounts[currentStory.id] || 0}
+              </span>
             </button>
 
             {/* View count (merchants only) */}
             {isMerchant && (
-              <div className="flex items-center gap-1.5 text-white/60 text-xs">
-                <Eye size={14} />
-                <span>{currentStory.viewsCount || 0}</span>
+              <div className="flex items-center gap-2 bg-black/50 hover:bg-black/70 rounded-full px-4 py-2 transition-all border border-white/20">
+                <Eye size={18} className="text-white" />
+                <span className="text-sm font-semibold text-white">{currentStory.viewsCount || 0} vues</span>
               </div>
             )}
           </div>
 
           {/* Time remaining */}
-          <div className="flex items-center gap-1.5 text-white/50 text-xs">
-            <Clock size={12} />
-            <span>
-              {Math.max(
-                0,
-                Math.round((new Date(currentStory.expiresAt) - Date.now()) / 3600000)
-              )}h
+          <div className="flex items-center gap-1.5 bg-black/50 rounded-full px-3 py-2 border border-white/20">
+            <Clock size={14} className="text-white/80" />
+            <span className="text-xs text-white/80">
+              {Math.max(0, Math.round((new Date(currentStory.expiresAt) - Date.now()) / 3600000))}h
             </span>
           </div>
         </div>
