@@ -3,21 +3,23 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Home, Search, ShoppingCart, ClipboardList, User } from 'lucide-react';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
-
-const tabs = [
-  { key: 'home', label: 'Accueil', icon: Home, path: '/' },
-  { key: 'search', label: 'Rechercher', icon: Search, path: '/search' },
-  { key: 'cart', label: 'Panier', icon: ShoppingCart, path: '/cart' },
-  { key: 'orders', label: 'Commandes', icon: ClipboardList, path: '/order-history' },
-  { key: 'profile', label: 'Profil', icon: User, path: '/profile' },
-];
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuthStore();
+  const { t } = useLanguage();
   const cartItems = useCartStore((s) => s.items);
   const cartCount = cartItems.reduce((n, i) => n + (i.quantity || 1), 0);
+
+  const tabs = [
+    { key: 'home', label: t('home'), icon: Home, path: '/' },
+    { key: 'search', label: t('search'), icon: Search, path: '/search' },
+    { key: 'cart', label: t('cart'), icon: ShoppingCart, path: '/cart' },
+    { key: 'orders', label: t('orders'), icon: ClipboardList, path: '/order-history' },
+    { key: 'profile', label: t('profile'), icon: User, path: '/profile' },
+  ];
 
   const currentPath = location.pathname;
 

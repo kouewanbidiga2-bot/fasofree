@@ -8,6 +8,7 @@ import LoyaltyWidget from '../components/loyalty/LoyaltyWidget';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl } from '../utils/images';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const MOBILE_MONEY_PROVIDERS = [
   { value: 'ORANGE_MONEY', label: 'Orange Money' },
@@ -18,6 +19,7 @@ const MOBILE_MONEY_PROVIDERS = [
 const Profile = () => {
   const navigate = useNavigate();
   const { user, orders, receipts, logout, updateUser } = useAuthStore();
+  const { t } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -88,12 +90,12 @@ const Profile = () => {
   }, []);
 
   const menuItems = [
-    { icon: Crown, label: 'FasoFree Pass VIP', action: () => navigate('/vip-pass'), highlight: user?.isPremium },
-    { icon: MapPin, label: 'Adresses de livraison', action: () => navigate('/addresses') },
-    { icon: CreditCard, label: 'Informations de paiement', action: () => setShowPaymentInfo(!showPaymentInfo) },
-    { icon: Bell, label: 'Notifications', action: () => setNotifOpen(true) },
-    { icon: Settings, label: 'Paramètres', action: () => navigate('/settings') },
-    { icon: LogOut, label: 'Déconnexion', action: handleLogout, variant: 'danger' },
+    { icon: Crown, label: t('vipPass'), action: () => navigate('/vip-pass'), highlight: user?.isPremium },
+    { icon: MapPin, label: t('addresses'), action: () => navigate('/addresses') },
+    { icon: CreditCard, label: t('paymentInfo'), action: () => setShowPaymentInfo(!showPaymentInfo) },
+    { icon: Bell, label: t('notifications'), action: () => setNotifOpen(true) },
+    { icon: Settings, label: t('settings'), action: () => navigate('/settings') },
+    { icon: LogOut, label: t('logout'), action: handleLogout, variant: 'danger' },
   ];
 
   const handleSave = async () => {
@@ -145,7 +147,7 @@ const Profile = () => {
             >
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">Mon Profil</h1>
+            <h1 className="text-lg font-display font-bold text-text-primary">{t('myProfile')}</h1>
           </div>
         </div>
       </header>
@@ -175,14 +177,14 @@ const Profile = () => {
                 onClick={() => setIsEditing(!isEditing)}
                 className="text-xs text-text-secondary hover:text-text-primary transition-colors"
               >
-                {isEditing ? 'Annuler' : 'Modifier'}
+                {isEditing ? t('cancel') : t('edit')}
               </button>
             </div>
 
             {isEditing ? (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Nom complet</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('fullName')}</label>
                   <input
                     type="text"
                     value={formData.name}
@@ -191,7 +193,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Email</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('email')}</label>
                   <input
                     type="email"
                     value={formData.email}
@@ -200,7 +202,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Téléphone</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('phone')}</label>
                   <input
                     type="text"
                     value={formData.phone}
@@ -209,7 +211,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Adresse</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('address')}</label>
                   <input
                     type="text"
                     value={formData.address}
@@ -218,7 +220,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Canal de notification préféré</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('notificationChannel')}</label>
                   <select
                     value={formData.preferredNotificationChannel}
                     onChange={(e) => setFormData({ ...formData, preferredNotificationChannel: e.target.value })}
@@ -230,7 +232,7 @@ const Profile = () => {
                   </select>
                 </div>
                 <button onClick={handleSave} className="w-full px-4 py-3 text-sm font-medium text-white transition-colors" style={{ backgroundColor: '#C1652E' }} disabled={loading}>
-                  {loading ? 'Enregistrement…' : 'Enregistrer'}
+                  {loading ? t('saving') : t('save')}
                 </button>
               </div>
             ) : (
@@ -251,7 +253,7 @@ const Profile = () => {
           <div className="border border-border-light p-4">
             <div className="flex items-center gap-2 mb-6">
               <Package size={16} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">Mes commandes</h2>
+              <h2 className="text-sm font-medium text-text-secondary">{t('myOrders')}</h2>
             </div>
 
             {orders.length > 0 ? (
@@ -275,7 +277,7 @@ const Profile = () => {
             ) : (
               <div className="text-center py-8">
                 <Package size={32} className="mx-auto text-text-secondary mb-4" strokeWidth={1.5} />
-                <p className="text-text-secondary text-sm">Aucune commande pour le moment</p>
+                <p className="text-text-secondary text-sm">{t('noOrders')}</p>
               </div>
             )}
           </div>
@@ -284,7 +286,7 @@ const Profile = () => {
           <div className="border border-border-light p-4">
             <div className="flex items-center gap-2 mb-6">
               <ReceiptIcon size={16} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">Mes reçus</h2>
+              <h2 className="text-sm font-medium text-text-secondary">{t('myReceipts')}</h2>
             </div>
 
             {receipts.length > 0 ? (
@@ -308,7 +310,7 @@ const Profile = () => {
             ) : (
               <div className="text-center py-8">
                 <ReceiptIcon size={32} className="mx-auto text-text-secondary mb-4" strokeWidth={1.5} />
-                <p className="text-text-secondary text-sm">Aucun reçu pour le moment</p>
+                <p className="text-text-secondary text-sm">{t('noReceipts')}</p>
               </div>
             )}
           </div>
@@ -317,7 +319,7 @@ const Profile = () => {
           <div className="border border-border-light p-4">
             <div className="flex items-center gap-2 mb-6">
               <Heart size={20} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">Favoris</h2>
+              <h2 className="text-sm font-medium text-text-secondary">{t('favorites')}</h2>
             </div>
 
             {favoriteItems.length > 0 ? (
@@ -340,8 +342,8 @@ const Profile = () => {
             ) : (
               <div className="text-center py-8">
                 <Heart size={48} className="mx-auto text-text-secondary mb-4" strokeWidth={1} />
-                <p className="text-text-secondary text-sm">Aucun favori pour le moment</p>
-                <p className="text-text-tertiary text-xs mt-1">Ajoutez des restaurants en cliquant sur le cœur</p>
+                <p className="text-text-secondary text-sm">{t('noFavorites')}</p>
+                <p className="text-text-tertiary text-xs mt-1">{t('addFavoritesHint')}</p>
               </div>
             )}
           </div>
@@ -386,15 +388,15 @@ const Profile = () => {
             <div className="border border-border-light p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Smartphone size={16} className="text-accent-primary" strokeWidth={1.5} />
-                <h2 className="text-sm font-medium text-text-secondary">Informations de paiement</h2>
+                <h2 className="text-sm font-medium text-text-secondary">{t('paymentInfo')}</h2>
               </div>
               <p className="text-xs text-text-secondary mb-4">
-                Configurez votre numero Mobile Money pour les retraits et depots d'argent.
+                {t('paymentInfoDesc')}
               </p>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Numero Mobile Money</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('mobileMoneyNumber')}</label>
                   <input
                     type="tel"
                     placeholder="+226 70 12 34 56"
@@ -404,13 +406,13 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-text-secondary mb-2">Operateur</label>
+                  <label className="block text-xs text-text-secondary mb-2">{t('operator')}</label>
                   <select
                     value={paymentData.mobileMoneyProvider}
                     onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyProvider: e.target.value })}
                     className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
                   >
-                    <option value="">Selectionner un operateur</option>
+                    <option value="">{t('selectOperator')}</option>
                     {MOBILE_MONEY_PROVIDERS.map((p) => (
                       <option key={p.value} value={p.value}>{p.label}</option>
                     ))}
@@ -423,9 +425,9 @@ const Profile = () => {
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white transition-colors"
                   style={{ backgroundColor: '#C1652E' }}
                 >
-                  {paymentLoading ? 'Enregistrement...' : paymentSaved ? (
-                    <><Check size={16} /> Enregistre</>
-                  ) : 'Enregistrer'}
+                  {paymentLoading ? t('saving') : paymentSaved ? (
+                    <><Check size={16} /> {t('saved')}</>
+                  ) : t('save')}
                 </button>
               </div>
             </div>
@@ -437,13 +439,13 @@ const Profile = () => {
               onClick={() => navigate('/order-history')}
               className="px-4 py-3 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
             >
-              Mes commandes
+              {t('myOrders')}
             </button>
             <button
               onClick={() => navigate('/')}
               className="px-4 py-3 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
             >
-              Commander
+              {t('orderNow')}
             </button>
           </div>
         </div>

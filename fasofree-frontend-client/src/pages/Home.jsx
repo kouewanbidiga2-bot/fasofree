@@ -10,6 +10,7 @@ import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const mapBusinessToRestaurant = (b) => {
   const category = b.category || 'Fast Food';
@@ -50,6 +51,7 @@ const mapBusinessToRestaurant = (b) => {
 const Home = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [allRestaurants, setAllRestaurants] = useState([]);
@@ -115,7 +117,7 @@ const Home = () => {
           <div className="flex items-center justify-between gap-4">
             
             {/* Logo & Localisation */}
-            <button type="button" className="flex items-center gap-2 sm:gap-3 text-left min-w-0 flex-1 md:flex-none" onClick={() => navigate('/')} aria-label="Retour à l'accueil">
+            <button type="button" className="flex items-center gap-2 sm:gap-3 text-left min-w-0 flex-1 md:flex-none" onClick={() => navigate('/')} aria-label={t('homeAria')}>
               <svg
                 className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex-shrink-0"
                 viewBox="0 0 140 140"
@@ -131,7 +133,7 @@ const Home = () => {
                 <circle cx="70" cy="70" r="3" fill="#B95B2B" opacity="0.2"/>
               </svg>
               <div className="flex flex-col min-w-0">
-                <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">Livraison à</span>
+                <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">{t('deliveryTo')}</span>
                 <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold truncate">
                   Ouagadougou, Zone du Bois
                 </p>
@@ -144,7 +146,7 @@ const Home = () => {
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
                 <input
                   type="text"
-                  placeholder="Rechercher un plat, un restaurant..."
+                  placeholder={t('searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
@@ -157,7 +159,7 @@ const Home = () => {
               {isAuthenticated ? (
                 <button
                   type="button"
-                  aria-label="Profil"
+                  aria-label={t('profileAria')}
                   onClick={() => navigate('/profile')}
                   className="rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
                 >
@@ -166,16 +168,16 @@ const Home = () => {
               ) : (
                 <button
                   type="button"
-                  aria-label="Se connecter"
+                  aria-label={t('loginAria')}
                   onClick={() => navigate('/auth')}
                   className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-background-card px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
                 >
                   <LogIn size={16} strokeWidth={1.8} />
-                  <span className="hidden sm:inline">Connexion</span>
+                  <span className="hidden sm:inline">{t('login')}</span>
                 </button>
               )}
               <button
-                aria-label="Notifications"
+                aria-label={t('notificationsAria')}
                 onClick={() => setNotifOpen(true)}
                 className="relative rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
               >
@@ -203,7 +205,7 @@ const Home = () => {
                       : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
                   }`}
                 >
-                  {category === 'all' ? 'Tous les restaurants' : category}
+                  {category === 'all' ? t('allRestaurants') : category}
                 </button>
               );
             })}
@@ -215,7 +217,7 @@ const Home = () => {
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
               <input
                 type="text"
-                placeholder="Rechercher un plat, un restaurant..."
+                placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
                 className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
@@ -240,7 +242,7 @@ const Home = () => {
         <div className="mb-9 flex flex-wrap items-end justify-between gap-6">
           <div>
             <h2 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-4 ml-1">
-              Tous les restaurants
+              {t('allRestaurants')}
             </h2>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -259,7 +261,7 @@ const Home = () => {
               className="inline-flex items-center gap-2 bg-[#D17843] hover:bg-[#B95B2B] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <Package size={16} strokeWidth={2} />
-              Envoyer un colis
+              {t('sendPackage')}
             </button>
           </div>
         </div>
@@ -276,7 +278,7 @@ const Home = () => {
 
         {filteredRestaurants.length === 0 && (
           <div className="app-panel rounded-lg text-center py-16">
-            <p className="text-[#70645C] text-sm font-medium mb-3">Aucun restaurant ne correspond à votre recherche</p>
+            <p className="text-[#70645C] text-sm font-medium mb-3">{t('noResults')}</p>
             <button
               className="app-action mt-3"
               onClick={() => {
@@ -284,7 +286,7 @@ const Home = () => {
                 setSelectedCategory('all');
               }}
             >
-              Réinitialiser les filtres
+              {t('resetFilters')}
             </button>
           </div>
         )}

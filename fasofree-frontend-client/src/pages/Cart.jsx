@@ -7,11 +7,13 @@ import useCartStore from '../store/cartStore';
 import api from '../services/api';
 import { getCartSubtotal } from '../services/pricingService';
 import ImageWithFallback from '../components/ImageWithFallback';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const PLATFORM_FEE = 100;
 
 const Cart = () => {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { items, restaurantId, updateQuantity, removeItem, clearCart } = useCartStore();
   const [restaurant, setRestaurant] = useState(null);
   const subtotal = getCartSubtotal(items);
@@ -30,10 +32,10 @@ const Cart = () => {
       <div className="app-page flex flex-col items-center justify-center p-4">
         <div className="app-panel rounded-xl p-8 text-center">
           <ShoppingBag size={48} className="mx-auto text-text-secondary mb-4" strokeWidth={1.5} />
-          <h2 className="text-lg font-display font-medium text-text-primary mb-2">Votre panier est vide</h2>
-          <p className="text-text-secondary text-sm mb-6">Ajoutez des plats pour commencer</p>
+          <h2 className="text-lg font-display font-medium text-text-primary mb-2">{t('emptyCart')}</h2>
+          <p className="text-text-secondary text-sm mb-6">{t('addItems')}</p>
           <button onClick={() => navigate('/')} className="app-action">
-            Explorer les restaurants
+            {t('exploreRestaurants')}
           </button>
         </div>
       </div>
@@ -52,7 +54,7 @@ const Cart = () => {
             >
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">Mon Panier</h1>
+            <h1 className="text-lg font-display font-bold text-text-primary">{t('myCart')}</h1>
           </div>
         </div>
       </header>
@@ -127,32 +129,32 @@ const Cart = () => {
               onClick={() => clearCart()}
               className="mt-4 text-sm text-text-secondary hover:text-text-primary transition-colors"
             >
-              Vider le panier
+              {t('clearCart')}
             </button>
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="app-panel sticky top-24 rounded-lg p-5">
-              <h2 className="text-sm font-medium text-text-secondary mb-6">Récapitulatif</h2>
+              <h2 className="text-sm font-medium text-text-secondary mb-6">{t('summary')}</h2>
 
               <div className="space-y-3">
                 <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Sous-total</span>
+                  <span>{t('subtotal')}</span>
                   <span className="font-mono text-text-primary">{subtotal.toLocaleString()} FCFA</span>
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Frais de livraison</span>
+                  <span>{t('deliveryFee')}</span>
                   <span className="text-text-secondary italic text-xs">
-                    Calculés à l'étape suivante
+                    {t('calculatedNext')}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-text-secondary">
-                  <span>Frais de service</span>
+                  <span>{t('serviceFee')}</span>
                   <span className="font-mono text-text-primary">{PLATFORM_FEE.toLocaleString()} FCFA</span>
                 </div>
                 <div className="border-t border-border-light pt-3 flex justify-between text-base font-medium text-text-primary">
-                  <span>Total estimé</span>
+                  <span>{t('estimatedTotal')}</span>
                   <span className="font-mono text-text-primary">
                     {`À partir de ${(subtotal + PLATFORM_FEE).toLocaleString()} FCFA`}
                   </span>
@@ -162,7 +164,7 @@ const Cart = () => {
               {restaurant && subtotal < restaurant.minOrder && (
                 <div className="mt-4 rounded-md border border-warning/30 bg-warning/10 p-3">
                   <p className="text-xs text-warning">
-                    Minimum de commande: {restaurant.minOrder.toLocaleString()} FCFA
+                    {t('minimumOrder')}: {restaurant.minOrder.toLocaleString()} FCFA
                   </p>
                 </div>
               )}
@@ -172,11 +174,11 @@ const Cart = () => {
                 disabled={restaurant && subtotal < restaurant.minOrder}
                 className="app-action w-full mt-6"
               >
-                Passer la commande
+                {t('placeOrder')}
               </button>
 
               <p className="text-xs text-text-secondary text-center mt-4">
-                Paiement sécurisé avec Orange Money, Moov Money & Wave
+                {t('securePayment')}
               </p>
             </div>
           </div>

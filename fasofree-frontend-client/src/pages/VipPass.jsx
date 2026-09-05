@@ -4,10 +4,12 @@ import { ArrowLeft, Crown, Wallet, Check, RefreshCw, Zap } from 'lucide-react';
 import Footer from '../components/Footer';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const VipPass = () => {
   const navigate = useNavigate();
   const { user, setPremium } = useAuthStore();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [plans, setPlans] = useState([]);
@@ -103,7 +105,7 @@ const VipPass = () => {
             >
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">FasoFree Pass VIP</h1>
+            <h1 className="text-lg font-display font-bold text-text-primary">{t('vipPass')}</h1>
           </div>
         </div>
       </header>
@@ -122,21 +124,18 @@ const VipPass = () => {
               <div className="flex items-center gap-2 mb-3">
                 <Crown size={22} className="text-amber-300" fill="#FCD34D" />
                 <span className="text-xs font-bold uppercase tracking-widest text-amber-200">
-                  {isPremium ? 'Membre actif' : 'Avantage exclusif'}
+                  {isPremium ? t('activeMember') : t('exclusiveAdvantage')}
                 </span>
               </div>
               <h2 className="text-2xl font-bold mb-2">
-                {isPremium ? 'Frais de plateforme offerts' : 'Passez au FasoFree Pass VIP'}
+                {isPremium ? t('platformFeesFree') : t('switchToVip')}
               </h2>
               <p className="text-sm text-orange-100 mb-4 max-w-md">
-                Pendant toute la durée de votre abonnement, les frais de service /
-                plateforme de {loading ? '…' : '100 FCFA'} par commande sont
-                entièrement offerts. La livraison reste calculée selon la distance
-                (min. 800 FCFA).
+                {t('vipDesc', { fee: loading ? '…' : '100 FCFA' })}
               </p>
               <div className="flex flex-wrap gap-3 text-xs">
-                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ 100 FCFA offerts / commande</span>
-                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ Sans engagement</span>
+                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ {t('feePerOrder')}</span>
+                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ {t('noCommitment')}</span>
               </div>
             </div>
           </div>
@@ -146,7 +145,7 @@ const VipPass = () => {
             <div className="border border-border-light p-4">
               <div className="flex items-center gap-3 mb-2">
                 <Wallet size={16} className="text-accent-primary" strokeWidth={1.5} />
-                <h3 className="text-sm font-medium text-text-primary">Portefeuille FasoFree</h3>
+                <h3 className="text-sm font-medium text-text-primary">{t('fasoFreeWallet')}</h3>
               </div>
               <p className="text-2xl font-mono font-bold text-text-primary mb-3">
                 {(wallet?.balance ?? 0).toLocaleString('fr-FR')} FCFA
@@ -157,11 +156,11 @@ const VipPass = () => {
                   className="px-3 py-2 text-xs font-medium text-white rounded transition-colors"
                   style={{ backgroundColor: '#C1652E' }}
                 >
-                  Recharger
+                  {t('recharge')}
                 </button>
                 <button onClick={loadData} className="px-3 py-2 text-xs font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors">
                   <RefreshCw size={12} className="inline mr-1" />
-                  Actualiser
+                  {t('refresh')}
                 </button>
               </div>
             </div>
@@ -169,19 +168,19 @@ const VipPass = () => {
             <div className="border border-border-light p-4">
               <div className="flex items-center gap-3 mb-2">
                 <Crown size={16} className="text-amber-500" strokeWidth={1.5} />
-                <h3 className="text-sm font-medium text-text-primary">Mon statut</h3>
+                <h3 className="text-sm font-medium text-text-primary">{t('myStatus')}</h3>
               </div>
               {loading ? (
                 <p className="text-sm text-text-secondary">Chargement…</p>
               ) : isPremium ? (
                 <div>
-                  <p className="text-sm text-status-success font-semibold">Abonné {vipStatus?.planCode || 'VIP'} actif</p>
+                  <p className="text-sm text-status-success font-semibold">{t('activeSub', { plan: vipStatus?.planCode || 'VIP' })}</p>
                   <p className="text-xs text-text-secondary mt-1">
-                    Expire le {vipStatus?.expiresAt ? new Date(vipStatus.expiresAt).toLocaleDateString('fr-FR') : '—'}
+                    {t('expiresOn', { date: vipStatus?.expiresAt ? new Date(vipStatus.expiresAt).toLocaleDateString('fr-FR') : '—' })}
                   </p>
                 </div>
               ) : (
-                <p className="text-sm text-text-secondary">Vous n'êtes pas encore abonné au Pass VIP.</p>
+                <p className="text-sm text-text-secondary">{t('notSubscribed')}</p>
               )}
             </div>
           </div>
@@ -190,8 +189,8 @@ const VipPass = () => {
           {topupOpen && (
             <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setTopupOpen(false)}>
               <div className="bg-white rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-                <h3 className="font-bold text-gray-800 mb-4">Recharger le portefeuille</h3>
-                <label className="block text-sm text-gray-600 mb-2">Montant (FCFA)</label>
+                <h3 className="font-bold text-gray-800 mb-4">{t('rechargeWallet')}</h3>
+                <label className="block text-sm text-gray-600 mb-2">{t('amountFcfa')}</label>
                 <input
                   type="number"
                   min={100}
@@ -200,14 +199,14 @@ const VipPass = () => {
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-orange-400 mb-4"
                 />
                 <div className="flex gap-2 justify-end">
-                  <button onClick={() => setTopupOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+                  <button onClick={() => setTopupOpen(false)} className="px-4 py-2 text-sm text-gray-600">{t('cancel')}</button>
                   <button
                     onClick={handleTopup}
                     disabled={topupBusy || Number(topupAmount) < 100}
                     className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50"
                     style={{ backgroundColor: '#C1652E' }}
                   >
-                    {topupBusy ? 'Recharge…' : 'Recharger'}
+                    {topupBusy ? t('recharging') : t('recharge')}
                   </button>
                 </div>
               </div>
@@ -217,9 +216,9 @@ const VipPass = () => {
           {/* Offres VIP */}
           {!isPremium && (
             <div>
-              <h3 className="text-base font-bold text-text-primary mb-4">Choisissez votre offre</h3>
+              <h3 className="text-base font-bold text-text-primary mb-4">{t('chooseOffer')}</h3>
               {loading ? (
-                <div className="text-sm text-text-secondary">Chargement des offres…</div>
+                <div className="text-sm text-text-secondary">{t('loadingOffers')}</div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {plans.map(plan => (
@@ -235,10 +234,10 @@ const VipPass = () => {
                       <p className="text-sm text-text-secondary flex-1 mb-4">{plan.description}</p>
                       <div className="space-y-2 text-sm text-text-primary mb-6">
                         <p className="flex items-center gap-2">
-                          <Check size={14} className="text-status-success" /> Frais de plateforme offerts
+                          <Check size={14} className="text-status-success" /> {t('platformFeesFree')}
                         </p>
                         <p className="flex items-center gap-2">
-                          <Check size={14} className="text-status-success" /> Renouvellement automatique
+                          <Check size={14} className="text-status-success" /> {t('autoRenew')}
                         </p>
                       </div>
                       <button
@@ -247,7 +246,7 @@ const VipPass = () => {
                         className="w-full px-4 py-3 text-sm font-medium text-white rounded-lg transition-all disabled:opacity-50"
                         style={{ backgroundColor: '#C1652E' }}
                       >
-                        {subscribing ? 'Abonnement…' : `S'abonner pour ${(plan.priceFcfa ?? 0).toLocaleString('fr-FR')} FCFA`}
+                        {subscribing ? t('subscribing') : t('subscribeFor', { price: (plan.priceFcfa ?? 0).toLocaleString('fr-FR') })}
                       </button>
                     </div>
                   ))}
@@ -259,16 +258,16 @@ const VipPass = () => {
           {isPremium && !loading && (
             <div className="border border-border-light p-6 text-center">
               <Crown size={40} className="mx-auto text-amber-500 mb-3" fill="#FCD34D" strokeWidth={1} />
-              <p className="font-bold text-text-primary mb-1">Vous profitez déjà du Pass VIP</p>
+              <p className="font-bold text-text-primary mb-1">{t('alreadyVip')}</p>
               <p className="text-sm text-text-secondary mb-4">
-                Vos commandes ne paient plus les 100 FCFA de frais de plateforme.
+                {t('vipActiveDesc')}
               </p>
               <button
                 onClick={() => navigate('/')}
                 className="px-4 py-3 text-sm font-medium text-white rounded-lg"
                 style={{ backgroundColor: '#C1652E' }}
               >
-                Commander
+                {t('orderNow')}
               </button>
             </div>
           )}

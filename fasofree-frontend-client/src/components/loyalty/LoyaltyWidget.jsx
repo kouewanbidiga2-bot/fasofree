@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Gift, Users, Copy, Check, Star, TrendingUp } from 'lucide-react';
 import { api } from '../../services/api';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const LoyaltyWidget = () => {
+  const { t } = useLanguage();
   const [balance, setBalance] = useState(null);
   const [referralStats, setReferralStats] = useState(null);
   const [referralCode, setReferralCode] = useState('');
@@ -59,9 +61,9 @@ const LoyaltyWidget = () => {
       <div className="bg-gradient-to-br from-[#C1652E] to-[#a85522] rounded-2xl p-5 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-white/70 text-xs font-medium uppercase tracking-wider">Mes points</p>
+            <p className="text-white/70 text-xs font-medium uppercase tracking-wider">{t('myPoints')}</p>
             <p className="text-3xl font-bold mt-1">{balance ?? 0}</p>
-            <p className="text-white/60 text-xs mt-1">1 point / 100 FCFA depenses</p>
+            <p className="text-white/60 text-xs mt-1">{t('pointsPerSpent')}</p>
           </div>
           <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
             <Star size={24} className="text-white" />
@@ -69,7 +71,7 @@ const LoyaltyWidget = () => {
         </div>
         <div className="mt-4 pt-3 border-t border-white/20">
           <p className="text-white/60 text-xs">
-            equivalents: {Math.floor((balance ?? 0) / 100)} 000 FCFA de reduction
+            {t('equivalentReduction', { amount: Math.floor((balance ?? 0) / 100) })}
           </p>
         </div>
       </div>
@@ -81,9 +83,9 @@ const LoyaltyWidget = () => {
             <Users size={18} className="text-accent-primary" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-text-primary">Parrainer un ami</h3>
+            <h3 className="text-sm font-semibold text-text-primary">{t('referFriend')}</h3>
             <p className="text-xs text-text-secondary">
-              {referralStats?.completedReferrals || 0} ami(s) inscrit(s)
+              {t('friendsRegistered', { count: referralStats?.completedReferrals || 0 })}
             </p>
           </div>
         </div>
@@ -105,17 +107,17 @@ const LoyaltyWidget = () => {
         <div className="grid grid-cols-2 gap-3 mt-3">
           <div className="bg-background-secondary rounded-lg p-3 text-center">
             <p className="text-lg font-bold text-accent-primary">{referralStats?.totalReferred || 0}</p>
-            <p className="text-[10px] text-text-secondary font-medium">Parraines</p>
+            <p className="text-[10px] text-text-secondary font-medium">{t('referred')}</p>
           </div>
           <div className="bg-background-secondary rounded-lg p-3 text-center">
             <p className="text-lg font-bold text-accent-primary">{referralStats?.pendingBonus || 0}</p>
-            <p className="text-[10px] text-text-secondary font-medium">Points en attente</p>
+            <p className="text-[10px] text-text-secondary font-medium">{t('pendingPoints')}</p>
           </div>
         </div>
 
         <div className="mt-3 flex items-center gap-2 text-xs text-[#70645C]">
           <Gift size={14} className="text-[#C1652E]" />
-          <span>Parrain: +500 pts | Filleul: +200 pts au 1er achat</span>
+          <span>{t('referrerBonus')}</span>
         </div>
       </div>
     </div>
