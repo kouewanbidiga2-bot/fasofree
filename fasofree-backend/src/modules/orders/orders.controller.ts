@@ -155,6 +155,19 @@ export class OrdersController {
     return this.ordersService.findAllByBusinesses(businessIds);
   }
 
+  // 🎯 Liste des livreurs disponibles (pour assignation manuelle)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
+  @Get('available-drivers')
+  @ApiOperation({
+    summary:
+      'Liste des livreurs/coursiers actifs',
+  })
+  @ApiResponse({ status: 200, description: 'Liste des livreurs' })
+  async getAvailableDrivers() {
+    return this.ordersService.listAvailableDrivers();
+  }
+
   // 🔍 Détail d'une commande
   @Get(':id')
   @ApiOperation({ summary: "Obtenir le détail d'une commande par son ID" })
@@ -306,19 +319,6 @@ export class OrdersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.ordersService.clientValidateWithPin(id, userId, dto.pinCode);
-  }
-
-  // 🎯 Liste des livreurs disponibles (pour assignation manuelle)
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
-  @Get('available-drivers')
-  @ApiOperation({
-    summary:
-      'Liste des livreurs/coursiers actifs',
-  })
-  @ApiResponse({ status: 200, description: 'Liste des livreurs' })
-  async getAvailableDrivers() {
-    return this.ordersService.listAvailableDrivers();
   }
 
   // ========================================================================
