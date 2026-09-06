@@ -35,6 +35,14 @@ export const getBusinessOrders = async (businessId) => {
 };
 
 /**
+ * Lister les commandes de toutes les branches d'une marque
+ */
+export const getBrandOrders = async (businessIds) => {
+  const response = await api.post('/orders/brand', { businessIds });
+  return response.data;
+};
+
+/**
  * Obtenir le détail complet d'une commande
  */
 export const getOrderById = async (id) => {

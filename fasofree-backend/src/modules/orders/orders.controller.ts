@@ -142,6 +142,19 @@ export class OrdersController {
     return this.ordersService.findAllByBusiness(businessId);
   }
 
+  // 🏪 Commandes de toutes les branches d'une marque
+  @Post('brand')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: "Commandes de toutes les branches d'une marque" })
+  async getBrandOrders(
+    @NestRequest() req: RequestWithUser,
+    @Body('businessIds') businessIds: string[],
+  ) {
+    return this.ordersService.findAllByBusinesses(businessIds);
+  }
+
   // 🔍 Détail d'une commande
   @Get(':id')
   @ApiOperation({ summary: "Obtenir le détail d'une commande par son ID" })

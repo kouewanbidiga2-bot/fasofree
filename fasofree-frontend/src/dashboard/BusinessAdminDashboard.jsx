@@ -22,7 +22,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
 import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
-import { getMyOrders, getBusinessOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
+import { getMyOrders, getBusinessOrders, getBrandOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
   getProductsByBusiness, createProduct, updateProduct,
   deleteProduct, toggleProductAvailability,
@@ -358,9 +358,11 @@ const BusinessAdminDashboard = () => {
 
   useEffect(() => {
     if (!user?.businessId && !user?.brandId) {
-      api.get('/businesses/me').then((data) => {
+      api.get('/businesses/me').then((res) => {
+        const data = res?.data ?? res;
         if (data?.id) setResolvedBusinessId(data.id);
         if (data?.brandId) setResolvedBrandId(data.brandId);
+        if (data?.branches?.length) setResolvedBranches(data.branches);
       }).catch(() => {});
     }
   }, [user]);
@@ -410,18 +412,26 @@ const BusinessAdminDashboard = () => {
   }, [brandId]);
 
   const loadOrders = useCallback(async () => {
-    const targetId = selectedBranchId || businessId;
-    if (!targetId) return;
     setLoad('orders', true);
     try {
-      const data = await getBusinessOrders(targetId);
+      let data;
+      if (selectedBranchId) {
+        data = await getBusinessOrders(selectedBranchId);
+      } else if (branches.length > 1) {
+        data = await getBrandOrders(branches.map(b => b.id));
+      } else if (businessId) {
+        data = await getBusinessOrders(businessId);
+      } else {
+        setLoad('orders', false);
+        return;
+      }
       setOrders(Array.isArray(data) ? data : []);
     } catch (err) {
       setError('orders', err.message);
     } finally {
       setLoad('orders', false);
     }
-  }, [selectedBranchId, businessId]);
+  }, [selectedBranchId, businessId, branches]);
 
   const loadProducts = useCallback(async () => {
     const targetId = selectedBranchId || businessId;

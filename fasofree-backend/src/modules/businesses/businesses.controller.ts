@@ -94,13 +94,41 @@ export class BusinessesController {
   @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
   @Get('me')
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: "Obtenir le commerce du marchand connecté" })
+  @ApiOperation({ summary: "Obtenir le(s) commerce(s) du marchand connecté" })
   async findMine(@NestRequest() req: RequestWithUser) {
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    return this.businessesService.findByOwner(userId);
+
+    const businesses = await this.businessesService.findAllByOwner(userId);
+
+    // 🛡️ Auto-réparation : si le marchand n'a aucun business, en créer un
+    if (!businesses.length) {
+      const user = req.user as any;
+      const newBusiness = await this.businessesService.create(
+        {
+          name: user.fullName || 'Mon Commerce',
+          address: 'Ouagadougou',
+          phone: user.phone || '+22600000000',
+          latitude: 12.3714,
+          longitude: -1.5197,
+        },
+        userId,
+      );
+      return {
+        ...newBusiness,
+        brandId: null,
+        branches: [{ id: newBusiness.id, name: newBusiness.name, address: newBusiness.address, isOpen: newBusiness.isOpen }],
+      };
+    }
+
+    const primary = businesses[0];
+    return {
+      ...primary,
+      brandId: primary.brandId,
+      branches: businesses.map(b => ({ id: b.id, name: b.name, address: b.address, isOpen: b.isOpen })),
+    };
   }
 
   // 🏪 Gestion des commerces (Réservé au Super Admin) : liste complète

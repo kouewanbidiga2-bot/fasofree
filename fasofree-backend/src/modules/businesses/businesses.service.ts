@@ -35,11 +35,19 @@ export class BusinessesService {
     return this.businessRepository.save(business);
   }
 
-  // 🏪 1b. Trouver le commerce d'un marchand (inclut les produits)
+  // 🏪 1b. Trouver le(s) commerce(s) d'un marchand
   async findByOwner(ownerId: string): Promise<Business | null> {
     return this.businessRepository.findOne({
       where: { ownerId },
       relations: { products: true },
+    });
+  }
+
+  // 🏪 1c. Tous les commerces d'un marchand (multi-agences)
+  async findAllByOwner(ownerId: string): Promise<Business[]> {
+    return this.businessRepository.find({
+      where: { ownerId },
+      order: { name: 'ASC' },
     });
   }
 

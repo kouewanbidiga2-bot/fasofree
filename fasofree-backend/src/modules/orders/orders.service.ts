@@ -888,6 +888,14 @@ export class OrdersService {
     });
   }
 
+  async findAllByBusinesses(businessIds: string[]): Promise<Order[]> {
+    if (!businessIds.length) return [];
+    return await this.orderRepository.find({
+      where: businessIds.map(id => ({ businessId: id })),
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   /**
    * 🎛️ Tour de contrôle : liste globale des commandes pour
    * SUPER_ADMIN / ADMIN / SUPPORT. Attache la position live du livreur
