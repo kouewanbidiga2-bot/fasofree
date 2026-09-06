@@ -348,7 +348,7 @@ const BusinessAdminDashboard = () => {
 
   const businessId = resolvedBusinessId || user?.businessId || user?.business?.id;
   const brandId = resolvedBrandId || user?.brandId || null;
-  const branches = resolvedBranches.length > 0 ? resolvedBranches : (user?.branches || []);
+  const branches = React.useMemo(() => resolvedBranches.length > 0 ? resolvedBranches : (user?.branches || []), [resolvedBranches, user?.branches]);
 
   // Sélection d'agence (null = vue marque)
   const [selectedBranchId, setSelectedBranchId] = useState(null);
