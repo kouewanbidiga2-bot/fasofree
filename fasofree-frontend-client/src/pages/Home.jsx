@@ -224,6 +224,25 @@ const Home = () => {
               />
             </div>
           </div>
+
+          {/* Suivre une commande par numéro */}
+          {isAuthenticated && (
+            <div className="mt-3">
+              <div className="relative">
+                <Package className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
+                <input
+                  type="text"
+                  placeholder="Suivre une commande (numéro ou ID)"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      navigate(`/order-tracking?orderId=${e.target.value.trim()}`);
+                    }
+                  }}
+                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </header>
 

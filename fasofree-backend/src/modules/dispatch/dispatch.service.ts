@@ -491,6 +491,27 @@ export class DispatchService {
   }
 
   /**
+   * 🎯 Refuser une course : le livreur refuse et passe au suivant
+   */
+  async refuseOrder(orderId: string, driverId: string): Promise<void> {
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+    if (!order) throw new Error(`Commande #${orderId} introuvable`);
+
+    const candidates = order.dispatchCandidates || [];
+    const existing = candidates.find((c) => c.driverId === driverId);
+    if (existing) {
+      existing.refused = true;
+      existing.refusedAt = new Date().toISOString();
+    } else {
+      candidates.push({ driverId, refused: true, refusedAt: new Date().toISOString() });
+    }
+    order.dispatchCandidates = candidates;
+    await this.orderRepository.save(order);
+  }
+
+  /**
    * 🎯 Assigner manuellement une commande à un livreur spécifique
    */
   async assignDriverToOrder(orderId: string, driverId: string): Promise<Order> {

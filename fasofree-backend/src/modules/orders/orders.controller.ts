@@ -310,11 +310,11 @@ export class OrdersController {
 
   // 🎯 Liste des livreurs disponibles (pour assignation manuelle)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
   @Get('available-drivers')
   @ApiOperation({
     summary:
-      'Liste des livreurs/coursiers actifs (SUPER_ADMIN / ADMIN / SUPPORT)',
+      'Liste des livreurs/coursiers actifs',
   })
   @ApiResponse({ status: 200, description: 'Liste des livreurs' })
   async getAvailableDrivers() {
@@ -322,14 +322,14 @@ export class OrdersController {
   }
 
   // ========================================================================
-  // 🎯 ASSIGNATION MANUELLE D'UN LIVREUR (admin / support)
+  // 🎯 ASSIGNATION MANUELLE D'UN LIVREUR (admin / support / marchand)
   // ========================================================================
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
   @Post(':id/assign')
   @ApiOperation({
     summary:
-      "Assigner manuellement un livreur à une commande (SUPER_ADMIN / ADMIN / SUPPORT)",
+      "Assigner manuellement un livreur à une commande",
   })
   @ApiResponse({ status: 201, description: 'Livreur assigné avec succès' })
   @ApiResponse({

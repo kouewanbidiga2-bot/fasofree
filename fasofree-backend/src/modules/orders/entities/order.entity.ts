@@ -270,8 +270,10 @@ export class Order {
   @Column({ type: 'jsonb', nullable: true })
   dispatchCandidates?: Array<{
     driverId: string;
-    score: number;
-    notifiedAt: Date;
+    score?: number;
+    notifiedAt?: Date;
+    refused?: boolean;
+    refusedAt?: string;
   }>;
 
   @Column({ type: 'timestamp', nullable: true })

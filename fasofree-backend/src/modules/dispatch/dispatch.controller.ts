@@ -159,4 +159,48 @@ export class DispatchController {
       message: 'Course acceptée avec succès',
     };
   }
+
+  /**
+   * 🚫 POST /dispatch/refuse/:orderId
+   * Le livreur refuse une course → passe au candidat suivant.
+   */
+  @Post('refuse/:orderId')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @ApiOperation({ summary: 'Refuser une course disponible' })
+  async refuseOrder(
+    @Param('orderId') orderId: string,
+    @Request() req: RequestWithUser,
+  ) {
+    const driverId = req.user?.userId;
+    if (!driverId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
+
+    if (!order) {
+      throw new NotFoundException(`Commande #${orderId} introuvable`);
+    }
+
+    // Ajouter le refus dans dispatchCandidates
+    const candidates = order.dispatchCandidates || [];
+    const existing = candidates.find((c) => c.driverId === driverId);
+    if (existing) {
+      existing.refused = true;
+      existing.refusedAt = new Date().toISOString();
+    } else {
+      candidates.push({ driverId, refused: true, refusedAt: new Date().toISOString() });
+    }
+    order.dispatchCandidates = candidates;
+    await this.orderRepository.save(order);
+
+    return {
+      success: true,
+      orderId: order.id,
+      message: 'Course refusée',
+    };
+  }
 }

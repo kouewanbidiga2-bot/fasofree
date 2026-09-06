@@ -22,6 +22,7 @@ import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/S
 import {
   getAvailableDispatchOrders,
   acceptDispatchOrder,
+  refuseDispatchOrder,
   advanceOrderStatus,
   getMyOrders,
 } from '../services/orderService';
@@ -337,6 +338,16 @@ const DriverDashboard = () => {
       setError('jobs', err.message || 'Échec de l\'acceptation');
     } finally {
       setAcceptingJob(null);
+    }
+  };
+
+  // ─── REFUSE JOB ───────────────────────────────────────────────────────
+  const handleRefuseJob = async (jobId) => {
+    try {
+      await refuseDispatchOrder(jobId);
+      setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
+    } catch (err) {
+      setError('jobs', err.message || 'Échec du refus');
     }
   };
 
@@ -730,6 +741,12 @@ const DriverDashboard = () => {
                           className="btn-primary flex-1"
                         >
                           {acceptingJob === job.id ? '...' : 'Accepter'}
+                        </button>
+                        <button
+                          onClick={() => handleRefuseJob(job.id)}
+                          className="flex-1 px-3 py-2 text-sm font-medium rounded-lg border border-status-error/30 text-status-error hover:bg-status-error/10 transition-colors"
+                        >
+                          Refuser
                         </button>
                         <button
                           onClick={() => handleViewRoute(job.pickupCoords, job.deliveryCoords)}

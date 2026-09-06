@@ -43,6 +43,22 @@ export const getBrandOrders = async (businessIds) => {
 };
 
 /**
+ * Lister les livreurs disponibles (pour assignation)
+ */
+export const getAvailableDrivers = async () => {
+  const response = await api.get('/orders/available-drivers');
+  return response.data;
+};
+
+/**
+ * Assigner un livreur à une commande
+ */
+export const assignDriverToOrder = async (orderId, driverId) => {
+  const response = await api.post(`/orders/${orderId}/assign`, { driverId });
+  return response.data;
+};
+
+/**
  * Obtenir le détail complet d'une commande
  */
 export const getOrderById = async (id) => {
@@ -125,6 +141,14 @@ export const getAvailableDispatchOrders = async () => {
  */
 export const acceptDispatchOrder = async (orderId) => {
   const response = await api.post(`/dispatch/accept/${orderId}`);
+  return response.data;
+};
+
+/**
+ * Refuser une course (livreur)
+ */
+export const refuseDispatchOrder = async (orderId) => {
+  const response = await api.post(`/dispatch/refuse/${orderId}`);
   return response.data;
 };
 

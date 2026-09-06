@@ -22,7 +22,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
 import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
-import { getMyOrders, getBusinessOrders, getBrandOrders, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
+import { getMyOrders, getBusinessOrders, getBrandOrders, getAvailableDrivers, assignDriverToOrder, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
   getProductsByBusiness, createProduct, updateProduct,
   deleteProduct, toggleProductAvailability,
@@ -335,6 +335,12 @@ const BusinessAdminDashboard = () => {
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
 
+  // Assignation livreur
+  const [driverModal, setDriverModal] = useState(null);
+  const [availableDrivers, setAvailableDrivers] = useState([]);
+  const [loadingDrivers, setLoadingDrivers] = useState(false);
+  const [assigningDriver, setAssigningDriver] = useState(null);
+
   // ID du commerce depuis le profil utilisateur
   const [resolvedBusinessId, setResolvedBusinessId] = useState(null);
   const [resolvedBrandId, setResolvedBrandId] = useState(null);
@@ -383,6 +389,36 @@ const BusinessAdminDashboard = () => {
       setError('settings', err.message);
     } finally {
       setLoading(prev => ({ ...prev, settings: false }));
+    }
+  };
+
+  // ─── ASSIGNATION LIVREUR ──────────────────────────────────────────
+  const openDriverModal = async (order) => {
+    setDriverModal(order);
+    setLoadingDrivers(true);
+    try {
+      const drivers = await getAvailableDrivers();
+      setAvailableDrivers(Array.isArray(drivers) ? drivers : []);
+    } catch (err) {
+      setError('drivers', err.message);
+      setAvailableDrivers([]);
+    } finally {
+      setLoadingDrivers(false);
+    }
+  };
+
+  const handleAssignDriver = async (driverId) => {
+    if (!driverModal) return;
+    setAssigningDriver(driverId);
+    try {
+      await assignDriverToOrder(driverModal.id, driverId);
+      setDriverModal(null);
+      setAvailableDrivers([]);
+      loadOrders();
+    } catch (err) {
+      setError('drivers', err.message);
+    } finally {
+      setAssigningDriver(null);
     }
   };
 
@@ -982,6 +1018,14 @@ const BusinessAdminDashboard = () => {
                         {/* Status Actions */}
                         {nextStatuses.length > 0 && (
                           <div className="flex gap-2">
+                            {order.status === 'READY_FOR_PICKUP' && (
+                              <button
+                                onClick={() => openDriverModal(order)}
+                                className="text-xs py-2 px-3 rounded-lg border border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10 transition-colors font-medium"
+                              >
+                                Assigner un livreur
+                              </button>
+                            )}
                             {nextStatuses.map(status => (
                               <button
                                 key={status}
@@ -1394,6 +1438,53 @@ const BusinessAdminDashboard = () => {
           onSave={handleStockAdjustment}
           onClose={() => setStockModal(null)}
         />
+      )}
+
+      {/* Modal Assignation Livreur */}
+      {driverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background-card rounded-xl shadow-lg w-full max-w-md max-h-[80vh] overflow-hidden">
+            <div className="p-4 border-b border-border-light flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-text-primary">Assigner un livreur</h3>
+                <p className="text-xs text-text-secondary">Commande #{driverModal.id?.slice(-6)}</p>
+              </div>
+              <button onClick={() => setDriverModal(null)} className="p-1 rounded-lg hover:bg-background-secondary">
+                <XCircle size={18} className="text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto max-h-[60vh]">
+              {loadingDrivers ? (
+                <div className="text-center py-8 text-text-secondary">Chargement des livreurs...</div>
+              ) : availableDrivers.length === 0 ? (
+                <div className="text-center py-8 text-text-secondary">Aucun livreur disponible pour le moment</div>
+              ) : (
+                <div className="space-y-2">
+                  {availableDrivers.map(driver => (
+                    <div key={driver.id} className="flex items-center justify-between p-3 rounded-lg border border-border-light hover:bg-background-secondary transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-accent-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-bold text-accent-primary">{driver.fullName?.charAt(0) || '?'}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-text-primary">{driver.fullName || 'Livreur'}</p>
+                          <p className="text-xs text-text-secondary">{driver.phone || ''} {driver.vehicleType ? `· ${driver.vehicleType}` : ''}</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleAssignDriver(driver.id)}
+                        disabled={assigningDriver === driver.id}
+                        className="btn-primary text-xs py-1.5 px-3"
+                      >
+                        {assigningDriver === driver.id ? '...' : 'Assigner'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

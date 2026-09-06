@@ -15,7 +15,7 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car
+  Truck, Car, Eye
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -97,6 +97,7 @@ const SuperAdminDashboard = () => {
   const [kycPending, setKycPending] = useState([]);
   const [kycBusy, setKycBusy] = useState(null);
   const [kycMsg, setKycMsg] = useState(null);
+  const [kycPreview, setKycPreview] = useState(null);
 
   // Users management
   const [users, setUsers] = useState([]);
@@ -1467,6 +1468,18 @@ const SuperAdminDashboard = () => {
                         <td>
                           <div className="flex gap-2">
                             <button
+                              onClick={async () => {
+                                try {
+                                  const url = await import('../services/kycService').then(m => m.getKycDocumentUrl(doc.id));
+                                  setKycPreview({ url, doc });
+                                } catch { setKycPreview(null); }
+                              }}
+                              className="btn-icon text-accent-primary hover:bg-accent-primary/10"
+                              title="Voir le document"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
                               onClick={() => handleApproveKyc(doc.id)}
                               disabled={kycBusy === doc.id}
                               className="btn-icon text-status-success hover:bg-status-successBg disabled:opacity-50"
@@ -2753,6 +2766,50 @@ const SuperAdminDashboard = () => {
                   {editingPlan ? 'Enregistrer' : 'Créer'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Preview KYC */}
+      {kycPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setKycPreview(null)}>
+          <div className="bg-background-card rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-border-light flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-text-primary">
+                  {kycPreview.doc?.type === 'IDENTITY_CARD' ? "Pièce d'identité" : kycPreview.doc?.type === 'DRIVER_LICENSE' ? 'Permis de conduire' : 'Document KYC'}
+                </h3>
+                <p className="text-xs text-text-secondary">{kycPreview.doc?.ownerName || kycPreview.doc?.ownerEmail || ''}</p>
+              </div>
+              <button onClick={() => setKycPreview(null)} className="p-1 rounded-lg hover:bg-background-secondary">
+                <XCircle size={18} className="text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center bg-black/10" style={{ minHeight: '300px' }}>
+              {kycPreview.url ? (
+                kycPreview.doc?.mimeType?.startsWith('image/') ? (
+                  <img src={kycPreview.url} alt="Document KYC" className="max-w-full max-h-[70vh] object-contain rounded" />
+                ) : (
+                  <iframe src={kycPreview.url} className="w-full h-[70vh] rounded" title="Document KYC" />
+                )
+              ) : (
+                <p className="text-text-secondary">Chargement...</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-border-light flex gap-3 justify-end">
+              <button
+                onClick={() => { handleRejectKyc(kycPreview.doc.id); setKycPreview(null); }}
+                className="btn-danger text-sm"
+              >
+                Rejeter
+              </button>
+              <button
+                onClick={() => { handleApproveKyc(kycPreview.doc.id); setKycPreview(null); }}
+                className="btn-primary text-sm"
+              >
+                Approuver
+              </button>
             </div>
           </div>
         </div>
