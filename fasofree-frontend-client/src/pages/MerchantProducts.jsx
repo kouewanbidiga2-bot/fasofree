@@ -67,16 +67,19 @@ export default function MerchantProducts() {
   const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const business = await api.getMyBusiness();
+      const res = await api.getMyBusiness();
+      const business = res?.data || res;
       const bid = business?.id || business?.businessId;
       setBusinessId(bid);
       if (bid) {
         const data = await api.getBusinessProducts(bid);
         setProducts(Array.isArray(data) ? data : data?.products || []);
+      } else {
+        setError('Aucun commerce associé à votre compte. Contactez le support.');
       }
     } catch (err) {
       console.error('Failed to load products', err);
-      setError('Impossible de charger les produits.');
+      setError('Impossible de charger les produits. Votre commerce n\'est peut-être pas encore configuré.');
     } finally {
       setLoading(false);
     }
@@ -127,6 +130,11 @@ export default function MerchantProducts() {
     e.preventDefault();
     if (!form.name.trim() || !form.price) {
       setError('Le nom et le prix sont obligatoires.');
+      return;
+    }
+
+    if (!businessId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId)) {
+      setError('Commerce non configuré. Veuillez contacter le support.');
       return;
     }
 
@@ -206,7 +214,12 @@ export default function MerchantProducts() {
             </div>
             <button
               onClick={openAddModal}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-accent-primary text-white hover:opacity-90 transition-opacity shadow-subtle"
+              disabled={!businessId}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-opacity shadow-subtle ${
+                businessId
+                  ? 'bg-accent-primary text-white hover:opacity-90'
+                  : 'bg-text-secondary/30 text-text-secondary cursor-not-allowed'
+              }`}
             >
               <Plus size={16} strokeWidth={2} />
               <span className="hidden sm:inline">Ajouter un produit</span>
@@ -235,7 +248,12 @@ export default function MerchantProducts() {
             </p>
             <button
               onClick={openAddModal}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg bg-accent-primary text-white hover:opacity-90 transition-opacity"
+              disabled={!businessId}
+              className={`inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-lg transition-opacity ${
+                businessId
+                  ? 'bg-accent-primary text-white hover:opacity-90'
+                  : 'bg-text-secondary/30 text-text-secondary cursor-not-allowed'
+              }`}
             >
               <Plus size={16} strokeWidth={2} />
               Ajouter un produit
