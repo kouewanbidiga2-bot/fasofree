@@ -145,4 +145,17 @@ export class BusinessesController {
   async remove(@Param('id') id: string) {
     return this.businessesService.remove(id);
   }
+
+  // 🔄 Transférer la propriété d'un commerce (Super Admin)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Patch(':id/transfer-owner')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Transférer un commerce vers un autre utilisateur' })
+  async transferOwner(
+    @Param('id') id: string,
+    @Body('newOwnerId') newOwnerId: string,
+  ) {
+    return this.businessesService.transferOwner(id, newOwnerId);
+  }
 }

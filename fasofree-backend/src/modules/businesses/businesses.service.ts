@@ -58,6 +58,16 @@ export class BusinessesService {
     return business;
   }
 
+  // 🔄 Transférer la propriété d'un commerce (super admin uniquement)
+  async transferOwner(businessId: string, newOwnerId: string): Promise<Business> {
+    const business = await this.businessRepository.findOne({
+      where: { id: businessId },
+    });
+    if (!business) throw new NotFoundException('Commerce introuvable');
+    business.ownerId = newOwnerId;
+    return this.businessRepository.save(business);
+  }
+
   // 📍 2. Recherche spatiale : Commerces dans un rayon donné
   // Essaie PostGIS d'abord, fallback Haversine si l'extension n'est pas dispo.
   async findNearby(dto: FindNearbyDto): Promise<Business[]> {
