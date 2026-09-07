@@ -481,16 +481,21 @@ export class WalletService {
 
       const merchantPayouts: PayoutEligibility[] = [];
       for (const wallet of merchantWallets) {
-        // Calculer le chiffre d'affaires total (commandes COMPLETED)
+        const businesses = await this.businessRepository.find({
+          where: { ownerId: wallet.userId },
+          select: { id: true },
+        });
+        const businessIds = businesses.map((b) => b.id);
+
+        if (businessIds.length === 0) continue;
+
         const totalRevenue = await this.orderRepository
           .createQueryBuilder('o')
           .select('SUM(o.merchantPayoutAmount)', 'sum')
-          .where('o.businessId = :businessId', {
-            businessId: wallet.userId,
-          })
+          .where('o.businessId IN (:...businessIds)', { businessIds })
           .andWhere('o.status = :status', { status: OrderStatus.COMPLETED })
           .andWhere('o.createdAt >= :cutoff', {
-            cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 derniers jours
+            cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
           })
           .getRawOne<{ sum: string }>();
 

@@ -515,9 +515,19 @@ export class AnalyticsService {
     );
 
     // 4. Graphique ventes par jour
-    const ordersInRange = await this.orderRepository.find({
-      where: businessIds.map((id) => ({ businessId: id, status: OrderStatus.DELIVERED })),
-    });
+    const chartQuery = this.orderRepository
+      .createQueryBuilder('o')
+      .where('o.businessId IN (:...businessIds)', { businessIds })
+      .andWhere('o.status = :status', { status: OrderStatus.DELIVERED });
+
+    if (startDate && endDate) {
+      chartQuery.andWhere('o."createdAt" BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      });
+    }
+
+    const ordersInRange = await chartQuery.getMany();
     const salesChart = this.groupSalesByDay(ordersInRange);
 
     return {
