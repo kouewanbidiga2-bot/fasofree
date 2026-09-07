@@ -3,7 +3,7 @@
  * Endpoints backed by backend: /orders
  */
 import api from './api';
-import { OrderStatus, OrderStatusFlow } from '../types';
+import { OrderStatus, OrderStatusFlow, MerchantTransitions } from '../types';
 
 /**
  * Créer une nouvelle commande (client)
@@ -93,7 +93,10 @@ export const isValidStatusTransition = (currentStatus, newStatus) => {
 /**
  * Obtenir les prochains statuts possibles pour une commande
  */
-export const getNextPossibleStatuses = (currentStatus) => {
+export const getNextPossibleStatuses = (currentStatus, role) => {
+  if (role === 'business_admin') {
+    return MerchantTransitions[currentStatus] || [];
+  }
   return OrderStatusFlow[currentStatus] || [];
 };
 

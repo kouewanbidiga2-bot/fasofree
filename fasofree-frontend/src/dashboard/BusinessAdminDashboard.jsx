@@ -988,7 +988,7 @@ const BusinessAdminDashboard = () => {
                   />
                 ) : (
                   filteredOrders.map(order => {
-                    const nextStatuses = getNextPossibleStatuses(order.status);
+                    const nextStatuses = getNextPossibleStatuses(order.status, 'business_admin');
                     return (
                       <div key={order.id} className="card p-5">
                         <div className="flex items-start justify-between mb-4">

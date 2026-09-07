@@ -39,6 +39,26 @@ export const OrderStatusFlow = {
   [OrderStatus.REFUNDED]: [],
 };
 
+/**
+ * Transitions autorisées pour le MERCHANT (BUSINESS_ADMIN).
+ * Le merchant ne peut PAS faire les transitions réservées aux livreurs.
+ */
+export const MerchantTransitions = {
+  [OrderStatus.PENDING]: [OrderStatus.CANCELLED],
+  [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
+  [OrderStatus.IN_PREPARATION]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
+  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.CANCELLED],
+  [OrderStatus.DRIVER_ASSIGNED]: [OrderStatus.CANCELLED],
+  [OrderStatus.IN_DELIVERY]: [OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: [OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERED]: [],
+  [OrderStatus.COMPLETED]: [],
+  [OrderStatus.CANCELLED]: [],
+  [OrderStatus.FAILED]: [],
+  [OrderStatus.DISPUTED]: [],
+  [OrderStatus.REFUNDED]: [],
+};
+
 export const DriverStatus = {
   ONLINE: 'ONLINE',
   OFFLINE: 'OFFLINE',
