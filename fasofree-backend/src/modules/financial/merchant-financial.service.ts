@@ -42,9 +42,14 @@ export class MerchantFinancialService {
         return;
       }
 
+      const business = await this.businessRepository.findOne({
+        where: { id: order.businessId },
+      });
+      const merchantUserId = business?.ownerId ?? order.businessId;
+
       // Garde-fou d'idempotence
       const alreadyCredited = await this.walletService.hasLedgerEntry(
-        order.businessId,
+        merchantUserId,
         UserRole.MERCHANT,
         order.id,
         TransactionReason.ORDER_PAYMENT,
@@ -57,19 +62,15 @@ export class MerchantFinancialService {
       }
 
       await this.walletService.creditWallet(
-        order.businessId,
+        merchantUserId,
         UserRole.MERCHANT,
         payout,
         TransactionReason.ORDER_PAYMENT,
         order.id,
         `Produits commande #${order.id.slice(-8)}`,
+        undefined,
+        order.businessId,
       );
-
-      // 🧾 Reçu prestataire MARCHAND automatique
-      const business = await this.businessRepository.findOne({
-        where: { id: order.businessId },
-      });
-      const merchantUserId = business?.ownerId ?? order.businessId;
       await this.receiptsService.createMerchantOrderReceipt(
         order,
         merchantUserId,
