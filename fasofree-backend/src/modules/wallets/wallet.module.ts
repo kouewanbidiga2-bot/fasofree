@@ -5,6 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Wallet } from './entities/wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Order } from '../orders/entities/order.entity';
+import { Business } from '../businesses/entities/business.entity';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
@@ -13,7 +14,7 @@ import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Wallet, WalletTransaction, Order]),
+    TypeOrmModule.forFeature([Wallet, WalletTransaction, Order, Business]),
     ScheduleModule.forRoot(),
     ConfigModule,
     SettingsModule,

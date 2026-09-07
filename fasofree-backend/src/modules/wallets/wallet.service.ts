@@ -1,21 +1,11 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  BadRequestException,
-  HttpException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Wallet, UserRole } from './entities/wallet.entity';
-import {
-  WalletTransaction,
-  TransactionType,
-  TransactionReason,
-  TransactionStatus,
-} from './entities/wallet-transaction.entity';
+import { WalletTransaction, TransactionType, TransactionReason, TransactionStatus } from './entities/wallet-transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { Business } from '../businesses/entities/business.entity';
 import { ConfigService } from '@nestjs/config';
 
 // Définition propre pour le retour des requêtes SUM()
@@ -45,6 +35,8 @@ export class WalletService {
     private readonly transactionRepository: Repository<WalletTransaction>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {}
@@ -674,17 +666,26 @@ export class WalletService {
     brandId: string,
     userId: string,
   ): Promise<{ wallets: Wallet[]; totalBalance: number }> {
+    const businesses = await this.businessRepository.find({
+      where: { brandId },
+      select: { id: true },
+    });
+    const businessIds = businesses.map((b) => b.id);
+
+    if (businessIds.length === 0) {
+      return { wallets: [], totalBalance: 0 };
+    }
+
     const wallets = await this.walletRepository.find({
-      where: { userId, userRole: UserRole.MERCHANT },
+      where: businessIds.map((bid) => ({
+        userId,
+        userRole: UserRole.MERCHANT,
+        branchId: bid,
+      })),
     });
 
-    // Filtrer les wallets qui ont un branchId (agences)
-    const brandWallets = wallets.filter((w) => w.branchId != null);
-    const totalBalance = brandWallets.reduce((sum, w) => sum + Number(w.balance), 0);
+    const totalBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
 
-    return {
-      wallets: brandWallets,
-      totalBalance,
-    };
+    return { wallets, totalBalance };
   }
 }

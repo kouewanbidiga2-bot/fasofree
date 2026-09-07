@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { login as apiLogin, register as apiRegister, getMe } from '../services/authService';
 import { UserRole } from '../types/roles';
+import { disconnectRealtime } from '../services/realtime';
 
 const TOKEN_KEY = 'fasofree_token';
 const USER_KEY = 'fasofree_user';
@@ -92,6 +93,7 @@ export const useAuthStore = create((set, get) => ({
 
   logout: () => {
     clearStorage();
+    disconnectRealtime();
     set({ token: null, user: null, isAuthenticated: false, isHydrated: true, error: null });
   },
 

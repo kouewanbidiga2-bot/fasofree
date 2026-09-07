@@ -125,7 +125,7 @@ export class AnalyticsService {
         });
 
       if (startDate && endDate) {
-        query.andWhere('order.createdAt BETWEEN :startDate AND :endDate', {
+        query.andWhere('o."createdAt" BETWEEN :startDate AND :endDate', {
           startDate,
           endDate,
         });

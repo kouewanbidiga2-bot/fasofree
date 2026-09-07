@@ -379,6 +379,25 @@ const BusinessAdminDashboard = () => {
     }
   }, [user]);
 
+  const loadSettings = useCallback(async () => {
+    if (!businessId) return;
+    try {
+      const res = await api.get(`/businesses/${businessId}`);
+      const b = res?.data ?? res;
+      if (b) {
+        setBusinessSettings({
+          enableDelivery: b.enableDelivery ?? true,
+          enablePickup: b.enablePickup ?? true,
+          enableDineIn: b.enableDineIn ?? false,
+          hasOwnDrivers: b.hasOwnDrivers ?? false,
+          category: b.category ?? 'RESTAURANT',
+        });
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [businessId]);
+
   const handleSaveSettings = async () => {
     setLoading(prev => ({ ...prev, settings: true }));
     try {
@@ -547,6 +566,7 @@ const BusinessAdminDashboard = () => {
     loadProducts();
     loadLowStockAlerts();
     loadWallet();
+    loadSettings();
     if (brandId) {
       loadBrandAnalytics();
       loadBranchWallets();
@@ -557,7 +577,7 @@ const BusinessAdminDashboard = () => {
     }, 12000);
 
     return () => clearInterval(ordersInterval);
-  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
+  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadSettings, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
 
   const handleBranchChange = useCallback((branchId) => {
     setSelectedBranchId(branchId);

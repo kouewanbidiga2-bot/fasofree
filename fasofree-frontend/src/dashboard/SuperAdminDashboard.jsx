@@ -660,7 +660,7 @@ const SuperAdminDashboard = () => {
       subjectType: plan.subjectType,
       priceFcfa: Number(plan.priceFcfa) || 0,
       durationDays: plan.durationDays,
-      commissionRate: Number(plan.commissionRate) ?? null,
+      commissionRate: plan.commissionRate != null ? Number(plan.commissionRate) : null,
       freeServiceFee: !!plan.freeServiceFee,
       freeDelivery: !!plan.freeDelivery,
       isActive: !!plan.isActive,
@@ -2311,7 +2311,6 @@ const SuperAdminDashboard = () => {
                             <th>Utilisateur</th>
                             <th>Email</th>
                             <th>Téléphone</th>
-                            <th>Mot de passe</th>
                             <th>Rôle</th>
                             <th>Statut</th>
                             <th>Actions</th>

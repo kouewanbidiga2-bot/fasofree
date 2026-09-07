@@ -127,6 +127,25 @@ export class WalletController {
   }
 
   /**
+   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
+   * GET /wallets/brand/:brandId
+   */
+  @Get('brand/:brandId')
+  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
+  async getBrandWallets(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('brandId') brandId: string,
+  ) {
+    const user = req.user;
+    if (!user?.userId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    return this.walletService.getBrandWallets(brandId, user.userId);
+  }
+
+  /**
    * 🏷️ Wallet par agence spécifique
    * GET /wallets/MERCHANT/:userId/branch/:branchId
    */
@@ -149,24 +168,5 @@ export class WalletController {
       : UserRole.DRIVER;
 
     return this.walletService.getOrCreateWallet(userId, walletRole, branchId);
-  }
-
-  /**
-   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
-   * GET /wallets/brand/:brandId
-   */
-  @Get('brand/:brandId')
-  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
-  async getBrandWallets(
-    @Request()
-    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
-    @Param('brandId') brandId: string,
-  ) {
-    const user = req.user;
-    if (!user?.userId) {
-      throw new ForbiddenException('Utilisateur non authentifié');
-    }
-
-    return this.walletService.getBrandWallets(brandId, user.userId);
   }
 }
