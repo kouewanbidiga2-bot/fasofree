@@ -86,6 +86,26 @@ export class WalletController {
     );
   }
 
+  /**
+   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
+   * GET /wallets/brand/:brandId
+   * ⚠️ DOIT être AVANT :userRole/:userId sinon NestJS matche "brand" comme userRole
+   */
+  @Get('brand/:brandId')
+  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
+  async getBrandWallets(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('brandId') brandId: string,
+  ) {
+    const user = req.user;
+    if (!user?.userId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    return this.walletService.getBrandWallets(brandId, user.userId);
+  }
+
   @Get(':userRole/:userId')
   @ApiOperation({
     summary: 'Obtenir ou creer le portefeuille d\'un utilisateur',
@@ -124,25 +144,6 @@ export class WalletController {
     }
 
     return this.walletService.getOrCreateWallet(userId, walletRole);
-  }
-
-  /**
-   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
-   * GET /wallets/brand/:brandId
-   */
-  @Get('brand/:brandId')
-  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
-  async getBrandWallets(
-    @Request()
-    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
-    @Param('brandId') brandId: string,
-  ) {
-    const user = req.user;
-    if (!user?.userId) {
-      throw new ForbiddenException('Utilisateur non authentifié');
-    }
-
-    return this.walletService.getBrandWallets(brandId, user.userId);
   }
 
   /**
