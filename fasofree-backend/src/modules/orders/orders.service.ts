@@ -109,7 +109,6 @@ const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
  * Si une transition n'est pas listée ici, elle est refusée.
  */
 const DRIVER_TRANSITIONS: OrderStatus[] = [
-  OrderStatus.READY_FOR_PICKUP,
   OrderStatus.IN_DELIVERY,
   OrderStatus.DELIVERED_PENDING_CONFIRMATION,
 ];
