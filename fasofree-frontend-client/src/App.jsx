@@ -13,6 +13,7 @@ import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
 import Addresses from './pages/Addresses';
 import Settings from './pages/Settings';
+import Disputes from './pages/Disputes';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
 import MerchantProducts from './pages/MerchantProducts';
@@ -92,6 +93,7 @@ function App() {
           <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
           <Route path="/addresses" element={<ProtectedRoute><Addresses /></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
         </Route>
 
         {/* Merchant pages */}

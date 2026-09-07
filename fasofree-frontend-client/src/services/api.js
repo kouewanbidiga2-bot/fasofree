@@ -162,6 +162,7 @@ export const api = {
 
   // Disputes
   getMyDispute: (id) => apiFetch(`/disputes/me/${id}`, { method: 'GET' }),
+  getMyDisputes: () => apiFetch('/disputes/me', { method: 'GET' }),
 
   // Promotions
   getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'POST', body: data }),

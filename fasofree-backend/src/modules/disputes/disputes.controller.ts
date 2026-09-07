@@ -45,6 +45,12 @@ export class DisputesController {
     return this.disputes.getForClient(id, req.user.userId);
   }
 
+  @Get('me')
+  @ApiOperation({ summary: 'Lister tous mes litiges (client)' })
+  listMine(@Request() req: AuthRequest) {
+    return this.disputes.listForClient(req.user.userId);
+  }
+
   @Get()
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)

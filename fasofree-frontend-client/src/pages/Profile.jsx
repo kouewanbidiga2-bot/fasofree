@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check } from 'lucide-react';
+import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle } from 'lucide-react';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -94,6 +94,7 @@ const Profile = () => {
     { icon: MapPin, label: t('addresses'), action: () => navigate('/addresses') },
     { icon: CreditCard, label: t('paymentInfo'), action: () => setShowPaymentInfo(!showPaymentInfo) },
     { icon: Bell, label: t('notifications'), action: () => setNotifOpen(true) },
+    { icon: AlertTriangle, label: 'Reclamations', action: () => navigate('/disputes') },
     { icon: Settings, label: t('settings'), action: () => navigate('/settings') },
     { icon: LogOut, label: t('logout'), action: handleLogout, variant: 'danger' },
   ];

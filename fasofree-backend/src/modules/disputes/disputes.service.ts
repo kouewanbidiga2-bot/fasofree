@@ -159,6 +159,13 @@ export class DisputesService {
     return dispute;
   }
 
+  async listForClient(clientId: string): Promise<Dispute[]> {
+    return this.dataSource.getRepository(Dispute).find({
+      where: { clientId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   /**
    * 🔒 Action Support Agent: Prendre en charge un litige
    */
