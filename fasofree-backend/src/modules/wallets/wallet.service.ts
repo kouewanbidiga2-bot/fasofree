@@ -684,7 +684,6 @@ export class WalletService {
     const wallets = await this.walletRepository.find({
       where: businessIds.map((bid) => ({
         userId,
-        userRole: UserRole.MERCHANT,
         branchId: bid,
       })),
     });
