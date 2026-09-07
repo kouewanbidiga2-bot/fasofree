@@ -370,6 +370,12 @@ const BusinessAdminDashboard = () => {
         if (data?.brandId) setResolvedBrandId(data.brandId);
         if (data?.branches?.length) setResolvedBranches(data.branches);
       }).catch(() => {});
+    } else if (user?.brandId && !resolvedBranches.length) {
+      setResolvedBrandId(user.brandId);
+      setResolvedBusinessId(user.businessId);
+      if (user?.branches?.length) setResolvedBranches(user.branches);
+    } else if (user?.businessId && !resolvedBusinessId) {
+      setResolvedBusinessId(user.businessId);
     }
   }, [user]);
 
@@ -534,6 +540,8 @@ const BusinessAdminDashboard = () => {
   }, [brandId, branches, user?.id]);
 
   useEffect(() => {
+    if (!businessId && branches.length === 0) return;
+
     loadAnalytics();
     loadOrders();
     loadProducts();
@@ -549,7 +557,7 @@ const BusinessAdminDashboard = () => {
     }, 12000);
 
     return () => clearInterval(ordersInterval);
-  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadBrandAnalytics, loadBranchWallets, brandId]);
+  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
 
   const handleBranchChange = useCallback((branchId) => {
     setSelectedBranchId(branchId);
