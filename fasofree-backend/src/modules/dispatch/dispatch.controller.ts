@@ -8,20 +8,23 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
+import { User } from '../users/entities/user.entity';
 import {
   Order,
   OrderStatus,
 } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { DispatchService } from './dispatch.service';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: string };
@@ -33,10 +36,14 @@ type RequestWithUser = ExpressRequest & {
 @UseGuards(AuthGuard('jwt'))
 export class DispatchController {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly dispatchService: DispatchService,
   ) {}
 
   /**
@@ -122,42 +129,65 @@ export class DispatchController {
       throw new ForbiddenException('Utilisateur non authentifié');
     }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (!order) {
-      throw new NotFoundException(`Commande #${orderId} introuvable`);
-    }
+    try {
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
 
-    if (order.status !== OrderStatus.READY_FOR_PICKUP) {
-      throw new BadRequestException(
-        `La commande est en statut "${order.status}". Seules les commandes READY_FOR_PICKUP peuvent être acceptées.`,
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.status !== OrderStatus.READY_FOR_PICKUP) {
+        throw new BadRequestException(
+          `La commande est en statut "${order.status}". Seules les commandes READY_FOR_PICKUP peuvent être acceptées.`,
+        );
+      }
+
+      if (order.driverId) {
+        throw new BadRequestException(
+          'Cette commande a déjà été assignée à un livreur.',
+        );
+      }
+
+      const alreadyTried = (order.dispatchCandidates || []).some(
+        (c) => c.driverId === driverId && c.refused,
       );
+      if (alreadyTried) {
+        throw new ForbiddenException(
+          'Vous avez déjà refusé cette commande.',
+        );
+      }
+
+      order.driverId = driverId;
+      order.status = OrderStatus.DRIVER_ASSIGNED;
+      await queryRunner.manager.save(order);
+
+      await queryRunner.manager.update(User, driverId, {
+        isAvailable: false,
+      });
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        orderId: order.id,
+        status: order.status,
+        driverId,
+        message: 'Course acceptée avec succès',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    // Vérifier que le livreur n'a pas déjà refusé cette commande
-    const alreadyTried = (order.dispatchCandidates || []).some(
-      (c) => c.driverId === driverId,
-    );
-    if (alreadyTried && order.driverId && order.driverId !== driverId) {
-      throw new ForbiddenException(
-        'Vous avez déjà refusé cette commande.',
-      );
-    }
-
-    // Assigner le livreur
-    order.driverId = driverId;
-    order.status = OrderStatus.DRIVER_ASSIGNED;
-    await this.orderRepository.save(order);
-
-    return {
-      success: true,
-      orderId: order.id,
-      status: order.status,
-      driverId,
-      message: 'Course acceptée avec succès',
-    };
   }
 
   /**
@@ -177,29 +207,11 @@ export class DispatchController {
       throw new ForbiddenException('Utilisateur non authentifié');
     }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
-
-    if (!order) {
-      throw new NotFoundException(`Commande #${orderId} introuvable`);
-    }
-
-    // Ajouter le refus dans dispatchCandidates
-    const candidates = order.dispatchCandidates || [];
-    const existing = candidates.find((c) => c.driverId === driverId);
-    if (existing) {
-      existing.refused = true;
-      existing.refusedAt = new Date().toISOString();
-    } else {
-      candidates.push({ driverId, refused: true, refusedAt: new Date().toISOString() });
-    }
-    order.dispatchCandidates = candidates;
-    await this.orderRepository.save(order);
+    await this.dispatchService.refuseOrder(orderId, driverId);
 
     return {
       success: true,
-      orderId: order.id,
+      orderId,
       message: 'Course refusée',
     };
   }

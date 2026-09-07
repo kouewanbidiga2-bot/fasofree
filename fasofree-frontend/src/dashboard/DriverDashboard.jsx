@@ -25,6 +25,7 @@ import {
   refuseDispatchOrder,
   advanceOrderStatus,
   getMyOrders,
+  updateDriverStatus,
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
 import { getChatSocket } from '../services/realtime';
@@ -306,6 +307,12 @@ const DriverDashboard = () => {
   }, [loadWallet, loadEarnings, loadDeliveryHistory]);
 
   useEffect(() => {
+    if (user?.isOnline) {
+      setDriverStatus(DriverStatus.ONLINE);
+    }
+  }, [user?.isOnline]);
+
+  useEffect(() => {
     if (driverStatus === DriverStatus.ONLINE) {
       loadAvailableJobs();
       loadCurrentJob();
@@ -317,11 +324,16 @@ const DriverDashboard = () => {
     }
   }, [driverStatus, loadAvailableJobs, loadCurrentJob]);
 
-  const toggleDriverStatus = () => {
+  const toggleDriverStatus = async () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;
-    setDriverStatus(newStatus);
-    if (newStatus === DriverStatus.OFFLINE) {
-      setAvailableJobs([]);
+    try {
+      await updateDriverStatus({ isOnline: newStatus === DriverStatus.ONLINE, isAvailable: newStatus === DriverStatus.ONLINE });
+      setDriverStatus(newStatus);
+      if (newStatus === DriverStatus.OFFLINE) {
+        setAvailableJobs([]);
+      }
+    } catch (err) {
+      console.error('Erreur toggle dispo:', err);
     }
   };
 

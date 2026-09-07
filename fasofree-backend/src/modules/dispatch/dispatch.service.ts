@@ -375,14 +375,15 @@ export class DispatchService {
     this.logger.log('[Dispatch Timeout] Vérification des timeouts de dispatch');
 
     try {
-      // Trouver les commandes en attente de livreur depuis plus de 5 minutes
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // Trouver les commandes en attente de livreur depuis plus de 10 minutes
+      const timeoutMs = 10 * 60 * 1000;
+      const timeout = new Date(Date.now() - timeoutMs);
 
       const pendingOrders = await this.orderRepository
         .createQueryBuilder('o')
-        .where('o.status = :status', { status: OrderStatus.PAID })
-        .andWhere('o.dispatchedAt < :timeout', { timeout: fiveMinutesAgo })
-        .andWhere('o.driverId IS NULL')
+        .where('o.status = :status', { status: OrderStatus.READY_FOR_PICKUP })
+        .andWhere('o."dispatchedAt" < :timeout', { timeout })
+        .andWhere('o."driverId" IS NULL')
         .getMany();
 
       for (const order of pendingOrders) {
@@ -534,8 +535,10 @@ export class DispatchService {
     }
 
     order.driverId = driverId;
-    order.status = OrderStatus.PROCESSING; // IN_TRANSIT
+    order.status = OrderStatus.DRIVER_ASSIGNED;
     const updatedOrder = await this.orderRepository.save(order);
+
+    await this.userRepository.update(driverId, { isAvailable: false });
 
     // Notifier le livreur
     this.dispatchGateway.notifyCandidateDrivers([driverId], {

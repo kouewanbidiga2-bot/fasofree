@@ -117,6 +117,14 @@ export const confirmDelivery = async (orderId, data) => {
 };
 
 /**
+ * Mettre à jour le statut de disponibilité du livreur
+ */
+export const updateDriverStatus = async (data) => {
+  const response = await api.patch('/users/me/driver-status', data);
+  return response.data;
+};
+
+/**
  * Mettre à jour la position du livreur (⏳ NOT YET IMPLEMENTED on backend)
  * Expected route: POST /orders/:orderId/driver-location
  */
