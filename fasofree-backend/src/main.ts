@@ -129,21 +129,102 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('FasoFree API')
     .setDescription(
-      'Spécification OpenAPI officielle du backend FasoFree - Marketplace & Livraison à Ouagadougou',
+      [
+        '## FasoFree — API Backend Marketplace & Livraison Burkina Faso',
+        '',
+        'Plateforme complète de **livraison de repas**, **courses FasoRide**, et **envoi de colis FasoColis** à Ouagadougou.',
+        '',
+        '### Modules principaux',
+        '| Module | Description |',
+        '|--------|-------------|',
+        '| **Authentication** | Inscription, connexion, OTP, rôles (CLIENT, BUSINESS_ADMIN, DRIVER, SUPER_ADMIN) |',
+        '| **Businesses** | Gestion des commerces, branches multi-agences, statut ouvert/fermé |',
+        '| **Products** | Catalogue produits par commerce, gestion stock, disponibilité |',
+        '| **Orders** | Création, suivi FSM (PENDING → PROCESSING → IN_DELIVERY → DELIVERED), annulation |',
+        '| **Dispatch** | Attribution automatique livreur, cascade, timeout 10 min, refus |',
+        '| **Payments** | GeniusPay (Orange Money, Moov Money, Wave), webhooks, escrow |',
+        '| **Wallets** | Portefeuille marchand/agence, crédits automatiques, retraits Mobile Money |',
+        '| **Financial** | Settlement marchand, commission plateforme, rapports financiers |',
+        '| **Analytics** | Statistiques par agence/marque, graphiques de ventes, comparaison branches |',
+        '| **Driver** | Dashboard livreur, statut disponibilité, assignation, validation OTP |',
+        '| **Reviews** | Notes et avis clients, modération |',
+        '| **Disputes** | Réclamations client, résolution admin |',
+        '| **Chat** | Messagerie client-livreur en temps réel (Socket.IO) |',
+        '| **Subscriptions** | Forfaits marchands, KYC obligatoire avant approbation |',
+        '| **Notifications** | Push FCM, email (Resend), WhatsApp Cloud API |',
+        '| **Stories** | Stories éphémères restaurants (likes, vues) |',
+        '| **Loyalty** | Points de fidélité, programme de récompenses |',
+        '| **Promotions** | Codes promo, réductions |',
+        '',
+        '### Rôles et permissions',
+        '| Rôle | Accès |',
+        '|------|-------|',
+        '| `SUPER_ADMIN` | Tous les endpoints, gestion utilisateurs, finances globales |',
+        '| `BUSINESS_ADMIN` | Ses propres commerces/branches, commandes, analytics, wallet |',
+        '| `DRIVER` | Commandes assignées, statut disponibilité, wallet retrait |',
+        '| `CLIENT` | Passer commandes, réclamations, profil, adresses, fidélité |',
+        '',
+        '### Authentification',
+        'Tous les endpoints protégés nécessitent un token JWT dans le header `Authorization: Bearer <token>`.',
+        'Le token contient `sub` (userId), `role`, et `brandId` (pour les marchands multi-agences).',
+        '',
+        '### Déploiement',
+        '- **Backend** : Render (https://api.fasofree.site)',
+        '- **Frontend Client** : Vercel (https://fasofree.site)',
+        '- **Frontend Admin** : Vercel (https://admin.fasofree.site)',
+        '- **Base de données** : PostgreSQL (Neon)',
+        '- **Cache** : Redis (optionnel)',
+        '- **Stockage fichiers** : Cloudinary',
+      ].join('\n'),
     )
     .setVersion('1.0.0')
+    .setContact('FasoFree', 'https://fasofree.site', 'contact@fasofree.site')
+    .setLicense('Proprietary', 'https://fasofree.site/cgu')
     .addServer(`/${globalPrefix}`, 'Serveur courant')
+    .addServer('/', 'Base URL (sans préfixe)')
     .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'Authorization',
-        description: 'Saisissez votre token JWT',
+        description: 'Token JWT obtenu via POST /auth/login ou POST /auth/register',
         in: 'header',
       },
       'JWT-auth',
     )
+    .addTag('Authentication', 'Inscription, connexion, OTP, rôles utilisateur')
+    .addTag('Users', 'Gestion des comptes utilisateurs, profil, adresses')
+    .addTag('Businesses', 'Commerces, branches multi-agences, ownership')
+    .addTag('Products', 'Catalogue produits, stock, disponibilité')
+    .addTag('Orders', 'Commandes clients, suivi FSM, historique')
+    .addTag('Dispatch', 'Attribution livreur, cascade, timeout, refus')
+    .addTag('Payments', 'Paiements GeniusPay, Orange Money, Moov Money, Wave')
+    .addTag('Wallets', 'Portefeuilles marchand/livreur, crédits, retraits')
+    .addTag('Financial', 'Settlement marchand, commission, rapports financiers')
+    .addTag('Analytics', 'Statistiques ventes, graphiques, comparaison branches')
+    .addTag('Reviews', 'Notes et avis clients')
+    .addTag('Disputes', 'Réclamations client, résolution')
+    .addTag('Chat', 'Messagerie temps réel client-livreur')
+    .addTag('Subscriptions', 'Forfaits marchands, abonnements')
+    .addTag('Notifications', 'Push, email, WhatsApp')
+    .addTag('Stories', 'Stories éphémères restaurants')
+    .addTag('Loyalty', 'Points de fidélité')
+    .addTag('Promotions', 'Codes promo, réductions')
+    .addTag('Settings', 'Configuration agence, tarification')
+    .addTag('Tracking', 'Suivi en temps réel des livraisons')
+    .addTag('Addresses', 'Adresses de livraison client')
+    .addTag('Favorites', 'Restaurants favoris client')
+    .addTag('Uploads', 'Upload fichiers vers Cloudinary')
+    .addTag('Health', 'Healthcheck, statut système')
+    .addTag('Seed', 'Données de test, re-seeding')
+    .addTag('Ban Requests', 'Demandes de bannissement')
+    .addTag('Internal Chat', 'Chat équipe admin')
+    .addTag('OTP Verification', 'Vérification OTP par email')
+    .addTag('KYC', 'Vérification identité marchands/livreurs')
+    .addTag('Onboarding', 'Candidature marchand/livreur')
+    .addTag('GeniusPay', 'Intégration paiement GeniusPay')
+    .addTag('Webhooks', 'Webhooks paiement, WhatsApp')
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);

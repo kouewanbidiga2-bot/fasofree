@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
@@ -38,6 +38,7 @@ export class KycController {
   constructor(private readonly kyc: KycService) {}
 
   @Post('documents/:type')
+  @ApiOperation({ summary: 'Soumettre un document KYC (pièce d\'identité, justificatif)' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
   submit(
@@ -61,11 +62,13 @@ export class KycController {
   }
 
   @Get('me')
+  @ApiOperation({ summary: 'Consulter le statut KYC de l\'utilisateur connecté' })
   mine(@Request() req: AuthRequest) {
     return this.kyc.mine(req.user.userId);
   }
 
   @Get('documents/:id/url')
+  @ApiOperation({ summary: 'Obtenir l\'URL signée d\'un document KYC' })
   signedUrl(@Param('id') id: string, @Request() req: AuthRequest) {
     // 🛡️ CORRECTION : N'importe quel rôle admin/support peut voir l'URL signée du document
     const isAdminOrSupport = ADMIN_ROLES.includes(req.user.role);
@@ -78,18 +81,21 @@ export class KycController {
   // =========================================================================
 
   @Get('admin/pending')
+  @ApiOperation({ summary: 'Lister les documents KYC en attente de validation' })
   @Roles(...ADMIN_ROLES) // 🔓 Accessible aux Super Admin, Admin et Support
   listPending() {
     return this.kyc.pending();
   }
 
   @Post('admin/:id/approve')
+  @ApiOperation({ summary: 'Approuver un document KYC' })
   @Roles(...ADMIN_ROLES) // 🔓 Accessible aux Super Admin, Admin et Support
   approve(@Param('id') id: string, @Request() req: AuthRequest) {
     return this.kyc.review(id, req.user.userId, KycStatus.APPROVED);
   }
 
   @Post('admin/:id/reject')
+  @ApiOperation({ summary: 'Rejeter un document KYC avec motif' })
   @Roles(...ADMIN_ROLES) // 🔓 Accessible aux Super Admin, Admin et Support
   reject(
     @Param('id') id: string,
