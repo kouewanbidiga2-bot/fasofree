@@ -17,6 +17,7 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
 import { Product } from '../products/entities/product.entity';
 import { Brand } from '../brands/entities/brand.entity';
+import { Wallet } from '../wallets/entities/wallet.entity';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 
@@ -36,6 +37,8 @@ export class SeedController {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Brand)
     private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
   ) {}
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -302,6 +305,30 @@ export class SeedController {
         client: { email: 'test.client@fasofree.bf', password: 'Test@12345' },
         driver: { email: 'test.driver@fasofree.bf', password: 'Test@12345' },
       },
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('fix-wallet-userroles')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Corriger les userRole=DRIVER des branch wallets vers MERCHANT' })
+  async fixWalletUserRoles() {
+    // Fix branch wallets that have userRole=DRIVER but belong to a merchant user
+    const result = await this.walletRepository
+      .createQueryBuilder()
+      .update()
+      .set({ userRole: 'MERCHANT' as any })
+      .where('"userRole" = :wrongRole', { wrongRole: 'DRIVER' })
+      .andWhere('"branchId" IS NOT NULL')
+      .andWhere('"userId" IN (SELECT id FROM users WHERE role = :role)', {
+        role: 'business_admin',
+      })
+      .execute();
+
+    return {
+      success: true,
+      message: `${result.affected || 0} wallets corrigés (DRIVER → MERCHANT)`,
     };
   }
 }
