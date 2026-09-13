@@ -1,41 +1,41 @@
 # RAPPORT TECHNIQUE — FasoFree
-## Phase de correction de bugs dashboard + Swagger + Livraison
+## Corrections dashboard + Swagger + verification complete
 
-**Date** : 12 Septembre 2026  
+**Date** : 13 Septembre 2026  
 **Auteur** : Assistant IA (opencode)  
-**Version** : 1.0.0  
+**Version** : 2.0.0  
 **Repo** : github.com/kouewanbidiga2-bot/fasofree
+
+> **Note** : Ce rapport remplace `PROJECT_BIBLE.md` comme reference technique.
+> PROJECT_BIBLE.md contient des informations obsoletes (fournisseurs de paiement
+> ligdicash/cinetpay/mock, 97 routes au lieu de 152, FSM different).
 
 ---
 
 ## TABLE DES MATIERES
 
-1. [Swagger — Documentation API](#1-swagger--documentation-api)
-2. [Corrections critiques (8 bugs dashboard)](#2-corrections-critiques-8-bugs-dashboard)
-3. [Fonctionnalites ajoutees](#3-fonctionnalites-ajoutees)
-4. [Erreurs restantes](#4-erreurs-restantes)
-5. [Architecture technique](#5-architecture-technique)
-6. [Guide de deploiement](#6-guide-de-deploiement)
+1. [Swagger — Documentation API](#1-swagger)
+2. [Corrections critiques (8 bugs)](#2-corrections)
+3. [Fonctionnalites ajoutees](#3-ajouts)
+4. [Erreurs restantes](#4-erreurs)
+5. [Architecture technique](#5-architecture)
+6. [Deploiement](#6-deploiement)
 
 ---
 
-## 1. SWAGGER — DOCUMENTATION API
+## 1. SWAGGER
 
-### URL
-```
-https://api.fasofree.site/api/docs
-```
+**URL** : `https://api.fasofree.site/api/docs`
 
-### Configuration
-- **OpenAPI** : 3.0.0
-- **Titre** : FasoFree API
-- **Version** : 1.0.0
-- **Authentification** : Bearer JWT (header Authorization)
-- **Routes documentees** : 152
-- **Schemas DTO** : 47
-- **Tags** : 36
+| Metrique | Valeur |
+|----------|--------|
+| OpenAPI | 3.0.0 |
+| Routes documentees | 152 |
+| Schemas DTO | 47 |
+| Tags | 36 |
+| Auth | Bearer JWT |
 
-### Tags et modules
+### Modules documentes
 
 | Tag | Routes | Description |
 |-----|--------|-------------|
@@ -45,7 +45,7 @@ https://api.fasofree.site/api/docs
 | Products | 6 | Catalogue, stock, disponibilite |
 | Orders | 16 | Commandes FSM, historique |
 | Dispatch | 3 | Attribution livreur, cascade, timeout |
-| Payments | 5 | GeniusPay, Orange Money, Moov Money, Wave |
+| Payments | 5 | GeniusPay, Orange/Moov/Wave |
 | Wallets | 6 | Portefeuilles, credits, retraits |
 | Financial | 6 | Settlement, commission, rapports |
 | Analytics | 3 | Statistiques ventes, graphiques |
@@ -63,7 +63,7 @@ https://api.fasofree.site/api/docs
 | Favorites | 3 | Restaurants favoris |
 | Uploads | 1 | Upload Cloudinary |
 | Health | 2 | Healthcheck |
-| Seed | 2 | Donnees de test |
+| Seed | 3 | Donnees de test + fix wallet |
 | Ban Requests | 4 | Bannissements |
 | Internal Chat | 3 | Chat equipe admin |
 | OTP Verification | 3 | Verification OTP |
@@ -82,185 +82,166 @@ https://api.fasofree.site/api/docs
 
 ---
 
-## 2. CORRECTIONS CRITIQUES (8 BUGS DASHBOARD)
+## 2. CORRECTIONS
 
 ### FIX 1 : Route GET /wallets/brand/:brandId inaccessible
-**Fichier** : `wallet.controller.ts`  
-**Ligne** : 94  
-**Probleme** : La route `brand/:brandId` etait declaree APRES `:userRole/:userId`. NestJS matchait `brand` comme `userRole` → 403.  
-**Solution** : Deplace `brand/:brandId` AVANT `:userRole/:userId` + supprime le doublon.  
-**Statut** : `0c10c6a` + `91eaf92` + `24f267e`
+**Fichier** : `wallet.controller.ts:94`  
+**Probleme** : `brand/:brandId` declaree APRES `:userRole/:userId`. NestJS matchait `brand` comme `userRole` → 403.  
+**Solution** : Deplace AVANT + doublon supprime.  
+**Commit** : `0c10c6a`, `91eaf92`
 
 ```typescript
 // AVANT (incorrect)
-@Get(':userRole/:userId')     // ← matche en premier
-@Get('brand/:brandId')        // ← jamais atteint
+@Get(':userRole/:userId')     // matche en premier
+@Get('brand/:brandId')        // jamais atteint
 
 // APRES (correct)
-@Get('brand/:brandId')        // ← matche en premier
-@Get(':userRole/:userId')     // ← fallback
+@Get('brand/:brandId')        // matche en premier
+@Get(':userRole/:userId')     // fallback
 ```
 
-### FIX 2 : Wallet global (branchId=null) jamais credite
-**Fichier** : `merchant-financial.service.ts`  
-**Ligne** : 48, 64  
-**Probleme** : `creditWallet` utilisait `order.businessId` comme `userId`. Le frontend cherchait avec `user.id` (ownerId) → jamais le meme wallet.  
+### FIX 2 : Wallet global jamais credite
+**Fichier** : `merchant-financial.service.ts:48`  
+**Probleme** : `creditWallet(order.businessId, ...)` → userId = businessId. Frontend cherche avec `user.id` (ownerId).  
 **Solution** : `merchantUserId = business.ownerId ?? order.businessId` + `branchId = order.businessId`.  
-**Statut** : `178e160`
+**Commit** : `178e160`
 
-```typescript
-// AVANT (incorrect)
-await this.walletService.creditWallet(order.businessId, ...); // userId = businessId
+### FIX 3 : getBrandWallets ignore brandId
+**Fichier** : `wallet.service.ts:684`  
+**Probleme** : Filtrait sur `userRole: MERCHANT` mais branch wallets avaient `userRole: DRIVER`.  
+**Solution** : Supprime le filtre `userRole`.  
+**Commit** : `91eaf92`
 
-// APRES (correct)
-const merchantUserId = business?.ownerId ?? order.businessId;
-await this.walletService.creditWallet(merchantUserId, ..., order.businessId); // branchId = businessId
-```
+### FIX 4 : Payout cron
+**Fichier** : `wallet.service.ts:485`  
+**Probleme** : Comparait `wallet.userId` (ownerId) aux businesses → toujours 0.  
+**Solution** : Recherche businesses par `ownerId` avant credit.  
+**Commit** : `004e74e`
 
-### FIX 3 : getBrandWallets ignore le param brandId
-**Fichier** : `wallet.service.ts`  
-**Ligne** : 670-695  
-**Probleme** : Filtrait sur `userRole: MERCHANT` mais les branch wallets avaient `userRole: DRIVER`.  
-**Solution** : Supprime le filtre `userRole` de la requete.  
-**Statut** : `91eaf92`
+### FIX 5 : Analytics mauvais alias
+**Fichier** : `analytics.service.ts:524`  
+**Probleme** : `order.createdAt` au lieu de `o."createdAt"` → erreur SQL.  
+**Solution** : Corrige + brand chart respecte filtre date.  
+**Commit** : `5fad369`
 
-```typescript
-// AVANT (incorrect)
-where: businessIds.map((bid) => ({
-  userId, userRole: UserRole.MERCHANT, branchId: bid, // ← pas de match si role = DRIVER
-}))
+### FIX 6 : Settings marchand pas chargees
+**Fichier** : `BusinessAdminDashboard.jsx:569`  
+**Probleme** : `loadSettings()` absent du useEffect de montage.  
+**Solution** : Ajoute dans les dependances.  
+**Commit** : `5fad369`
 
-// APRES (correct)
-where: businessIds.map((bid) => ({
-  userId, branchId: bid, // ← trouve quel que soit le role
-}))
-```
-
-### FIX 4 : Payout cron compare UUID user vs UUID business
-**Fichier** : `wallet.service.ts`  
-**Ligne** : 485  
-**Probleme** : Le cron de payout comparait `wallet.userId` (ownerId) avec les businesses → toujours 0.  
-**Solution** : Recherche les businesses par `ownerId` avant de creditler.  
-**Statut** : `004e74e`
-
-### FIX 5 : Analytics mauvais alias order.createdAt
-**Fichier** : `analytics.service.ts`  
-**Ligne** : 524  
-**Probleme** : `order.createdAt` au lieu de `o."createdAt"` → erreur SQL (alias non defini).  
-**Solution** : Corrige en `o."createdAt"` + brand chart respecte le filtre date.  
-**Statut** : `5fad369`
-
-### FIX 6 : Settings marchand jamais chargees au montage
-**Fichier** : `BusinessAdminDashboard.jsx`  
-**Ligne** : 569  
-**Probleme** : `loadSettings()` n'etait pas appele dans le useEffect de montage.  
-**Solution** : Ajout de `loadSettings` dans le tableau de dependances du useEffect.  
-**Statut** : `5fad369`
-
-### FIX 7 : Chat channel switching = stale closure
-**Fichier** : `authStore.js`  
-**Ligne** : 96  
-**Probleme** : Les sockets n'etaient pas deconnectes au logout → fuite memoire et messages stale.  
+### FIX 7 : Socket fuite memoire au logout
+**Fichier** : `authStore.js:96`  
+**Probleme** : Les sockets n'etaient pas deconnectes au logout → fuite memoire.  
 **Solution** : `disconnectRealtime()` appele au logout.  
-**Statut** : `5fad369`
+**Commit** : `5fad369`
 
-### FIX 8 : Table "Autres comptes" = 7 headers, 6 colonnes
+### FIX 8 : Table headers/cells mismatch
 **Fichier** : `SuperAdminDashboard.jsx`  
-**Probleme** : Colonne "Mot de passe" dans les headers mais pas dans les cells.  
-**Solution** : Suppression de la colonne "Mot de passe" du tableau.  
-**Statut** : `5fad369`
+**Probleme** : 7 headers, 6 colonnes (colonne "Mot de passe" sans cellule correspondante).  
+**Solution** : Suppression de la colonne.  
+**Commit** : `5fad369`
 
 ---
 
-## 3. FONCTIONNALITES AJOUTEES
+## 3. AJOUTS
 
 ### 3.1 Dispatch automatique livreur
-**Fichiers** : `dispatch.controller.ts`, `dispatch.service.ts`
 - Transaction `SERIALIZABLE` + `pessimistic_write` sur acceptation
 - `isAvailable = false` quand un livreur accepte
 - Timeout 10 min sur `READY_FOR_PICKUP`
 - Refus re-notifie le candidat suivant
-- Toggle disponibilite persiste au backend via `PATCH /users/me/driver-status`
+- Toggle disponibilite persiste au backend
 
 ### 3.2 Client disputes
-**Fichiers** : `disputes.controller.ts`, `Disputes.jsx`
-- `GET /disputes/me` pour lister les reclamations client
+- `GET /disputes/me` pour lister les reclamations
 - Page disputes dans le profil client
 
 ### 3.3 Multi-branch support
-**Fichiers** : `BusinessAdminDashboard.jsx`, `businesses.controller.ts`
-- `GET /businesses/me` retourne TOUTES les branches du proprietaire
-- `POST /orders/brand` pour creer des commandes multi-agences
-- Auto-repair des marchands orphelins
+- `GET /businesses/me` retourne TOUTES les branches
+- `POST /orders/brand` pour commandes multi-agences
+- Auto-repair marchands orphelins
 
 ### 3.4 Merchant FSM
-**Fichiers** : `types.js`, `orderService.js`
-- `MerchantTransitions` map pour masquer les transitions driver-only
+- `MerchantTransitions` map masque les transitions driver-only
 - `getNextPossibleStatuses` accepte le parametre `role`
 
-### 3.5 Swagger ameliore
-**Fichier** : `main.ts`
-- 152 routes documentees
-- 36 tags avec descriptions
-- 47 schemas DTO
-- `@ApiOperation` sur KYC, Promotions, Settings
+### 3.5 Endpoint fix-wallet-userroles
+- `POST /seed/fix-wallet-userroles` (super admin)
+- Corrige les branch wallets avec `userRole=DRIVER` → `MERCHANT`
+- Commit `87fd286`
 
 ---
 
 ## 4. ERREURS RESTANTES
 
-### 4.1 [MOYENNE] Branch wallets userRole=DRIVER
+### 4.1 [EN COURS] Branch wallets userRole=DRIVER
 **Description** : Les 3 branch wallets de Chitir Chicken ont `userRole=DRIVER` au lieu de `MERCHANT`.  
-**Impact** : Les credits de nouvelles commandes iront au bon wallet (car on ne filtre plus par role), mais les anciens credits restent orphelins.  
-**Correction** : Migration `1725800000000-fix-wallet-userroles.ts` prete, a appliquer sur Render :
-```bash
-npx typeorm migration:run -d src/database/data-source.ts
-```
+**Impact** : Les credits de nouvelles commandes iront au bon wallet (filtre supprime), mais les anciens credits restent orphelins.  
+**Correction** : L'endpoint `POST /seed/fix-wallet-userroles` (commit `87fd286`) est pret. Render doit d'abord deployer ce commit.  
+**Etat** : En attente du deploy Render (dernier push `992856e`).
 
-### 4.2 [MOYENNE] Brand wallet 0 wallets
+### 4.2 [EN COURS] Brand wallet 0 wallets
 **Description** : `GET /wallets/brand/:brandId` retourne `{"wallets":[],"totalBalance":0}`.  
-**Cause** : Le filtre userRole a ete supprime (FIX 3), mais la migration n'est pas encore appliquee sur Render.  
+**Cause** : Le filtre userRole a ete supprime (FIX 3), mais les wallets ont encore `userRole=DRIVER`. Le endpoint `/seed/fix-wallet-userroles` corrigera cela.  
 **Impact** : Affichage du total des finances dans le dashboard marchand.  
-**Correction** : Appliquer la migration + redployer.
+**Correction** : Meme que 4.1.
 
 ### 4.3 [BASSE] Anciens credits orphanes
 **Description** : Les commandes completes AVANT le FIX 2 ont credite au mauvais wallet (`userId = businessId` au lieu de `ownerId`).  
-**Impact** : Les soldes des anciennes commandes sont sur des wallets inexistants/mal identifies.  
-**Correction** : Script de backfill ou verification manuelle des transactions.
+**Impact** : Les soldes des anciennes commandes sont sur des wallets mal identifies.  
+**Correction** : Pas de script de backfill dans le repo. Verification manuelle ou script a ecrire si necessaire.
 
-### 4.4 [INFO] Super admin wallet 403
-**Description** : `GET /wallets/super_admin/:userId` retourne 403.  
-**Cause** : Le role `super_admin` n'est pas dans le `roleMap` du wallet controller (c'est normal — les super admins n'ont pas de wallet).  
-**Impact** : Aucun. Comportement prevu.
+### 4.4 [NORMAL] Super admin wallet 403
+**Description** : `GET /wallets/super_admin/:userId` retourne 403 avec le message "Role de portefeuille invalide: super_admin".  
+**Cause** : Le `roleMap` du wallet controller ne contient que `MERCHANT, DRIVER, COURIER, CUSTOMER`. Le role `super_admin` n'y figure pas, et le `ForbiddenException` (403) est declenche.  
+**Impact** : Aucun — les super admins n'ont pas de wallet. Comportement prevu.
 
-### 4.5 [BASSE] Analytics revenue=0 pour branches sans commandes livrees
-**Description** : Les analytics ne comptent que les commandes avec statut `DELIVERED`. Les 21 commandes Chitir Chicken sont en `PENDING`/`PROCESSING`/`DRIVER_ASSIGNED`.  
-**Impact** : Aucun — c'est le comportement correct. Le revenue s'affichera quand les commandes seront livrees.
+### 4.5 [INFO] Analytics revenue=0
+**Description** : Les analytics ne comptent que les commandes `DELIVERED`. Les 21 commandes Chitir Chicken sont en `PENDING`/`PROCESSING`/`DRIVER_ASSIGNED`.  
+**Impact** : Aucun — comportement correct. Le revenue s'affichera apres livraison.
 
 ---
 
-## 5. ARCHITECTURE TECHNIQUE
+## 5. ARCHITECTURE
 
 ### Stack
+
 | Composant | Technologie | Version |
 |-----------|-------------|---------|
 | Backend | NestJS | 11.x |
-| ORM | TypeORM | 0.3.x |
+| ORM | TypeORM | ^1.1.0 |
 | Base de donnees | PostgreSQL | 16 (Neon) |
 | Cache | Redis | 7.x (optionnel) |
 | Frontend client | React + Vite + Zustand | 18.x |
 | Frontend admin | React + Vite | 18.x |
 | UI | Tailwind CSS | 3.x |
 | Design system | Custom (terracotta #C1652E) | — |
-| Deploy backend | Render | — |
-| Deploy frontend | Vercel | — |
+| Deploy API | Render (Docker) | — |
+| Deploy frontends | Render (Node/Vite) | — |
 | Stockage fichiers | Cloudinary | — |
 | Paiements | GeniusPay (Orange/Moov/Wave) | — |
 | Push | Firebase Cloud Messaging | — |
 | Email | Resend | — |
 | WhatsApp | Meta Cloud API | — |
 
+### Mecanisme de migration
+
+Les migrations TypeORM s'executent **automatiquement au boot** en production :
+
+```
+render.yaml : DB_MIGRATIONS_RUN=true
+       ↓
+database.config.ts:23 : migrationsRun = synchronize ? false : (migrationsOverride ?? isProd)
+       ↓
+TypeORM: migrationsRun = true → execute toutes les migrations pending au demarrage
+```
+
+**Pas besoin de `npx typeorm migration:run`** — un simple push Git suffit.
+`data-source.ts` n'existe pas dans ce repo ; la config est dans `database.config.ts`.
+
 ### Base de donnees — Entites principales
+
 ```
 users ──┬── businesses ──── products
         │   ├── orders ──── order_items
@@ -280,85 +261,93 @@ stories ──── businesses
 ```
 
 ### Flux de commande (Order FSM)
+
 ```
 PENDING → PROCESSING → IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION → DELIVERED
     ↓         ↓              ↓
 CANCELLED  CANCELLED    DRIVER_ASSIGNED → READY_FOR_PICKUP → IN_DELIVERY
 ```
 
-### Flux de paiement
-```
-Client passe commande
-  → GeniusPay initie le paiement (Orange/Moov/Wave)
-  → Webhook GeniusPay confirme le paiement
-  → Commande passe a PROCESSING
-  → Livraison effectuee
-  → Commission plateforme prelevee
-  → Wallet marchand credite (merchant-financial.service)
-```
-
 ### Flux wallet marchand
+
 ```
 order.completed event
   → MerchantFinancialService.handleOrderCompleted()
-  → businessRepository.findOne(businessId)
+  → businessRepository.findOne(order.businessId)
   → merchantUserId = business.ownerId
-  → creditWallet(merchantUserId, MERCHANT, amount, ..., businessId)
-  → Wallet cree/trouve par (userId=ownerId, userRole=MERCHANT, branchId=businessId)
+  → creditWallet(merchantUserId, MERCHANT, amount, ..., order.businessId)
+  → Wallet cree/trouve par (userId=ownerId, branchId=businessId)
   → Transaction WALLET_CREDIT creee
 ```
 
 ---
 
-## 6. GUIDE DE DEPLOIEMENT
+## 6. DEPLOIEMENT
 
-### Backend (Render)
-1. Push le code sur GitHub
-2. Render deploie automatiquement (~2-3 min)
-3. Apres deploy, appliquer la migration :
-```bash
-# Via Render Shell
-npx typeorm migration:run -d src/database/data-source.ts
+### Configuration reelle (render.yaml)
+
+| Service | Type | Runtime | URL |
+|---------|------|---------|-----|
+| fasofree-api | Web | Docker | `api.fasofree.site` |
+| fasofree-admin | Web | Node (Vite) | `fasofree-admin.onrender.com` |
+| fasofree-client | Web | Node (Vite) | `fasofree-client.onrender.com` |
+
+### CORS
+
+```
+CORS_ORIGIN: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
 ```
 
-### Frontend Client (Vercel)
-1. Push sur GitHub
-2. Deployer manuellement via le dashboard Vercel
-3. Le frontend devrait pointer vers `https://api.fasofree.site/api/v1`
+Les domaines `*.fasofree.site` et `*.vercel.app` sont aussi autorises par regex dans `main.ts`.
 
-### Frontend Admin (Vercel)
-1. Meme processus que le frontend client
-2. URL : `https://admin.fasofree.site`
+### Variables critiques (render.yaml `sync: false`)
+
+- `DATABASE_URL` — PostgreSQL Neon
+- `JWT_SECRET` — Min 32 caracteres
+- `FIREBASE_*` — Push notifications
+- `REDIS_URL` — Optionnel
+- `SMTP_USER` / `SMTP_PASS` — Email Resend
+
+### Cycle de deploiement
+
+1. Push sur GitHub (`main`)
+2. Render detecte le push → build + deploy automatique
+3. Au boot : TypeORM execute les migrations pending (`DB_MIGRATIONS_RUN=true`)
+4. `synchronize: false` en prod (le code l'impose)
 
 ### Swagger
-Accessible apres deploy backend :
+
+Accessible apres deploy :
 ```
 https://api.fasofree.site/api/docs
 ```
 
 ---
 
-## COMMITS LIES A CETTE PHASE
+## COMMITS
 
 | Hash | Description |
 |------|-------------|
-| `24f267e` | docs: enhance Swagger - detailed descriptions, all tags, @ApiOperation |
-| `91eaf92` | fix: getBrandWallets remove userRole filter + migration fix wallet userroles |
-| `0c10c6a` | fix: brand wallet route MUST be before :userRole/:userId |
+| `992856e` | chore: trigger Render redeploy |
+| `87fd286` | feat: POST /seed/fix-wallet-userroles endpoint |
+| `24f267e` | docs: Swagger detailed descriptions, @ApiOperation |
+| `91eaf92` | fix: getBrandWallets remove userRole filter |
+| `0c10c6a` | fix: brand wallet route ordering |
 | `178e160` | fix: merchant settlement uses ownerId + branchId |
-| `004e74e` | fix: payout cron uses businessId from owner lookup + brand chart date filter |
-| `5fad369` | fix: 7 dashboard bugs (brand route, analytics, settings, commission, table, socket) |
-| `8762cfd` | fix: BusinessAdminDashboard loads orders after business resolution |
-| `e05668e` | fix: dispatch overhaul - transaction lock, isAvailable, timeout, refuse |
-| `0cfe059` | fix: merchant FSM - hide driver-only transitions |
-| `6054f64` | fix: add missing XCircle import |
-| `0787401` | fix: remove READY_FOR_PICKUP from DRIVER_TRANSITIONS |
-| `b53d8ad` | feat: client disputes page + GET /disputes/me |
-| `3a4e70a` | fix: memoize branches array (20699 console errors) |
-| `f88f309` | fix: move available-drivers route before :id |
+| `004e74e` | fix: payout cron + brand chart date filter |
+| `5fad369` | fix: 7 dashboard bugs |
+| `8762cfd` | fix: BusinessAdminDashboard load order |
+| `e05668e` | fix: dispatch overhaul |
+| `0cfe059` | fix: merchant FSM |
+| `6054f64` | fix: XCircle import |
+| `0787401` | fix: READY_FOR_PICKUP for merchant |
+| `b53d8ad` | feat: client disputes |
+| `3a4e70a` | fix: memoize branches |
+| `f88f309` | fix: route ordering |
 | `2776bdd` | feat: full delivery flow |
-| `01bdbb3` | fix: dashboard business admin + multi-branch |
-| `484e21f` | feat: transfer business ownership |
-| `3c9fcee` | fix: merchant products UUID validation |
-| `ad904b8` | fix: admin api.js handles empty responses |
-| `227e85d` | feat: dashboard login only + KYC mandatory |
+| `01bdbb3` | fix: multi-branch support |
+| `484e21f` | feat: transfer ownership |
+| `3c9fcee` | fix: UUID validation |
+| `ad904b8` | fix: empty body handling |
+| `227e85d` | feat: login only + KYC mandatory |
+| `1fe9a10` | feat: GeniusPay sole provider |
