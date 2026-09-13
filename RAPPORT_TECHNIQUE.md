@@ -284,21 +284,26 @@ order.completed event
 
 ## 6. DEPLOIEMENT
 
-### Configuration reelle (render.yaml)
+### Configuration reelle
 
-| Service | Type | Runtime | URL |
-|---------|------|---------|-----|
-| fasofree-api | Web | Docker | `api.fasofree.site` |
-| fasofree-admin | Web | Node (Vite) | `fasofree-admin.onrender.com` |
-| fasofree-client | Web | Node (Vite) | `fasofree-client.onrender.com` |
+| Service | Plateforme | URL |
+|---------|-----------|-----|
+| Backend API (NestJS) | Render (Docker) | `https://api.fasofree.site` |
+| Dashboard Admin (React) | Vercel | `https://admin.fasofree.site` |
+| App Client (React) | Vercel | `https://fasofree.site` |
 
 ### CORS
 
-```
-CORS_ORIGIN: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
-```
+`render.yaml` definit `CORS_ORIGIN: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com`
+mais les domaines `*.fasofree.site` et `*.vercel.app` sont aussi autorises par regex dans `main.ts` :
 
-Les domaines `*.fasofree.site` et `*.vercel.app` sont aussi autorises par regex dans `main.ts`.
+```typescript
+const allowedRegexPatterns = [
+  /\.fasofree\.site$/,
+  /\.vercel\.app$/,
+  /\.onrender\.com$/,
+];
+```
 
 ### Variables critiques (render.yaml `sync: false`)
 
@@ -310,14 +315,20 @@ Les domaines `*.fasofree.site` et `*.vercel.app` sont aussi autorises par regex 
 
 ### Cycle de deploiement
 
+**Backend (Render)** :
 1. Push sur GitHub (`main`)
 2. Render detecte le push → build + deploy automatique
 3. Au boot : TypeORM execute les migrations pending (`DB_MIGRATIONS_RUN=true`)
 4. `synchronize: false` en prod (le code l'impose)
 
+**Frontends (Vercel)** :
+1. Push sur GitHub (`main`)
+2. Deployement manuel via dashboard Vercel
+3. Le frontend pointe vers `https://api.fasofree.site/api/v1`
+
 ### Swagger
 
-Accessible apres deploy :
+Accessible apres deploy backend :
 ```
 https://api.fasofree.site/api/docs
 ```
