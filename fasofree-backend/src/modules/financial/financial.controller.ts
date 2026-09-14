@@ -16,7 +16,7 @@ export class FinancialController {
   ) {}
 
   @Get('dashboard')
-  @ApiOperation({ summary: 'Résumé financier global (LigdiCash + passifs)' })
+  @ApiOperation({ summary: 'Résumé financier global (GeniusPay + passifs)' })
   async getDashboardSummary() {
     return this.financialMonitoringService.getDashboardSummary();
   }

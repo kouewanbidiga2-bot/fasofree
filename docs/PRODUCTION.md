@@ -19,12 +19,11 @@
 ## Santé / redémarrage
 - `GET /api/v1/health/live` — liveness (l'instance est vivante).
 - `GET /api/v1/health/ready` — readiness (ping base de données). Le healthcheck Render pointe ici.
-- `GET /api/v1/health` — alias de readiness (rétrocompatibilité).
-
-## Configuration requise en production
+- `GET /api/v1/health/ready` — readiness (vérifie la base de données).
+- `GET /api/v1/health/live` — liveness (sans dépendance à la DB).
 Voir [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md). Essentiel :
 - `JWT_SECRET`, `DATABASE_URL` (fail-fast si absents).
-- Secrets de webhooks : `GENIUSPAY_WEBHOOK_SECRET`, `YENGAPAY_WEBHOOK_SECRET`, `PAYDUNYA_MASTER_KEY`, `LIGDICASH_PAYOUT_TOKEN` (tous fail-closed).
+- Secrets de webhooks : `GENIUSPAY_WEBHOOK_SECRET` (fail-closed). GeniusPay est le seul provider de paiement.
 - `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`.
 - `CORS_ORIGIN` (origines exactes autorisées).
 

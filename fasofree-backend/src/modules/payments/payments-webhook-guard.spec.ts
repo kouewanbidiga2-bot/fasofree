@@ -51,7 +51,7 @@ describe('Payments webhook anti-fraud guards', () => {
     });
   });
 
-  describe('YengaPay verifyWebhookSignature (fail-closed)', () => {
+  describe('verifyWebhookSignature (fail-closed)', () => {
     const buildService = (secret?: string) => {
       const crypto = require('crypto');
       return {

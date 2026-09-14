@@ -354,6 +354,8 @@ const BusinessAdminDashboard = () => {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [brandAnalytics, setBrandAnalytics] = useState(null);
   const [branchWallets, setBranchWallets] = useState({});
+  // Wallets agrégés de la marque (toutes agences) — GET /wallets/brand/:brandId
+  const [brandWallets, setBrandWallets] = useState(null);
 
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
   const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
@@ -542,6 +544,10 @@ const BusinessAdminDashboard = () => {
 
   const loadBranchWallets = useCallback(async () => {
     if (!brandId || branches.length === 0) return;
+    // Wallets agrégés de la marque (toutes les agences) en parallèle
+    getBrandWallets(brandId)
+      .then((data) => setBrandWallets(data))
+      .catch(() => setBrandWallets(null));
     try {
       const wallets = {};
       for (const branch of branches) {
@@ -606,11 +612,14 @@ const BusinessAdminDashboard = () => {
     };
   }, [selectedChatOrder, chatChannel]);
 
-  const handleViewChatHistory = async (orderId) => {
+  // ✅ FIX #25 : le canal est passé explicitement en paramètre.
+  // setChatChannel(ch) est async : lire chatChannel du closure dans le même
+  // handler donnerait l'ANCIENNE valeur → historique/room socket sur le mauvais canal.
+  const handleViewChatHistory = async (orderId, channel = chatChannel) => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
     try {
-      const data = await getChatHistory(orderId, chatChannel);
+      const data = await getChatHistory(orderId, channel);
       setChatHistory(data?.history || data || []);
     } catch {
       setChatHistory([]);
@@ -626,14 +635,14 @@ const BusinessAdminDashboard = () => {
     const socket = getChatSocket();
     chatSocketRef.current = socket;
 
-    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+    socket.emit('joinOrderChat', { orderId, channel }, (res) => {
       if (res?.status === 'ok') {
         setChatHistory(res.history || []);
       }
     });
 
     socket.on('newOrderMessage', (msg) => {
-      if (msg.orderId === orderId && msg.channel === chatChannel) {
+      if (msg.orderId === orderId && msg.channel === channel) {
         setChatHistory((prev) => [...prev, msg]);
       }
     });
@@ -775,7 +784,13 @@ const BusinessAdminDashboard = () => {
               <span className="text-text-tertiary text-xs">Portefeuille</span>
             </div>
             <p className="text-text-primary text-sm font-bold">
-              {(wallet.balance || 0).toLocaleString()} FCFA
+              {(selectedBranchId
+                ? (wallet.balance || 0)
+                : (brandWallets?.totalBalance ?? wallet?.balance ?? 0)
+              ).toLocaleString()} FCFA
+            </p>
+            <p className="text-text-tertiary text-[10px]">
+              {selectedBranchId ? 'Agence sélectionnée' : 'Total toutes agences'}
             </p>
           </div>
         )}
@@ -860,7 +875,14 @@ const BusinessAdminDashboard = () => {
               {/* Cartes financières par agence (vue marque) */}
               {!selectedBranchId && brandAnalytics?.branches?.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-3 ml-1">Agences</h3>
+                  <div className="flex items-center justify-between mb-3 ml-1">
+                    <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Agences</h3>
+                    {brandWallets && (
+                      <span className="text-xs text-text-secondary">
+                        Total toutes agences : <strong>{(brandWallets.totalBalance || 0).toLocaleString()} FCFA</strong>
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {brandAnalytics.branches.map((branch) => (
                       <BranchFinancialCard
@@ -1279,7 +1301,7 @@ const BusinessAdminDashboard = () => {
                       {['merchant', 'driver'].map(ch => (
                         <button
                           key={ch}
-                          onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                          onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder, ch); }}
                           className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
                         >
                           {ch === 'merchant' ? 'Marchand' : 'Livreur'}

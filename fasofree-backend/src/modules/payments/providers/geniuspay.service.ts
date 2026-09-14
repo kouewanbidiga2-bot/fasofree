@@ -149,7 +149,8 @@ export class GeniusPayService {
       const errData = error.response?.data;
       this.logger.error(`❌ GeniusPay createPayment error: ${error.message}`);
       this.logger.error(`❌ GeniusPay URL: ${this.baseUrl}/payments`);
-      this.logger.error(`❌ GeniusPay apiKey present: ${!!this.apiKey}, prefix: ${this.apiKey?.substring(0, 5)}`);
+      // ✅ FIX #39 : ne JAMAIS logger même un préfixe de la clé API
+      this.logger.error(`❌ GeniusPay apiKey present: ${!!this.apiKey}`);
       if (errData) {
         this.logger.error(`❌ GeniusPay response body: ${JSON.stringify(errData)}`);
       }

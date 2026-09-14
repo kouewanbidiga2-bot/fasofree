@@ -63,9 +63,12 @@ const useAuthStore = create((set) => ({
     user: state.user ? { ...state.user, isPremium: !!isPremium } : state.user,
   })),
 
-  setVerified: () => set((state) => ({
-    user: state.user ? { ...state.user, isEmailVerified: true, isPhoneVerified: true } : null,
-  })),
+  setVerified: () => set((state) => {
+    if (!state.user) return { user: null };
+    const updated = { ...state.user, isEmailVerified: true, isPhoneVerified: true };
+    localStorage.setItem('fasofree_user', JSON.stringify(updated));
+    return { user: updated };
+  }),
 
   updateUser: (userData) => set((state) => {
     const updated = { ...state.user, ...userData };

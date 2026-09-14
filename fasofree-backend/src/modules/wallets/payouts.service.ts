@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { CinetPayPayoutProvider } from './providers/cinetpay-payout.provider';
+import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
 import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
@@ -12,7 +12,7 @@ export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
 
   constructor(
-    private readonly cinetPayPayoutProvider: CinetPayPayoutProvider,
+    private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
   ) {}
@@ -81,9 +81,9 @@ export class PayoutsService {
       `Retrait vers ${dto.provider} (frais: ${feeInfo.fee} FCFA)`,
     );
 
-    // 2. Déclencher le virement Mobile Money via l'agrégateur
+    // 2. Déclencher le virement Mobile Money via GeniusPay
     try {
-      const transferResult = await this.cinetPayPayoutProvider.sendTransfer(
+      const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
         payoutReference,
         feeInfo.netAmount,
         dto.phoneNumber,
@@ -108,29 +108,41 @@ export class PayoutsService {
           },
         };
       } else {
-        // En cas d'échec du virement externe, re-créditer l'argent
-        await this.walletService.creditWallet(
-          userId,
-          role,
-          feeInfo.netAmount,
-          TransactionReason.REFUND,
-          payoutReference,
-          `Remboursement suite à l'échec du retrait: ${transferResult.message}`,
-        );
+        // ✅ FIX #19 : En cas d'échec du virement externe, re-créditer l'argent
+        try {
+          await this.walletService.creditWallet(
+            userId,
+            role,
+            feeInfo.netAmount,
+            TransactionReason.REFUND,
+            payoutReference,
+            `Remboursement suite à l'échec du retrait: ${transferResult.message}`,
+          );
+        } catch (refundError) {
+          this.logger.error(
+            `[PAYOUT CRITIQUE] Échec du remboursement pour ${userId}: ${refundError instanceof Error ? refundError.message : 'Erreur inconnue'}. Montant perdu: ${feeInfo.netAmount} FCFA`,
+          );
+        }
         throw new BadRequestException(
           `Le virement a échoué: ${transferResult.message}. Le montant a été recrédité sur votre solde.`,
         );
       }
     } catch (error) {
       if (!(error instanceof BadRequestException)) {
-        await this.walletService.creditWallet(
-          userId,
-          role,
-          feeInfo.netAmount,
-          TransactionReason.REFUND,
-          payoutReference,
-          `Remboursement suite à l'échec du retrait (Erreur système)`,
-        );
+        try {
+          await this.walletService.creditWallet(
+            userId,
+            role,
+            feeInfo.netAmount,
+            TransactionReason.REFUND,
+            payoutReference,
+            `Remboursement suite à l'échec du retrait (Erreur système)`,
+          );
+        } catch (refundError) {
+          this.logger.error(
+            `[PAYOUT CRITIQUE] Échec du remboursement (erreur système) pour ${userId}: ${refundError instanceof Error ? refundError.message : 'Erreur inconnue'}. Montant perdu: ${feeInfo.netAmount} FCFA`,
+          );
+        }
       }
       throw error;
     }

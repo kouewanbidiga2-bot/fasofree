@@ -35,25 +35,19 @@ Référence des variables pour **staging / production**. Aucun secret n'est cod�
 | `THROTTLE_TTL_MS` | `60000` | Fenêtre du rate limiter (ms). |
 | `THROTTLE_LIMIT` | `100` | Limite de requêtes par IP par fenêtre. |
 
-## Paiements
+## Paiements (GeniusPay uniquement)
 
 | Variable | Description |
 |---|---|
-| `PAYMENT_PROVIDER` | `mock` \| `ligdicash` \| `cinetpay` \| `wave`. |
 | `PAYMENT_ENV` | `sandbox` \| `live`. |
-| `GENIUSPAY_API_KEY` / `GENIUSPAY_API_SECRET` | Clés GeniusPay. |
+| `GENIUSPAY_API_KEY` / `GENIUSPAY_API_SECRET` | Clés GeniusPay (payin **et** payout). |
 | `GENIUSPAY_WEBHOOK_SECRET` | **Obligatoire en prod** : sans lui, les webhooks GeniusPay sont rejetés (fail-closed). |
-| `CINETPAY_API_KEY` / `CINETPAY_SITE_ID` / `CINETPAY_BASE_URL` | CinetPay. |
-| `LIGDICASH_API_KEY` / `LIGDICASH_AUTH_TOKEN` / `LIGDICASH_PAYOUT_TOKEN` | LigdiCash (le token webhook est fail-closed). |
-| `PAYDUNYA_MASTER_KEY` / `PAYDUNYA_PRIVATE_KEY` / `PAYDUNYA_TOKEN` / `PAYDUNYA_MODE` | PayDunya (hash webhook SHA-512 du master key, fail-closed). |
-| `YENGAPAY_WEBHOOK_SECRET` | **Obligatoire** : sans lui, les webhooks YengaPay sont rejetés (fail-closed). |
 
 ## Payouts / reversements
 
 | Variable | Défaut | Description |
 |---|---|---|
 | `PAYOUTS_SIMULATION_ENABLED` | *(vide)* | `true` pour simuler les reversements. |
-| `CINETPAY_PAYOUT_KEY` / `CINETPAY_PAYOUT_SECRET` | — | Reversements CinetPay. |
 | `PAYOUT_MIN_AMOUNT_FCFA` | `1000` | Seuil minimal de payout. |
 
 ## Notifications

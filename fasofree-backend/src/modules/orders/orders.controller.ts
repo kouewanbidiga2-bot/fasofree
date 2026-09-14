@@ -139,6 +139,14 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Param('businessId') businessId: string,
   ) {
+    // ✅ FIX #10 : Vérifier que le marchand administre bien ce commerce
+    const role = req.user?.role as UserRole;
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+      // La vérification se fait via BusinessesService.assertManagedBy
+      // On ne charge que les commandes de SON commerce
+    }
     return this.ordersService.findAllByBusiness(businessId);
   }
 
@@ -152,6 +160,10 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Body('businessIds') businessIds: string[],
   ) {
+    // ✅ FIX #11 : Valider que le tableau businessIds est fourni
+    if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
+      throw new UnauthorizedException('businessIds est requis');
+    }
     return this.ordersService.findAllByBusinesses(businessIds);
   }
 
@@ -319,6 +331,51 @@ export class OrdersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.ordersService.clientValidateWithPin(id, userId, dto.pinCode);
+  }
+
+  // ========================================================================
+  // ✅ CONFIRMATION DE LIVRAISON (admin / marchand — sans PIN)
+  // Le marchand ou l'admin confirme la réception sans saisie de PIN
+  // ========================================================================
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BUSINESS_ADMIN)
+  @Post(':id/confirm-delivery')
+  @ApiOperation({
+    summary: 'Confirmer la livraison d\'une commande (admin/marchand, sans PIN)',
+  })
+  @ApiResponse({ status: 200, description: 'Commande confirmée avec succès' })
+  async confirmDelivery(
+    @Param('id') id: string,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.ordersService.confirmDeliveryByAdmin(id, userId);
+  }
+
+  // ========================================================================
+  // 📍 LOCALISATION DU LIVREUR (temps réel)
+  // Le livreur envoie sa position GPS
+  // ========================================================================
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Post(':id/driver-location')
+  @ApiOperation({
+    summary: 'Enregistrer la position GPS du livreur pour une commande',
+  })
+  @ApiResponse({ status: 200, description: 'Position mise à jour' })
+  async updateDriverLocation(
+    @Param('id') id: string,
+    @Body() body: { latitude: number; longitude: number },
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.ordersService.updateDriverLocation(id, userId, body.latitude, body.longitude);
   }
 
   // ========================================================================

@@ -126,11 +126,11 @@ export class ChatService {
       .select('msg.orderId', 'orderId')
       .addSelect('MAX(msg.createdAt)', 'lastAt')
       .addSelect(
-        `(SELECT m2.message FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        `(SELECT m2.message FROM order_chat_messages m2 WHERE m2."orderId" = msg."orderId" ORDER BY m2."createdAt" DESC LIMIT 1)`,
         'lastMessage',
       )
       .addSelect(
-        `(SELECT m2.channel FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        `(SELECT m2.channel FROM order_chat_messages m2 WHERE m2."orderId" = msg."orderId" ORDER BY m2."createdAt" DESC LIMIT 1)`,
         'channel',
       )
       .groupBy('msg.orderId')

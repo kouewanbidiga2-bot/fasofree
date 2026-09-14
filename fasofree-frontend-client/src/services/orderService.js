@@ -11,7 +11,13 @@ export const getMyOrders = async () => {
 
 export const getAvailableOrders = async () => {
   try {
-    return await api.getMyOrders();
+    // ✅ FIX #21 : les commandes disponibles pour un livreur = les commandes
+    // en attente d'acceptation (PENDING/PAID sans driverId)
+    // On récupère les commandes et on filtre côté client
+    const allOrders = await api.getMyOrders();
+    return allOrders.filter((o) =>
+      !o.driverId && (o.status === 'PENDING' || o.status === 'PAID')
+    );
   } catch (error) {
     console.error('Error fetching available orders:', error);
     throw error;
@@ -20,7 +26,8 @@ export const getAvailableOrders = async () => {
 
 export const acceptOrder = async (orderId) => {
   try {
-    return await api.updateOrderStatus(orderId, 'CONFIRMED');
+    // ✅ FIX #20 : Utiliser le vrai endpoint d'acceptation
+    return await api.acceptOrder(orderId);
   } catch (error) {
     console.error('Error accepting order:', error);
     throw error;
@@ -29,7 +36,8 @@ export const acceptOrder = async (orderId) => {
 
 export const confirmDelivery = async (orderId) => {
   try {
-    return await api.updateOrderStatus(orderId, 'DELIVERED');
+    // ✅ FIX #20 : Utiliser la validation livreur (driver-validate)
+    return await api.driverValidateDelivery(orderId);
   } catch (error) {
     console.error('Error confirming delivery:', error);
     throw error;
@@ -85,27 +93,38 @@ export const updateOrderStatus = async (orderId, status) => {
   }
 };
 
+// ✅ FIX #20 : Statuts backend réels (Machine à États FSM)
 export const getStatusInfo = (status) => {
   const statusMap = {
     PENDING: { label: 'En attente', color: 'yellow', icon: 'Clock' },
-    CONFIRMED: { label: 'Confirmé', color: 'blue', icon: 'CheckCircle' },
-    PREPARING: { label: 'En préparation', color: 'orange', icon: 'Package' },
-    DRIVING: { label: 'En livraison', color: 'purple', icon: 'Navigation' },
+    PAID: { label: 'Payé', color: 'blue', icon: 'CreditCard' },
+    IN_PREPARATION: { label: 'En préparation', color: 'orange', icon: 'Package' },
+    READY_FOR_PICKUP: { label: 'Prêt', color: 'cyan', icon: 'Check' },
+    DRIVER_ASSIGNED: { label: 'Livreur assigné', color: 'indigo', icon: 'User' },
+    PROCESSING: { label: 'En cours', color: 'blue', icon: 'Loader' },
+    IN_DELIVERY: { label: 'En livraison', color: 'purple', icon: 'Navigation' },
+    DELIVERED_PENDING_CONFIRMATION: { label: 'Livré (en attente)', color: 'amber', icon: 'Clock' },
     DELIVERED: { label: 'Livré', color: 'green', icon: 'CheckCircle' },
-    CANCELED: { label: 'Annulé', color: 'red', icon: 'XCircle' },
+    COMPLETED: { label: 'Terminé', color: 'green', icon: 'CheckCircle' },
+    CANCELLED: { label: 'Annulé', color: 'red', icon: 'XCircle' },
+    FAILED: { label: 'Échoué', color: 'red', icon: 'AlertTriangle' },
+    DISPUTED: { label: 'Litige', color: 'orange', icon: 'AlertTriangle' },
+    REFUNDED: { label: 'Remboursé', color: 'gray', icon: 'RotateCcw' },
   };
   return statusMap[status] || { label: status, color: 'gray', icon: 'AlertCircle' };
 };
 
+// ✅ FIX #20 : Étapes réelles du FSM backend
 export const getOrderSteps = (currentStatus) => {
   const steps = [
     { key: 'PENDING', label: 'En attente' },
-    { key: 'CONFIRMED', label: 'Confirmé' },
-    { key: 'PREPARING', label: 'En préparation' },
-    { key: 'DRIVING', label: 'En livraison' },
-    { key: 'DELIVERED', label: 'Livré' },
+    { key: 'PAID', label: 'Payé' },
+    { key: 'IN_PREPARATION', label: 'En préparation' },
+    { key: 'READY_FOR_PICKUP', label: 'Prêt' },
+    { key: 'IN_DELIVERY', label: 'En livraison' },
+    { key: 'COMPLETED', label: 'Terminé' },
   ];
-  
+
   const currentIndex = steps.findIndex(step => step.key === currentStatus);
   return steps.map((step, index) => ({
     ...step,
@@ -114,14 +133,22 @@ export const getOrderSteps = (currentStatus) => {
   }));
 };
 
+// ✅ FIX #20 : Transitions réelles du FSM backend
 export const getNextPossibleStatuses = (currentStatus) => {
   const transitions = {
-    PENDING: ['CONFIRMED', 'CANCELED'],
-    CONFIRMED: ['PREPARING', 'CANCELED'],
-    PREPARING: ['DRIVING', 'CANCELED'],
-    DRIVING: ['DELIVERED'],
-    DELIVERED: [],
-    CANCELED: [],
+    PENDING: ['PAID', 'CANCELLED'],
+    PAID: ['IN_PREPARATION', 'CANCELLED'],
+    IN_PREPARATION: ['READY_FOR_PICKUP', 'CANCELLED'],
+    READY_FOR_PICKUP: ['DRIVER_ASSIGNED', 'CANCELLED'],
+    DRIVER_ASSIGNED: ['IN_DELIVERY', 'CANCELLED'],
+    IN_DELIVERY: ['DELIVERED_PENDING_CONFIRMATION', 'CANCELLED'],
+    DELIVERED_PENDING_CONFIRMATION: ['DELIVERED', 'COMPLETED', 'DISPUTED'],
+    DELIVERED: ['COMPLETED', 'DISPUTED', 'REFUNDED'],
+    COMPLETED: [],
+    CANCELLED: [],
+    FAILED: [],
+    DISPUTED: ['REFUNDED', 'COMPLETED'],
+    REFUNDED: [],
   };
   return transitions[currentStatus] || [];
 };

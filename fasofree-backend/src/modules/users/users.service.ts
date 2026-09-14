@@ -404,10 +404,8 @@ export class UsersService implements OnModuleInit {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.passwordPlain')
-      .getMany();
+    // ✅ FIX #38 : ne plus exposer passwordPlain (mot de passe en clair)
+    return this.userRepository.find();
   }
 
   // ➕ Méthode de création isolée & typée pour la CLI et l'Auth
@@ -442,7 +440,7 @@ export class UsersService implements OnModuleInit {
     // Support des variantes de nommage (password vs passwordHash)
     (user as any).password = hashedPassword;
     (user as any).passwordHash = hashedPassword;
-    (user as any).passwordPlain = data.password;
+    // ✅ FIX #38 : passwordPlain supprimé — le mot de passe en clair n'est jamais stocké
 
     return this.userRepository.save(user);
   }

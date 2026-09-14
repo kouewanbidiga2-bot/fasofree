@@ -36,7 +36,7 @@ export class WalletController {
   }
 
   @Post('withdrawals')
-  @ApiOperation({ summary: 'Demander un retrait Mobile Money' })
+  @ApiOperation({ summary: 'Demander un retrait Mobile Money (via GeniusPay)' })
   async requestWithdrawal(
     @Request()
     req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
@@ -67,6 +67,27 @@ export class WalletController {
     );
   }
 
+  /**
+   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
+   * GET /wallets/brand/:brandId
+   * ⚠️ DOIT être AVANT :walletId/transactions et :userRole/:userId
+   *    sinon NestJS matche "brand" comme walletId/userRole
+   */
+  @Get('brand/:brandId')
+  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
+  async getBrandWallets(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('brandId') brandId: string,
+  ) {
+    const user = req.user;
+    if (!user?.userId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    return this.walletService.getBrandWallets(brandId, user.userId);
+  }
+
   @Get(':walletId/transactions')
   @ApiOperation({
     summary: 'Historique des transactions d\'un portefeuille',
@@ -84,26 +105,6 @@ export class WalletController {
       user?.role === AppUserRole.SUPER_ADMIN,
       limit ? Number(limit) : 20,
     );
-  }
-
-  /**
-   * 🏷️ Wallet agrégé d'une marque (toutes les agences)
-   * GET /wallets/brand/:brandId
-   * ⚠️ DOIT être AVANT :userRole/:userId sinon NestJS matche "brand" comme userRole
-   */
-  @Get('brand/:brandId')
-  @ApiOperation({ summary: 'Wallets agrégés d\'une marque (toutes les agences)' })
-  async getBrandWallets(
-    @Request()
-    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
-    @Param('brandId') brandId: string,
-  ) {
-    const user = req.user;
-    if (!user?.userId) {
-      throw new ForbiddenException('Utilisateur non authentifié');
-    }
-
-    return this.walletService.getBrandWallets(brandId, user.userId);
   }
 
   @Get(':userRole/:userId')
@@ -134,16 +135,49 @@ export class WalletController {
       courier: UserRole.COURIER,
       CUSTOMER: UserRole.CUSTOMER,
       customer: UserRole.CUSTOMER,
+      // 🔧 Le super admin n'a pas de wallet métier, mais il a le droit de
+      // consulter le sien (créé à la volée en CUSTOMER) au lieu d'un 403.
+      SUPER_ADMIN: UserRole.CUSTOMER,
+      super_admin: UserRole.CUSTOMER,
     };
 
     const walletRole = roleMap[userRoleRaw];
     if (!walletRole) {
       throw new ForbiddenException(
-        `Rôle de portefeuille invalide: "${userRoleRaw}". Valeurs acceptées: MERCHANT, DRIVER, COURIER, CUSTOMER`,
+        `Rôle de portefeuille invalide: "${userRoleRaw}". Valeurs acceptées: MERCHANT, DRIVER, COURIER, CUSTOMER, SUPER_ADMIN`,
       );
     }
 
+    // 🔒 Un non-super-admin qui demanderait le segment super_admin est refusé
+    if (
+      (userRoleRaw === 'SUPER_ADMIN' || userRoleRaw === 'super_admin') &&
+      user?.role !== AppUserRole.SUPER_ADMIN
+    ) {
+      throw new ForbiddenException('Accès réservé aux super admins');
+    }
+
     return this.walletService.getOrCreateWallet(userId, walletRole);
+  }
+
+  /**
+   * 🔎 Vue super admin : tous les wallets d'un utilisateur (tous rôles).
+   * GET /wallets/all/:userId — déclarée avant :userRole/:userId
+   * pour que "all" ne soit pas interprété comme un userRole.
+   */
+  @Get('all/:userId')
+  @ApiOperation({
+    summary: 'Vue super admin : tous les portefeuilles d\'un utilisateur',
+  })
+  async getAllWalletsOfUser(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('userId') userId: string,
+  ) {
+    const user = req.user;
+    if (user?.role !== AppUserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Accès réservé aux super admins');
+    }
+    return this.walletService.getAllWalletsOfUser(userId);
   }
 
   /**

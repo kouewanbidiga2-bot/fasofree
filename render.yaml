@@ -28,17 +28,18 @@ services:
         value: production
       - key: PORT
         value: "1000"
+      # Frontends réellement déployés sur Vercel (domaines custom).
+      # Les aperçus *.vercel.app sont couverts par la regex de main.ts.
       - key: CORS_ORIGIN
-        value: https://fasofree-admin.onrender.com,https://fasofree-client.onrender.com
+        value: https://fasofree.site,https://www.fasofree.site,https://admin.fasofree.site
       # synchronize interdit en prod (le code l'impose); les migrations gèrent le schéma.
       - key: DB_SYNCHRONIZE
         value: "false"
       - key: DB_MIGRATIONS_RUN
         value: "true"
+      # GeniusPay est le SEUL provider de paiement (payin + payout).
       - key: PAYMENT_ENV
         value: sandbox
-      - key: PAYMENT_PROVIDER
-        value: mock
       - key: FASOFREE_COMMISSION_RATE
         value: "0.0085"
       - key: FASOFREE_COMMISSION_PAYER
@@ -70,7 +71,7 @@ services:
     startCommand: npx serve -s dist -l 10000
     envVars:
       - key: VITE_API_URL
-        value: https://fasofree-3nh8.onrender.com/api/v1
+        value: https://api.fasofree.site/api/v1
 
   # ---------------- APPLICATION CLIENT ----------------
   - type: web
@@ -82,4 +83,4 @@ services:
     startCommand: npx serve -s dist -l 10000
     envVars:
       - key: VITE_API_BASE_URL
-        value: https://fasofree-3nh8.onrender.com/api/v1
+        value: https://api.fasofree.site/api/v1

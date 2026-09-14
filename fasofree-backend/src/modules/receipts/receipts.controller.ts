@@ -32,9 +32,10 @@ export class ReceiptsController {
     @Query('type') type?: ReceiptType,
     @Query('limit') limit?: string,
   ) {
+    const parsedLimit = limit ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 50) : undefined;
     return this.receiptsService.findMyReceipts(req.user?.userId as string, {
       type,
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit: parsedLimit,
     });
   }
 

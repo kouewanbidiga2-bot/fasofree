@@ -6,6 +6,7 @@ import { Wallet, UserRole } from './entities/wallet.entity';
 import { WalletTransaction, TransactionType, TransactionReason, TransactionStatus } from './entities/wallet-transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { PayoutRequest, PayoutStatus, UserRole as PayoutUserRole } from '../financial/entities/payout-request.entity';
 import { ConfigService } from '@nestjs/config';
 
 // Définition propre pour le retour des requêtes SUM()
@@ -37,6 +38,8 @@ export class WalletService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    @InjectRepository(PayoutRequest)
+    private readonly payoutRequestRepository: Repository<PayoutRequest>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {}
@@ -582,8 +585,9 @@ export class WalletService {
         `[Payout Cron] ${driverPayouts.length} livreur(s) éligible(s) pour payout - Total: ${driverPayouts.reduce((sum, p) => sum + p.availableForPayout, 0).toLocaleString()} FCFA`,
       );
 
-      // 3. Enregistrer les demandes de payout dans une table (à créer) ou logger pour le moment
-      // TODO: Créer une entité PayoutRequest pour tracker les demandes
+      // 3. Persister les demandes de payout dans payout_requests (file d'attente
+      // pour approbation Super Admin) — idempotent : une seule demande PENDING
+      // par (userId, userRole) pour éviter de re-empiler chaque nuit.
       const minPayoutAmount = this.configService.get<number>(
         'MIN_PAYOUT_AMOUNT',
         5000,
@@ -603,21 +607,44 @@ export class WalletService {
         `[Payout Cron] ${eligibleDriverPayouts.length} livreur(s) au-dessus du seuil (${minPayoutAmount} FCFA)`,
       );
 
-      // Log des payouts éligibles pour approbation admin
-      eligibleMerchantPayouts.forEach((payout) => {
-        this.logger.log(
-          `[Payout Request] Commerçant ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA disponible`,
-        );
-      });
+      let created = 0;
+      for (const payout of [...eligibleMerchantPayouts, ...eligibleDriverPayouts]) {
+        try {
+          const existing = await this.payoutRequestRepository.findOne({
+            where: {
+              userId: payout.userId,
+              userRole: payout.userRole as unknown as PayoutUserRole,
+              status: PayoutStatus.PENDING,
+            },
+          });
+          if (existing) continue;
 
-      eligibleDriverPayouts.forEach((payout) => {
-        this.logger.log(
-          `[Payout Request] Livreur ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA disponible`,
-        );
-      });
-    } catch (error) {
+          const request = this.payoutRequestRepository.create({
+            userId: payout.userId,
+            userRole: payout.userRole as unknown as PayoutUserRole,
+            amount: payout.availableForPayout,
+            phoneNumber: '', // renseigné au moment de l'exécution par le Super Admin
+            status: PayoutStatus.PENDING,
+          });
+          await this.payoutRequestRepository.save(request);
+          created++;
+          this.logger.log(
+            `[Payout Request] ${payout.userRole} ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA en file d'attente`,
+          );
+        } catch (err) {
+          this.logger.error(
+            `[Payout Cron] Échec d'enregistrement pour ${payout.userId}: ${err?.message ?? err}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `[Payout Cron] ${created} nouvelle(s) demande(s) de payout enregistrée(s)`,
+      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(
-        `[Payout Cron Error] Erreur lors du calcul des payouts: ${error.message}`,
+        `[Payout Cron Error] Erreur lors du calcul des payouts: ${errorMessage}`,
       );
     }
   }
@@ -651,9 +678,33 @@ export class WalletService {
       };
     }
 
-    // TODO: Créer une entité PayoutRequest et l'enregistrer
+    const existingRequest = await this.payoutRequestRepository.findOne({
+      where: {
+        userId,
+        userRole: userRole as unknown as PayoutUserRole,
+        status: PayoutStatus.PENDING,
+      },
+    });
+    if (existingRequest) {
+      return {
+        success: true,
+        amount: Number(existingRequest.amount),
+        message:
+          "Une demande de payout est déjà en attente d'approbation Super Admin.",
+      };
+    }
+
+    const request = this.payoutRequestRepository.create({
+      userId,
+      userRole: userRole as unknown as PayoutUserRole,
+      amount: availableBalance,
+      phoneNumber: '', // renseigné au moment de l'exécution par le Super Admin
+      status: PayoutStatus.PENDING,
+    });
+    await this.payoutRequestRepository.save(request);
+
     this.logger.log(
-      `[Payout Request] Demande de payout pour ${userRole} ${userId}: ${availableBalance.toLocaleString()} FCFA`,
+      `[Payout Request] Demande de payout enregistrée pour ${userRole} ${userId}: ${availableBalance.toLocaleString()} FCFA`,
     );
 
     return {
@@ -662,6 +713,17 @@ export class WalletService {
       message:
         "Demande de payout enregistrée. En attente d'approbation Super Admin.",
     };
+  }
+
+  // ========================================================================
+  // 🔎 Vue super admin : tous les portefeuilles d'un utilisateur (tous rôles)
+  // ========================================================================
+  async getAllWalletsOfUser(
+    userId: string,
+  ): Promise<{ wallets: Wallet[]; totalBalance: number }> {
+    const wallets = await this.walletRepository.find({ where: { userId } });
+    const totalBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
+    return { wallets, totalBalance };
   }
 
   // ========================================================================

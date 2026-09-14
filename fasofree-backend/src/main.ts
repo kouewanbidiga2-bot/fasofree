@@ -272,11 +272,13 @@ bootstrap().catch((err) => {
   process.exit(1);
 });
 
-// 10. Résilience : les erreurs réseau transitoires ne doivent pas tuer le process
-// APRÈS le bootstrap (pour ne pas masquer les erreurs de listen)
+// 10. Gestion des erreurs non capturées
+// ✅ FIX #16 : uncaughtException tue le process car l'état est indéfini
 process.on('uncaughtException', (error) => {
-  new Logger('Bootstrap').error('Uncaught Exception :', error?.message ?? error);
+  new Logger('Bootstrap').error('Uncaught Exception — arrêt du process:', error?.message ?? error);
+  process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
-  new Logger('Bootstrap').warn('Unhandled Rejection :', (reason as any)?.message ?? reason);
+  new Logger('Bootstrap').error('Unhandled Rejection — arrêt du process:', (reason as any)?.message ?? reason);
+  process.exit(1);
 });

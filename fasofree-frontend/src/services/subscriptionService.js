@@ -21,7 +21,7 @@ export const getSubscriptions = async () => {
 };
 
 export const assignSubscription = async (data) => {
-  const response = await api.post('/subscriptions', data);
+  const response = await api.post('/subscriptions/assign', data);
   return response.data;
 };
 

@@ -2,7 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LoyaltyPoint, LoyaltySource } from './entities/loyalty-point.entity';
-import { Referral } from './entities/referral.entity';
+import { Referral, ReferralStatus } from '../promotions/entities/referral.entity';
 import { User } from '../users/entities/user.entity';
 
 const POINTS_PER_100FCFA = 1;
@@ -53,7 +53,7 @@ export class LoyaltyService {
 
   async earnReferralBonus(referrerUserId: string, referredUserId: string): Promise<void> {
     const existing = await this.referralRepository.findOne({
-      where: { referredUserId },
+      where: { refereeId: referredUserId },
     });
     if (existing) return;
 
@@ -81,10 +81,10 @@ export class LoyaltyService {
 
     await this.referralRepository.save(
       this.referralRepository.create({
-        referrerUserId,
-        referredUserId,
-        referrerBonus: REFERRER_BONUS,
-        referredBonus: REFERRED_BONUS,
+        referrerId: referrerUserId,
+        refereeId: referredUserId,
+        status: ReferralStatus.REWARDED,
+        rewardAmount: REFERRER_BONUS + REFERRED_BONUS,
       }),
     );
 
@@ -151,10 +151,10 @@ export class LoyaltyService {
   async getReferralStats(userId: string): Promise<any> {
     const code = await this.generateReferralCode(userId);
     const referrals = await this.referralRepository.find({
-      where: { referrerUserId: userId },
+      where: { referrerId: userId },
     });
     const totalReferred = referrals.length;
-    const completedReferrals = referrals.filter((r) => r.firstOrderCompleted).length;
+    const completedReferrals = referrals.filter((r) => r.status === ReferralStatus.REWARDED).length;
 
     return {
       referralCode: code,
@@ -172,7 +172,7 @@ export class LoyaltyService {
     if (referrer.id === newUserId) throw new BadRequestException('Vous ne pouvez pas vous parrainer vous-meme');
 
     const existing = await this.referralRepository.findOne({
-      where: { referredUserId: newUserId },
+      where: { refereeId: newUserId },
     });
     if (existing) throw new BadRequestException('Vous etes deja parraine');
 

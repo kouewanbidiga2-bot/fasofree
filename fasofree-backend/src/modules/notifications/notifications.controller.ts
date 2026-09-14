@@ -25,7 +25,7 @@ export class NotificationsController {
   @ApiOperation({ summary: 'Enregistrer le token FCM' })
   @ApiResponse({ status: 200, description: 'Token mis à jour' })
   async updateFcmToken(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('userId') userId: string,
     @Body() dto: UpdateFcmTokenDto,
   ): Promise<{ message: string }> {
     await this.usersService.updateFcmToken(userId, dto.fcmToken);
@@ -35,7 +35,7 @@ export class NotificationsController {
   @Get()
   @ApiOperation({ summary: 'Récupérer les notifications de l\'utilisateur' })
   async getNotifications(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('userId') userId: string,
     @Query('limit') limit?: string,
     @Query('unreadOnly') unreadOnly?: string,
   ) {
@@ -48,7 +48,7 @@ export class NotificationsController {
   @Patch(':id/read')
   @ApiOperation({ summary: 'Marquer une notification comme lue' })
   async markAsRead(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('userId') userId: string,
     @Param('id') id: string,
   ) {
     await this.store.markAsRead(id, userId);
@@ -57,7 +57,7 @@ export class NotificationsController {
 
   @Patch('read-all')
   @ApiOperation({ summary: 'Marquer toutes les notifications comme lues' })
-  async markAllAsRead(@CurrentUser('id') userId: string) {
+  async markAllAsRead(@CurrentUser('userId') userId: string) {
     await this.store.markAllAsRead(userId);
     return { message: 'Toutes les notifications marquées comme lues' };
   }

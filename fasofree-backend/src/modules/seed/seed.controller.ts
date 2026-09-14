@@ -11,6 +11,7 @@ import { Request as ExpressRequest } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { SeedService } from './seed.service';
 
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -29,6 +30,7 @@ type RequestWithUser = ExpressRequest & {
 @Controller('seed')
 export class SeedController {
   constructor(
+    private readonly seedService: SeedService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Business)
@@ -60,7 +62,7 @@ export class SeedController {
       admin = this.userRepository.create({
         email: 'admin@chitirchicken.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
+        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Chitir Chicken Admin',
         phone: '+22677000001',
         role: UserRole.BUSINESS_ADMIN,
@@ -197,7 +199,7 @@ export class SeedController {
       client = this.userRepository.create({
         email: 'test.client@fasofree.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
+        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Awa Ouédraogo',
         phone: '+22670000001',
         role: UserRole.CLIENT,
@@ -216,7 +218,7 @@ export class SeedController {
       driver = this.userRepository.create({
         email: 'test.driver@fasofree.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
+        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Issa Kaboré',
         phone: '+22670000002',
         role: UserRole.DRIVER,
@@ -243,7 +245,7 @@ export class SeedController {
         merchantAdmin = this.userRepository.create({
           email: 'test.merchant@fasofree.bf',
           passwordHash,
-          passwordPlain: 'Test@12345',
+          // ✅ FIX #38 : plus de mot de passe en clair en base
           fullName: 'Moussa Traoré',
           phone: '+22670000003',
           role: UserRole.BUSINESS_ADMIN,
@@ -306,6 +308,15 @@ export class SeedController {
         driver: { email: 'test.driver@fasofree.bf', password: 'Test@12345' },
       },
     };
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('fix-orphan-wallet-credits')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Backfill : déplacer les crédits orphelins vers le vrai wallet marchand (ownerId)' })
+  async fixOrphanWalletCredits() {
+    return this.seedService.fixOrphanWalletCredits();
   }
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)

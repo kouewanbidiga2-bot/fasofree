@@ -92,6 +92,42 @@ export class ProductsController {
     return this.productsService.toggleAvailability(id, userId, role as any);
   }
 
+  // 🔍 Détail d'un produit
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtenir le détail d\'un produit par son ID' })
+  async findOne(@Param('id') id: string) {
+    return this.productsService.findOne(id);
+  }
+
+  // 📦 Mettre à jour le stock d'un produit
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post(':id/stock')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Mettre à jour le stock d\'un produit' })
+  async updateStock(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @Param('id') id: string,
+    @Body() body: { quantity: number; reason?: string },
+  ) {
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+    return this.productsService.updateStock(id, body.quantity, body.reason ?? 'MANUAL_ADJUSTMENT', userId, role as any);
+  }
+
+  // 🏷️ Générer un SKU automatiquement
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post('generate-sku')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Générer un SKU automatiquement pour un produit' })
+  async generateSku(
+    @Body() body: { businessId: string; productName: string; category?: string },
+  ) {
+    return { sku: this.productsService.generateSku(body.businessId, body.productName, body.category) };
+  }
+
   // 🗑️ Supprimer un produit
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)

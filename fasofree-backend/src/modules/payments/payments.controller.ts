@@ -10,6 +10,7 @@ import {
   Headers,
   Request,
   Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -58,6 +59,7 @@ export class PaymentsController {
     const userId = req.user?.userId as string;
 
     try {
+      const topupRef = `TOPUP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const payment = await this.geniusPayService.createPayment({
         amount: dto.amount,
         description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
@@ -65,7 +67,7 @@ export class PaymentsController {
           name: dto.customerName || 'Client FasoFree',
           email: dto.customerEmail || 'client@fasofree.bf',
         },
-        metadata: { type: 'topup', userId },
+        metadata: { type: 'topup', userId, reference: topupRef },
       });
       return {
         success: true,
@@ -88,8 +90,30 @@ export class PaymentsController {
   })
   @ApiOperation({ summary: 'Recevoir la confirmation de paiement GeniusPay' })
   @HttpCode(HttpStatus.OK)
-  async handleGeniusPayWebhook(@Body() payload: any) {
+  async handleGeniusPayWebhook(
+    @Body() payload: any,
+    @Headers('x-signature') signature?: string,
+    @Headers('x-timestamp') timestamp?: string,
+  ) {
     this.logger.log('Webhook GeniusPay reçu');
+
+    // 🔒 Vérification HMAC de la signature GeniusPay
+    const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
+    if (webhookSecret && signature && timestamp) {
+      const rawBody = JSON.stringify(payload);
+      const isValid = this.geniusPayService.verifyWebhookSignature(
+        rawBody,
+        signature,
+        timestamp,
+        webhookSecret,
+      );
+      if (!isValid) {
+        this.logger.error('Webhook GeniusPay : signature HMAC invalide — requête rejetée');
+        throw new BadRequestException('Invalid webhook signature');
+      }
+    } else if (webhookSecret) {
+      this.logger.warn('Webhook GeniusPay : signature manquante — traitement en mode dégradé');
+    }
 
     if (payload.status === 'SUCCESS' || payload.status === 'success') {
       const orderId = payload.metadata?.order_id;

@@ -34,7 +34,7 @@ export class Transaction {
   @Column({ type: 'varchar', unique: true })
   reference: string;
 
-  // 🆔 Identifiant fourni en retour par l'agrégateur (ex: CinetPay/LigdiCash)
+  // 🆔 Identifiant fourni en retour par l'agrégateur de paiement (GeniusPay)
   @Column({ type: 'varchar', nullable: true })
   paymentGatewayId: string;
 

@@ -26,7 +26,7 @@ export class PayoutRequest {
   @Column({ type: 'varchar' })
   userId: string;
 
-  @Column({ type: 'enum', enum: UserRole })
+  @Column({ type: 'varchar' })
   userRole: UserRole;
 
   @Column({ type: 'decimal', precision: 12, scale: 2 })
@@ -35,7 +35,7 @@ export class PayoutRequest {
   @Column({ type: 'varchar' })
   phoneNumber: string;
 
-  @Column({ type: 'enum', enum: PayoutStatus, default: PayoutStatus.PENDING })
+  @Column({ type: 'varchar', default: PayoutStatus.PENDING })
   status: PayoutStatus;
 
   @Column({ type: 'varchar', nullable: true })

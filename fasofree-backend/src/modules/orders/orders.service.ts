@@ -1219,6 +1219,19 @@ export class OrdersService {
       throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
     }
 
+    // ✅ FIX #2 : Vérification de propriété — empêche toute modification non autorisée
+    if (role === UserRole.DRIVER || role === UserRole.COURIER) {
+      if (order.driverId && order.driverId !== userId) {
+        throw new ForbiddenException('Vous n\'êtes pas le livreur assigné à cette commande');
+      }
+    }
+    if (role === UserRole.BUSINESS_ADMIN) {
+      if (!order.businessId) {
+        throw new ForbiddenException('Cette commande n\'est pas liée à un commerce');
+      }
+      await this.businessesService.assertManagedBy(order.businessId, userId, role);
+    }
+
     const previousStatus = order.status;
 
     // 🔒 1. Vérifier que la transition est possible dans la FSM
@@ -1495,6 +1508,81 @@ export class OrdersService {
     );
 
     return saved;
+  }
+
+  // ========================================================================
+  // ✅ CONFIRMATION DE LIVRAISON (admin / marchand — sans PIN)
+  // ========================================================================
+  async confirmDeliveryByAdmin(orderId: string, userId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
+
+    if (
+      order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
+      order.status !== OrderStatus.DELIVERED
+    ) {
+      throw new BadRequestException(
+        `Impossible de confirmer : la commande est au statut "${order.status}"`,
+      );
+    }
+
+    order.clientValidatedAt = new Date();
+    order.status = OrderStatus.COMPLETED;
+
+    const saved = await this.orderRepository.save(order);
+
+    // 🔔 Settlement marchand
+    this.emitOrderSettlementEvents(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    );
+    this.notifyChatClosedIfTerminal(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    );
+
+    this.logger.log(
+      `[Order Completed] ✅ Commande #${orderId} confirmée par admin/marchand ${userId}.`,
+    );
+
+    // Déclencher le Payout automatique
+    this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
+      this.logger.error(`Erreur Payout après confirmation admin #${saved.id}`, err);
+    });
+
+    try {
+      await this.analyticsService.invalidateMerchantCache(order.businessId);
+    } catch {
+      // silencieux
+    }
+
+    return saved;
+  }
+
+  // ========================================================================
+  // 📍 LOCALISATION DU LIVREUR (temps réel)
+  // ========================================================================
+  async updateDriverLocation(
+    orderId: string,
+    driverId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<{ success: boolean }> {
+    const order = await this.findOne(orderId);
+
+    if (order.driverId && order.driverId !== driverId) {
+      throw new ForbiddenException(
+        "Vous n'êtes pas le livreur assigné à cette commande",
+      );
+    }
+
+    // Stocker la position via le service geo-dispatch (Redis)
+    try {
+      await this.geoDispatchService.updateDriverLocation(driverId, latitude, longitude);
+    } catch {
+      // Silencieux — le tracking WebSocket gère aussi les mises à jour
+    }
+
+    return { success: true };
   }
 
   // ========================================================================

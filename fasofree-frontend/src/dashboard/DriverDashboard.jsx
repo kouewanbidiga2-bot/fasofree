@@ -266,14 +266,19 @@ const DriverDashboard = () => {
   }, []);
 
   const leaveJobChat = useCallback(() => {
+    // ✅ FIX #26 : on ne déconnecte JAMAIS le socket singleton global
+    // (getChatSocket() le réutilise pour toutes les conversations).
+    // On retire seulement les listeners et on quitte la room.
     if (chatSocketRef.current) {
       chatSocketRef.current.off('newOrderMessage');
-      chatSocketRef.current.disconnect();
+      if (currentJob?.orderId) {
+        chatSocketRef.current.emit('leaveOrderChat', { orderId: currentJob.orderId, channel: 'driver' });
+      }
       chatSocketRef.current = null;
     }
     setChatHistory([]);
     setChatClosed(false);
-  }, []);
+  }, [currentJob?.orderId]);
 
   const handleSendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !currentJob?.orderId || !chatSocketRef.current) return;
@@ -343,8 +348,16 @@ const DriverDashboard = () => {
     try {
       const result = await acceptDispatchOrder(jobId);
       const job = availableJobs.find(j => j.id === jobId);
-      setCurrentJob(job);
-      setCurrentJobStatus(result?.status || OrderStatus.DRIVER_ASSIGNED);
+      // ✅ FIX #27 : le polling (toutes les 15s) peut avoir rafraîchi
+      // availableJobs entre-temps → find() peut retourner undefined et
+      // la course acceptée disparaissait de l'écran. Fallback : on recharge
+      // la course courante depuis l'API (source de vérité).
+      if (job) {
+        setCurrentJob(job);
+        setCurrentJobStatus(result?.status || OrderStatus.DRIVER_ASSIGNED);
+      } else {
+        await loadCurrentJob();
+      }
       setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
     } catch (err) {
       setError('jobs', err.message || 'Échec de l\'acceptation');

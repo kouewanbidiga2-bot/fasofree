@@ -6,21 +6,22 @@ import { Wallet } from './entities/wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { PayoutRequest } from '../financial/entities/payout-request.entity';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
-import { CinetPayPayoutProvider } from './providers/cinetpay-payout.provider';
+import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Wallet, WalletTransaction, Order, Business]),
+    TypeOrmModule.forFeature([Wallet, WalletTransaction, Order, Business, PayoutRequest]),
     ScheduleModule.forRoot(),
     ConfigModule,
     SettingsModule,
   ],
   controllers: [WalletController],
-  providers: [WalletService, PayoutsService, CinetPayPayoutProvider],
+  providers: [WalletService, PayoutsService, GeniusPayPayoutProvider],
   exports: [WalletService, PayoutsService, TypeOrmModule],
 })
 export class WalletModule {}
