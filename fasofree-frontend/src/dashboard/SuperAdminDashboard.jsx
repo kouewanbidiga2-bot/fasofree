@@ -56,6 +56,12 @@ const SuperAdminDashboard = () => {
   const userRole = String(user?.role || '').toLowerCase().replace('-', '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(userRole);
 
+  // 🛡️ Garde-fou : rediriger si le rôle n'est pas autorisé
+  if (user && !isSuperAdmin) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
+
   // Financial data
   const [financialStats, setFinancialStats] = useState({
     totalRevenue: 0,

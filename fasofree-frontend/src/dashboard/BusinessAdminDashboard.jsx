@@ -297,11 +297,20 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
 };
 
 // ─── Business Admin Dashboard ────────────────────────────────────────────
+const ALLOWED_ROLES = ['business_admin', 'business', 'merchant', 'restaurant', 'super_admin'];
+
 const BusinessAdminDashboard = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // 🛡️ Garde-fou : si le rôle n'est pas autorisé, rediriger immédiatement
+  const normalizedRole = String(user?.role || '').toLowerCase().replace('-', '_');
+  if (user && !ALLOWED_ROLES.includes(normalizedRole)) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
 
   // Données
   const [analytics, setAnalytics] = useState(null);

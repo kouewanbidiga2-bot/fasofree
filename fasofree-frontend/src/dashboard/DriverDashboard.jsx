@@ -45,11 +45,20 @@ const STATUS_LABELS = {
   [OrderStatus.DELIVERED]: 'Livrée',
 };
 
+const ALLOWED_DRIVER_ROLES = ['driver', 'courier', 'livreur'];
+
 const DriverDashboard = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('jobs');
+
+  // 🛡️ Garde-fou : rediriger si le rôle n'est pas autorisé
+  const normalizedRole = String(user?.role || '').toLowerCase().replace('-', '_');
+  if (user && !ALLOWED_DRIVER_ROLES.includes(normalizedRole)) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
 
   const [driverStatus, setDriverStatus] = useState(DriverStatus.OFFLINE);
 

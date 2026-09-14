@@ -59,6 +59,20 @@ const ProtectedRoute = ({
       return <Navigate to="/unauthorized" replace />;
     }
 
+    // Pendant le re-validation du profil (isHydrated=false), ne PAS bloquer
+    // mais ne PAS monter les children non plus — afficher le spinner.
+    // Cela évite les appels API avec un rôle potentiellement stale.
+    if (!isHydrated) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background-primary">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-accent-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-text-secondary text-sm">Vérification des accès...</p>
+          </div>
+        </div>
+      );
+    }
+
     const normalizedRole = String(user.role).toLowerCase().replace('-', '_');
     const hasAccess = allowedRoles.some(role =>
       String(role).toLowerCase().replace('-', '_') === normalizedRole
