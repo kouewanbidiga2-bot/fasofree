@@ -579,6 +579,12 @@ const BusinessAdminDashboard = () => {
     }
   }, [brandId, user?.id]);
 
+  // ✅ FIX STALE CLOSURE : refs pour callbacks
+  const loadOrdersRef = useRef(loadOrders);
+  loadOrdersRef.current = loadOrders;
+  const loadAnalyticsRef = useRef(loadAnalytics);
+  loadAnalyticsRef.current = loadAnalytics;
+
   useEffect(() => {
     if (!businessId && branches.length === 0) return;
 
@@ -594,11 +600,11 @@ const BusinessAdminDashboard = () => {
     }
 
     const ordersInterval = setInterval(() => {
-      loadOrders();
+      loadOrdersRef.current();
     }, 12000);
 
     return () => clearInterval(ordersInterval);
-  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadSettings, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
+  }, [businessId, branches.length]);
 
   // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
   useEffect(() => {
@@ -607,18 +613,17 @@ const BusinessAdminDashboard = () => {
 
     const onStatusChanged = (payload) => {
       if (payload?.orderId) {
-        loadOrders();
-        loadAnalytics();
+        loadOrdersRef.current();
+        loadAnalyticsRef.current();
       }
     };
     socket.on('orderStatusChanged', onStatusChanged);
 
-    // 🔄 Refresh forcé quand l'onglet redevient visible
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         if (!socket.connected) socket.connect();
-        loadOrders();
-        loadAnalytics();
+        loadOrdersRef.current();
+        loadAnalyticsRef.current();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -627,7 +632,7 @@ const BusinessAdminDashboard = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
     };
-  }, [loadOrders, loadAnalytics]);
+  }, []);
 
   const handleBranchChange = useCallback((branchId) => {
     setSelectedBranchId(branchId);

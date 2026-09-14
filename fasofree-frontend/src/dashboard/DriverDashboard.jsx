@@ -349,25 +349,31 @@ const DriverDashboard = () => {
     }
   }, [user?.isOnline]);
 
+  // ✅ FIX STALE CLOSURE : utiliser des refs pour que les intervals
+  // appellent TOUJOURS la dernière version des callbacks.
+  const loadCurrentJobRef = useRef(loadCurrentJob);
+  loadCurrentJobRef.current = loadCurrentJob;
+
+  const loadAvailableJobsRef = useRef(loadAvailableJobs);
+  loadAvailableJobsRef.current = loadAvailableJobs;
+
   // Always poll current job (even when offline — to see manual assignments)
   useEffect(() => {
-    loadCurrentJob();
+    loadCurrentJobRef.current(); // Appel immédiat
     const interval = setInterval(() => {
-      loadCurrentJob();
+      loadCurrentJobRef.current(); // Toujours la dernière version
     }, 10000);
     return () => clearInterval(interval);
-  }, [loadCurrentJob]);
+  }, []); // ⚠️ deps vides = interval stable, jamais recréé
 
   // Only poll available jobs when ONLINE
   useEffect(() => {
-    if (driverStatus === DriverStatus.ONLINE) {
-      loadAvailableJobs();
-      const interval = setInterval(() => {
-        loadAvailableJobs();
-      }, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [driverStatus, loadAvailableJobs]);
+    loadAvailableJobsRef.current();
+    const interval = setInterval(() => {
+      loadAvailableJobsRef.current();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 📡 Dispatch socket: connect on mount + reconnaître au focus/visibility
   useEffect(() => {
@@ -401,22 +407,23 @@ const DriverDashboard = () => {
 
     let socket = connectDispatch();
 
-    const onNewJob = () => { playNotifSound(); loadAvailableJobs(); };
+    // ✅ Utiliser les refs pour éviter les stale closures
+    const onNewJob = () => { playNotifSound(); loadAvailableJobsRef.current(); };
     const onOffer = (payload) => {
       playNotifSound();
-      if (payload?.orderId) loadCurrentJob();
-      if (driverStatus === DriverStatus.ONLINE) loadAvailableJobs();
+      if (payload?.orderId) loadCurrentJobRef.current();
+      loadAvailableJobsRef.current();
     };
     const onStatusChanged = (payload) => {
       if (payload?.orderId) {
         playNotifSound();
-        loadCurrentJob();
-        loadAvailableJobs();
+        loadCurrentJobRef.current();
+        loadAvailableJobsRef.current();
       }
     };
     const onAssigned = (payload) => {
       playNotifSound();
-      loadCurrentJob();
+      loadCurrentJobRef.current();
     };
 
     socket.on('delivery_opportunity', onNewJob);
@@ -428,7 +435,6 @@ const DriverDashboard = () => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         console.log('[Driver] Onglet visible — refresh forcé');
-        // Reconnecter le socket avec token frais si nécessaire
         if (!socket?.connected) {
           socket = connectDispatch();
           socket.on('delivery_opportunity', onNewJob);
@@ -436,9 +442,8 @@ const DriverDashboard = () => {
           socket.on('orderStatusChanged', onStatusChanged);
           socket.on('order_assigned', onAssigned);
         }
-        // Forcer le refresh des données
-        loadCurrentJob();
-        loadAvailableJobs();
+        loadCurrentJobRef.current();
+        loadAvailableJobsRef.current();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -450,13 +455,7 @@ const DriverDashboard = () => {
       socket.off('orderStatusChanged', onStatusChanged);
       socket.off('order_assigned', onAssigned);
     };
-    return () => {
-      socket.off('delivery_opportunity', onNewJob);
-      socket.off('targeted_order_offer', onOffer);
-      socket.off('orderStatusChanged', onStatusChanged);
-      socket.off('order_assigned', onAssigned);
-    };
-  }, [user?.id, loadAvailableJobs, loadCurrentJob]);
+  }, [user?.id]);
 
   const toggleDriverStatus = async () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;
