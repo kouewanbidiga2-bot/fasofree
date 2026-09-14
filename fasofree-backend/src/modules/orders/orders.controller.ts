@@ -117,7 +117,7 @@ export class OrdersController {
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    const isDriver = role === 'driver' || role === 'courier' || role === 'DRIVER' || role === 'COURIER';
+    const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
     if (isDriver) {
       const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
       return this.ordersService.findDriverOrders(userId, statuses);
