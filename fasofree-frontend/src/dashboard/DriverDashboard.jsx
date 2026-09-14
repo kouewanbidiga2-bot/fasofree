@@ -320,20 +320,29 @@ const DriverDashboard = () => {
     }
   }, [user?.isOnline]);
 
+  // Always poll current job (even when offline — to see manual assignments)
+  useEffect(() => {
+    loadCurrentJob();
+    const interval = setInterval(() => {
+      loadCurrentJob();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [loadCurrentJob]);
+
+  // Only poll available jobs when ONLINE
   useEffect(() => {
     if (driverStatus === DriverStatus.ONLINE) {
       loadAvailableJobs();
-      loadCurrentJob();
       const interval = setInterval(() => {
         loadAvailableJobs();
-        loadCurrentJob();
       }, 15000);
       return () => clearInterval(interval);
     }
-  }, [driverStatus, loadAvailableJobs, loadCurrentJob]);
+  }, [driverStatus, loadAvailableJobs]);
 
+  // Dispatch socket: connect on mount (not just when online) to receive assignment notifications
   useEffect(() => {
-    if (!user?.id || driverStatus !== DriverStatus.ONLINE) return;
+    if (!user?.id) return;
     const socket = getDispatchSocket();
     dispatchSocketRef.current = socket;
     if (!socket.connected) socket.connect();
@@ -357,7 +366,7 @@ const DriverDashboard = () => {
     const onOffer = (payload) => {
       playNotifSound();
       if (payload?.orderId) loadCurrentJob();
-      loadAvailableJobs();
+      if (driverStatus === DriverStatus.ONLINE) loadAvailableJobs();
     };
     socket.on('delivery_opportunity', onNewJob);
     socket.on('targeted_order_offer', onOffer);
@@ -365,7 +374,7 @@ const DriverDashboard = () => {
       socket.off('delivery_opportunity', onNewJob);
       socket.off('targeted_order_offer', onOffer);
     };
-  }, [user?.id, driverStatus, loadAvailableJobs, loadCurrentJob]);
+  }, [user?.id, loadAvailableJobs, loadCurrentJob]);
 
   const toggleDriverStatus = async () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;

@@ -899,18 +899,38 @@ export class OrdersService {
   }
 
   async findAllByBusiness(businessId: string): Promise<Order[]> {
-    return await this.orderRepository.find({
-      where: { businessId },
-      order: { createdAt: 'DESC' },
-    });
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.items', 'items')
+      .leftJoin('users', 'client', 'client.id = o.clientId')
+      .addSelect('client.fullName', 'clientName')
+      .addSelect('client.phone', 'clientPhone')
+      .where('o.businessId = :businessId', { businessId })
+      .orderBy('o.createdAt', 'DESC')
+      .getRawAndEntities();
+    return orders.entities.map((e, i) => ({
+      ...e,
+      clientName: orders.raw[i]?.clientName || null,
+      clientPhone: orders.raw[i]?.clientPhone || null,
+    })) as any;
   }
 
   async findAllByBusinesses(businessIds: string[]): Promise<Order[]> {
     if (!businessIds.length) return [];
-    return await this.orderRepository.find({
-      where: businessIds.map(id => ({ businessId: id })),
-      order: { createdAt: 'DESC' },
-    });
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.items', 'items')
+      .leftJoin('users', 'client', 'client.id = o.clientId')
+      .addSelect('client.fullName', 'clientName')
+      .addSelect('client.phone', 'clientPhone')
+      .where('o.businessId IN (:...businessIds)', { businessIds })
+      .orderBy('o.createdAt', 'DESC')
+      .getRawAndEntities();
+    return orders.entities.map((e, i) => ({
+      ...e,
+      clientName: orders.raw[i]?.clientName || null,
+      clientPhone: orders.raw[i]?.clientPhone || null,
+    })) as any;
   }
 
   /**
