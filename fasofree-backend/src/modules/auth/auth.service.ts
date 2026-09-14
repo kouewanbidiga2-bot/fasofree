@@ -321,6 +321,8 @@ export class AuthService {
       applicationStatus: user.applicationStatus,
       applicationType: user.applicationType,
       vehicleType: user.vehicleType,
+      isOnline: user.isOnline ?? false,
+      isAvailable: user.isAvailable ?? false,
     };
 
     // 🏷️ Pour les marchands : inclure les marques et agences

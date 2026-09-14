@@ -385,7 +385,23 @@ const DriverDashboard = () => {
       if (!socket.connected) {
         socket.connect();
       }
-      socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
+      // 📍 Envoyer la VRAIE position GPS du livreur (0,0 = golfe de Guinée
+      // → le livreur était exclu du scoring de dispatch à plus de 10 km)
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            socket.emit('updateDriverLocation', {
+              userId: user.id,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          (err) => {
+            console.warn('[Driver] Géolocalisation refusée/échouée:', err?.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+        );
+      }
       return socket;
     };
 

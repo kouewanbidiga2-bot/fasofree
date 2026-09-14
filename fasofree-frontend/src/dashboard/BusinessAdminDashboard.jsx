@@ -772,7 +772,7 @@ const BusinessAdminDashboard = () => {
 
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
-    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').length },
+    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => ['PENDING', 'PAID', 'IN_PREPARATION'].includes(o.status)).length },
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -1055,10 +1055,15 @@ const BusinessAdminDashboard = () => {
                   >
                     <option value="ALL">Tous les statuts</option>
                     <option value="PENDING">En attente</option>
-                    <option value="CONFIRMED">Confirmées</option>
-                    <option value="PREPARING">En préparation</option>
-                    <option value="IN_TRANSIT">En livraison</option>
+                    <option value="PAID">Payées</option>
+                    <option value="IN_PREPARATION">En préparation</option>
+                    <option value="READY_FOR_PICKUP">Prêtes</option>
+                    <option value="DRIVER_ASSIGNED">Livreur assigné</option>
+                    <option value="IN_DELIVERY">En livraison</option>
+                    <option value="DELIVERED_PENDING_CONFIRMATION">Livrées (attente)</option>
                     <option value="DELIVERED">Livrées</option>
+                    <option value="COMPLETED">Terminées</option>
+                    <option value="CANCELLED">Annulées</option>
                   </select>
                   <button onClick={loadOrders} className="btn-secondary gap-2 text-xs">
                     <RefreshCw size={12} className={loading.orders ? 'animate-spin' : ''} />
