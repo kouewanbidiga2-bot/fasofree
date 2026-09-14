@@ -21,7 +21,11 @@ const ProtectedRoute = ({
   allowedRoles = [], // Optional: Array of allowed roles
   requireAuth = true // Default: require authentication
 }) => {
-  const { user, isAuthenticated, isLoading, isHydrated, refreshProfile } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
+  const isHydrated = useAuthStore(state => state.isHydrated);
+  const refreshProfile = useAuthStore(state => state.refreshProfile);
   const location = useLocation();
 
   // Re-validate role from server on first mount (fixes localStorage trust issue)

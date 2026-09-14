@@ -81,7 +81,7 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
 const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
-  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
     OrderStatus.READY_FOR_PICKUP,

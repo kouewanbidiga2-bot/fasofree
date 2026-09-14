@@ -299,7 +299,8 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
 // ─── Business Admin Dashboard ────────────────────────────────────────────
 const BusinessAdminDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Données
@@ -335,6 +336,9 @@ const BusinessAdminDashboard = () => {
   const [chatChannel, setChatChannel] = useState('merchant');
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
+  const branchesRef = useRef(branches);
+  branchesRef.current = branches;
+  const loadedOnceRef = useRef(false);
 
   // Assignation livreur
   const [driverModal, setDriverModal] = useState(null);
@@ -476,13 +480,13 @@ const BusinessAdminDashboard = () => {
   }, [brandId]);
 
   const loadOrders = useCallback(async () => {
-    setLoad('orders', true);
+    if (!loadedOnceRef.current) setLoad('orders', true);
     try {
       let data;
       if (selectedBranchId) {
         data = await getBusinessOrders(selectedBranchId);
-      } else if (branches.length > 1) {
-        data = await getBrandOrders(branches.map(b => b.id));
+      } else if (branchesRef.current.length > 1) {
+        data = await getBrandOrders(branchesRef.current.map(b => b.id));
       } else if (businessId) {
         data = await getBusinessOrders(businessId);
       } else {
@@ -490,12 +494,13 @@ const BusinessAdminDashboard = () => {
         return;
       }
       setOrders(Array.isArray(data) ? data : []);
+      loadedOnceRef.current = true;
     } catch (err) {
       setError('orders', err.message);
     } finally {
       setLoad('orders', false);
     }
-  }, [selectedBranchId, businessId, branches]);
+  }, [selectedBranchId, businessId]);
 
   const loadProducts = useCallback(async () => {
     const targetId = selectedBranchId || businessId;
@@ -544,14 +549,14 @@ const BusinessAdminDashboard = () => {
   }, [user?.id, selectedBranchId, brandId]);
 
   const loadBranchWallets = useCallback(async () => {
-    if (!brandId || branches.length === 0) return;
+    if (!brandId || branchesRef.current.length === 0) return;
     // Wallets agrégés de la marque (toutes les agences) en parallèle
     getBrandWallets(brandId)
       .then((data) => setBrandWallets(data))
       .catch(() => setBrandWallets(null));
     try {
       const wallets = {};
-      for (const branch of branches) {
+      for (const branch of branchesRef.current) {
         try {
           const data = await getWalletByBranch('business_admin', user.id, branch.id);
           wallets[branch.id] = data;
@@ -563,7 +568,7 @@ const BusinessAdminDashboard = () => {
     } catch {
       // Silently fail
     }
-  }, [brandId, branches, user?.id]);
+  }, [brandId, user?.id]);
 
   useEffect(() => {
     if (!businessId && branches.length === 0) return;
