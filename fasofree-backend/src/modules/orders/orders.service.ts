@@ -873,11 +873,26 @@ export class OrdersService {
     if (statuses && statuses.length > 0) {
       where.status = In(statuses as OrderStatus[]);
     }
-    return await this.orderRepository.find({
+    const orders = await this.orderRepository.find({
       where,
       relations: { items: true },
       order: { createdAt: 'DESC' },
     });
+
+    // Enrichir avec les infos client (clientName, clientPhone)
+    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    if (clientIds.length > 0) {
+      const clients = await this.dataSource.query(
+        `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
+        clientIds,
+      );
+      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
+      return orders.map(o => {
+        const client = clientMap.get(o.clientId);
+        return { ...o, clientName: client?.fullName || null, clientPhone: client?.phone || null };
+      }) as any;
+    }
+    return orders as any;
   }
 
   async findRecentForUser(userId: string, limit = 5): Promise<any[]> {

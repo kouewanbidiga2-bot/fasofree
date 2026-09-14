@@ -277,20 +277,26 @@ const DriverDashboard = () => {
     });
   }, []);
 
+  const currentJobOrderIdRef = useRef(null);
+  // Garder le ref à jour sans trigger de re-render
+  useEffect(() => { currentJobOrderIdRef.current = currentJob?.orderId || null; }, [currentJob?.orderId]);
+
   const leaveJobChat = useCallback(() => {
     // ✅ FIX #26 : on ne déconnecte JAMAIS le socket singleton global
-    // (getChatSocket() le réutilise pour toutes les conversations).
-    // On retire seulement les listeners et on quitte la room.
+    // On retire les listeners et on quitte la room.
+    // On utilise un ref pour l'orderId afin de ne pas recreer cette fonction
+    // à chaque changement de currentJob (ce qui cassait le chat).
     if (chatSocketRef.current) {
       chatSocketRef.current.off('newOrderMessage');
-      if (currentJob?.orderId) {
-        chatSocketRef.current.emit('leaveOrderChat', { orderId: currentJob.orderId, channel: 'driver' });
+      const orderId = currentJobOrderIdRef.current;
+      if (orderId) {
+        chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' });
       }
       chatSocketRef.current = null;
     }
     setChatHistory([]);
     setChatClosed(false);
-  }, [currentJob?.orderId]);
+  }, []);
 
   const handleSendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !currentJob?.orderId || !chatSocketRef.current) return;

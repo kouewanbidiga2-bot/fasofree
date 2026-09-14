@@ -73,7 +73,10 @@ export class DispatchGateway
       if (normalizedRole === 'DRIVER' || normalizedRole === 'COURIER') {
         client.join(WsRooms.AVAILABLE_DRIVERS);
         client.join(`${WsRooms.DRIVER_PREFIX}${userId}`);
-      } else if (normalizedRole === 'BUSINESS' && payload.businessId) {
+      } else if (
+        (normalizedRole.includes('BUSINESS') || normalizedRole === 'MERCHANT' || normalizedRole === 'RESTAURANT') &&
+        payload.businessId
+      ) {
         client.join(`${WsRooms.BUSINESS_PREFIX}${payload.businessId}`);
       }
     } catch (error) {
