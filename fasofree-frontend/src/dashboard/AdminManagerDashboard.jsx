@@ -27,7 +27,8 @@ import { getChatSocket } from '../services/realtime';
 
 const AdminManagerDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
 
   const [platformStats, setPlatformStats] = useState({

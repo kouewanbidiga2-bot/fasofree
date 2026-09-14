@@ -47,7 +47,8 @@ const STATUS_LABELS = {
 
 const DriverDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('jobs');
 
   const [driverStatus, setDriverStatus] = useState(DriverStatus.OFFLINE);

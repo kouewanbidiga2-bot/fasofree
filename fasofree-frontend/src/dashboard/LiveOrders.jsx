@@ -27,7 +27,9 @@ const OUAGADOUGOU = [12.3714, -1.5197];
 
 const LiveOrders = () => {
   const navigate = useNavigate();
-  const { user, logout, getDashboardRoute } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
+  const getDashboardRoute = useAuthStore(state => state.getDashboardRoute);
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
