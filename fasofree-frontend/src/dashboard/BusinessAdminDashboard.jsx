@@ -336,8 +336,6 @@ const BusinessAdminDashboard = () => {
   const [chatChannel, setChatChannel] = useState('merchant');
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
-  const branchesRef = useRef(branches);
-  branchesRef.current = branches;
   const loadedOnceRef = useRef(false);
 
   // Assignation livreur
@@ -354,6 +352,8 @@ const BusinessAdminDashboard = () => {
   const businessId = resolvedBusinessId || user?.businessId || user?.business?.id;
   const brandId = resolvedBrandId || user?.brandId || null;
   const branches = React.useMemo(() => resolvedBranches.length > 0 ? resolvedBranches : (user?.branches || []), [resolvedBranches, user?.branches]);
+  const branchesRef = useRef(branches);
+  branchesRef.current = branches;
 
   // Sélection d'agence (null = vue marque)
   const [selectedBranchId, setSelectedBranchId] = useState(null);
