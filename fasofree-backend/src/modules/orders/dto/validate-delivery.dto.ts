@@ -3,18 +3,18 @@ import { IsString, IsOptional, IsNotEmpty, Length } from 'class-validator';
 
 /**
  * DTO utilisé par le client pour valider la réception de sa commande
- * en fournissant le Code PIN communiqué par le système.
+ * en fournissant le code de commande (6 derniers caractères de l'ID).
  */
 export class ClientValidateDeliveryDto {
   @ApiProperty({
     description:
-      'Code PIN à 4 chiffres fourni au client lors de la création de la commande',
-    example: '4829',
-    minLength: 4,
-    maxLength: 4,
+      'Code de commande (6 derniers caractères de l\'ID de commande)',
+    example: 'a3f8b2',
+    minLength: 6,
+    maxLength: 6,
   })
   @IsString()
-  @Length(4, 4, { message: 'Le code PIN doit contenir exactement 4 chiffres' })
+  @Length(6, 6, { message: 'Le code doit contenir exactement 6 caractères' })
   pinCode: string;
 }
 

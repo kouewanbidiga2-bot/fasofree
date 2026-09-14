@@ -135,7 +135,7 @@ const RideBooking = () => {
       });
       setSuccess({
         id: response?.id,
-        pinCode: response?.deliveryPinCode,
+        orderCode: response?.id ? response.id.slice(-6) : null,
         totalAmount: response?.totalAmount ?? totalAmount,
       });
     } catch (err) {
@@ -161,7 +161,7 @@ const RideBooking = () => {
               Course confirmée !
             </h1>
             <p className="mt-3 text-sm leading-6 text-text-secondary">
-              Votre chauffeur a été notifié. Présentez ce code PIN au chauffeur
+              Votre chauffeur a été notifié. Présentez ce code au chauffeur
               pour valider votre course.
             </p>
             <p className="mt-4 font-mono text-sm text-text-primary">
@@ -170,10 +170,10 @@ const RideBooking = () => {
 
             <div className="mt-6 mx-auto max-w-xs rounded-lg border-2 border-dashed border-accent-primary bg-accent-primary/5 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-primary mb-2">
-                Code PIN de validation
+                Code de commande
               </p>
               <p className="text-4xl font-mono font-bold tracking-[0.3em] text-text-primary">
-                {success.pinCode || '----'}
+                {success.orderCode || '------'}
               </p>
             </div>
 

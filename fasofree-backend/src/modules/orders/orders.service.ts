@@ -378,7 +378,7 @@ export class OrdersService {
       deliveryLocation,
       landmark: dto.landmark ?? undefined,
       status: OrderStatus.PENDING,
-      deliveryPinCode: isDelivery ? this.generatePinCode() : null,
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
@@ -387,6 +387,8 @@ export class OrdersService {
     let savedOrder: Order;
     try {
       savedOrder = await this.orderRepository.save(order);
+      savedOrder.deliveryPinCode = isDelivery ? this.getOrderCode(savedOrder.id) : null;
+      await this.orderRepository.save(savedOrder);
 
       // Sauvegarder les articles de la commande (OrderItems)
       if (dto.items && dto.items.length > 0) {
@@ -602,13 +604,15 @@ export class OrdersService {
       },
       // 💳 Séquestre : le client est débité immédiatement → statut PAID (dispatch activé)
       status: OrderStatus.PAID,
-      deliveryPinCode: this.generatePinCode(),
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
     });
 
     const savedOrder = await this.orderRepository.save(order);
+    savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+    await this.orderRepository.save(savedOrder);
 
     // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
     // la commande est supprimée et l'erreur propagée → aucune course sans paiement.
@@ -739,13 +743,15 @@ export class OrdersService {
         longitude: dropoffLocation.longitude,
       },
       status: OrderStatus.PENDING,
-      deliveryPinCode: this.generatePinCode(),
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
     });
 
     const savedOrder = await this.orderRepository.save(order);
+    savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+    await this.orderRepository.save(savedOrder);
 
     this.logger.log(
       `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km)`,
@@ -1346,10 +1352,10 @@ export class OrdersService {
   }
 
   // ========================================================================
-  // 🔑 GÉNÉRATION DU CODE PIN (4 chiffres aléatoires)
+  // 🔑 CODE DE COMMANDE (6 derniers caractères de l'ID — déterministe)
   // ========================================================================
-  private generatePinCode(): string {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+  private getOrderCode(orderId: string): string {
+    return orderId.slice(-6);
   }
 
   // ========================================================================
@@ -1384,9 +1390,9 @@ export class OrdersService {
     }
 
     if (
-      order.status !== OrderStatus.PAID &&
-      order.status !== OrderStatus.PROCESSING &&
-      order.status !== OrderStatus.IN_PREPARATION
+      order.status !== OrderStatus.DRIVER_ASSIGNED &&
+      order.status !== OrderStatus.IN_DELIVERY &&
+      order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION
     ) {
       throw new BadRequestException(
         `Impossible de valider : la commande est au statut "${order.status}"`,
@@ -1404,7 +1410,7 @@ export class OrdersService {
     this.emitOrderSettlementEvents(saved, previousStatus);
 
     this.logger.log(
-      `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente du Code PIN du client.`,
+      `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente de confirmation du client.`,
     );
 
     // Notifier le client en temps réel
@@ -1413,8 +1419,9 @@ export class OrdersService {
         .to(`order_${orderId}`)
         .emit('deliveryPendingConfirmation', {
           message:
-            '📦 Le livreur a marqué votre commande comme livrée. Veuillez confirmer avec votre Code PIN.',
+            'Le livreur a marqué votre commande comme livrée. Confirmez la réception avec votre code de commande.',
           orderId,
+          orderCode: this.getOrderCode(orderId),
         });
     } catch (e) {
       this.logger.warn(`Notification WebSocket échouée: ${e?.message}`);
@@ -1444,8 +1451,9 @@ export class OrdersService {
       );
     }
 
-    if (!order.deliveryPinCode || order.deliveryPinCode !== pinCode) {
-      throw new BadRequestException('Code PIN invalide. Veuillez réessayer.');
+    const expectedCode = this.getOrderCode(orderId);
+    if (!pinCode || pinCode !== expectedCode) {
+      throw new BadRequestException('Code invalide. Veuillez réessayer.');
     }
 
     order.clientValidatedAt = new Date();
@@ -1465,12 +1473,12 @@ export class OrdersService {
     );
 
     this.logger.log(
-      `[Order Completed] ✅ Commande #${orderId} validée par le client avec Code PIN. Double validation réussie !`,
+      `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
     );
 
     // Déclencher le Payout automatique au marchand
     this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
-      this.logger.error(`Erreur Payout après validation PIN #${saved.id}`, err);
+      this.logger.error(`Erreur Payout après validation #${saved.id}`, err);
     });
 
     // Invalider le cache analytics

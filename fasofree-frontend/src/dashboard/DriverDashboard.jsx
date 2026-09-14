@@ -336,8 +336,24 @@ const DriverDashboard = () => {
     const socket = getDispatchSocket();
     dispatchSocketRef.current = socket;
     socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
-    const onNewJob = () => { loadAvailableJobs(); };
+    const playNotifSound = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(660, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+      } catch {}
+    };
+    const onNewJob = () => { playNotifSound(); loadAvailableJobs(); };
     const onOffer = (payload) => {
+      playNotifSound();
       if (payload?.orderId) loadCurrentJob();
       loadAvailableJobs();
     };
@@ -367,18 +383,8 @@ const DriverDashboard = () => {
     setAcceptingJob(jobId);
     try {
       const result = await acceptDispatchOrder(jobId);
-      const job = availableJobs.find(j => j.id === jobId);
-      // ✅ FIX #27 : le polling (toutes les 15s) peut avoir rafraîchi
-      // availableJobs entre-temps → find() peut retourner undefined et
-      // la course acceptée disparaissait de l'écran. Fallback : on recharge
-      // la course courante depuis l'API (source de vérité).
-      if (job) {
-        setCurrentJob(job);
-        setCurrentJobStatus(result?.status || OrderStatus.DRIVER_ASSIGNED);
-      } else {
-        await loadCurrentJob();
-      }
       setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
+      await loadCurrentJob();
     } catch (err) {
       setError('jobs', err.message || 'Échec de l\'acceptation');
     } finally {
@@ -406,8 +412,6 @@ const DriverDashboard = () => {
         nextStatus = OrderStatus.IN_DELIVERY;
       } else if (currentJobStatus === OrderStatus.IN_DELIVERY) {
         nextStatus = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
-      } else if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
-        nextStatus = OrderStatus.DELIVERED;
       }
 
       if (nextStatus) {
@@ -441,8 +445,8 @@ const DriverDashboard = () => {
 
   const getNextStatusLabel = () => {
     if (currentJobStatus === OrderStatus.DRIVER_ASSIGNED) return 'Commencer la livraison';
-    if (currentJobStatus === OrderStatus.IN_DELIVERY) return 'Marquer comme livrée';
-    if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) return 'Confirmer la livraison';
+    if (currentJobStatus === OrderStatus.IN_DELIVERY) return 'Marquer comme livree';
+    if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) return 'En attente de la confirmation du client';
     return null;
   };
 
@@ -711,7 +715,7 @@ const DriverDashboard = () => {
                       </button>
                     </div>
 
-                    {nextStatusButton && (
+                    {nextStatusButton && currentJobStatus !== OrderStatus.DELIVERED_PENDING_CONFIRMATION && (
                       <button
                         onClick={handleAdvanceStatus}
                         disabled={advancingStatus}
@@ -719,6 +723,11 @@ const DriverDashboard = () => {
                       >
                         {advancingStatus ? '...' : nextStatusButton}
                       </button>
+                    )}
+                    {currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION && (
+                      <div className="w-full py-3 text-center text-sm font-medium text-accent-primary bg-accent-primary/10 border border-accent-primary/20">
+                        En attente de la confirmation du client
+                      </div>
                     )}
                   </div>
                 </div>

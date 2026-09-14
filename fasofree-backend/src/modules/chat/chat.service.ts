@@ -73,8 +73,21 @@ export class ChatService {
       }
     }
 
-    // DRIVER : seul le livreur assigné (ou le client) peut discuter
-    return order.driverId === userId;
+    // DRIVER : le livreur assigné ET le marchand du commerce peuvent discuter
+    if (order.driverId === userId) return true;
+    if (order.businessId) {
+      try {
+        await this.businessesService.assertManagedBy(
+          order.businessId,
+          userId,
+          normalizedRole as UserRole,
+        );
+        return true;
+      } catch {
+        // pas le marchand
+      }
+    }
+    return false;
   }
 
   /**
