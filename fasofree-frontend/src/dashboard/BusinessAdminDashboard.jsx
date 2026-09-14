@@ -612,7 +612,19 @@ const BusinessAdminDashboard = () => {
       }
     };
     socket.on('orderStatusChanged', onStatusChanged);
+
+    // 🔄 Refresh forcé quand l'onglet redevient visible
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        loadOrders();
+        loadAnalytics();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
     };
   }, [loadOrders, loadAnalytics]);

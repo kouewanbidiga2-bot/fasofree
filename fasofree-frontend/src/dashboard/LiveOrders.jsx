@@ -70,7 +70,19 @@ const LiveOrders = () => {
     if (!socket.connected) socket.connect();
     const onStatusChanged = () => load(true);
     socket.on('orderStatusChanged', onStatusChanged);
-    return () => { socket.off('orderStatusChanged', onStatusChanged); };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        load(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+    };
   }, [load]);
 
   const counts = useMemo(() => {

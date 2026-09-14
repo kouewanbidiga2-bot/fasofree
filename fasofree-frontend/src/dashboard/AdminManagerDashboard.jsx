@@ -125,7 +125,20 @@ const AdminManagerDashboard = () => {
       loadPendingDisputes();
     };
     socket.on('orderStatusChanged', onStatusChanged);
-    return () => { socket.off('orderStatusChanged', onStatusChanged); };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        loadPlatformStats();
+        loadPendingDisputes();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+    };
   }, [loadPlatformStats, loadPendingDisputes]);
 
   const loadConversations = useCallback(async () => {

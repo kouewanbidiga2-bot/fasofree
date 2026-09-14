@@ -28,7 +28,7 @@ import {
   updateDriverStatus,
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
-import { getChatSocket, getDispatchSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket, forceReconnectRealtime } from '../services/realtime';
 import { DriverStatus, OrderStatus } from '../types';
 
 const STATUS_PROGRESS = [
@@ -119,6 +119,7 @@ const DriverDashboard = () => {
         createdAt: o.createdAt,
       })));
     } catch (err) {
+      console.error('[Driver] loadAvailableJobs error:', err?.message || err);
       setAvailableJobs([]);
     } finally {
       setLoad('jobs', false);
@@ -150,7 +151,8 @@ const DriverDashboard = () => {
         setCurrentJob(null);
         setCurrentJobStatus(null);
       }
-    } catch {
+    } catch (err) {
+      console.error('[Driver] loadCurrentJob error:', err?.message || err);
       setCurrentJob(null);
       setCurrentJobStatus(null);
     }
@@ -319,14 +321,14 @@ const DriverDashboard = () => {
     };
   }, [chatOpen, currentJob?.orderId, joinJobChat]);
 
+  // Cleanup socket au démontage uniquement
   useEffect(() => {
     return () => {
-      // Fermer le chat uniquement au démontage du composant (navigation/logout)
-      // PAS quand currentJob change (sinon le socket se ferme pendant qu'on discute)
       if (chatSocketRef.current) {
         chatSocketRef.current.off('newOrderMessage');
-        if (currentJob?.orderId) {
-          chatSocketRef.current.emit('leaveOrderChat', { orderId: currentJob.orderId, channel: 'driver' });
+        const oid = currentJobOrderIdRef.current;
+        if (oid) {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId: oid, channel: 'driver' });
         }
         chatSocketRef.current = null;
       }
@@ -367,13 +369,20 @@ const DriverDashboard = () => {
     }
   }, [driverStatus, loadAvailableJobs]);
 
-  // Dispatch socket: connect on mount (not just when online) to receive assignment notifications
+  // 📡 Dispatch socket: connect on mount + reconnaître au focus/visibility
   useEffect(() => {
     if (!user?.id) return;
-    const socket = getDispatchSocket();
-    dispatchSocketRef.current = socket;
-    if (!socket.connected) socket.connect();
-    socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
+
+    const connectDispatch = () => {
+      const socket = getDispatchSocket();
+      dispatchSocketRef.current = socket;
+      if (!socket.connected) {
+        socket.connect();
+      }
+      socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
+      return socket;
+    };
+
     const playNotifSound = () => {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -389,13 +398,15 @@ const DriverDashboard = () => {
         osc.stop(ctx.currentTime + 0.3);
       } catch {}
     };
+
+    let socket = connectDispatch();
+
     const onNewJob = () => { playNotifSound(); loadAvailableJobs(); };
     const onOffer = (payload) => {
       playNotifSound();
       if (payload?.orderId) loadCurrentJob();
       if (driverStatus === DriverStatus.ONLINE) loadAvailableJobs();
     };
-    // 📡 Recevoir les changements de statut en temps réel
     const onStatusChanged = (payload) => {
       if (payload?.orderId) {
         playNotifSound();
@@ -403,15 +414,42 @@ const DriverDashboard = () => {
         loadAvailableJobs();
       }
     };
-    // 📡 Recevoir les nouvelles assignations en temps réel
     const onAssigned = (payload) => {
       playNotifSound();
       loadCurrentJob();
     };
+
     socket.on('delivery_opportunity', onNewJob);
     socket.on('targeted_order_offer', onOffer);
     socket.on('orderStatusChanged', onStatusChanged);
     socket.on('order_assigned', onAssigned);
+
+    // 🔄 Quand l'utilisateur revient sur l'onglet, reconnexion + refresh
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Driver] Onglet visible — refresh forcé');
+        // Reconnecter le socket avec token frais si nécessaire
+        if (!socket?.connected) {
+          socket = connectDispatch();
+          socket.on('delivery_opportunity', onNewJob);
+          socket.on('targeted_order_offer', onOffer);
+          socket.on('orderStatusChanged', onStatusChanged);
+          socket.on('order_assigned', onAssigned);
+        }
+        // Forcer le refresh des données
+        loadCurrentJob();
+        loadAvailableJobs();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('delivery_opportunity', onNewJob);
+      socket.off('targeted_order_offer', onOffer);
+      socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('order_assigned', onAssigned);
+    };
     return () => {
       socket.off('delivery_opportunity', onNewJob);
       socket.off('targeted_order_offer', onOffer);
