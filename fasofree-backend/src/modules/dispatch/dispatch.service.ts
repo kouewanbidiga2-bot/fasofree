@@ -500,6 +500,14 @@ export class DispatchService {
     });
     if (!order) throw new Error(`Commande #${orderId} introuvable`);
 
+    if (order.driverId === driverId) {
+      throw new Error(`Vous etes deja assigne a cette commande`);
+    }
+
+    if (order.status !== 'PENDING' && order.status !== 'PAID' && order.status !== 'READY_FOR_PICKUP') {
+      throw new Error(`Impossible de refuser : commande au statut "${order.status}"`);
+    }
+
     const candidates = order.dispatchCandidates || [];
     const existing = candidates.find((c) => c.driverId === driverId);
     if (existing) {
