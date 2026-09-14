@@ -28,7 +28,7 @@ import {
   updateDriverStatus,
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import { DriverStatus, OrderStatus } from '../types';
 
 const STATUS_PROGRESS = [
@@ -80,6 +80,7 @@ const DriverDashboard = () => {
   const [errors, setErrors] = useState({});
 
   const chatSocketRef = useRef(null);
+  const dispatchSocketRef = useRef(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
@@ -329,6 +330,24 @@ const DriverDashboard = () => {
       return () => clearInterval(interval);
     }
   }, [driverStatus, loadAvailableJobs, loadCurrentJob]);
+
+  useEffect(() => {
+    if (!user?.id || driverStatus !== DriverStatus.ONLINE) return;
+    const socket = getDispatchSocket();
+    dispatchSocketRef.current = socket;
+    socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
+    const onNewJob = () => { loadAvailableJobs(); };
+    const onOffer = (payload) => {
+      if (payload?.orderId) loadCurrentJob();
+      loadAvailableJobs();
+    };
+    socket.on('delivery_opportunity', onNewJob);
+    socket.on('targeted_order_offer', onOffer);
+    return () => {
+      socket.off('delivery_opportunity', onNewJob);
+      socket.off('targeted_order_offer', onOffer);
+    };
+  }, [user?.id, driverStatus, loadAvailableJobs, loadCurrentJob]);
 
   const toggleDriverStatus = async () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;

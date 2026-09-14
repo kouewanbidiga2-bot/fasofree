@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 
 // Entités et DTOs
 import {
@@ -857,6 +857,18 @@ export class OrdersService {
   async findClientOrders(clientId: string): Promise<Order[]> {
     return await this.orderRepository.find({
       where: { clientId },
+      relations: { items: true },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async findDriverOrders(driverId: string, statuses?: string[]): Promise<Order[]> {
+    const where: any = { driverId };
+    if (statuses && statuses.length > 0) {
+      where.status = In(statuses as OrderStatus[]);
+    }
+    return await this.orderRepository.find({
+      where,
       relations: { items: true },
       order: { createdAt: 'DESC' },
     });

@@ -108,13 +108,19 @@ export class OrdersController {
 
   // 📋 Obtenir mes commandes
   @Get('my-orders')
-  @ApiOperation({ summary: 'Lister les commandes du client connecté' })
+  @ApiOperation({ summary: 'Lister les commandes du client ou livreur connecté' })
   @ApiResponse({ status: 200, description: 'Liste des commandes récupérée' })
   @ApiResponse({ status: 401, description: 'Utilisateur non authentifié' })
-  async getMyOrders(@NestRequest() req: RequestWithUser) {
+  async getMyOrders(@NestRequest() req: RequestWithUser, @Query('status') status?: string) {
     const userId = req.user?.userId;
+    const role = req.user?.role;
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    const isDriver = role === 'driver' || role === 'courier' || role === 'DRIVER' || role === 'COURIER';
+    if (isDriver) {
+      const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
+      return this.ordersService.findDriverOrders(userId, statuses);
     }
     return this.ordersService.findClientOrders(userId);
   }

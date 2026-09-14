@@ -24,6 +24,7 @@ const getSocketOptions = () => {
 };
 
 let chatSocket = null;
+let dispatchSocket = null;
 
 export const getChatSocket = () => {
   if (!chatSocket) {
@@ -35,11 +36,25 @@ export const getChatSocket = () => {
   return chatSocket;
 };
 
+export const getDispatchSocket = () => {
+  if (!dispatchSocket) {
+    dispatchSocket = io(`${getSocketBase()}/dispatch`, getSocketOptions());
+    dispatchSocket.on('connect_error', (err) => {
+      console.warn('[Dispatch Socket] Erreur connexion:', err?.message);
+    });
+  }
+  return dispatchSocket;
+};
+
 export const disconnectRealtime = () => {
   if (chatSocket) {
     chatSocket.disconnect();
     chatSocket = null;
   }
+  if (dispatchSocket) {
+    dispatchSocket.disconnect();
+    dispatchSocket = null;
+  }
 };
 
-export default { getChatSocket, disconnectRealtime };
+export default { getChatSocket, getDispatchSocket, disconnectRealtime };
