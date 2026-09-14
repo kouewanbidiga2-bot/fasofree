@@ -11,6 +11,7 @@ import { ArrowLeft, Radio, RefreshCw, Truck, MapPin, Package, UserPlus, X } from
 import useAuthStore from '../store/authStore';
 import { getAdminOrders, assignDriverToOrder, getActiveDrivers } from '../services/ordersService';
 import { StatusBadge } from './components/StatCard';
+import { getDispatchSocket } from '../services/realtime';
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
@@ -61,6 +62,15 @@ const LiveOrders = () => {
     load();
     const timer = setInterval(() => load(true), 10000);
     return () => clearInterval(timer);
+  }, [load]);
+
+  // 📡 Dispatch socket : refresh immédiat sur changement de statut
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => load(true);
+    socket.on('orderStatusChanged', onStatusChanged);
+    return () => { socket.off('orderStatusChanged', onStatusChanged); };
   }, [load]);
 
   const counts = useMemo(() => {

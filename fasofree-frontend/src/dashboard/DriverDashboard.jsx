@@ -305,8 +305,20 @@ const DriverDashboard = () => {
   }, [chatOpen, currentJob?.orderId, joinJobChat]);
 
   useEffect(() => {
-    return () => leaveJobChat();
-  }, [leaveJobChat]);
+    return () => {
+      // Fermer le chat uniquement au démontage du composant (navigation/logout)
+      // PAS quand currentJob change (sinon le socket se ferme pendant qu'on discute)
+      if (chatSocketRef.current) {
+        chatSocketRef.current.off('newOrderMessage');
+        if (currentJob?.orderId) {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId: currentJob.orderId, channel: 'driver' });
+        }
+        chatSocketRef.current = null;
+      }
+      setChatHistory([]);
+      setChatClosed(false);
+    };
+  }, []);
 
   useEffect(() => {
     loadWallet();
@@ -368,11 +380,28 @@ const DriverDashboard = () => {
       if (payload?.orderId) loadCurrentJob();
       if (driverStatus === DriverStatus.ONLINE) loadAvailableJobs();
     };
+    // 📡 Recevoir les changements de statut en temps réel
+    const onStatusChanged = (payload) => {
+      if (payload?.orderId) {
+        playNotifSound();
+        loadCurrentJob();
+        loadAvailableJobs();
+      }
+    };
+    // 📡 Recevoir les nouvelles assignations en temps réel
+    const onAssigned = (payload) => {
+      playNotifSound();
+      loadCurrentJob();
+    };
     socket.on('delivery_opportunity', onNewJob);
     socket.on('targeted_order_offer', onOffer);
+    socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('order_assigned', onAssigned);
     return () => {
       socket.off('delivery_opportunity', onNewJob);
       socket.off('targeted_order_offer', onOffer);
+      socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('order_assigned', onAssigned);
     };
   }, [user?.id, loadAvailableJobs, loadCurrentJob]);
 

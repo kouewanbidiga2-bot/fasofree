@@ -3,7 +3,7 @@
 
 **Date** : 13 Septembre 2026  
 **Auteur** : Assistant IA (Codebuff)  
-**Version** : 4.1.0  
+**Version** : 5.0.0  
 **Repo** : github.com/kouewanbidiga2-bot/fasofree
 
 > **Note** : Ce rapport remplace `PROJECT_BIBLE.md` comme reference technique.
@@ -327,7 +327,50 @@
 
 ---
 
-## 5. ERREURS RESTANTES
+## 5. CORRECTIONS TEMPS RÉEL (v5.0.0)
+
+### Problème fondamental
+Les dashboards ne mettaient pas à jour les statuts de commande en temps réel. Lorsqu'un admin assignait un livreur, celui-ci devait se déconnecter/reconnecter pour voir la commande. Idem pour le changement de statut (livré → confirmé).
+
+**Cause** : `updateStatus()` dans `orders.service.ts` n'émettait AUCUN événement WebSocket après le changement de statut. Les dashboards pollaient l'API toutes les 10-15 secondes, sans push temps réel.
+
+### Corrections appliquées
+
+| # | Fichier | Correction |
+|---|---------|------------|
+| RT-1 | `dispatch.gateway.ts` | Nouvelle méthode `broadcastOrderStatusChanged()` : notifie la room de la commande, le livreur assigné, et le business concerné |
+| RT-2 | `orders.service.ts` (updateStatus) | Appel `broadcastOrderStatusChanged()` après chaque changement de statut |
+| RT-3 | `orders.service.ts` (driverValidate) | Broadcast quand le livreur marque livré |
+| RT-4 | `orders.service.ts` (clientValidate) | Broadcast quand le client confirme |
+| RT-5 | `orders.service.ts` (confirmDelivery) | Broadcast quand l'admin confirme |
+| RT-6 | `dispatch.service.ts` (assign) | Broadcast quand un admin assigne manuellement un livreur |
+| RT-7 | `DriverDashboard.jsx` | Écoute `orderStatusChanged` + `order_assigned` sur le dispatch socket → refresh immédiat |
+| RT-8 | `BusinessAdminDashboard.jsx` | Connexion dispatch socket + écoute `orderStatusChanged` → refresh immédiat |
+| RT-9 | `SuperAdminDashboard.jsx` | Connexion dispatch socket + écoute `orderStatusChanged` → refresh immédiat |
+| RT-10 | `AdminManagerDashboard.jsx` | Connexion dispatch socket + écoute `orderStatusChanged` → refresh immédiat |
+| RT-11 | `LiveOrders.jsx` | Connexion dispatch socket + écoute `orderStatusChanged` → refresh immédiat |
+| RT-12 | `DriverDashboard.jsx` (chat) | **FIX CRITIQUE** : `leaveJobChat` se déclenchait à chaque changement de `currentJob` (quand le livreur change de statut), fermant le socket chat. Corrigé : cleanup uniquement au démontage du composant |
+| RT-13 | `orders.controller.ts` | Import `BadRequestException` manquant (erreur TS) |
+
+### Architecture du broadcast
+```
+Admin assigne livreur → assignDriverToOrder()
+  → dispatchGateway.notifyCandidateDrivers()  (event targeted_order_offer)
+  → dispatchGateway.broadcastOrderStatusChanged()  (event orderStatusChanged)
+
+Livreur marque livré → driverValidateDelivery()
+  → dispatchGateway.broadcastOrderStatusChanged()
+  → dispatchGateway.server.to(order_X).emit('deliveryPendingConfirmation')
+
+Admin confirme → confirmDeliveryByAdmin()
+  → dispatchGateway.broadcastOrderStatusChanged()
+```
+
+Tous les dashboards (driver, merchant, admin, super admin) écoutent `orderStatusChanged` et rafraîchissent leurs données immédiatement.
+
+---
+
+## 6. ERREURS RESTANTES
 
 ### 5.1 [EN COURS] Branch wallets userRole=DRIVER
 **Description** : Les 3 branch wallets de Chitir Chicken ont `userRole=DRIVER` au lieu de `MERCHANT`.  

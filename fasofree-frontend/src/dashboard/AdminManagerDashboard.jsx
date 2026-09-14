@@ -23,7 +23,7 @@ import { getBusinesses } from '../services/subscriptionService';
 import { getUsers, getActiveConversations, getChatHistory } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
 const AdminManagerDashboard = () => {
   const navigate = useNavigate();
@@ -115,6 +115,18 @@ const AdminManagerDashboard = () => {
     loadPendingDisputes();
     loadKyc();
   }, [loadPlatformStats, loadPendingDisputes, loadKyc]);
+
+  // 📡 Dispatch socket : temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => {
+      loadPlatformStats();
+      loadPendingDisputes();
+    };
+    socket.on('orderStatusChanged', onStatusChanged);
+    return () => { socket.off('orderStatusChanged', onStatusChanged); };
+  }, [loadPlatformStats, loadPendingDisputes]);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);

@@ -1326,6 +1326,14 @@ export class OrdersService {
     order.status = status;
     const updatedOrder = await this.orderRepository.save(order);
 
+    // 📡 Broadcast temps réel : tous les dashboards reçoivent le changement sans reconnexion
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: updatedOrder.id,
+      status: updatedOrder.status,
+      driverId: updatedOrder.driverId,
+      businessId: updatedOrder.businessId,
+    });
+
     // ⏳ 3. Séquestre financier : programmer la libération des fonds à J+3h
     if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
       updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
@@ -1426,6 +1434,14 @@ export class OrdersService {
 
     const saved = await this.orderRepository.save(order);
 
+    // 📡 Broadcast temps réel : admin + marchand voient le changement sans reconnexion
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
+
     // 🔔 Settlement livreur : crédit gains + Pass Journée / micro-commission
     this.emitOrderSettlementEvents(saved, previousStatus);
 
@@ -1480,6 +1496,14 @@ export class OrdersService {
     order.status = OrderStatus.COMPLETED;
 
     const saved = await this.orderRepository.save(order);
+
+    // 📡 Broadcast temps réel
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
 
     // 🔔 Settlement marchand : crédit du wallet (payout net de commission)
     this.emitOrderSettlementEvents(
@@ -1569,6 +1593,14 @@ export class OrdersService {
     order.status = OrderStatus.COMPLETED;
 
     const saved = await this.orderRepository.save(order);
+
+    // 📡 Broadcast temps réel
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
 
     // 🔔 Settlement marchand
     this.emitOrderSettlementEvents(

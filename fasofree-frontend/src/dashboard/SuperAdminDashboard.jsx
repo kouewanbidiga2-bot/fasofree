@@ -45,7 +45,7 @@ import {
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -379,6 +379,19 @@ const SuperAdminDashboard = () => {
     loadSettings();
     loadConversations();
   }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
+
+  // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => {
+      loadFinancialStats();
+      loadFinancialOverview();
+      loadUsers();
+    };
+    socket.on('orderStatusChanged', onStatusChanged);
+    return () => { socket.off('orderStatusChanged', onStatusChanged); };
+  }, [loadFinancialStats, loadFinancialOverview, loadUsers]);
 
   useEffect(() => {
     return () => {

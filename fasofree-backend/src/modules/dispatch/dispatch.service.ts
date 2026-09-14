@@ -555,6 +555,14 @@ export class DispatchService {
       message: 'Vous avez été assigné à cette commande',
     });
 
+    // 📡 Broadcast temps réel : le dashboard du livreur et du marchand se mettent à jour
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: updatedOrder.id,
+      status: updatedOrder.status,
+      driverId: updatedOrder.driverId,
+      businessId: updatedOrder.businessId,
+    });
+
     return updatedOrder;
   }
 }

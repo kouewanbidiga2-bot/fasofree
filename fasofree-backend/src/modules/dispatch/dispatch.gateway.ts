@@ -172,4 +172,56 @@ export class DispatchGateway
         message: 'Un litige a été ouvert sur cette commande.',
       });
   }
+
+  /**
+   * 📢 7. Diffuser un changement de statut de commande à toutes les parties prenantes.
+   * Le livreur, le marchand et les admins connectés reçoivent l'événement en temps réel.
+   */
+  broadcastOrderStatusChanged(
+    order: { id: string; status: string; driverId?: string | null; businessId?: string | null },
+  ): void {
+    if (!this.server) return;
+
+    // 1. Notifier la room de la commande (client, livreur, marchand qui trackent)
+    this.server
+      .to(`${WsRooms.ORDER_PREFIX}${order.id}`)
+      .emit('orderStatusChanged', {
+        orderId: order.id,
+        status: order.status,
+      });
+
+    // 2. Notifier le livreur assigné (pour qu'il voie le changement sans reconnexion)
+    if (order.driverId) {
+      this.server
+        .to(`${WsRooms.DRIVER_PREFIX}${order.driverId}`)
+        .emit('orderStatusChanged', {
+          orderId: order.id,
+          status: order.status,
+        });
+    }
+
+    // 3. Notifier le business concerné
+    if (order.businessId) {
+      this.server
+        .to(`${WsRooms.BUSINESS_PREFIX}${order.businessId}`)
+        .emit('orderStatusChanged', {
+          orderId: order.id,
+          status: order.status,
+        });
+    }
+
+    // 4. Notifier tous les livreurs en ligne (pour les commandes disponibles)
+    if (order.status === 'READY_FOR_PICKUP') {
+      this.server
+        .to(WsRooms.AVAILABLE_DRIVERS)
+        .emit(WsEvents.DELIVERY_OPPORTUNITY, {
+          orderId: order.id,
+          message: 'Nouvelle livraison disponible',
+        });
+    }
+
+    this.logger.log(
+      `[WS Broadcast] orderStatusChanged → commande #${order.id} (${order.status})`,
+    );
+  }
 }

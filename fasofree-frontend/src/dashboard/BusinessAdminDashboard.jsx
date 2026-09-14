@@ -31,7 +31,7 @@ import { getWallet, getWalletByBranch, getBrandWallets } from '../services/walle
 import { getBusinessProducts, getLowStockAlerts, updateStock, generateSKU } from '../services/inventoryService';
 import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import { ProductType, InventoryStatus } from '../types';
 import ImageUpload from '../components/ImageUpload';
 import BranchSelector from './components/BranchSelector';
@@ -590,6 +590,23 @@ const BusinessAdminDashboard = () => {
 
     return () => clearInterval(ordersInterval);
   }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadSettings, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
+
+  // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+
+    const onStatusChanged = (payload) => {
+      if (payload?.orderId) {
+        loadOrders();
+        loadAnalytics();
+      }
+    };
+    socket.on('orderStatusChanged', onStatusChanged);
+    return () => {
+      socket.off('orderStatusChanged', onStatusChanged);
+    };
+  }, [loadOrders, loadAnalytics]);
 
   const handleBranchChange = useCallback((branchId) => {
     setSelectedBranchId(branchId);

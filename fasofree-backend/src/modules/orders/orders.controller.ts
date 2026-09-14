@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request as NestRequest,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
@@ -405,7 +406,7 @@ export class OrdersController {
     @Body('driverId') driverId: string,
   ) {
     if (!driverId) {
-      throw new UnauthorizedException('driverId est requis');
+      throw new BadRequestException('driverId est requis');
     }
     return this.ordersService.assignDriverToOrder(orderId, driverId);
   }
