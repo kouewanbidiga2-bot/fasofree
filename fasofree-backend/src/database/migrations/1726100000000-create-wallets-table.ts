@@ -14,7 +14,7 @@ export class CreateWalletsTable1726100000000 implements MigrationInterface {
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS wallets (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         userId VARCHAR NOT NULL,
         userRole wallets_userrole_enum NOT NULL,
         branchId UUID,

@@ -31,7 +31,7 @@ export class CreateWalletTransactionsTable1726100000001 implements MigrationInte
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS wallet_transactions (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         walletId UUID NOT NULL,
         branchId UUID,
         type wallet_transactions_type_enum NOT NULL,

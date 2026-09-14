@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class FixWalletUserroles1725800000000 implements MigrationInterface {
-  name = '1725800000000-fix-wallet-userroles';
+  name = 'FixWalletUserroles1725800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Fix branch wallets that have userRole=DRIVER but belong to a merchant user

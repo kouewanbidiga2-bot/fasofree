@@ -8,7 +8,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * donc silencieusement sur cette table.
  */
 export class CreatePayoutRequests1725900000000 implements MigrationInterface {
-  name = '1725900000000-create-payout-requests';
+  name = 'CreatePayoutRequests1725900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

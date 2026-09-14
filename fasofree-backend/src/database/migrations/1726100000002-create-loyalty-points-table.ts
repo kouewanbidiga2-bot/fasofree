@@ -13,7 +13,7 @@ export class CreateLoyaltyPointsTable1726100000002 implements MigrationInterface
 
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS loyalty_points (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         userId UUID NOT NULL,
         points INT NOT NULL,
         source loyalty_points_source_enum DEFAULT 'ORDER' NOT NULL,
