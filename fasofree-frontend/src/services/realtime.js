@@ -16,10 +16,12 @@ const getSocketOptions = () => {
   const token = localStorage.getItem('fasofree_token');
   return {
     auth: { token },
-    transports: ['websocket', 'polling'],
+    transports: ['polling', 'websocket'],
     reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 3000,
+    reconnectionDelayMax: 10000,
+    timeout: 10000,
   };
 };
 
@@ -28,7 +30,10 @@ let dispatchSocket = null;
 
 export const getChatSocket = () => {
   if (!chatSocket) {
-    chatSocket = io(`${getSocketBase()}/chat`, getSocketOptions());
+    chatSocket = io(`${getSocketBase()}/chat`, {
+      ...getSocketOptions(),
+      autoConnect: false,
+    });
     chatSocket.on('connect_error', (err) => {
       console.warn('[Chat Socket] Erreur connexion:', err?.message);
     });
@@ -38,7 +43,10 @@ export const getChatSocket = () => {
 
 export const getDispatchSocket = () => {
   if (!dispatchSocket) {
-    dispatchSocket = io(`${getSocketBase()}/dispatch`, getSocketOptions());
+    dispatchSocket = io(`${getSocketBase()}/dispatch`, {
+      ...getSocketOptions(),
+      autoConnect: false,
+    });
     dispatchSocket.on('connect_error', (err) => {
       console.warn('[Dispatch Socket] Erreur connexion:', err?.message);
     });

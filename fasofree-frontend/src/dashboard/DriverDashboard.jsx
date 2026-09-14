@@ -245,6 +245,7 @@ const DriverDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
     socket.emit('joinOrderChat', { orderId, channel: 'driver' }, (res) => {
       if (res?.status === 'ok') {
@@ -335,6 +336,7 @@ const DriverDashboard = () => {
     if (!user?.id || driverStatus !== DriverStatus.ONLINE) return;
     const socket = getDispatchSocket();
     dispatchSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
     socket.emit('updateDriverLocation', { userId: user.id, latitude: 0, longitude: 0 });
     const playNotifSound = () => {
       try {

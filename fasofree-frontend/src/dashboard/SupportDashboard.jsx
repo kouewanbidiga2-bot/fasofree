@@ -274,6 +274,7 @@ const SupportDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
     socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
       if (res?.status === 'ok') {

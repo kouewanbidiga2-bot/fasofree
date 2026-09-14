@@ -161,6 +161,7 @@ const AdminManagerDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
     socket.emit('joinOrderChat', { orderId, channel }, (res) => {
       if (res?.status === 'ok') {
