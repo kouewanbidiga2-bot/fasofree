@@ -7,13 +7,15 @@ export class FixWalletUserroles1725800000000 implements MigrationInterface {
     // Fix branch wallets that have userRole=DRIVER but belong to a merchant user
     // These were created when the frontend called the branch wallet endpoint
     // with business_admin role, but the role was incorrectly mapped
+    // ⚠️ Cast ::text des deux côtés : wallets.userId est VARCHAR, users.id est UUID
+    // -> sans cast, Postgres rejette avec "operator does not exist: character varying = uuid"
     await queryRunner.query(`
       UPDATE wallets
       SET "userRole" = 'MERCHANT'
       WHERE "userRole" = 'DRIVER'
         AND "branchId" IS NOT NULL
-        AND "userId" IN (
-          SELECT id FROM users WHERE role = 'business_admin'
+        AND "userId"::text IN (
+          SELECT id::text FROM users WHERE role = 'business_admin'
         )
     `);
   }

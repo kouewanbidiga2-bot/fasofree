@@ -30,18 +30,18 @@ export class CreateWalletTransactionsTable1726100000001 implements MigrationInte
     `);
 
     await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS wallet_transactions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        walletId UUID NOT NULL,
-        branchId UUID,
-        type wallet_transactions_type_enum NOT NULL,
-        status wallet_transactions_status_enum DEFAULT 'COMPLETED' NOT NULL,
-        reason wallet_transactions_reason_enum NOT NULL,
-        amount DECIMAL(12,2) NOT NULL,
-        balanceAfter DECIMAL(12,2) NOT NULL,
-        reference VARCHAR,
-        description TEXT,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      CREATE TABLE IF NOT EXISTS "wallet_transactions" (
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "walletId" UUID NOT NULL,
+        "branchId" UUID,
+        "type" wallet_transactions_type_enum NOT NULL,
+        "status" wallet_transactions_status_enum DEFAULT 'COMPLETED' NOT NULL,
+        "reason" wallet_transactions_reason_enum NOT NULL,
+        "amount" DECIMAL(12,2) NOT NULL,
+        "balanceAfter" DECIMAL(12,2) NOT NULL,
+        "reference" VARCHAR,
+        "description" TEXT,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
         CONSTRAINT "FK_wallet_transactions_wallet" FOREIGN KEY ("walletId") REFERENCES "wallets"("id") ON DELETE CASCADE
       );
     `);

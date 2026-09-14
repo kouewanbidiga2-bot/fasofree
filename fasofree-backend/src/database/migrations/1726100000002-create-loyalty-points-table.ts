@@ -12,15 +12,15 @@ export class CreateLoyaltyPointsTable1726100000002 implements MigrationInterface
     `);
 
     await queryRunner.query(`
-      CREATE TABLE IF NOT EXISTS loyalty_points (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        userId UUID NOT NULL,
-        points INT NOT NULL,
-        source loyalty_points_source_enum DEFAULT 'ORDER' NOT NULL,
-        orderId UUID,
-        description VARCHAR(100),
-        expiresAt TIMESTAMP,
-        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+      CREATE TABLE IF NOT EXISTS "loyalty_points" (
+        "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "userId" UUID NOT NULL,
+        "points" INT NOT NULL,
+        "source" loyalty_points_source_enum DEFAULT 'ORDER' NOT NULL,
+        "orderId" UUID,
+        "description" VARCHAR(100),
+        "expiresAt" TIMESTAMP,
+        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
       );
     `);
 
