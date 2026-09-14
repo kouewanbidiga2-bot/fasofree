@@ -206,21 +206,38 @@ export const getStatusInfo = (status) => {
  * Obtenir les étapes du stepper pour une commande
  */
 export const getOrderSteps = (currentStatus) => {
-  const steps = [
-    { key: OrderStatus.PENDING, label: 'Commande créée' },
+  const allSteps = [
+    { key: OrderStatus.PENDING, label: 'Créée' },
     { key: OrderStatus.PAID, label: 'Payée' },
-    { key: OrderStatus.IN_PREPARATION, label: 'En préparation' },
-    { key: OrderStatus.PROCESSING, label: 'En cours' },
+    { key: OrderStatus.IN_PREPARATION, label: 'Préparation' },
+    { key: OrderStatus.READY_FOR_PICKUP, label: 'Prête' },
+    { key: OrderStatus.DRIVER_ASSIGNED, label: 'Livreur assigné' },
+    { key: OrderStatus.IN_DELIVERY, label: 'En livraison' },
+    { key: OrderStatus.DELIVERED_PENDING_CONFIRMATION, label: 'Livrée (attente)' },
     { key: OrderStatus.DELIVERED, label: 'Livrée' },
     { key: OrderStatus.COMPLETED, label: 'Terminée' },
   ];
 
-  const statusIndex = steps.findIndex(step => step.key === currentStatus);
+  const terminalStatuses = [OrderStatus.CANCELLED, OrderStatus.FAILED, OrderStatus.REFUNDED, OrderStatus.DISPUTED];
 
-  return steps.map((step, index) => ({
+  if (terminalStatuses.includes(currentStatus)) {
+    return [{ key: currentStatus, label: getStatusInfo(currentStatus).label, completed: false, current: true, pending: false }];
+  }
+
+  const currentIndex = allSteps.findIndex(s => s.key === currentStatus);
+  if (currentIndex === -1) {
+    return [{ key: currentStatus, label: getStatusInfo(currentStatus).label, completed: false, current: true, pending: false }];
+  }
+
+  const relevantSteps = allSteps.slice(0, currentIndex + 1);
+  if (currentStatus !== OrderStatus.COMPLETED) {
+    relevantSteps.push({ key: OrderStatus.COMPLETED, label: 'Terminée' });
+  }
+
+  return relevantSteps.map((step, index) => ({
     ...step,
-    completed: index < statusIndex,
-    current: index === statusIndex,
-    pending: index > statusIndex,
+    completed: index < currentIndex,
+    current: index === currentIndex,
+    pending: index > currentIndex,
   }));
 };

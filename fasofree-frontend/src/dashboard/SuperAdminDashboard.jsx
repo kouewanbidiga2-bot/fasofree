@@ -91,7 +91,7 @@ const SuperAdminDashboard = () => {
 
   // Pending validations
   const [pendingDisputes, setPendingDisputes] = useState([]);
-  const [processingDispute, setProcessingDispute] = useState(null);
+  const [processingDisputes, setProcessingDisputes] = useState(new Set());
 
   // KYC validation queue (commerçants & livreurs)
   const [kycPending, setKycPending] = useState([]);
@@ -405,7 +405,7 @@ const SuperAdminDashboard = () => {
       setChatHistoryLoading(false);
     }
 
-    if (chatSocketRef.current) {
+    if (chatSocketRef.current && selectedChatOrder) {
       chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
       chatSocketRef.current.off('newOrderMessage');
     }
@@ -750,7 +750,7 @@ const SuperAdminDashboard = () => {
 
   // Handle dispute approval (refund)
   const handleApproveDispute = async (disputeId) => {
-    setProcessingDispute(disputeId);
+    setProcessingDisputes(prev => new Set([...prev, disputeId]));
     try {
       await approveRefund(disputeId, 'Remboursement approuvé par l\'administration');
       // Reload disputes
@@ -759,13 +759,17 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       setError('disputes', err.message);
     } finally {
-      setProcessingDispute(null);
+      setProcessingDisputes(prev => {
+        const next = new Set(prev);
+        next.delete(disputeId);
+        return next;
+      });
     }
   };
 
   // Handle dispute rejection
   const handleRejectDispute = async (disputeId) => {
-    setProcessingDispute(disputeId);
+    setProcessingDisputes(prev => new Set([...prev, disputeId]));
     try {
       await rejectDispute(disputeId, 'Litige rejeté par l\'administration');
       // Reload disputes
@@ -774,7 +778,11 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       setError('disputes', err.message);
     } finally {
-      setProcessingDispute(null);
+      setProcessingDisputes(prev => {
+        const next = new Set(prev);
+        next.delete(disputeId);
+        return next;
+      });
     }
   };
 
@@ -1014,7 +1022,7 @@ const SuperAdminDashboard = () => {
                 value={kycPending.length}
                 icon={Shield}
                 color="#EF4444"
-                loading={loading.pending}
+                loading={loading.kyc}
               />
             </div>
 
@@ -1586,18 +1594,18 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>
                           <p className="text-text-tertiary text-xs">
-                            {new Date(dispute.createdAt).toLocaleDateString('fr-FR')}
+                            {dispute.createdAt ? new Date(dispute.createdAt).toLocaleDateString('fr-FR') : '—'}
                           </p>
                         </td>
                         <td>
                           <div className="flex gap-2">
                             <button 
                               onClick={() => handleApproveDispute(dispute.id)}
-                              disabled={processingDispute === dispute.id}
+                              disabled={processingDisputes.has(dispute.id)}
                               className="btn-icon text-status-success hover:bg-status-successBg disabled:opacity-50" 
                               title="Valider le remboursement"
                             >
-                              {processingDispute === dispute.id ? (
+                              {processingDisputes.has(dispute.id) ? (
                                 <span className="w-4 h-4 border-2 border-status-success/30 border-t-status-success rounded-full animate-spin" />
                               ) : (
                                 <CheckCircle size={14} />
@@ -1605,11 +1613,11 @@ const SuperAdminDashboard = () => {
                             </button>
                             <button 
                               onClick={() => handleRejectDispute(dispute.id)}
-                              disabled={processingDispute === dispute.id}
+                              disabled={processingDisputes.has(dispute.id)}
                               className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-50" 
                               title="Rejeter le litige"
                             >
-                              {processingDispute === dispute.id ? (
+                              {processingDisputes.has(dispute.id) ? (
                                 <span className="w-4 h-4 border-2 border-status-error/30 border-t-status-error rounded-full animate-spin" />
                               ) : (
                                 <XCircle size={14} />
@@ -2340,8 +2348,8 @@ const SuperAdminDashboard = () => {
               <h2 className="text-xl font-bold text-text-primary">Paramètres de la Plateforme</h2>
               <div className="flex items-center gap-3">
                 {settingsLoading && <span className="text-xs text-text-secondary">Chargement...</span>}
-                {settingsSuccess && <span className="text-xs text-green-500 font-medium">{settingsSuccess}</span>}
-                {settingsError && <span className="text-xs text-red-500 font-medium">{settingsError}</span>}
+                {settingsSuccess && <span className="text-xs text-status-success font-medium">{settingsSuccess}</span>}
+                {settingsError && <span className="text-xs text-status-error font-medium">{settingsError}</span>}
               </div>
             </div>
 

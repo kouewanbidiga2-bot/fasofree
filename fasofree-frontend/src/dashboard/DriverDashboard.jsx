@@ -15,7 +15,7 @@ import {
   Layout, MapPin, Clock, DollarSign, Star, LogOut,
   RefreshCw, AlertCircle, CheckCircle, XCircle, Navigation,
   TrendingUp, Wallet, Phone, MessageSquare, Power, PowerOff,
-  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft,
+  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/StatCard';
@@ -444,6 +444,8 @@ const DriverDashboard = () => {
         ? `https://www.google.com/maps/dir/${origin}/${dest}`
         : `https://www.google.com/maps/search/?api=1&query=${dest}`;
       window.open(url, '_blank');
+    } else {
+      alert('Coordonnées GPS non disponibles pour cette commande.');
     }
   };
 
@@ -457,7 +459,7 @@ const DriverDashboard = () => {
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: currentJob ? 1 : 0 },
     { id: 'earnings', label: 'Gains', icon: DollarSign },
     { id: 'history', label: 'Historique', icon: History },
-    { id: 'settings', label: 'Paramètres', icon: Layout },
+    { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
   const currentStepIndex = currentJobStatus ? STATUS_PROGRESS.indexOf(currentJobStatus) : -1;

@@ -8,6 +8,7 @@ import {
   Param,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
@@ -125,6 +126,9 @@ export class ProductsController {
   async generateSku(
     @Body() body: { businessId: string; productName: string; category?: string },
   ) {
+    if (!body.businessId || !body.productName) {
+      throw new BadRequestException('businessId et productName sont requis');
+    }
     return { sku: this.productsService.generateSku(body.businessId, body.productName, body.category) };
   }
 

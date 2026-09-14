@@ -358,7 +358,7 @@ export class DispatchService {
       earningXOF: calculatedFee || order.deliveryFee,
       totalAmount: order.totalAmount,
       estimatedDistanceKm: topCandidates[0].distanceKm,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
     });
 
     this.logger.log(
@@ -368,7 +368,7 @@ export class DispatchService {
 
   /**
    * ⏰ CRON JOB: Vérifier les timeouts de dispatch (toutes les minutes)
-   * Réassigne aux candidats suivants si aucun livreur n'accepte dans les 5 minutes
+   * Réassigne aux candidats suivants si aucun livreur n'accepte dans les 10 minutes
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async checkDispatchTimeouts(): Promise<void> {
@@ -395,7 +395,7 @@ export class DispatchService {
         }
 
         this.logger.log(
-          `[Dispatch Timeout] Commande #${order.id} en attente depuis 5 min - Réassignation`,
+          `[Dispatch Timeout] Commande #${order.id} en attente depuis 10 min - Réassignation`,
         );
 
         // Trouver le candidat suivant qui n'a pas encore été notifié

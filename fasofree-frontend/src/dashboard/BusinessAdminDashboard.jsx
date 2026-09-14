@@ -324,6 +324,7 @@ const BusinessAdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [productTypeFilter, setProductTypeFilter] = useState('ALL');
   const [updating, setUpdating] = useState({});
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -401,7 +402,7 @@ const BusinessAdminDashboard = () => {
   }, [businessId]);
 
   const handleSaveSettings = async () => {
-    setLoading(prev => ({ ...prev, settings: true }));
+    setSettingsSaving(true);
     try {
       await api.patch(`/businesses/${businessId}`, businessSettings);
       const updatedBusiness = (await api.get(`/businesses/${businessId}`)).data;
@@ -415,7 +416,7 @@ const BusinessAdminDashboard = () => {
     } catch (err) {
       setError('settings', err.message);
     } finally {
-      setLoading(prev => ({ ...prev, settings: false }));
+      setSettingsSaving(false);
     }
   };
 
@@ -976,7 +977,7 @@ const BusinessAdminDashboard = () => {
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-text-primary">#{order.id?.slice(-6)}</p>
-                          <p className="text-[10px] text-text-secondary">{new Date(order.createdAt).toLocaleDateString('fr-FR')}</p>
+                          <p className="text-[10px] text-text-secondary">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR') : '—'}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -1454,9 +1455,10 @@ const BusinessAdminDashboard = () => {
               {/* Bouton de sauvegarde */}
               <button
                 onClick={handleSaveSettings}
-                className="btn-primary w-full py-3"
+                disabled={settingsSaving}
+                className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sauvegarder les paramètres
+                {settingsSaving ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
               </button>
             </div>
           )}
