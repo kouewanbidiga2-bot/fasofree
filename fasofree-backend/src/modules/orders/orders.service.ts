@@ -889,10 +889,18 @@ export class OrdersService {
       const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
-        return { ...o, clientName: client?.fullName || null, clientPhone: client?.phone || null };
+        return { 
+          ...o, 
+          clientName: client?.fullName || 'Client inconnu', 
+          clientPhone: client?.phone || 'Non disponible' 
+        };
       }) as any;
     }
-    return orders as any;
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible'
+    })) as any;
   }
 
   async findRecentForUser(userId: string, limit = 5): Promise<any[]> {
@@ -927,13 +935,22 @@ export class OrdersService {
       const clients = await this.dataSource.query(
         `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
         clientIds,
-      );      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
+      );
+      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
-        return { ...o, clientName: client?.fullName || null, clientPhone: client?.phone || null };
+        return { 
+          ...o, 
+          clientName: client?.fullName || 'Client inconnu', 
+          clientPhone: client?.phone || 'Non disponible' 
+        };
       }) as any;
     }
-    return orders as any;
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible'
+    })) as any;
   }
 
 
@@ -955,10 +972,18 @@ export class OrdersService {
       const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
-        return { ...o, clientName: client?.fullName || null, clientPhone: client?.phone || null };
+        return { 
+          ...o, 
+          clientName: client?.fullName || 'Client inconnu', 
+          clientPhone: client?.phone || 'Non disponible' 
+        };
       }) as any;
     }
-    return orders as any;
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible'
+    })) as any;
   }
 
   /**
@@ -1738,7 +1763,19 @@ export class OrdersService {
           }
           break;
 
-        case OrderStatus.PROCESSING: {
+        case OrderStatus.DRIVER_ASSIGNED: {
+          // Client: "Un livreur a été assigné à votre commande"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Livreur assigné 🛵',
+              body: 'Un livreur a été assigné à votre commande. Il arrive bientôt!',
+              data: { orderId: order.id, type: 'DRIVER_ASSIGNED' },
+            });
+          }
+          break;
+        }
+
+        case OrderStatus.IN_DELIVERY: {
           // Client: "Le livreur est en route avec votre repas"
           const fcmEnRouteSuccess = clientFcmToken
             ? await this.notificationsService.sendToDevice(clientFcmToken, {
@@ -1758,12 +1795,24 @@ export class OrdersService {
           break;
         }
 
+        case OrderStatus.DELIVERED_PENDING_CONFIRMATION: {
+          // Client: "Le livreur est arrivé - confirmez la réception"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Livreur arrivé 📍',
+              body: 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
+              data: { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' },
+            });
+          }
+          break;
+        }
+
         case OrderStatus.DELIVERED:
           // Client: "Le livreur est arrivé à destination"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Livreur arrivé 📍',
-              body: 'Le livreur est arrivé à destination. Prêt à récupérer votre commande!',
+              title: 'Livraison validée ✅',
+              body: 'Le livreur a validé la livraison. Confirmez la réception de votre commande!',
               data: { orderId: order.id, type: 'DRIVER_ARRIVED' },
             });
           }

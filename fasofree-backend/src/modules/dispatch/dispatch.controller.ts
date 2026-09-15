@@ -14,7 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In } from 'typeorm';
 import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -75,38 +75,48 @@ export class DispatchController {
       .limit(20)
       .getMany();
 
-    const enriched = await Promise.all(
-      orders.map(async (order) => {
-        let businessName = '';
-        if (order.businessId) {
-          const business = await this.businessRepository.findOne({
-            where: { id: order.businessId },
-          });
-          businessName = business?.name || '';
-        }
-        return {
-          id: order.id,
-          orderId: order.id,
-          status: order.status,
-          orderType: order.orderType,
-          pickupAddress: order.pickupLocation?.address || businessName,
-          pickupLocation: order.pickupLocation
-            ? { latitude: order.pickupLocation.latitude, longitude: order.pickupLocation.longitude }
-            : null,
-          deliveryLocation: order.deliveryLocation
-            ? { latitude: order.deliveryLocation.latitude, longitude: order.deliveryLocation.longitude }
-            : null,
-          deliveryAddress: order.deliveryLocation
-            ? `${order.deliveryLocation.latitude}, ${order.deliveryLocation.longitude}`
-            : '',
-          deliveryFee: Number(order.deliveryFee) || 0,
-          totalAmount: Number(order.totalAmount) || 0,
-          businessName,
-          items: order.items || [],
-          createdAt: order.createdAt,
-        };
-      }),
-    );
+    // Enrichir avec les infos client et business
+    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    const businessIds = [...new Set(orders.map(o => o.businessId).filter(Boolean))];
+    
+const [clients, businesses] = await Promise.all([
+      clientIds.length > 0
+        ? this.userRepository.findBy({ id: In(clientIds) })
+        : Promise.resolve([]),
+      businessIds.length > 0
+        ? this.businessRepository.findBy({ id: In(businessIds) })
+        : Promise.resolve([]),
+    ]);
+    
+    const clientMap = new Map<string, { fullName: string; phone: string }>(clients.map(c => [c.id, { fullName: c.fullName || '', phone: c.phone || '' }]));
+    const businessMap = new Map(businesses.map(b => [b.id, b.name]));
+
+    const enriched = orders.map(order => {
+      const client = clientMap.get(order.clientId);
+      const businessName = businessMap.get(order.businessId) || '';
+      
+      return {
+        id: order.id,
+        orderId: order.id,
+        status: order.status,
+        orderType: order.orderType,
+        pickupAddress: (order.pickupLocation as any)?.address || businessName,
+        pickupLocation: order.pickupLocation
+          ? { latitude: order.pickupLocation.latitude, longitude: order.pickupLocation.longitude }
+          : null,
+        deliveryLocation: order.deliveryLocation
+          ? { latitude: order.deliveryLocation.latitude, longitude: order.deliveryLocation.longitude }
+          : null,
+        deliveryAddress: (order.deliveryLocation as any)?.address || '',
+        deliveryFee: Number(order.deliveryFee) || 0,
+        totalAmount: Number(order.totalAmount) || 0,
+        businessName,
+        customerName: client?.fullName || 'Client',
+        customerPhone: client?.phone || '',
+        items: order.items || [],
+        createdAt: order.createdAt,
+      };
+    });
 
     return enriched;
   }

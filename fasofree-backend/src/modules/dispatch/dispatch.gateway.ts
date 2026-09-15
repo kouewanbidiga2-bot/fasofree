@@ -130,7 +130,7 @@ export class DispatchGateway
   notifyNewOrderToBusiness(businessId: string, order: Order): void {
     this.server
       .to(`${WsRooms.BUSINESS_PREFIX}${businessId}`)
-      .emit(WsEvents.NEW_ORDER_ALERT, {
+      .emit('newOrderAlert', {
         message: '🔔 Nouvelle commande reçue !',
         order,
       });
@@ -139,7 +139,7 @@ export class DispatchGateway
   dispatchOrderToDrivers(order: Order): void {
     this.server
       .to(WsRooms.AVAILABLE_DRIVERS)
-      .emit(WsEvents.DELIVERY_OPPORTUNITY, {
+      .emit('delivery_opportunity', {
         message: '🛵 Nouvelle livraison disponible !',
         orderId: order.id,
         orderType: order.orderType,
@@ -161,7 +161,7 @@ export class DispatchGateway
     driverIds.forEach((driverId) => {
       this.server
         .to(`${WsRooms.DRIVER_PREFIX}${driverId}`)
-        .emit(WsEvents.TARGETED_ORDER_OFFER, payload);
+        .emit('targeted_order_offer', payload);
     });
   }
 
@@ -169,7 +169,7 @@ export class DispatchGateway
     if (!this.server) return;
     this.server
       .to(`${WsRooms.ORDER_PREFIX}${orderId}`)
-      .emit(WsEvents.ORDER_DISPUTED, {
+      .emit('orderDisputed', {
         orderId,
         disputeId,
         message: 'Un litige a été ouvert sur cette commande.',
@@ -217,7 +217,7 @@ export class DispatchGateway
     if (order.status === 'READY_FOR_PICKUP') {
       this.server
         .to(WsRooms.AVAILABLE_DRIVERS)
-        .emit(WsEvents.DELIVERY_OPPORTUNITY, {
+        .emit('delivery_opportunity', {
           orderId: order.id,
           message: 'Nouvelle livraison disponible',
         });

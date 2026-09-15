@@ -550,7 +550,7 @@ export class DispatchService {
 
     // Notifier le livreur
     this.dispatchGateway.notifyCandidateDrivers([driverId], {
-      type: 'ORDER_ASSIGNED',
+      type: 'order_assigned',
       orderId: order.id,
       message: 'Vous avez été assigné à cette commande',
     });

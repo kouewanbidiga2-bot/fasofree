@@ -617,7 +617,15 @@ const BusinessAdminDashboard = () => {
         loadAnalyticsRef.current();
       }
     };
+    
+    const onNewOrderAlert = (payload) => {
+      console.log('[Business] Nouvelle commande reçue:', payload);
+      loadOrdersRef.current();
+      loadAnalyticsRef.current();
+    };
+    
     socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('newOrderAlert', onNewOrderAlert);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -631,6 +639,7 @@ const BusinessAdminDashboard = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('newOrderAlert', onNewOrderAlert);
     };
   }, []);
 
@@ -862,17 +871,17 @@ const BusinessAdminDashboard = () => {
           </button>
         </header>
 
-        <div className="lg:hidden flex overflow-x-auto scrollbar-hide gap-1 px-4 pt-4 pb-1 border-b border-border-light">
+        <div className="lg:hidden flex overflow-x-auto scrollbar-hide gap-2 px-4 pt-4 pb-2 border-b border-border-light">
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`tab-btn flex items-center gap-1.5 ${activeTab === tab.id ? 'active' : ''}`}
+                className={`tab-btn flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon size={14} strokeWidth={1.5} />
-                {tab.label}
+                <span className="text-xs">{tab.label}</span>
                 {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center">{tab.badge}</span>}
               </button>
             );

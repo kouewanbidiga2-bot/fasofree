@@ -124,7 +124,14 @@ const AdminManagerDashboard = () => {
       loadPlatformStats();
       loadPendingDisputes();
     };
+    
+    const onNewOrderAlert = () => {
+      console.log('[Admin] Nouvelle commande reçue');
+      loadPlatformStats();
+    };
+    
     socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('newOrderAlert', onNewOrderAlert);
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
@@ -138,6 +145,7 @@ const AdminManagerDashboard = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('newOrderAlert', onNewOrderAlert);
     };
   }, [loadPlatformStats, loadPendingDisputes]);
 

@@ -22,11 +22,11 @@ const FULFILLMENT_OPTIONS = [
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
-  const { addOrder } = useAuthStore();
+  const { addOrder, user } = useAuthStore();
   const [restaurant, setRestaurant] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
+    name: user?.fullName || '',
+    phone: user?.phone || '',
     address: '',
     landmark: '',
     notes: '',

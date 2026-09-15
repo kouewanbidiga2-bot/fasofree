@@ -441,11 +441,17 @@ const DriverDashboard = () => {
       playNotifSound();
       loadCurrentJobRef.current();
     };
+    
+    const onNewOrderAlert = (payload) => {
+      console.log('[Driver] Nouvelle commande alerte:', payload);
+      loadAvailableJobsRef.current();
+    };
 
     socket.on('delivery_opportunity', onNewJob);
     socket.on('targeted_order_offer', onOffer);
     socket.on('orderStatusChanged', onStatusChanged);
     socket.on('order_assigned', onAssigned);
+    socket.on('newOrderAlert', onNewOrderAlert);
 
     // 🔄 Quand l'utilisateur revient sur l'onglet, reconnexion + refresh
     const handleVisibility = () => {
@@ -470,6 +476,7 @@ const DriverDashboard = () => {
       socket.off('targeted_order_offer', onOffer);
       socket.off('orderStatusChanged', onStatusChanged);
       socket.off('order_assigned', onAssigned);
+      socket.off('newOrderAlert', onNewOrderAlert);
     };
   }, [user?.id]);
 
@@ -668,9 +675,13 @@ const DriverDashboard = () => {
             <Wallet size={13} className="text-accent-primary" />
             <span className="text-text-tertiary text-xs">Portefeuille</span>
           </div>
-          <p className="text-text-primary text-sm font-bold">
-            {(wallet?.balance || 0).toLocaleString()} FCFA
-          </p>
+          {loading.wallet ? (
+            <div className="h-5 w-24 animate-pulse rounded bg-background-tertiary" />
+          ) : (
+            <p className="text-text-primary text-sm font-bold">
+              {(wallet?.balance || 0).toLocaleString()} FCFA
+            </p>
+          )}
         </div>
 
         <div className="p-3 border-t border-border-light">
