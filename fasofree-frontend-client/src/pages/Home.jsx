@@ -69,9 +69,24 @@ const Home = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const getUserLocation = () => {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ lat: 12.37, lng: -1.52 });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => resolve({ lat: 12.37, lng: -1.52 }),
+          { timeout: 5000, maximumAge: 300000 }
+        );
+      });
+    };
+
     const loadBusinesses = async () => {
       try {
-        const data = await api.getGroupedBusinesses(12.37, -1.52);
+        const { lat, lng } = await getUserLocation();
+        const data = await api.getGroupedBusinesses(lat, lng);
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }

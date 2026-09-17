@@ -37,10 +37,25 @@ const SearchPage = () => {
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
 
+const getUserLocation = () => {
+      return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve({ lat: 12.37, lng: -1.52 }); // Fallback Ouaga
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve({ lat: 12.37, lng: -1.52 }), // Fallback Ouaga
+        { timeout: 5000, maximumAge: 300000 }
+      );
+    });
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await api.getGroupedBusinesses(12.37, -1.52);
+        const { lat, lng } = await getUserLocation();
+        const data = await api.getGroupedBusinesses(lat, lng);
         if (Array.isArray(data)) setAllRestaurants(data.map(mapBusinessToRestaurant));
       } catch {
         setAllRestaurants([]);

@@ -67,9 +67,13 @@ export class ProductsService {
   }
 
   // 🏪 4. Lister les produits d'un commerce spécifique
-  async findByBusiness(businessId: string): Promise<Product[]> {
+  async findByBusiness(businessId: string, category?: string): Promise<Product[]> {
+    const where: any = { businessId };
+    if (category) {
+      where.category = category;
+    }
     return this.productRepository.find({
-      where: { businessId },
+      where,
       order: { category: 'ASC', name: 'ASC' },
     });
   }

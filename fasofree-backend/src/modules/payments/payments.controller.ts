@@ -11,6 +11,7 @@ import {
   Request,
   Logger,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -45,7 +46,10 @@ export class PaymentsController {
     @Body() dto: InitiatePaymentDto,
   ) {
     const userId = req.user?.userId;
-    return this.paymentsService.initiatePayment(dto, userId as string);
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.paymentsService.initiatePayment(dto, userId);
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -56,7 +60,10 @@ export class PaymentsController {
     @Request() req: Request & { user?: { userId?: string } },
     @Body() dto: TopupDto,
   ) {
-    const userId = req.user?.userId as string;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
 
     try {
       const topupRef = `TOPUP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;

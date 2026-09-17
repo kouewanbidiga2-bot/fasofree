@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
   BadRequestException,
@@ -44,8 +45,8 @@ export class ProductsController {
   // 📋 Route publique : Obtenir la carte / le catalogue d'un commerce
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Lister les produits d\u2019un commerce' })
-  async findByBusiness(@Param('businessId') businessId: string) {
-    return this.productsService.findByBusiness(businessId);
+  async findByBusiness(@Param('businessId') businessId: string, @Query('category') category?: string) {
+    return this.productsService.findByBusiness(businessId, category);
   }
 
   // ⚠️ Produits en stock bas pour un commerce

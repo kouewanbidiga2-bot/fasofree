@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { LoyaltyPoint, LoyaltySource } from './entities/loyalty-point.entity';
 import { Referral, ReferralStatus } from '../promotions/entities/referral.entity';
 import { User } from '../users/entities/user.entity';
+import { randomBytes } from 'crypto';
 
 const POINTS_PER_100FCFA = 1;
 const REFERRER_BONUS = 500;
@@ -143,9 +144,24 @@ export class LoyaltyService {
 
     if (user.referralCode) return user.referralCode;
 
-    const code = `FS${userId.slice(0, 8).toUpperCase()}`;
-    await this.userRepository.update(userId, { referralCode: code });
-    return code;
+    let code: string;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      code = `FS${userId.slice(0, 8).toUpperCase()}${randomBytes(2).toString('hex').toUpperCase()}`;
+      try {
+        await this.userRepository.update(userId, { referralCode: code });
+        return code;
+      } catch (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          attempts++;
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new BadRequestException('Impossible de générer un code de parrainage unique');
   }
 
   async getReferralStats(userId: string): Promise<any> {

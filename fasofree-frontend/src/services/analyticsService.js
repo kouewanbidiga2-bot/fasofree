@@ -6,8 +6,13 @@ import api from './api';
 /**
  * Obtenir les indicateurs d'un commerce (business_admin)
  */
-export const getBusinessAnalytics = async (businessId) => {
-  const response = await api.get(`/analytics/business/${businessId}`);
+export const getBusinessAnalytics = async (businessId, filter = {}) => {
+  const params = new URLSearchParams();
+  if (filter.period) params.append('period', filter.period);
+  if (filter.startDate) params.append('startDate', filter.startDate);
+  if (filter.endDate) params.append('endDate', filter.endDate);
+  const query = params.toString();
+  const response = await api.get(`/analytics/business/${businessId}${query ? `?${query}` : ''}`);
   return response.data;
 };
 

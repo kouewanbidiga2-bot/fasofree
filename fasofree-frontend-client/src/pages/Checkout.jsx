@@ -23,9 +23,10 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
   const { addOrder, user } = useAuthStore();
+  const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
   const [restaurant, setRestaurant] = useState(null);
   const [formData, setFormData] = useState({
-    name: user?.fullName || '',
+    name: fullName || '',
     phone: user?.phone || '',
     address: '',
     landmark: '',

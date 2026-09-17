@@ -65,12 +65,12 @@ export class Order {
   clientId: string;
 
   @Index()
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   businessId: string;
 
   // 🏷️ Agence (branch) — null = commande legacy
   @Index()
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   branchId: string;
 
   @Column({ type: 'enum', enum: OrderType, default: OrderType.MERCHANT })

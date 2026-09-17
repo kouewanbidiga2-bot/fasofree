@@ -784,55 +784,78 @@ export class OrdersService {
   /**
    * 🛵 Acceptation d'une course / livraison par un livreur (DRIVER) ou coursier (COURIER).
    * Verrouille l'assignation : driverId fixé et statut → PROCESSING (le GPS est alors diffusé au client).
+   * Utilise une transaction SERIALIZABLE + lock pessimiste pour éviter les race conditions.
    */
   async acceptOrder(orderId: string, driverId: string): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.driverId && order.driverId !== driverId) {
-      throw new ForbiddenException(
-        'Cette course a déjà été acceptée par un autre livreur',
-      );
-    }
-
-    if (order.driverId === driverId) {
-      return order;
-    }
-
-    if (
-      order.status !== OrderStatus.PENDING &&
-      order.status !== OrderStatus.PAID
-    ) {
-      throw new BadRequestException(
-        `Impossible d'accepter : la commande est au statut "${order.status}"`,
-      );
-    }
-
-    const previousStatus = order.status;
-    order.driverId = driverId;
-    order.status = OrderStatus.PROCESSING;
-
-    const saved = await this.orderRepository.save(order);
-
-    // 🔔 Notifier le client et le livreur en temps réel (room order_<id>)
     try {
-      this.dispatchGateway.server
-        .to(`order_${orderId}`)
-        .emit('orderAccepted', {
-          message: '🛵 Un livreur a accepté votre course !',
-          orderId,
-          driverId,
-        });
-    } catch (error) {
-      this.logger.warn(
-        `Notification WebSocket échouée: ${error?.message || error}`,
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
+
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.driverId && order.driverId !== driverId) {
+        throw new ForbiddenException(
+          'Cette course a déjà été acceptée par un autre livreur',
+        );
+      }
+
+      if (order.driverId === driverId) {
+        await queryRunner.commitTransaction();
+        return order;
+      }
+
+      if (
+        order.status !== OrderStatus.PENDING &&
+        order.status !== OrderStatus.PAID
+      ) {
+        throw new BadRequestException(
+          `Impossible d'accepter : la commande est au statut "${order.status}"`,
+        );
+      }
+
+      const previousStatus = order.status;
+      order.driverId = driverId;
+      order.status = OrderStatus.PROCESSING;
+
+      const saved = await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      // 🔔 Notifier le client et le livreur en temps réel (room order_<id>)
+      try {
+        this.dispatchGateway.server
+          .to(`order_${orderId}`)
+          .emit('orderAccepted', {
+            message: '🛵 Un livreur a accepté votre course !',
+            orderId,
+            driverId,
+          });
+      } catch (error) {
+        this.logger.warn(
+          `Notification WebSocket échouée: ${error?.message || error}`,
+        );
+      }
+
+      this.logger.log(
+        `[Order Accepted] Commande #${orderId} acceptée par le livreur ${driverId} (${previousStatus} → PROCESSING)`,
       );
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    this.logger.log(
-      `[Order Accepted] Commande #${orderId} acceptée par le livreur ${driverId} (${previousStatus} → PROCESSING)`,
-    );
-
-    return saved;
   }
 
   /**
@@ -860,15 +883,17 @@ export class OrdersService {
     };
   }
 
-  async findClientOrders(clientId: string): Promise<Order[]> {
+  async findClientOrders(clientId: string, limit?: number, offset?: number): Promise<Order[]> {
     return await this.orderRepository.find({
       where: { clientId },
       relations: { items: true },
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
   }
 
-  async findDriverOrders(driverId: string, statuses?: string[]): Promise<Order[]> {
+  async findDriverOrders(driverId: string, statuses?: string[], limit?: number, offset?: number): Promise<Order[]> {
     const where: any = { driverId };
     if (statuses && statuses.length > 0) {
       where.status = In(statuses as OrderStatus[]);
@@ -877,6 +902,8 @@ export class OrdersService {
       where,
       relations: { items: true },
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
 
     // Enrichir avec les infos client (clientName, clientPhone)
@@ -1618,7 +1645,7 @@ export class OrdersService {
     const saved = await this.orderRepository.save(order);
 
     // 💬 Archivage du chat éphémère (commande DISPUTED = statut terminal)
-    this.notifyChatClosedIfTerminal(saved, OrderStatus.DELIVERED);
+    this.notifyChatClosedIfTerminal(saved, order.status);
 
     this.logger.warn(
       `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,

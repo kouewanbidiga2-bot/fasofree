@@ -11,13 +11,10 @@ export const getMyOrders = async () => {
 
 export const getAvailableOrders = async () => {
   try {
-    // ✅ FIX #21 : les commandes disponibles pour un livreur = les commandes
-    // en attente d'acceptation (PENDING/PAID sans driverId)
-    // On récupère les commandes et on filtre côté client
-    const allOrders = await api.getMyOrders();
-    return allOrders.filter((o) =>
-      !o.driverId && (o.status === 'PENDING' || o.status === 'PAID')
-    );
+    // Les commandes disponibles pour un livreur = les commandes
+    // en attente d'acceptation (READY_FOR_PICKUP) via /dispatch/available
+    const response = await api.get('/dispatch/available');
+    return response.data;
   } catch (error) {
     console.error('Error fetching available orders:', error);
     throw error;

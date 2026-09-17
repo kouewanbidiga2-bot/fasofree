@@ -141,12 +141,22 @@ export class PaymentsService {
       return;
     }
 
-    if (
-      order.status === OrderStatus.PAID ||
-      order.status === OrderStatus.IN_PREPARATION
-    ) {
+    const terminalPaidStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+
+    if (terminalPaidStatuses.includes(order.status)) {
       this.logger.warn(
-        `Webhook ignoré : la commande ${orderId} est déjà marquée comme payée.`,
+        `Webhook ignoré : la commande ${orderId} est déjà dans un état payé/terminé (${order.status}).`,
       );
       return;
     }

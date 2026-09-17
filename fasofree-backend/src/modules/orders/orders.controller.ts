@@ -112,7 +112,12 @@ export class OrdersController {
   @ApiOperation({ summary: 'Lister les commandes du client ou livreur connecté' })
   @ApiResponse({ status: 200, description: 'Liste des commandes récupérée' })
   @ApiResponse({ status: 401, description: 'Utilisateur non authentifié' })
-  async getMyOrders(@NestRequest() req: RequestWithUser, @Query('status') status?: string) {
+  async getMyOrders(
+    @NestRequest() req: RequestWithUser,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
     const userId = req.user?.userId;
     const role = req.user?.role;
     if (!userId) {
@@ -121,9 +126,9 @@ export class OrdersController {
     const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
     if (isDriver) {
       const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
-      return this.ordersService.findDriverOrders(userId, statuses);
+      return this.ordersService.findDriverOrders(userId, statuses, limit, offset);
     }
-    return this.ordersService.findClientOrders(userId);
+    return this.ordersService.findClientOrders(userId, limit, offset);
   }
 
   @Get('my-recent')

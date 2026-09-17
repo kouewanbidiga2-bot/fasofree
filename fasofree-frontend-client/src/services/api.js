@@ -123,6 +123,7 @@ export const api = {
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
   quoteOrder: (quoteData) => apiFetch('/orders/quote', { method: 'POST', body: quoteData }),
   getMyOrders: () => apiFetch('/orders/my-orders', { method: 'GET' }),
+  getAvailableOrders: () => apiFetch('/dispatch/available', { method: 'GET' }),
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
   getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
   acceptOrder: (id) => apiFetch(`/orders/${id}/accept`, { method: 'POST' }),

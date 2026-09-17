@@ -246,13 +246,27 @@ const DriverDashboard = () => {
   }, []);
 
   // ─── CHAT: Join / Leave / Send ───────────────────────────────────────────
-  const joinJobChat = useCallback((orderId) => {
-    if (!orderId) return;
-
+  const leaveJobChat = useCallback(async () => {
+    // On ne déconnecte JAMAIS le socket singleton global
+    // On retire les listeners et on quitte la room en attendant l'ack.
     if (chatSocketRef.current) {
       chatSocketRef.current.off('newOrderMessage');
-      chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' });
+      const orderId = currentJobOrderIdRef.current;
+      if (orderId) {
+        await new Promise((resolve) => {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' }, () => resolve());
+        });
+      }
     }
+    setChatHistory([]);
+    setChatClosed(false);
+  }, []);
+
+  const joinJobChat = useCallback(async (orderId) => {
+    if (!orderId) return;
+
+    // Attendre que le leave précédent soit terminé avant de join
+    await leaveJobChat();
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
@@ -282,23 +296,6 @@ const DriverDashboard = () => {
   const currentJobOrderIdRef = useRef(null);
   // Garder le ref à jour sans trigger de re-render
   useEffect(() => { currentJobOrderIdRef.current = currentJob?.orderId || null; }, [currentJob?.orderId]);
-
-  const leaveJobChat = useCallback(() => {
-    // ✅ FIX #26 : on ne déconnecte JAMAIS le socket singleton global
-    // On retire les listeners et on quitte la room.
-    // On utilise un ref pour l'orderId afin de ne pas recreer cette fonction
-    // à chaque changement de currentJob (ce qui cassait le chat).
-    if (chatSocketRef.current) {
-      chatSocketRef.current.off('newOrderMessage');
-      const orderId = currentJobOrderIdRef.current;
-      if (orderId) {
-        chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' });
-      }
-      chatSocketRef.current = null;
-    }
-    setChatHistory([]);
-    setChatClosed(false);
-  }, []);
 
   const handleSendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !currentJob?.orderId || !chatSocketRef.current) return;
@@ -330,7 +327,7 @@ const DriverDashboard = () => {
         if (oid) {
           chatSocketRef.current.emit('leaveOrderChat', { orderId: oid, channel: 'driver' });
         }
-        chatSocketRef.current = null;
+        // NE PAS mettre chatSocketRef.current = null (singleton global)
       }
       setChatHistory([]);
       setChatClosed(false);
@@ -675,7 +672,7 @@ const DriverDashboard = () => {
             <Wallet size={13} className="text-accent-primary" />
             <span className="text-text-tertiary text-xs">Portefeuille</span>
           </div>
-          {loading.wallet ? (
+          {loading.wallet || !wallet ? (
             <div className="h-5 w-24 animate-pulse rounded bg-background-tertiary" />
           ) : (
             <p className="text-text-primary text-sm font-bold">
@@ -967,7 +964,11 @@ const DriverDashboard = () => {
                   <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
                     <Wallet size={16} className="text-accent-primary" /> Solde disponible
                   </h3>
-                  <p className="text-3xl font-bold text-text-primary">{(wallet?.balance || 0).toLocaleString()} FCFA</p>
+                  {loading.wallet || !wallet ? (
+                    <div className="h-8 w-32 animate-pulse rounded bg-background-tertiary" />
+                  ) : (
+                    <p className="text-3xl font-bold text-text-primary">{(wallet?.balance || 0).toLocaleString()} FCFA</p>
+                  )}
                 </div>
               </div>
 
