@@ -92,6 +92,8 @@ const DriverDashboard = () => {
   const chatSocketRef = useRef(null);
   const dispatchSocketRef = useRef(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const chatOpenRef = useRef(false);
+  useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatClosed, setChatClosed] = useState(false);
@@ -141,21 +143,18 @@ const DriverDashboard = () => {
           pickupCoords: mine.pickupLocation,
           deliveryAddress: mine.deliveryLocation?.address || '—',
           deliveryCoords: mine.deliveryLocation,
-          customerName: mine.customerName || 'Client',
-          customerPhone: mine.customerPhone || '',
+          customerName: mine.clientName || mine.customerName || 'Client',
+          customerPhone: mine.clientPhone || mine.customerPhone || '',
           businessName: mine.businessName || '',
           deliveryFee: mine.deliveryFee || 0,
           items: mine.items || [],
         });
         setCurrentJobStatus(mine.status);
-      } else {
-        setCurrentJob(null);
-        setCurrentJobStatus(null);
       }
+      // Ne PAS clear currentJob si la réponse est vide (retard réseau, polling concurrent)
     } catch (err) {
       console.error('[Driver] loadCurrentJob error:', err?.message || err);
-      setCurrentJob(null);
-      setCurrentJobStatus(null);
+      // Ne PAS clear currentJob sur erreur réseau
     }
   }, [user?.id]);
 
@@ -289,7 +288,7 @@ const DriverDashboard = () => {
           setChatClosed(true);
         } else {
           setChatHistory((prev) => [...prev, msg]);
-          if (!chatOpen) {
+          if (!chatOpenRef.current) {
             setUnreadMessages((prev) => prev + 1);
           }
         }

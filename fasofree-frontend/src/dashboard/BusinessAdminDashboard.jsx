@@ -677,19 +677,10 @@ const BusinessAdminDashboard = () => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
 
-    // Si aucun canal spécifié, détecter lequel contient des messages
+    // Si aucun canal spécifié, utiliser celui de la conversation (dernier message)
     if (!channel) {
-      try {
-        const [merchantHistory, driverHistory] = await Promise.all([
-          getChatHistory(orderId, 'merchant').catch(() => []),
-          getChatHistory(orderId, 'driver').catch(() => []),
-        ]);
-        const mCount = Array.isArray(merchantHistory) ? merchantHistory.length : (merchantHistory?.history?.length || 0);
-        const dCount = Array.isArray(driverHistory) ? driverHistory.length : (driverHistory?.history?.length || 0);
-        channel = dCount > mCount ? 'driver' : 'merchant';
-      } catch {
-        channel = 'merchant';
-      }
+      const conv = conversations.find(c => c.orderId === orderId);
+      channel = conv?.channel || 'merchant';
     }
     setChatChannel(channel);
 

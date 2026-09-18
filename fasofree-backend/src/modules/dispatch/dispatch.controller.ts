@@ -25,6 +25,7 @@ import {
 } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { DispatchService } from './dispatch.service';
+import { DispatchGateway } from './dispatch.gateway';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: string };
@@ -44,6 +45,7 @@ export class DispatchController {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dispatchService: DispatchService,
+    private readonly dispatchGateway: DispatchGateway,
   ) {}
 
   /**
@@ -123,7 +125,9 @@ const [clients, businesses] = await Promise.all([
 
   /**
    * 🎯 POST /dispatch/accept/:orderId
-   * Le livreur accepte une course READY_FOR_PICKUP → DRIVER_ASSIGNED.
+   * Le livreur accepte une course :
+   * - READY_FOR_PICKUP → DRIVER_ASSIGNED (dispatch classique)
+   * - PENDING/PAID → PROCESSING (acceptation directe)
    * Accessible aux DRIVERS / COURIERS.
    */
   @Post('accept/:orderId')
@@ -154,16 +158,26 @@ const [clients, businesses] = await Promise.all([
         throw new NotFoundException(`Commande #${orderId} introuvable`);
       }
 
-      if (order.status !== OrderStatus.READY_FOR_PICKUP) {
+      const acceptableStatuses = [
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.PENDING,
+        OrderStatus.PAID,
+      ];
+      if (!acceptableStatuses.includes(order.status)) {
         throw new BadRequestException(
-          `La commande est en statut "${order.status}". Seules les commandes READY_FOR_PICKUP peuvent être acceptées.`,
+          `La commande est en statut "${order.status}". Statuts acceptés : ${acceptableStatuses.join(', ')}`,
         );
       }
 
-      if (order.driverId) {
+      if (order.driverId && order.driverId !== driverId) {
         throw new BadRequestException(
-          'Cette commande a déjà été assignée à un livreur.',
+          'Cette commande a déjà été assignée à un autre livreur.',
         );
+      }
+
+      if (order.driverId === driverId) {
+        await queryRunner.commitTransaction();
+        return { success: true, orderId: order.id, status: order.status, driverId, message: 'Déjà assigné' };
       }
 
       const alreadyTried = (order.dispatchCandidates || []).some(
@@ -176,7 +190,10 @@ const [clients, businesses] = await Promise.all([
       }
 
       order.driverId = driverId;
-      order.status = OrderStatus.DRIVER_ASSIGNED;
+      // READY_FOR_PICKUP → DRIVER_ASSIGNED, sinon → PROCESSING
+      order.status = order.status === OrderStatus.READY_FOR_PICKUP
+        ? OrderStatus.DRIVER_ASSIGNED
+        : OrderStatus.PROCESSING;
       await queryRunner.manager.save(order);
 
       await queryRunner.manager.update(User, driverId, {
@@ -184,6 +201,14 @@ const [clients, businesses] = await Promise.all([
       });
 
       await queryRunner.commitTransaction();
+
+      // Notifier toutes les parties prenantes
+      this.dispatchGateway.broadcastOrderStatusChanged({
+        id: order.id,
+        status: order.status,
+        driverId,
+        businessId: order.businessId,
+      });
 
       return {
         success: true,

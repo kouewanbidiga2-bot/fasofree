@@ -28,7 +28,7 @@ import { resolveJwtSecret } from '../../config/jwt.config';
 type ChatSocket = Socket & { data: { user?: JwtPayload } };
 
 export const chatRoom = (orderId: string, channel: ChatChannel) =>
-  `order_chat_${orderId}`; // Salon partagé entre livreur et marchand pour la même commande
+  `order_chat_${orderId}_${channel}`;
 
 @WebSocketGateway({
   cors: { origin: '*' },

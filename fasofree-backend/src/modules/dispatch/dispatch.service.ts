@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
@@ -123,7 +123,7 @@ export class DispatchService {
     // 1. Récupérer tous les livreurs actifs et disponibles
     const drivers = await this.userRepository.find({
       where: {
-        role: UserRole.DRIVER,
+        role: In([UserRole.DRIVER, UserRole.COURIER]),
         isActive: true,
       },
     });
@@ -536,7 +536,7 @@ export class DispatchService {
     }
 
     const driver = await this.userRepository.findOne({
-      where: { id: driverId, role: UserRole.DRIVER },
+      where: { id: driverId, role: In([UserRole.DRIVER, UserRole.COURIER]) },
     });
     if (!driver) {
       throw new Error(`Livreur ${driverId} introuvable`);
