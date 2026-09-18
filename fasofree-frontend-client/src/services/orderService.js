@@ -11,10 +11,7 @@ export const getMyOrders = async () => {
 
 export const getAvailableOrders = async () => {
   try {
-    // Les commandes disponibles pour un livreur = les commandes
-    // en attente d'acceptation (READY_FOR_PICKUP) via /dispatch/available
-    const response = await api.get('/dispatch/available');
-    return response.data;
+    return await api.getAvailableOrders();
   } catch (error) {
     console.error('Error fetching available orders:', error);
     throw error;

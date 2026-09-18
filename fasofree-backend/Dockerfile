@@ -24,7 +24,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
 
 ENV NODE_ENV=production
-EXPOSE 1000
+EXPOSE 10000
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

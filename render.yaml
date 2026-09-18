@@ -1,15 +1,18 @@
 # ============================================================
 # FasoFree - Blueprint Render (render.yaml)
-# Déploiement : API NestJS (Docker) + Console Admin (Vite) + App Client (Vite)
+# Déploiement : API NestJS (Docker) uniquement
+# Les frontends (admin + client) sont sur Vercel.
 #
 # AU PREMIER DÉPLOIEMENT :
-#   1. Créez les 3 services via "New > Blueprint" dans Render
+#   1. Créez le service via "New > Blueprint" dans Render
 #   2. Les variables marquées `sync: false` sont à saisir dans le dashboard
 #      Render (Service > Environment) AVANT la 1re build :
 #        - DATABASE_URL       (ex: postgres://...?sslmode=require  - Neon)
 #        - JWT_SECRET         (min 32 caractères)
 #        - FIREBASE_*         (projet, client_email, private_key)
 #        - REDIS_URL          (optionnel, Upstash recommandé)
+#        - GENIUSPAY_*        (clés API paiement)
+#        - CLOUDINARY_*       (uploads images)
 #   3. Les migrations TypeORM s'exécutent au boot (DB_MIGRATIONS_RUN=true).
 #      synchronize est INTERDIT en production (géré par le code).
 # ============================================================
@@ -27,7 +30,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "1000"
+        value: "10000"
       # Frontends réellement déployés sur Vercel (domaines custom).
       # Les aperçus *.vercel.app sont couverts par la regex de main.ts.
       - key: CORS_ORIGIN
@@ -60,27 +63,33 @@ services:
         sync: false
       - key: SMTP_PASS
         sync: false
-
-  # ---------------- CONSOLE ADMIN (dashboard) ----------------
-  - type: web
-    name: fasofree-admin
-    runtime: node
-    plan: free
-    rootDir: fasofree-frontend
-    buildCommand: npm install && npm run build
-    startCommand: npx serve -s dist -l 10000
-    envVars:
-      - key: VITE_API_URL
-        value: https://api.fasofree.site/api/v1
-
-  # ---------------- APPLICATION CLIENT ----------------
-  - type: web
-    name: fasofree-client
-    runtime: node
-    plan: free
-    rootDir: fasofree-frontend-client
-    buildCommand: npm install && npm run build
-    startCommand: npx serve -s dist -l 10000
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://api.fasofree.site/api/v1
+      # Frontends déployés sur Vercel (pas sur Render).
+      - key: CLIENT_URL
+        value: https://fasofree.site
+      - key: ADMIN_URL
+        value: https://admin.fasofree.site
+      # GeniusPay (paiements)
+      - key: GENIUSPAY_API_KEY
+        sync: false
+      - key: GENIUSPAY_API_SECRET
+        sync: false
+      - key: GENIUSPAY_WEBHOOK_SECRET
+        sync: false
+      # Cloudinary (uploads images)
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      # WhatsApp Cloud API (notifications)
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      # Email transactionnel
+      - key: RESEND_API_KEY
+        sync: false
+      # Monitoring
+      - key: SENTRY_DSN
+        sync: false

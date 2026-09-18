@@ -22,7 +22,6 @@ const exclude = ['.env.example', '.gitignore', 'README.md'];
 function isExcludedByName(file) {
   const base = path.basename(file).toLowerCase();
   if (exclude.includes(base)) return true;
-  if (base.startsWith('.env') && base !== '.env.example') return true; // ignore local env files like .env.local
   return false;
 }
 
