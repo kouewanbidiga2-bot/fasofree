@@ -60,6 +60,8 @@ export class WalletService {
         userRole,
         branchId: branchId || null,
         balance: 0,
+        availableBalance: 0,
+        heldBalance: 0,
       });
       await this.walletRepository.save(wallet);
       this.logger.log(
@@ -107,6 +109,8 @@ export class WalletService {
           userRole,
           branchId: branchId || null,
           balance: 0,
+          availableBalance: 0,
+          heldBalance: 0,
         });
         await queryRunner.manager.save(wallet);
       }
@@ -137,6 +141,7 @@ export class WalletService {
 
       // 2. Calculer le nouveau solde
       wallet.balance = Number(wallet.balance) + Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) + Number(amount);
       await queryRunner.manager.save(wallet);
 
       // 3. Enregistrer l'écriture au grand livre (Ledger)
@@ -222,6 +227,7 @@ export class WalletService {
       }
 
       wallet.balance = Number(wallet.balance) - Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
       await queryRunner.manager.save(wallet);
 
       const transaction = queryRunner.manager.create(WalletTransaction, {
@@ -302,6 +308,7 @@ export class WalletService {
       }
 
       wallet.balance = Number(wallet.balance) - Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
       await queryRunner.manager.save(wallet);
 
       const transaction = queryRunner.manager.create(WalletTransaction, {
@@ -336,6 +343,193 @@ export class WalletService {
       throw new BadRequestException(
         'Une erreur inattendue est survenue lors du débit',
       );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Bloquer des fonds pour un retrait en cours (hold/release pattern).
+   * Déplace `amount` de availableBalance → heldBalance.
+   * Vérifie que availableBalance >= amount.
+   */
+  async holdFunds(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    branchId?: string,
+  ): Promise<Wallet> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereHold: any = { userId, userRole };
+      if (branchId) whereHold.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereHold,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      if (Number(wallet.availableBalance) < Number(amount)) {
+        throw new BadRequestException(
+          `Solde disponible insuffisant. Disponible: ${wallet.availableBalance} XOF, Requis: ${amount} XOF`,
+        );
+      }
+
+      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
+      wallet.heldBalance = Number(wallet.heldBalance) + Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Hold] ${amount} XOF bloqués pour ${userRole} ${userId}. Disponible: ${wallet.availableBalance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return wallet;
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors du blocage des fonds');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Libérer des fonds tenus (échec du retrait).
+   * Déplace `amount` de heldBalance → availableBalance.
+   */
+  async releaseHeldFunds(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    branchId?: string,
+  ): Promise<Wallet> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereRelease: any = { userId, userRole };
+      if (branchId) whereRelease.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereRelease,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      const heldAmount = Number(wallet.heldBalance);
+      if (heldAmount < Number(amount)) {
+        this.logger.warn(
+          `[Wallet Release] Tentative de libération de ${amount} XOF mais heldBalance = ${heldAmount}. Clamp à ${heldAmount}.`,
+        );
+        amount = heldAmount;
+      }
+
+      wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) + Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Release] ${amount} XOF libérés pour ${userRole} ${userId}. Disponible: ${wallet.availableBalance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return wallet;
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors de la libération des fonds');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Confirmer un hold (retrait réussi → débit définitif).
+   * Décremente heldBalance et balance du montant retenu.
+   */
+  async confirmHold(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    reason: TransactionReason,
+    reference?: string,
+    description?: string,
+    branchId?: string,
+  ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereConfirm: any = { userId, userRole };
+      if (branchId) whereConfirm.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereConfirm,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
+      wallet.balance = Number(wallet.balance) - Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      const transaction = queryRunner.manager.create(WalletTransaction, {
+        walletId: wallet.id,
+        branchId: branchId || null,
+        type: TransactionType.DEBIT,
+        reason,
+        status: TransactionStatus.COMPLETED,
+        amount,
+        balanceAfter: wallet.balance,
+        reference,
+        description,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Confirm Hold] -${amount} XOF confirmé pour ${userRole} ${userId}. Balance: ${wallet.balance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return { wallet, transaction };
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors de la confirmation du hold');
     } finally {
       await queryRunner.release();
     }

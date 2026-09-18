@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 export enum PayoutStatus {
@@ -29,17 +30,44 @@ export class PayoutRequest {
   @Column({ type: 'varchar' })
   userRole: UserRole;
 
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  walletId: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  branchId: string | null;
+
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   amount: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  fees: number;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, default: 0 })
+  netAmount: number;
 
   @Column({ type: 'varchar' })
   phoneNumber: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  provider: string | null;
+
   @Column({ type: 'varchar', default: PayoutStatus.PENDING })
+  @Index()
   status: PayoutStatus;
 
   @Column({ type: 'varchar', nullable: true })
-  transactionReference: string;
+  transactionReference: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  providerReference: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  failureReason: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

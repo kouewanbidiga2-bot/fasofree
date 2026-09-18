@@ -12,6 +12,7 @@ import { WalletController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SettingsModule } from '../settings/settings.module';
     ScheduleModule.forRoot(),
     ConfigModule,
     SettingsModule,
+    NotificationsModule,
   ],
   controllers: [WalletController],
   providers: [WalletService, PayoutsService, GeniusPayPayoutProvider],

@@ -8,23 +8,33 @@ import {
   Query,
   Request,
   UseGuards,
+  HttpCode,
+  HttpStatus,
+  Headers,
+  Logger,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { ConfigService } from '@nestjs/config';
 import { WalletService } from './wallet.service';
 import { PayoutsService } from './payouts.service';
 import { UserRole } from './entities/wallet.entity';
 import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
+import { BusinessesService } from '../businesses/businesses.service';
 
 @ApiTags('Wallets')
 @UseGuards(AuthGuard('jwt'))
 @Controller('wallets')
 export class WalletController {
+  private readonly logger = new Logger(WalletController.name);
+
   constructor(
     private readonly walletService: WalletService,
     private readonly payoutsService: PayoutsService,
+    private readonly configService: ConfigService,
+    private readonly businessesService: BusinessesService,
   ) {}
 
   @Post('fee-preview')
@@ -59,6 +69,15 @@ export class WalletController {
 
     const walletRole =
       user.role === AppUserRole.DRIVER ? UserRole.DRIVER : UserRole.MERCHANT;
+
+    // 🔒 Vérifier que la branche appartient bien au marchand connecté
+    if (dto.branchId && user.role === AppUserRole.BUSINESS_ADMIN) {
+      await this.businessesService.assertManagedBy(
+        dto.branchId,
+        user.userId,
+        user.role as any,
+      );
+    }
 
     return this.payoutsService.requestWithdrawal(
       user.userId,
@@ -203,5 +222,71 @@ export class WalletController {
       : UserRole.DRIVER;
 
     return this.walletService.getOrCreateWallet(userId, walletRole, branchId);
+  }
+
+  // ========================================================================
+  // 💰 WEBHOOK GeniusPay — cashout.completed / cashout.failed
+  // ========================================================================
+
+  /**
+   * Webhook GeniusPay pour les événements cashout (retraits).
+   * Appelé par GeniusPay quand un virement est confirmé ou échoué.
+   * Pas d'AuthGuard — vérifié par signature HMAC.
+   */
+  @Post('webhook/geniuspay')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Webhook GeniusPay pour cashout (retraits)' })
+  async handleCashoutWebhook(
+    @Body() body: any,
+    @Headers('x-geniuspay-signature') signature: string,
+  ) {
+    this.logger.log(`[Cashout Webhook] Reçu: ${JSON.stringify(body).slice(0, 200)}`);
+
+    // Vérification signature HMAC
+    const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
+    if (webhookSecret && signature) {
+      const crypto = await import('crypto');
+      const expected = crypto.createHmac('sha256', webhookSecret)
+        .update(JSON.stringify(body))
+        .digest('hex');
+      if (expected !== signature) {
+        this.logger.warn('[Cashout Webhook] Signature invalide — ignoré');
+        return { received: false };
+      }
+    }
+
+    const event = body?.event ?? body?.type;
+    const data = body?.data ?? body;
+
+    if (!event) {
+      this.logger.warn('[Cashout Webhook] Pas d\'event dans le payload');
+      return { received: false };
+    }
+
+    const payoutRequestId = data?.payout_id ?? data?.reference ?? data?.id;
+
+    if (!payoutRequestId) {
+      this.logger.warn(`[Cashout Webhook] Pas de payout_id pour event ${event}`);
+      return { received: false };
+    }
+
+    switch (event) {
+      case 'cashout.completed': {
+        this.logger.log(`[Cashout Webhook] cashout.completed — ${payoutRequestId}`);
+        await this.payoutsService.confirmPayout(payoutRequestId);
+        break;
+      }
+      case 'cashout.failed':
+      case 'cashout.cancelled': {
+        const reason = data?.failure_reason ?? data?.message ?? `Event: ${event}`;
+        this.logger.log(`[Cashout Webhook] ${event} — ${payoutRequestId}: ${reason}`);
+        await this.payoutsService.failPayout(payoutRequestId, reason);
+        break;
+      }
+      default:
+        this.logger.log(`[Cashout Webhook] Event non géré: ${event}`);
+    }
+
+    return { received: true };
   }
 }
