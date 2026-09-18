@@ -7,10 +7,12 @@ import {
   MessageBody,
   ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Injectable, Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { JoinBusinessRoomDto, JoinOrderTrackingDto } from './dto/room.dto';
@@ -18,6 +20,10 @@ import { WsEvents, WsRooms } from './constants/dispatch-events.enum';
 import { LocationHandler } from './handlers/location.handler';
 import { RoomHandler } from './handlers/room.handler';
 import { Order } from '../orders/entities/order.entity';
+import { User } from '../users/entities/user.entity';
+import { Brand } from '../brands/entities/brand.entity';
+import { Business } from '../businesses/entities/business.entity';
+import { UserRole } from '../users/entities/user-role.enum';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @WebSocketGateway({
@@ -38,6 +44,12 @@ export class DispatchGateway
     private readonly configService: ConfigService,
     private readonly locationHandler: LocationHandler,
     private readonly roomHandler: RoomHandler,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
   ) {}
 
   /**
@@ -74,10 +86,33 @@ export class DispatchGateway
         client.join(WsRooms.AVAILABLE_DRIVERS);
         client.join(`${WsRooms.DRIVER_PREFIX}${userId}`);
       } else if (
-        (normalizedRole.includes('BUSINESS') || normalizedRole === 'MERCHANT' || normalizedRole === 'RESTAURANT') &&
-        payload.businessId
+        normalizedRole.includes('BUSINESS') || normalizedRole === 'MERCHANT' || normalizedRole === 'RESTAURANT'
       ) {
-        client.join(`${WsRooms.BUSINESS_PREFIX}${payload.businessId}`);
+        // Rejoindre la room de toutes les agences du marchand
+        let businessIds: string[] = [];
+        if (payload.businessId) {
+          businessIds.push(payload.businessId);
+        }
+        // Fallback: reconstruire businessId depuis la DB si absent du JWT
+        if (businessIds.length === 0) {
+          try {
+            const brands = await this.brandRepository.find({
+              where: { ownerId: userId },
+              relations: { businesses: true },
+            });
+            businessIds = brands.flatMap(b => b.businesses.map(biz => biz.id));
+            if (businessIds.length === 0) {
+              const biz = await this.businessRepository.findOne({ where: { ownerId: userId } });
+              if (biz) businessIds.push(biz.id);
+            }
+          } catch (e) {
+            this.logger.warn(`[WS] Impossible de reconstruire businessId pour ${userId}: ${e.message}`);
+          }
+        }
+        businessIds.forEach(bid => {
+          client.join(`${WsRooms.BUSINESS_PREFIX}${bid}`);
+        });
+        this.logger.log(`[WS] Marchand ${userId} rejoint ${businessIds.length} room(s) business`);
       }
     } catch (error) {
       this.logger.error(

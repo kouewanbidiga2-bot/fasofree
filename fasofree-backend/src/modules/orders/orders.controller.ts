@@ -266,28 +266,21 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto.status, userId, role);
   }
 
-  // 🛵 Un livreur/coursier accepte une course (FOOD / P2P / RIDE)
+  // 🛵 Un livreur/coursier accepte une course — DÉPRÉCIÉ, utiliser POST /dispatch/accept/:orderId
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER, UserRole.COURIER)
   @Post(':id/accept')
   @ApiOperation({
     summary:
-      'Le livreur/coursier accepte une course (assignation driverId + statut PROCESSING)',
+      '[DÉPRÉCIÉ] Utiliser POST /dispatch/accept/:orderId à la place. Redirige automatiquement.',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'Course acceptée — le GPS du livreur est diffusé au client',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Non autorisé (rôle DRIVER/COURIER requis) ou course déjà acceptée',
-  })
-  @ApiResponse({ status: 400, description: 'Statut incompatible avec une acceptation' })
+  @ApiResponse({ status: 201, description: 'Redirige vers dispatch/accept' })
   async acceptOrder(@Param('id') id: string, @NestRequest() req: RequestWithUser) {
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
+    // Délègue au même logic que dispatch/accept pour éviter la duplication
     return this.ordersService.acceptOrder(id, userId);
   }
 

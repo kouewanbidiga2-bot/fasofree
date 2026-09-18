@@ -288,7 +288,8 @@ const DriverDashboard = () => {
           setChatClosed(true);
         } else {
           setChatHistory((prev) => [...prev, msg]);
-          if (!chatOpenRef.current) {
+          // Ignorer ses propres messages pour le badge
+          if (!chatOpenRef.current && msg.senderId !== user?.id) {
             setUnreadMessages((prev) => prev + 1);
           }
         }
@@ -1033,7 +1034,6 @@ const DriverDashboard = () => {
                     onClick={() => {
                       setChatOpen(true);
                       setUnreadMessages(0);
-                      joinJobChat(currentJob.orderId);
                     }}
                     className="btn-primary gap-2"
                   >

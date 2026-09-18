@@ -916,17 +916,23 @@ export class OrdersService {
       const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
         return { 
           ...o, 
-          clientName: client?.fullName || 'Client inconnu', 
-          clientPhone: client?.phone || 'Non disponible' 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
         };
       }) as any;
     }
     return orders.map(o => ({
       ...o,
       clientName: 'Client inconnu',
-      clientPhone: 'Non disponible'
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
     })) as any;
   }
 
@@ -966,17 +972,23 @@ export class OrdersService {
       const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
         return { 
           ...o, 
-          clientName: client?.fullName || 'Client inconnu', 
-          clientPhone: client?.phone || 'Non disponible' 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
         };
       }) as any;
     }
     return orders.map(o => ({
       ...o,
       clientName: 'Client inconnu',
-      clientPhone: 'Non disponible'
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
     })) as any;
   }
 
@@ -999,17 +1011,23 @@ export class OrdersService {
       const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
       return orders.map(o => {
         const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
         return { 
           ...o, 
-          clientName: client?.fullName || 'Client inconnu', 
-          clientPhone: client?.phone || 'Non disponible' 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
         };
       }) as any;
     }
     return orders.map(o => ({
       ...o,
       clientName: 'Client inconnu',
-      clientPhone: 'Non disponible'
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
     })) as any;
   }
 
