@@ -21,7 +21,7 @@ import { Repository } from 'typeorm';
 import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
-import { Order } from '../orders/entities/order.entity';
+import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Transaction, TransactionStatus, PaymentMethod } from './entities/transaction.entity';
 import { OrdersService } from '../orders/orders.service';
 
@@ -245,18 +245,56 @@ export class GeniusPayController {
     const data = payload.data;
     const orderId = data.metadata?.order_id;
 
-    if (orderId) {
-      const transactionRef = data.reference || String(data.id);
-
-      await this.transactionRepository.update(
-        { reference: transactionRef },
-        { status: TransactionStatus.SUCCESS },
-      );
-
-      await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);
-
-      this.logger.log(`✅ Order ${orderId} marked as paid via GeniusPay`);
+    if (!orderId) {
+      this.logger.warn('Webhook GeniusPay: order_id manquant dans metadata');
+      return;
     }
+
+    // 🔒 Vérification du montant — empêcher les falsifications
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      this.logger.error(`Webhook GeniusPay: commande ${orderId} introuvable`);
+      return;
+    }
+
+    const receivedAmount = Number(data.amount);
+    const expectedAmount = Number(order.totalAmount);
+    if (Math.abs(expectedAmount - receivedAmount) > 1) {
+      this.logger.error(
+        `Webhook GeniusPay: montant incohérent pour ${orderId} — attendu ${expectedAmount}, reçu ${receivedAmount}`,
+      );
+      return;
+    }
+
+    // 🔒 Idempotence : ignorer si déjà payée
+    const terminalPaidStatuses: OrderStatus[] = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+    if (terminalPaidStatuses.includes(order.status)) {
+      this.logger.warn(`Webhook GeniusPay: commande ${orderId} déjà au statut ${order.status} — ignoré`);
+      return;
+    }
+
+    const transactionRef = data.reference || String(data.id);
+
+    await this.transactionRepository.update(
+      { reference: transactionRef },
+      { status: TransactionStatus.SUCCESS },
+    );
+
+    await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);
+
+    this.logger.log(`✅ Order ${orderId} marked as paid via GeniusPay`);
   }
 
   private async handlePaymentFailed(payload: any) {

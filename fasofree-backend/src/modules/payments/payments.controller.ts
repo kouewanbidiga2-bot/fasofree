@@ -92,87 +92,53 @@ export class PaymentsController {
   }
 
   @Post('webhook/geniuspay')
-  @ApiHeader({
-    name: 'x-api-key',
-    required: true,
-    description: 'Clé API GeniusPay',
-  })
-  @ApiOperation({ summary: 'Recevoir la confirmation de paiement GeniusPay' })
+  @ApiOperation({ summary: '[DÉPRÉCIÉ] Utiliser POST /geniuspay/webhook — redirige automatiquement' })
   @HttpCode(HttpStatus.OK)
-  async handleGeniusPayWebhook(
+  async handleGeniusPayWebhookDeprecated(
     @Body() payload: any,
     @Headers('x-signature') signature?: string,
     @Headers('x-timestamp') timestamp?: string,
+    @Headers('x-webhook-signature') whSignature?: string,
+    @Headers('x-webhook-timestamp') whTimestamp?: string,
   ) {
-    this.logger.log('Webhook GeniusPay reçu');
-
-    // 🔒 Vérification HMAC de la signature GeniusPay — fail-closed
+    this.logger.warn('[DEPRECATED] /payments/webhook/geniuspay est déprécié — utiliser /geniuspay/webhook');
+    // 🔒 Vérification HMAC — fail-closed
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
     if (!webhookSecret) {
       this.logger.error('GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
       throw new BadRequestException('Webhook not configured');
     }
-    if (!signature || !timestamp) {
+    const sig = whSignature || signature;
+    const ts = whTimestamp || timestamp;
+    if (!sig || !ts) {
       this.logger.error('Webhook GeniusPay : signature ou timestamp manquant — requête rejetée');
       throw new BadRequestException('Missing webhook signature');
     }
     const rawBody = JSON.stringify(payload);
-    const isValid = this.geniusPayService.verifyWebhookSignature(
-      rawBody,
-      signature,
-      timestamp,
-      webhookSecret,
-    );
+    const isValid = this.geniusPayService.verifyWebhookSignature(rawBody, sig, ts, webhookSecret);
     if (!isValid) {
       this.logger.error('Webhook GeniusPay : signature HMAC invalide — requête rejetée');
       throw new BadRequestException('Invalid webhook signature');
     }
-
-    if (payload.status === 'SUCCESS' || payload.status === 'success') {
-      const orderId = payload.metadata?.order_id;
-      const transactionRef = payload.reference || payload.id;
-
-      if (!orderId) {
-        this.logger.warn('Webhook GeniusPay: order_id manquant dans metadata');
-        return { ok: false, error: 'Missing order_id' };
-      }
-
-      const amountOk = await this.paymentsService.validatePaymentAmount(
-        orderId,
-        payload.amount,
-      );
-      if (!amountOk) {
-        this.logger.error(
-          `Webhook GeniusPay: montant incohérent pour la commande ${orderId}`,
-        );
-        return { ok: false, error: 'Amount mismatch' };
-      }
-
-      await this.paymentsService.processSuccessfulPayment(
-        orderId,
-        transactionRef,
-        'GENIUSPAY',
-      );
-      this.logger.log(
-        `GeniusPay webhook traité: commande ${orderId} marquée PAID`,
-      );
-    } else {
-      // 🔒 Paiement échoué/annulé — annuler la commande pour éviter la préparation
-      const failedOrderId = payload.metadata?.order_id;
-      if (failedOrderId) {
-        try {
-          await this.ordersService.markAsPaymentFailed(failedOrderId);
-        } catch (error) {
-          this.logger.error(
-            `Erreur annulation commande ${failedOrderId} après échec paiement: ${error.message}`,
-          );
+    // Redirige vers le même traitement que /geniuspay/webhook
+    const event = payload.event || payload.type || 'unknown';
+    if (payload.status === 'SUCCESS' || payload.status === 'success' || event === 'payment.success') {
+      const orderId = payload.metadata?.order_id || payload.data?.metadata?.order_id;
+      const transactionRef = payload.reference || payload.id || payload.data?.reference;
+      if (orderId) {
+        const amountOk = await this.paymentsService.validatePaymentAmount(orderId, payload.amount || payload.data?.amount);
+        if (!amountOk) {
+          this.logger.error(`Webhook: montant incohérent pour la commande ${orderId}`);
+          return { ok: false, error: 'Amount mismatch' };
         }
+        await this.paymentsService.processSuccessfulPayment(orderId, transactionRef, 'GENIUSPAY');
       }
-      this.logger.warn(
-        `GeniusPay webhook: paiement échoué (${payload.status}) — commande ${failedOrderId || 'inconnue'} annulée`,
-      );
+    } else {
+      const failedOrderId = payload.metadata?.order_id || payload.data?.metadata?.order_id;
+      if (failedOrderId) {
+        try { await this.ordersService.markAsPaymentFailed(failedOrderId); } catch {}
+      }
     }
-
     return { ok: true };
   }
 

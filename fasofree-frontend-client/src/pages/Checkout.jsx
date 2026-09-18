@@ -66,7 +66,7 @@ const Checkout = () => {
       if (def) {
         setSelectedAddressId(def.id);
         setFormData(f => ({ ...f, address: def.address }));
-        if (def.latitude && def.longitude) setDeliveryCoords({ lat: def.latitude, lng: def.longitude });
+        if (def.latitude && def.longitude) setDeliveryCoords({ latitude: def.latitude, longitude: def.longitude });
       }
     }).catch(() => {});
   }, []);
@@ -172,28 +172,17 @@ const Checkout = () => {
           });
 
           if (payResult?.checkoutUrl) {
-            // 🔒 addOrder APRÈS le succès du paiement — pas avant
-            addOrder({
-              id: order.id,
-              restaurant: restaurant?.name || 'Restaurant',
-              items,
-              subtotal,
-              deliveryFee,
-              platformFee,
-              total: finalTotal,
-              address: isDelivery ? formData.address : 'À récupérer',
-              phone: formData.phone,
-              paymentMethod,
-              fulfillmentType,
-              status: order.status || 'pending',
-            });
+            // 🔒 PAS addOrder() ici — la commande n'est PAS payée tant que
+            // le client n'a pas complété le paiement sur GeniusPay.
+            // Le webhook /geniuspay/webhook marquera la commande PAID.
+            // On stocke juste l'orderId pour la page de retour.
             window.location.href = payResult.checkoutUrl;
             return;
           }
           // Pas de checkoutUrl → paiement mock ou provider non configuré
         }
 
-        // Paiement cash ou pas de checkoutUrl
+        // Paiement cash OU pas de checkoutUrl → la commande est confirmée localement
         addOrder({
           id: order.id,
           restaurant: restaurant?.name || 'Restaurant',
@@ -328,7 +317,7 @@ const Checkout = () => {
                           onClick={() => {
                             setSelectedAddressId(addr.id);
                             setFormData(f => ({ ...f, address: addr.address }));
-                            if (addr.latitude && addr.longitude) setDeliveryCoords({ lat: addr.latitude, lng: addr.longitude });
+                            if (addr.latitude && addr.longitude) setDeliveryCoords({ latitude: addr.latitude, longitude: addr.longitude });
                           }}
                           className={`w-full text-left p-3 border transition-colors ${
                             selectedAddressId === addr.id

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
+import { BusinessesService } from '../businesses/businesses.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QuoteOrderDto } from './dto/quote-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -46,6 +47,7 @@ export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly disputesService: DisputesService,
+    private readonly businessesService: BusinessesService,
   ) {}
 
   // 🎛️ Tour de contrôle : toutes les commandes (SUPER_ADMIN / ADMIN / SUPPORT)
@@ -151,13 +153,12 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Param('businessId') businessId: string,
   ) {
-    // ✅ FIX #10 : Vérifier que le marchand administre bien ce commerce
     const role = req.user?.role as UserRole;
+    const userId = req.user?.userId;
+    if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+    // 🔒 Vérifier que le marchand administre bien ce commerce
     if (role === UserRole.BUSINESS_ADMIN) {
-      const userId = req.user?.userId;
-      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
-      // La vérification se fait via BusinessesService.assertManagedBy
-      // On ne charge que les commandes de SON commerce
+      await this.businessesService.assertManagedBy(businessId, userId, role);
     }
     return this.ordersService.findAllByBusiness(businessId);
   }
@@ -172,9 +173,17 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Body('businessIds') businessIds: string[],
   ) {
-    // ✅ FIX #11 : Valider que le tableau businessIds est fourni
     if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
       throw new UnauthorizedException('businessIds est requis');
+    }
+    // 🔒 Vérifier que le marchand administre AU MOINS UN des commerces demandés
+    const role = req.user?.role as UserRole;
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+      for (const bid of businessIds) {
+        await this.businessesService.assertManagedBy(bid, userId, role);
+      }
     }
     return this.ordersService.findAllByBusinesses(businessIds);
   }
@@ -266,22 +275,20 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto.status, userId, role);
   }
 
-  // 🛵 Un livreur/coursier accepte une course — DÉPRÉCIÉ, utiliser POST /dispatch/accept/:orderId
+  // 🛵 Un livreur/coursier accepte une course — DÉPRÉCIÉ
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER, UserRole.COURIER)
   @Post(':id/accept')
   @ApiOperation({
     summary:
-      '[DÉPRÉCIÉ] Utiliser POST /dispatch/accept/:orderId à la place. Redirige automatiquement.',
+      '[DÉPRÉCIÉ] Utiliser POST /dispatch/accept/:orderId à la place.',
   })
-  @ApiResponse({ status: 201, description: 'Redirige vers dispatch/accept' })
+  @ApiResponse({ status: 410, description: 'Route dépréciée' })
   async acceptOrder(@Param('id') id: string, @NestRequest() req: RequestWithUser) {
-    const userId = req.user?.userId;
-    if (!userId) {
-      throw new UnauthorizedException('Utilisateur non authentifié');
-    }
-    // Délègue au même logic que dispatch/accept pour éviter la duplication
-    return this.ordersService.acceptOrder(id, userId);
+    // 🔒 Cette route est dépréciée — rediriger vers /dispatch/accept
+    throw new BadRequestException(
+      'Cette route est dépréciée. Utilisez POST /dispatch/accept/:orderId',
+    );
   }
 
   // ========================================================================
@@ -402,9 +409,20 @@ export class OrdersController {
   async assignDriver(
     @Param('id') orderId: string,
     @Body('driverId') driverId: string,
+    @NestRequest() req: RequestWithUser,
   ) {
     if (!driverId) {
       throw new BadRequestException('driverId est requis');
+    }
+    // 🔒 Vérifier que le marchand administre le commerce de cette commande
+    const role = req.user?.role as UserRole;
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+      const order = await this.ordersService.findOne(orderId);
+      if (order.businessId) {
+        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+      }
     }
     return this.ordersService.assignDriverToOrder(orderId, driverId);
   }

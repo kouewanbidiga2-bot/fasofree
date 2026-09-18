@@ -253,7 +253,7 @@ export class OrdersService {
   }
 
   /**
-   * 🛍️ 1. Création d'une commande + Transaction PENDING + Dispatch WebSockets
+   * 🛍️ 1. Création d'une commande (BROUILLON) — invisible jusqu'au paiement confirmé
    */
   async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order> {
     const {
@@ -342,6 +342,12 @@ export class OrdersService {
     let verifiedSubtotal = 0;
     const verifiedItems: { productId: string; productName: string; quantity: number; unitPrice: number }[] = [];
 
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException(
+        'La commande doit contenir au moins un article.',
+      );
+    }
+
     if (dto.items && dto.items.length > 0) {
       const productIds = dto.items.map((item) => item.productId);
       const products = await this.productRepository.find({
@@ -354,6 +360,12 @@ export class OrdersService {
         if (!dbProduct) {
           throw new BadRequestException(
             `Produit #${item.productId} introuvable en base.`,
+          );
+        }
+        // 🔒 Vérifier que le produit appartient au même commerce
+        if (dbProduct.businessId !== businessId) {
+          throw new BadRequestException(
+            `Le produit "${dbProduct.name}" n'appartient pas à ce commerce.`,
           );
         }
         if (!dbProduct.isAvailable) {
@@ -480,17 +492,8 @@ export class OrdersService {
 
     await this.transactionRepository.save(transaction);
 
-    try {
-      this.dispatchGateway.notifyNewOrderToBusiness(businessId, savedOrder);
-      if (isDelivery) {
-        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[WebSocket Error] Échec de la notification temps réel pour la commande #${savedOrder.id}`,
-        error.stack,
-      );
-    }
+    // 🔒 PAS DE NOTIFICATION MARCHAND/LIVREUR ICI — uniquement après webhook PAID
+    // Le dispatch et la notification se font dans markAsPaidAndDispatch()
 
     return this.findOne(savedOrder.id);
   }
@@ -1383,8 +1386,33 @@ export class OrdersService {
       return;
     }
 
-    order.status = OrderStatus.FAILED;
-    await this.orderRepository.save(order);
+    // 🔒 Ne JAMAIS écraser une commande déjà payée ou en cours de livraison
+    const nonOverridableStatuses: OrderStatus[] = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+
+    if (nonOverridableStatuses.includes(order.status)) {
+      this.logger.warn(
+        `[Payment Failed] Commande ${orderId} déjà au statut ${order.status} — annulation ignorée`,
+      );
+      return;
+    }
+
+    // Annulation uniquement si PENDING ou FAILED
+    if (order.status === OrderStatus.PENDING || order.status === OrderStatus.FAILED) {
+      order.status = OrderStatus.FAILED;
+      await this.orderRepository.save(order);
+    }
   }
 
   async updateStatus(
@@ -1535,6 +1563,27 @@ export class OrdersService {
     const time = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `FSF-${orderId.slice(0, 8)}-${time.slice(-4)}${rand}`;
+  }
+
+  // ========================================================================
+  // 🧹 NETTOYAGE DES COMMANDES PENDING EXPIRÉES (>30 min sans paiement)
+  // ========================================================================
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async cleanupExpiredPendingOrders(): Promise<void> {
+    const expiredThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes
+    const result = await this.orderRepository
+      .createQueryBuilder()
+      .update(Order)
+      .set({ status: OrderStatus.FAILED })
+      .where('status = :status', { status: OrderStatus.PENDING })
+      .andWhere('"createdAt" < :threshold', { threshold: expiredThreshold })
+      .execute();
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(
+        `[Cleanup] ${result.affected} commande(s) PENDING expirée(s) marquée(s) FAILED`,
+      );
+    }
   }
 
   // ========================================================================
