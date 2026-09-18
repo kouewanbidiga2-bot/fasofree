@@ -503,6 +503,13 @@ export class WalletService {
         );
       }
 
+      // FIX #7 : vérifier que le montant retenu est suffisant
+      if (Number(wallet.heldBalance) < Number(amount)) {
+        throw new BadRequestException(
+          `Solde en attente insuffisant pour confirmer le hold. En attente: ${wallet.heldBalance} XOF, Requis: ${amount} XOF`,
+        );
+      }
+
       wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
       wallet.balance = Number(wallet.balance) - Number(amount);
       await queryRunner.manager.save(wallet);
