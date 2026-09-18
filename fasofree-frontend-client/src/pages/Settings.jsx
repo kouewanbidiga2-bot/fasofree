@@ -4,6 +4,7 @@ import {
   ArrowLeft, Shield, Globe, Moon, Sun, ChevronRight, Eye, Trash2, Lock,
   Download, Bell, ChevronDown, Check, Loader2
 } from 'lucide-react';
+import { toast } from 'sonner';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { useDarkMode } from '../contexts/DarkModeContext';
@@ -164,7 +165,7 @@ export default function Settings() {
                       a.click();
                       URL.revokeObjectURL(url);
                     } catch (err) {
-                      alert(t('downloadError') + ': ' + err.message);
+                      toast.error(t('downloadError') + ': ' + err.message);
                     } finally {
                       setLoading(false);
                     }
@@ -185,9 +186,9 @@ export default function Settings() {
                       await api.deleteAccount();
                       logout();
                       navigate('/');
-                      alert(t('deleteSuccess'));
+                      toast.success(t('deleteSuccess'));
                     } catch (err) {
-                      alert(t('deleteError') + ': ' + err.message);
+                      toast.error(t('deleteError') + ': ' + err.message);
                     } finally {
                       setLoading(false);
                     }

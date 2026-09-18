@@ -15,6 +15,7 @@ import VipPass from './pages/VipPass';
 import Addresses from './pages/Addresses';
 import Settings from './pages/Settings';
 import Disputes from './pages/Disputes';
+import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
 import MerchantProducts from './pages/MerchantProducts';
@@ -104,6 +105,7 @@ function App() {
         <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />
         <Route path="/merchant/wallet" element={<ProtectedRoute><MerchantWallet /></ProtectedRoute>} />
         <Route path="/merchant/settings" element={<ProtectedRoute><MerchantSettings /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -113,7 +114,7 @@ const Profile = () => {
       setFormData((prev) => ({ ...prev, name, email: updated.email, phone: updated.phone }));
       setIsEditing(false);
     } catch (err) {
-      alert(err.message || 'Erreur lors de la mise à jour du profil.');
+      toast.error(err.message || 'Erreur lors de la mise à jour du profil.');
     } finally {
       setLoading(false);
     }
@@ -130,7 +131,7 @@ const Profile = () => {
       setPaymentSaved(true);
       setTimeout(() => setPaymentSaved(false), 3000);
     } catch (err) {
-      alert(err.message || 'Erreur lors de la mise à jour des informations de paiement.');
+      toast.error(err.message || 'Erreur lors de la mise à jour des informations de paiement.');
     } finally {
       setPaymentLoading(false);
     }

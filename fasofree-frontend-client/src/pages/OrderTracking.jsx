@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -289,7 +290,7 @@ const OrderTracking = () => {
     api
       .clientValidateWithPin(orderId, code)
       .then(() => navigate('/order-history'))
-      .catch((e) => window.alert(e.message || 'Code invalide'));
+      .catch((e) => toast.error(e.message || 'Code invalide'));
   }, [orderId, navigate]);
 
   const handleOpenDispute = async (reason, password) => {

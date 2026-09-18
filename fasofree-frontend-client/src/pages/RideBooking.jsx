@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Car,
@@ -50,7 +51,7 @@ const RideBooking = () => {
 
   const handleUseCurrentLocation = (setter) => {
     if (!navigator.geolocation) {
-      alert('Géolocalisation non disponible sur cet appareil');
+      toast.error('Géolocalisation non disponible sur cet appareil');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -62,7 +63,7 @@ const RideBooking = () => {
           longitude: Number(position.coords.longitude.toFixed(6)),
         }));
       },
-      () => alert('Impossible de récupérer votre position'),
+      () => toast.error('Impossible de récupérer votre position'),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };

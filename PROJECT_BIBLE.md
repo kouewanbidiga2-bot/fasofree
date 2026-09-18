@@ -1,5 +1,9 @@
 # FASOFREE — PROJECT BIBLE (Documentation Complète)
 
+> ⚠️ **DEPRECATED** — Ce fichier est obsolète et contient des informations erronées
+> (LigdiCash, CinetPay, PayDunya ne sont plus actifs — GeniusPay est le seul provider).
+> Voir **RAPPORT_TECHNIQUE.md** pour la documentation à jour.
+
 > Dernière mise à jour : 2026-08-18
 > Audit complet avec correction de 10+ bugs critiques, nettoyage de code mort, et alignement frontend↔backend.
 

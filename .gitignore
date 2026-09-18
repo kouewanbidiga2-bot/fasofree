@@ -18,3 +18,5 @@ $null
 !swagger-spec.json
 !vercel.json
 !manifest.json
+*.exe
+k6-bin/
