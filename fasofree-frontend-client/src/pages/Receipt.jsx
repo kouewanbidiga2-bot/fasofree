@@ -127,19 +127,43 @@ const Receipt = () => {
           </div>
         ) : (
         <div className="app-panel rounded-xl p-6 sm:p-8">
-          {/* Success Message */}
+          {/* Status Message — adapté au statut réel */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-success rounded-full flex items-center justify-center mx-auto mb-4 shadow-subtle" style={{ backgroundColor: '#5C6B3C' }}>
-              <Check size={32} className="text-white" strokeWidth={2} />
-            </div>
-            <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-              {details.status === 'PAID' || details.status === 'COMPLETED' ? 'Commande confirmée !' : 'Commande en cours...'}
-            </h2>
-            <p className="text-text-secondary">
-              {details.status === 'PAID' || details.status === 'COMPLETED'
-                ? 'Votre commande a été payée avec succès'
-                : 'Votre commande est en attente de confirmation'}
-            </p>
+            {details.status === 'PAID' || details.status === 'COMPLETED' || details.status === 'IN_PREPARATION' || details.status === 'READY_FOR_PICKUP' || details.status === 'DRIVER_ASSIGNED' || details.status === 'IN_DELIVERY' ? (
+              <>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-subtle" style={{ backgroundColor: '#5C6B3C' }}>
+                  <Check size={32} className="text-white" strokeWidth={2} />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
+                  {details.status === 'COMPLETED' ? 'Commande livrée !' : 'Commande confirmée !'}
+                </h2>
+                <p className="text-text-secondary">
+                  {details.status === 'COMPLETED'
+                    ? 'Votre commande a été livrée avec succès'
+                    : 'Votre commande a été payée et confirmée'}
+                </p>
+              </>
+            ) : details.status === 'FAILED' || details.status === 'CANCELLED' ? (
+              <>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-subtle" style={{ backgroundColor: '#9B2C2C' }}>
+                  <span className="text-white text-2xl font-bold">!</span>
+                </div>
+                <h2 className="text-2xl font-display font-bold text-text-primary mb-2">Commande annulée</h2>
+                <p className="text-text-secondary">
+                  {details.status === 'FAILED' ? 'Le paiement a échoué' : 'Votre commande a été annulée'}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-subtle" style={{ backgroundColor: '#B8860B' }}>
+                  <Loader2 size={32} className="text-white animate-spin" strokeWidth={2} />
+                </div>
+                <h2 className="text-2xl font-display font-bold text-text-primary mb-2">Commande en cours...</h2>
+                <p className="text-text-secondary">
+                  Votre commande est en attente de confirmation de paiement
+                </p>
+              </>
+            )}
           </div>
 
           {/* Order Details */}

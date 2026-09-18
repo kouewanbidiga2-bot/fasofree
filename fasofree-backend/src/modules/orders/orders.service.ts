@@ -19,6 +19,7 @@ import {
   FulfillmentType,
 } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Product } from '../products/entities/product.entity';
 import {
   Transaction,
   TransactionStatus,
@@ -81,7 +82,7 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
 const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
-  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
+  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
     OrderStatus.READY_FOR_PICKUP,
@@ -176,6 +177,8 @@ export class OrdersService {
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
     private readonly dispatchGateway: DispatchGateway,
     private readonly dispatchService: DispatchService,
     private readonly analyticsService: AnalyticsService,
@@ -278,7 +281,8 @@ export class OrdersService {
     }
 
     // --- 🛍️ GESTION MERCHANT (flux existant) ---
-    const isDelivery = orderType === OrderType.DELIVERY;
+    // isDelivery basé sur fulfillmentType (DELIVERY, PICKUP, DINE_IN) et non orderType
+    const isDelivery = fulfillmentType === FulfillmentType.DELIVERY;
 
     if (!businessId) {
       throw new BadRequestException(
@@ -333,10 +337,46 @@ export class OrdersService {
     let promotionCode: string | null = null;
     let promotionDiscount = 0;
     let reservedPromotionId: string | null = null;
+
+    // 🔒 RECALCUL DES PRIX DEPUIS LA DB — ne jamais faire confiance aux prix frontend
+    let verifiedSubtotal = 0;
+    const verifiedItems: { productId: string; productName: string; quantity: number; unitPrice: number }[] = [];
+
+    if (dto.items && dto.items.length > 0) {
+      const productIds = dto.items.map((item) => item.productId);
+      const products = await this.productRepository.find({
+        where: productIds.map((id) => ({ id })),
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
+
+      for (const item of dto.items) {
+        const dbProduct = productMap.get(item.productId);
+        if (!dbProduct) {
+          throw new BadRequestException(
+            `Produit #${item.productId} introuvable en base.`,
+          );
+        }
+        if (!dbProduct.isAvailable) {
+          throw new BadRequestException(
+            `Le produit "${dbProduct.name}" n'est plus disponible.`,
+          );
+        }
+        const safeQuantity = Math.max(1, Math.floor(item.quantity));
+        const unitPrice = Number(dbProduct.price);
+        verifiedSubtotal += unitPrice * safeQuantity;
+        verifiedItems.push({
+          productId: item.productId,
+          productName: dbProduct.name,
+          quantity: safeQuantity,
+          unitPrice,
+        });
+      }
+    }
+
     if (dto.promoCode) {
       const quote = await this.promotionsService.quote(
         dto.promoCode,
-        rawSubtotal,
+        verifiedSubtotal,
       );
       await this.promotionsService.reserve(quote.promotion.id);
       promotionCode = quote.promotion.code;
@@ -345,7 +385,7 @@ export class OrdersService {
     }
 
     const financials = await this.pricingService.calculateFinancials(
-      Math.max(0, Number(rawSubtotal) - promotionDiscount),
+      Math.max(0, verifiedSubtotal - promotionDiscount),
       effectiveDeliveryFee,
       { clientId, businessId, orderType },
     );
@@ -390,9 +430,9 @@ export class OrdersService {
       savedOrder.deliveryPinCode = isDelivery ? this.getOrderCode(savedOrder.id) : null;
       await this.orderRepository.save(savedOrder);
 
-      // Sauvegarder les articles de la commande (OrderItems)
-      if (dto.items && dto.items.length > 0) {
-        const orderItems = dto.items.map((item) => {
+      // Sauvegarder les articles avec les prix vérifiés depuis la DB
+      if (verifiedItems.length > 0) {
+        const orderItems = verifiedItems.map((item) => {
           const oi = this.orderItemRepository.create({
             orderId: savedOrder.id,
             productId: item.productId,
@@ -813,10 +853,14 @@ export class OrdersService {
         return order;
       }
 
-      if (
-        order.status !== OrderStatus.PENDING &&
-        order.status !== OrderStatus.PAID
-      ) {
+      // 🔒 Sécurité : seules les commandes PAYÉES peuvent être acceptées
+      if (order.status === OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Impossible d\'accepter une commande non payée.',
+        );
+      }
+
+      if (order.status !== OrderStatus.PAID) {
         throw new BadRequestException(
           `Impossible d'accepter : la commande est au statut "${order.status}"`,
         );

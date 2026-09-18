@@ -136,9 +136,11 @@ const Checkout = () => {
         unitPrice: item.price,
       }));
 
+      // 🔒 Le backend recalcule les prix, frais de livraison et frais de service.
+      // On n'envoie QUE le sous-total produits (vérifié par le backend).
       const payload = {
         businessId: restaurantId,
-        totalAmount: finalTotal,
+        totalAmount: subtotal,
         items: orderItems,
         orderType: 'MERCHANT',
         fulfillmentType,
@@ -161,21 +163,6 @@ const Checkout = () => {
 
       const order = await api.createOrder(payload);
 
-      addOrder({
-        id: order.id,
-        restaurant: restaurant?.name || 'Restaurant',
-        items,
-        subtotal,
-        deliveryFee,
-        platformFee,
-        total: finalTotal,
-        address: isDelivery ? formData.address : 'À récupérer',
-        phone: formData.phone,
-        paymentMethod,
-        fulfillmentType,
-        status: order.status || 'pending',
-      });
-
       try {
         if (paymentMethod !== 'cash') {
           const payResult = await api.initiatePayment({
@@ -185,22 +172,49 @@ const Checkout = () => {
           });
 
           if (payResult?.checkoutUrl) {
+            // 🔒 addOrder APRÈS le succès du paiement — pas avant
+            addOrder({
+              id: order.id,
+              restaurant: restaurant?.name || 'Restaurant',
+              items,
+              subtotal,
+              deliveryFee,
+              platformFee,
+              total: finalTotal,
+              address: isDelivery ? formData.address : 'À récupérer',
+              phone: formData.phone,
+              paymentMethod,
+              fulfillmentType,
+              status: order.status || 'pending',
+            });
             window.location.href = payResult.checkoutUrl;
             return;
           }
-          // Pas de checkoutUrl → paiement mock ou provider non configuré, continuer
+          // Pas de checkoutUrl → paiement mock ou provider non configuré
         }
+
+        // Paiement cash ou pas de checkoutUrl
+        addOrder({
+          id: order.id,
+          restaurant: restaurant?.name || 'Restaurant',
+          items,
+          subtotal,
+          deliveryFee,
+          platformFee,
+          total: finalTotal,
+          address: isDelivery ? formData.address : 'À récupérer',
+          phone: formData.phone,
+          paymentMethod,
+          fulfillmentType,
+          status: order.status || 'pending',
+        });
       } catch (payErr) {
         console.error('Payment initiation error:', payErr);
-        // Extraire le message d'erreur depuis la réponse API
         let errorMsg = 'Paiement non disponible';
         if (payErr?.message) {
-          // Si le message est un array (format NestJS), prendre le premier
           errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
         }
-        // Annuler la commande côté backend (déjà fait par le service)
         toast.error(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
-        // Retourner au panier au lieu d'afficher un reçu
         navigate('/cart', { replace: true });
         return;
       }

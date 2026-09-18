@@ -269,18 +269,41 @@ export class GeniusPayController {
         { status: TransactionStatus.FAILED },
       );
 
+      // 🔒 Annuler la commande pour éviter qu'elle soit préparée/livrée sans paiement
+      try {
+        await this.ordersService.markAsPaymentFailed(orderId);
+      } catch (error) {
+        this.logger.error(
+          `Erreur lors de l'annulation de la commande ${orderId} après échec paiement: ${error.message}`,
+        );
+      }
+
       this.logger.log(`❌ Order ${orderId} payment failed via GeniusPay`);
     }
   }
 
   private async handlePaymentCancelled(payload: any) {
     const data = payload.data;
+    const orderId = data.metadata?.order_id;
 
     if (data.reference) {
       await this.transactionRepository.update(
         { reference: data.reference },
         { status: TransactionStatus.FAILED },
       );
+    }
+
+    // 🔒 Annuler la commande si le client a annulé le paiement
+    if (orderId) {
+      try {
+        await this.ordersService.markAsPaymentFailed(orderId);
+      } catch (error) {
+        this.logger.error(
+          `Erreur lors de l'annulation de la commande ${orderId} après annulation paiement: ${error.message}`,
+        );
+      }
+
+      this.logger.log(`❌ Order ${orderId} payment cancelled via GeniusPay`);
     }
   }
 

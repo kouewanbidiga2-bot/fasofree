@@ -25,6 +25,7 @@ import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
 import { GeniusPayService } from './providers/geniuspay.service';
+import { OrdersService } from '../orders/orders.service';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -35,6 +36,7 @@ export class PaymentsController {
     private readonly paymentsService: PaymentsService,
     private readonly geniusPayService: GeniusPayService,
     private readonly configService: ConfigService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   @ApiBearerAuth('JWT-auth')
@@ -104,22 +106,26 @@ export class PaymentsController {
   ) {
     this.logger.log('Webhook GeniusPay reçu');
 
-    // 🔒 Vérification HMAC de la signature GeniusPay
+    // 🔒 Vérification HMAC de la signature GeniusPay — fail-closed
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
-    if (webhookSecret && signature && timestamp) {
-      const rawBody = JSON.stringify(payload);
-      const isValid = this.geniusPayService.verifyWebhookSignature(
-        rawBody,
-        signature,
-        timestamp,
-        webhookSecret,
-      );
-      if (!isValid) {
-        this.logger.error('Webhook GeniusPay : signature HMAC invalide — requête rejetée');
-        throw new BadRequestException('Invalid webhook signature');
-      }
-    } else if (webhookSecret) {
-      this.logger.warn('Webhook GeniusPay : signature manquante — traitement en mode dégradé');
+    if (!webhookSecret) {
+      this.logger.error('GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
+      throw new BadRequestException('Webhook not configured');
+    }
+    if (!signature || !timestamp) {
+      this.logger.error('Webhook GeniusPay : signature ou timestamp manquant — requête rejetée');
+      throw new BadRequestException('Missing webhook signature');
+    }
+    const rawBody = JSON.stringify(payload);
+    const isValid = this.geniusPayService.verifyWebhookSignature(
+      rawBody,
+      signature,
+      timestamp,
+      webhookSecret,
+    );
+    if (!isValid) {
+      this.logger.error('Webhook GeniusPay : signature HMAC invalide — requête rejetée');
+      throw new BadRequestException('Invalid webhook signature');
     }
 
     if (payload.status === 'SUCCESS' || payload.status === 'success') {
@@ -151,8 +157,19 @@ export class PaymentsController {
         `GeniusPay webhook traité: commande ${orderId} marquée PAID`,
       );
     } else {
+      // 🔒 Paiement échoué/annulé — annuler la commande pour éviter la préparation
+      const failedOrderId = payload.metadata?.order_id;
+      if (failedOrderId) {
+        try {
+          await this.ordersService.markAsPaymentFailed(failedOrderId);
+        } catch (error) {
+          this.logger.error(
+            `Erreur annulation commande ${failedOrderId} après échec paiement: ${error.message}`,
+          );
+        }
+      }
       this.logger.warn(
-        `GeniusPay webhook: paiement échoué (${payload.status})`,
+        `GeniusPay webhook: paiement échoué (${payload.status}) — commande ${failedOrderId || 'inconnue'} annulée`,
       );
     }
 
