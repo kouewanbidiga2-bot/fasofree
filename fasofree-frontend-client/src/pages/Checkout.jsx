@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils, Navigation, Check, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -107,12 +108,12 @@ const Checkout = () => {
     if (submitting) return;
 
     if (!formData.phone || !formData.phone.replace(/\s/g, '').match(/^\+?\d{8,15}$/)) {
-      alert('Numéro de téléphone invalide. Utilisez le format +226 XX XX XX XX');
+      toast.error('Numéro de téléphone invalide. Utilisez le format +226 XX XX XX XX');
       return;
     }
 
     if (isDelivery && !deliveryCoords) {
-      alert('Veuillez sélectionner votre position de livraison');
+      toast.error('Veuillez sélectionner votre position de livraison');
       return;
     }
 
@@ -198,7 +199,7 @@ const Checkout = () => {
           errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
         }
         // Annuler la commande côté backend (déjà fait par le service)
-        alert(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
+        toast.error(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
         // Retourner au panier au lieu d'afficher un reçu
         navigate('/cart', { replace: true });
         return;
@@ -220,7 +221,7 @@ const Checkout = () => {
       });
     } catch (err) {
       console.error('Order creation failed:', err);
-      alert(err.message || 'Erreur lors de la commande. Veuillez réessayer.');
+      toast.error(err.message || 'Erreur lors de la commande. Veuillez réessayer.');
     } finally {
       setSubmitting(false);
     }
@@ -239,7 +240,7 @@ const Checkout = () => {
         },
         (error) => {
           console.error('Error getting location:', error);
-          alert('Impossible de récupérer votre position');
+          toast.error('Impossible de récupérer votre position');
         }
       );
     }

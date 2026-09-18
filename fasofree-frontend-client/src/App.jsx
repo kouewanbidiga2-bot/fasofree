@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
 import RideBooking from './pages/RideBooking';
@@ -68,6 +69,7 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Toaster position="top-center" richColors duration={4000} />
       <Routes>
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />

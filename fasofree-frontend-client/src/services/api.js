@@ -43,6 +43,15 @@ export async function apiFetch(endpoint, options = {}) {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('fasofree_user');
+        if (!window.location.pathname.includes('/auth')) {
+          const { toast } = await import('sonner');
+          toast.error('Session expirée. Veuillez vous reconnecter.');
+          window.location.href = '/auth';
+        }
+      }
       throw new Error(data.message || 'Une erreur est survenue');
     }
 

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { STEPS, emptyLocation, emptyPackage } from './constants';
@@ -36,7 +37,7 @@ const P2PDelivery = () => {
   // Récupère la position GPS du navigateur et remplit le lieu concerné
   const handleUseCurrentLocation = (setter) => {
     if (!navigator.geolocation) {
-      alert('Géolocalisation non disponible sur cet appareil');
+      toast.error('Géolocalisation non disponible sur cet appareil');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -48,7 +49,7 @@ const P2PDelivery = () => {
           longitude: Number(position.coords.longitude.toFixed(6)),
         }));
       },
-      () => alert('Impossible de récupérer votre position')
+      () => toast.error('Impossible de récupérer votre position')
     );
   };
 

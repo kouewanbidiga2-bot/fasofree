@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, apiFetch } from './api';
 
 export const getMyOrders = async () => {
   try {
@@ -38,12 +38,12 @@ export const confirmDelivery = async (orderId) => {
   }
 };
 
-export const updateDriverLocation = async (location) => {
+export const updateDriverLocation = async (orderId, location) => {
   try {
-    // This would be a backend endpoint to update driver location
-    // For now, we'll store in localStorage
-    localStorage.setItem('driverLocation', JSON.stringify(location));
-    return { success: true };
+    return await apiFetch(`/orders/${orderId}/driver-location`, {
+      method: 'POST',
+      body: { latitude: location.latitude, longitude: location.longitude },
+    });
   } catch (error) {
     console.error('Error updating driver location:', error);
     throw error;
