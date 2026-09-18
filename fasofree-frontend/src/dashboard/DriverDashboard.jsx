@@ -67,6 +67,7 @@ const DriverDashboard = () => {
   const [currentJobStatus, setCurrentJobStatus] = useState(null);
   const [advancingStatus, setAdvancingStatus] = useState(false);
   const [acceptingJob, setAcceptingJob] = useState(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const [wallet, setWallet] = useState(null);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -129,7 +130,7 @@ const DriverDashboard = () => {
   // ─── LOAD CURRENT JOB ──────────────────────────────────────────────────
   const loadCurrentJob = useCallback(async () => {
     try {
-      const data = await getMyOrders({ status: 'DRIVER_ASSIGNED,IN_DELIVERY', limit: 5 });
+      const data = await getMyOrders({ status: 'DRIVER_ASSIGNED,PROCESSING,IN_DELIVERY,DELIVERED_PENDING_CONFIRMATION', limit: 5 });
       const orders = Array.isArray(data) ? data : data?.data || [];
       const mine = orders.find(o => o.driverId === user?.id);
       if (mine) {
@@ -288,6 +289,9 @@ const DriverDashboard = () => {
           setChatClosed(true);
         } else {
           setChatHistory((prev) => [...prev, msg]);
+          if (!chatOpen) {
+            setUnreadMessages((prev) => prev + 1);
+          }
         }
       }
     });
@@ -308,7 +312,8 @@ const DriverDashboard = () => {
   }, [chatInput, currentJob?.orderId]);
 
   useEffect(() => {
-    if (chatOpen && currentJob?.orderId) {
+    if (currentJob?.orderId) {
+      // Joindre le chat dès qu'une course existe (pour recevoir les messages en arrière-plan)
       joinJobChat(currentJob.orderId);
     }
     return () => {
@@ -316,7 +321,7 @@ const DriverDashboard = () => {
         chatSocketRef.current.off('newOrderMessage');
       }
     };
-  }, [chatOpen, currentJob?.orderId, joinJobChat]);
+  }, [currentJob?.orderId, joinJobChat]);
 
   // Cleanup socket au démontage uniquement
   useEffect(() => {
@@ -592,7 +597,7 @@ const DriverDashboard = () => {
 
   const tabs = [
     { id: 'jobs', label: 'Courses', icon: Package, badge: availableJobs.length },
-    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: currentJob ? 1 : 0 },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessages },
     { id: 'earnings', label: 'Gains', icon: DollarSign },
     { id: 'history', label: 'Historique', icon: History },
     { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -817,6 +822,7 @@ const DriverDashboard = () => {
                       <button
                         onClick={() => {
                           setChatOpen(true);
+                          setUnreadMessages(0);
                           setActiveTab('messages');
                         }}
                         className="btn-primary flex-1 gap-2"
@@ -1027,6 +1033,7 @@ const DriverDashboard = () => {
                   <button
                     onClick={() => {
                       setChatOpen(true);
+                      setUnreadMessages(0);
                       joinJobChat(currentJob.orderId);
                     }}
                     className="btn-primary gap-2"

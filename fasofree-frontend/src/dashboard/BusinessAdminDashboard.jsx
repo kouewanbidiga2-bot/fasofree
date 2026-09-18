@@ -673,9 +673,26 @@ const BusinessAdminDashboard = () => {
   // ✅ FIX #25 : le canal est passé explicitement en paramètre.
   // setChatChannel(ch) est async : lire chatChannel du closure dans le même
   // handler donnerait l'ANCIENNE valeur → historique/room socket sur le mauvais canal.
-  const handleViewChatHistory = async (orderId, channel = chatChannel) => {
+  const handleViewChatHistory = async (orderId, channel) => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
+
+    // Si aucun canal spécifié, détecter lequel contient des messages
+    if (!channel) {
+      try {
+        const [merchantHistory, driverHistory] = await Promise.all([
+          getChatHistory(orderId, 'merchant').catch(() => []),
+          getChatHistory(orderId, 'driver').catch(() => []),
+        ]);
+        const mCount = Array.isArray(merchantHistory) ? merchantHistory.length : (merchantHistory?.history?.length || 0);
+        const dCount = Array.isArray(driverHistory) ? driverHistory.length : (driverHistory?.history?.length || 0);
+        channel = dCount > mCount ? 'driver' : 'merchant';
+      } catch {
+        channel = 'merchant';
+      }
+    }
+    setChatChannel(channel);
+
     try {
       const data = await getChatHistory(orderId, channel);
       setChatHistory(data?.history || data || []);
