@@ -55,4 +55,52 @@ export class NotificationStoreService {
   async markAllAsRead(userId: string): Promise<void> {
     await this.repo.update({ userId, isRead: false }, { isRead: true });
   }
+
+  /**
+   * Envoyer une notification à un ou plusieurs utilisateurs
+   */
+  async sendToUsers(
+    userIds: string[],
+    title: string,
+    body: string,
+    type: NotificationType = NotificationType.SYSTEM,
+    actionUrl?: string,
+  ): Promise<number> {
+    const notifications = userIds.map((userId) =>
+      this.repo.create({
+        userId,
+        type,
+        title,
+        body,
+        actionUrl: actionUrl ?? null,
+      }),
+    );
+    await this.repo.save(notifications);
+    return notifications.length;
+  }
+
+  /**
+   * Broadcast à tous les utilisateurs d'un rôle donné
+   */
+  async broadcastToRole(
+    role: string,
+    title: string,
+    body: string,
+    type: NotificationType = NotificationType.SYSTEM,
+    actionUrl?: string,
+  ): Promise<number> {
+    // On crée une notification pour chaque user ayant ce rôle
+    // Requête directe puisque User est dans un module séparé
+    const result = await this.repo.manager
+      .createQueryBuilder()
+      .select('id')
+      .from('users', 'u')
+      .where('u.role = :role', { role })
+      .getMany();
+
+    const userIds = result.map((r: any) => r.id);
+    if (userIds.length === 0) return 0;
+
+    return this.sendToUsers(userIds, title, body, type, actionUrl);
+  }
 }

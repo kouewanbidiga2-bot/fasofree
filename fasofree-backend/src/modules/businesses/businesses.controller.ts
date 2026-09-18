@@ -160,7 +160,18 @@ export class BusinessesController {
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: "Mettre à jour les paramètres d'un commerce" })
-  async update(@Param('id') id: string, @Body() dto: UpdateBusinessDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBusinessDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    const role = req.user?.role;
+    if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+    // 🔒 Vérifier que le marchand administre bien ce commerce
+    if (role === UserRole.BUSINESS_ADMIN) {
+      await this.businessesService.assertManagedBy(id, userId, role);
+    }
     return this.businessesService.update(id, dto);
   }
 

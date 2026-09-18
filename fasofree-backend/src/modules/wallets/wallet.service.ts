@@ -484,18 +484,20 @@ export class WalletService {
 
       const merchantPayouts: PayoutEligibility[] = [];
       for (const wallet of merchantWallets) {
-        const businesses = await this.businessRepository.find({
-          where: { ownerId: wallet.userId },
-          select: { id: true },
-        });
-        const businessIds = businesses.map((b) => b.id);
+        // 🔒 Si le wallet a un branchId, calculer les revenus de CETTE agence uniquement
+        const targetBusinessIds = wallet.branchId
+          ? [wallet.branchId]
+          : (await this.businessRepository.find({
+              where: { ownerId: wallet.userId },
+              select: { id: true },
+            })).map((b) => b.id);
 
-        if (businessIds.length === 0) continue;
+        if (targetBusinessIds.length === 0) continue;
 
         const totalRevenue = await this.orderRepository
           .createQueryBuilder('o')
           .select('SUM(o.merchantPayoutAmount)', 'sum')
-          .where('o.businessId IN (:...businessIds)', { businessIds })
+          .where('o.businessId IN (:...businessIds)', { businessIds: targetBusinessIds })
           .andWhere('o.status = :status', { status: OrderStatus.COMPLETED })
           .andWhere('o.createdAt >= :cutoff', {
             cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),

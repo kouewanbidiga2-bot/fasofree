@@ -1960,9 +1960,71 @@ export class OrdersService {
           // Client: "Commande livrée avec succès"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Commande livrée 🎉',
+              title: 'Commande livrée',
               body: 'Votre commande a été livrée avec succès. Bon appétit!',
               data: { orderId: order.id, type: 'ORDER_COMPLETED' },
+            });
+          }
+          break;
+
+        case OrderStatus.CANCELLED:
+          // Client: "Votre commande a été annulée"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Commande annulée',
+              body: 'Votre commande a été annulée. Aucun montant ne vous a été débité.',
+              data: { orderId: order.id, type: 'ORDER_CANCELLED' },
+            });
+          }
+          if (!clientFcmToken && client?.phone) {
+            await this.smsService.sendSms(
+              client.phone,
+              `FasoFree: Votre commande #${order.id.slice(0, 8)} a été annulée.`,
+            );
+          }
+          break;
+
+        case OrderStatus.FAILED:
+          // Client: "Paiement échoué"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Paiement échoué',
+              body: 'Le paiement de votre commande a échoué. Veuillez réessayer.',
+              data: { orderId: order.id, type: 'PAYMENT_FAILED' },
+            });
+          }
+          if (!clientFcmToken && client?.phone) {
+            await this.smsService.sendSms(
+              client.phone,
+              `FasoFree: Le paiement de votre commande #${order.id.slice(0, 8)} a échoué.`,
+            );
+          }
+          break;
+
+        case OrderStatus.REFUNDED:
+          // Client: "Votre commande a été remboursée"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Commande remboursée',
+              body: 'Votre commande a été remboursée. Le montant sera credite sous 48h.',
+              data: { orderId: order.id, type: 'ORDER_REFUNDED' },
+            });
+          }
+          if (!clientFcmToken && client?.phone) {
+            await this.smsService.sendSms(
+              client.phone,
+              `FasoFree: Votre commande #${order.id.slice(0, 8)} a été remboursée.`,
+            );
+          }
+          break;
+
+        case OrderStatus.DISPUTED:
+          // Client + Marchand: "Un litige a été ouvert"
+          if (clientFcmToken) {
+            await this.notificationsService.sendToDevice(clientFcmToken, {
+              title: 'Litige ouvert',
+              body: 'Un litige a été ouvert sur votre commande. Notre équipe va examiner le dossier.',
+              data: { orderId: order.id, type: 'ORDER_DISPUTED' },
             });
           }
           break;
