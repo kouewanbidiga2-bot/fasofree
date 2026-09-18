@@ -59,6 +59,8 @@ import { RidePricingService } from './services/ride-pricing.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 /**
  * 💬 Statuts terminaux : le canal de chat éphémère de la commande est archivé.
@@ -200,6 +202,7 @@ export class OrdersService {
     private readonly geoDispatchService: GeoDispatchService,
     private readonly ridePricingService: RidePricingService,
     private readonly walletService: WalletService,
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   /**
@@ -1873,11 +1876,21 @@ export class OrdersService {
           // Client: "Votre commande a été confirmée par le restaurant"
           const fcmSuccess = clientFcmToken
             ? await this.notificationsService.sendToDevice(clientFcmToken, {
-                title: 'Commande confirmée ✅',
+                title: 'Commande confirmée',
                 body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
                 data: { orderId: order.id, type: 'ORDER_CONFIRMED' },
               })
             : false;
+
+          // 🔒 Notification persistante en DB
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande confirmée',
+            body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
 
           // SMS fallback si FCM échoue ou pas de token
           if (!fcmSuccess && client?.phone) {
@@ -1894,22 +1907,38 @@ export class OrdersService {
           // Client: "Votre commande est en préparation"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'En préparation 🍳',
+              title: 'En préparation',
               body: 'Votre commande est en cours de préparation.',
               data: { orderId: order.id, type: 'ORDER_PREPARING' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'En préparation',
+            body: 'Votre commande est en cours de préparation.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
 
         case OrderStatus.DRIVER_ASSIGNED: {
           // Client: "Un livreur a été assigné à votre commande"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Livreur assigné 🛵',
+              title: 'Livreur assigné',
               body: 'Un livreur a été assigné à votre commande. Il arrive bientôt!',
               data: { orderId: order.id, type: 'DRIVER_ASSIGNED' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Livreur assigné',
+            body: 'Un livreur a été assigné à votre commande.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
         }
 
@@ -1917,7 +1946,7 @@ export class OrdersService {
           // Client: "Le livreur est en route avec votre repas"
           const fcmEnRouteSuccess = clientFcmToken
             ? await this.notificationsService.sendToDevice(clientFcmToken, {
-                title: 'Livreur en route 🛵',
+                title: 'Livreur en route',
                 body: 'Le livreur est en route avec votre repas. Il arrivera bientôt!',
                 data: { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
               })
@@ -1930,6 +1959,14 @@ export class OrdersService {
               order.id,
             );
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livreur en route',
+            body: 'Le livreur est en route avec votre repas.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
         }
 
@@ -1937,11 +1974,19 @@ export class OrdersService {
           // Client: "Le livreur est arrivé - confirmez la réception"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Livreur arrivé 📍',
+              title: 'Livreur arrivé',
               body: 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
               data: { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livreur arrivé',
+            body: 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
         }
 
@@ -1949,11 +1994,19 @@ export class OrdersService {
           // Client: "Le livreur est arrivé à destination"
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Livraison validée ✅',
+              title: 'Livraison validée',
               body: 'Le livreur a validé la livraison. Confirmez la réception de votre commande!',
               data: { orderId: order.id, type: 'DRIVER_ARRIVED' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livraison validée',
+            body: 'Le livreur a validé la livraison. Confirmez la réception!',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
 
         case OrderStatus.COMPLETED:
@@ -1965,6 +2018,14 @@ export class OrdersService {
               data: { orderId: order.id, type: 'ORDER_COMPLETED' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande livrée',
+            body: 'Votre commande a été livrée avec succès.',
+            orderId: order.id,
+            actionUrl: `/receipt?orderId=${order.id}`,
+          });
           break;
 
         case OrderStatus.CANCELLED:
@@ -1982,6 +2043,13 @@ export class OrdersService {
               `FasoFree: Votre commande #${order.id.slice(0, 8)} a été annulée.`,
             );
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande annulée',
+            body: 'Votre commande a été annulée.',
+            orderId: order.id,
+          });
           break;
 
         case OrderStatus.FAILED:
@@ -1999,6 +2067,13 @@ export class OrdersService {
               `FasoFree: Le paiement de votre commande #${order.id.slice(0, 8)} a échoué.`,
             );
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Paiement échoué',
+            body: 'Le paiement de votre commande a échoué.',
+            orderId: order.id,
+          });
           break;
 
         case OrderStatus.REFUNDED:
@@ -2006,7 +2081,7 @@ export class OrdersService {
           if (clientFcmToken) {
             await this.notificationsService.sendToDevice(clientFcmToken, {
               title: 'Commande remboursée',
-              body: 'Votre commande a été remboursée. Le montant sera credite sous 48h.',
+              body: 'Votre commande a été remboursée. Le montant sera crédité sous 48h.',
               data: { orderId: order.id, type: 'ORDER_REFUNDED' },
             });
           }
@@ -2016,6 +2091,13 @@ export class OrdersService {
               `FasoFree: Votre commande #${order.id.slice(0, 8)} a été remboursée.`,
             );
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande remboursée',
+            body: 'Votre commande a été remboursée. Le montant sera crédité sous 48h.',
+            orderId: order.id,
+          });
           break;
 
         case OrderStatus.DISPUTED:
@@ -2027,6 +2109,14 @@ export class OrdersService {
               data: { orderId: order.id, type: 'ORDER_DISPUTED' },
             });
           }
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Litige ouvert',
+            body: 'Un litige a été ouvert sur votre commande.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
       }
 

@@ -14,6 +14,7 @@ export enum UserRole {
   COURIER = 'COURIER',
   MERCHANT = 'MERCHANT',
   CUSTOMER = 'CUSTOMER',
+  SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
 @Entity('wallets')

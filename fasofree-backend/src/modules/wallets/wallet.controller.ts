@@ -135,10 +135,9 @@ export class WalletController {
       courier: UserRole.COURIER,
       CUSTOMER: UserRole.CUSTOMER,
       customer: UserRole.CUSTOMER,
-      // 🔧 Le super admin n'a pas de wallet métier, mais il a le droit de
-      // consulter le sien (créé à la volée en CUSTOMER) au lieu d'un 403.
-      SUPER_ADMIN: UserRole.CUSTOMER,
-      super_admin: UserRole.CUSTOMER,
+      // 🔧 Le super admin a son propre wallet SUPER_ADMIN pour les commissions globales
+      SUPER_ADMIN: UserRole.SUPER_ADMIN,
+      super_admin: UserRole.SUPER_ADMIN,
     };
 
     const walletRole = roleMap[userRoleRaw];
