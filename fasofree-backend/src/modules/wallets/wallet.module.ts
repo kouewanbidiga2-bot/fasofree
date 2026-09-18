@@ -13,6 +13,7 @@ import { PayoutsService } from './payouts.service';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ConfigModule,
     SettingsModule,
     NotificationsModule,
+    BusinessesModule,
   ],
   controllers: [WalletController],
   providers: [WalletService, PayoutsService, GeniusPayPayoutProvider],

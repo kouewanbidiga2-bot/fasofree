@@ -199,13 +199,18 @@ export class SeedController {
       client = this.userRepository.create({
         email: 'test.client@fasofree.bf',
         passwordHash,
-        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Awa Ouédraogo',
         phone: '+22670000001',
         role: UserRole.CLIENT,
+        isEmailVerified: true,
+        isActive: true,
         referralCode: `AWA-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       });
       client = await this.userRepository.save(client);
+    } else if (!client.isEmailVerified) {
+      client.isEmailVerified = true;
+      client.isActive = true;
+      await this.userRepository.save(client);
     }
 
     // Create test driver
@@ -218,10 +223,11 @@ export class SeedController {
       driver = this.userRepository.create({
         email: 'test.driver@fasofree.bf',
         passwordHash,
-        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Issa Kaboré',
         phone: '+22670000002',
         role: UserRole.DRIVER,
+        isEmailVerified: true,
+        isActive: true,
         isOnline: true,
         isAvailable: true,
         latitude: 12.376,
@@ -229,6 +235,10 @@ export class SeedController {
         referralCode: `ISSA-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       });
       driver = await this.userRepository.save(driver);
+    } else if (!driver.isEmailVerified) {
+      driver.isEmailVerified = true;
+      driver.isActive = true;
+      await this.userRepository.save(driver);
     }
 
     // Create Faso Délices brand + branches
@@ -245,13 +255,18 @@ export class SeedController {
         merchantAdmin = this.userRepository.create({
           email: 'test.merchant@fasofree.bf',
           passwordHash,
-          // ✅ FIX #38 : plus de mot de passe en clair en base
           fullName: 'Moussa Traoré',
           phone: '+22670000003',
           role: UserRole.BUSINESS_ADMIN,
+          isEmailVerified: true,
+          isActive: true,
           referralCode: `MOU-${Date.now().toString(36).slice(-4).toUpperCase()}`,
         });
         merchantAdmin = await this.userRepository.save(merchantAdmin);
+      } else if (!merchantAdmin.isEmailVerified) {
+        merchantAdmin.isEmailVerified = true;
+        merchantAdmin.isActive = true;
+        await this.userRepository.save(merchantAdmin);
       }
 
       brand = this.brandRepository.create({
