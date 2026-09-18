@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
@@ -231,6 +231,11 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Utilisateur introuvable');
     }
     return user;
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids.length) return [];
+    return this.userRepository.find({ where: { id: In(ids) } });
   }
 
   async findProfileWithBusiness(id: string): Promise<Record<string, unknown>> {

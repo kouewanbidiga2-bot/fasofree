@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Query, UnauthorizedException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import {
   ApiTags,
@@ -11,6 +11,7 @@ import { UpdateFcmTokenDto } from './dto/update-fcm-token.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
 import { NotificationStoreService } from './notification-store.service';
+import { BusinessesService } from '../businesses/businesses.service';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -23,6 +24,7 @@ export class NotificationsController {
   constructor(
     private readonly usersService: UsersService,
     private readonly store: NotificationStoreService,
+    private readonly businessesService: BusinessesService,
   ) {}
 
   @Post('fcm-token')
@@ -88,10 +90,34 @@ export class NotificationsController {
   async sendNotification(
     @Body() body: { userIds: string[]; title: string; body: string; actionUrl?: string },
     @CurrentUser('userId') senderId: string,
+    @CurrentUser('role') senderRole: UserRole,
   ) {
     if (!body.userIds?.length || !body.title || !body.body) {
       throw new BadRequestException('userIds, title et body sont requis');
     }
+
+    // 🔒 Un BUSINESS_ADMIN ne peut notifier que les clients de ses propres agences
+    if (senderRole === UserRole.BUSINESS_ADMIN) {
+      const managedBusinesses = await this.businessesService.findAllByOwner(senderId);
+      const managedBusinessIds = managedBusinesses.map((b) => b.id);
+
+      if (managedBusinessIds.length === 0) {
+        throw new ForbiddenException('Vous ne gérez aucun commerce');
+      }
+
+      // Vérifier que chaque userId est bien un client ayant commandé dans l'une de ses agences
+      // Via une requête directe sur la table orders
+      const store = this.store;
+      const validClientIds = await store.findClientsOfBusinesses(managedBusinessIds);
+      const invalidIds = body.userIds.filter((id) => !validClientIds.includes(id));
+
+      if (invalidIds.length > 0) {
+        throw new ForbiddenException(
+          `Vous ne pouvez notifier que les clients de vos agences. IDs invalides: ${invalidIds.join(', ')}`,
+        );
+      }
+    }
+
     const count = await this.store.sendToUsers(
       body.userIds,
       body.title,

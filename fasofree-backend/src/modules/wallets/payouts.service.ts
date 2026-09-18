@@ -61,6 +61,7 @@ export class PayoutsService {
     userId: string,
     role: UserRole,
     dto: RequestWithdrawalDto,
+    branchId?: string,
   ) {
     const payoutReference = `PAYOUT_${Date.now()}_${uuidv4().substring(0, 6)}`;
 
@@ -68,7 +69,7 @@ export class PayoutsService {
     const feeInfo = await this.calculatePayoutFee(dto.amountFcfa);
 
     this.logger.log(
-      `[Payout Request] User: ${userId} | Montant: ${dto.amountFcfa} FCFA | Frais: ${feeInfo.fee} FCFA | Net: ${feeInfo.netAmount} FCFA | Ref: ${payoutReference}`,
+      `[Payout Request] User: ${userId} | Montant: ${dto.amountFcfa} FCFA | Frais: ${feeInfo.fee} FCFA | Net: ${feeInfo.netAmount} FCFA | Ref: ${payoutReference}${branchId ? ` | Agence: ${branchId}` : ''}`,
     );
 
     // 1. Débiter d'abord le Wallet — le montant NET (après frais)
@@ -79,6 +80,7 @@ export class PayoutsService {
       TransactionReason.WITHDRAWAL,
       payoutReference,
       `Retrait vers ${dto.provider} (frais: ${feeInfo.fee} FCFA)`,
+      branchId,
     );
 
     // 2. Déclencher le virement Mobile Money via GeniusPay
@@ -101,6 +103,7 @@ export class PayoutsService {
           newWalletBalanceFcfa: debitResult.wallet.balance,
           phoneNumber: dto.phoneNumber,
           provider: dto.provider,
+          branchId: branchId ?? null,
           feeBreakdown: {
             feePercentage: feeInfo.feePercentage,
             freeThreshold: feeInfo.freeThreshold,
@@ -117,6 +120,8 @@ export class PayoutsService {
             TransactionReason.REFUND,
             payoutReference,
             `Remboursement suite à l'échec du retrait: ${transferResult.message}`,
+            undefined,
+            branchId,
           );
         } catch (refundError) {
           this.logger.error(
@@ -137,6 +142,8 @@ export class PayoutsService {
             TransactionReason.REFUND,
             payoutReference,
             `Remboursement suite à l'échec du retrait (Erreur système)`,
+            undefined,
+            branchId,
           );
         } catch (refundError) {
           this.logger.error(

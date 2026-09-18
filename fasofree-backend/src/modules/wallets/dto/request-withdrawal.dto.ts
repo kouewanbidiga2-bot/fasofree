@@ -5,8 +5,9 @@ import {
   Min,
   IsString,
   IsNotEmpty,
+  IsOptional,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum PayoutProviderEnum {
   ORANGE_MONEY = 'ORANGE_MONEY',
@@ -38,4 +39,11 @@ export class RequestWithdrawalDto {
   @IsString()
   @IsNotEmpty()
   phoneNumber: string;
+
+  @ApiPropertyOptional({
+    description: 'ID de l\'agence (wallet par agence). Si omis, débite le wallet global.',
+  })
+  @IsString()
+  @IsOptional()
+  branchId?: string;
 }

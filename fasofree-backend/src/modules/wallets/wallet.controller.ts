@@ -64,6 +64,7 @@ export class WalletController {
       user.userId,
       walletRole,
       dto,
+      dto.branchId,
     );
   }
 
