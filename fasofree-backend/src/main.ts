@@ -53,11 +53,20 @@ async function bootstrap() {
   // 2. Graceful Shutdown (Libère proprement le port 3000 lors de l'arrêt du serveur)
   app.enableShutdownHooks();
 
-  // 3. Protection des en-têtes HTTP via Helmet (Optimisé pour Swagger UI)
+  // 3. Protection des en-têtes HTTP via Helmet
   app.use(
     helmet({
       crossOriginEmbedderPolicy: false,
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'"],
+        },
+      },
     }),
   );
 
