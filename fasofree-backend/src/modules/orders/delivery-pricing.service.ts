@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 
 export enum VehicleType {
   BICYCLE = 'BICYCLE',
@@ -6,50 +7,148 @@ export enum VehicleType {
   CAR = 'CAR',
 }
 
-export interface PricingConfig {
+/**
+ * Tranches de livraison (colis / motos) — Burkina Faso.
+ * Basé sur l'image fournie (fourchettes min/max).
+ * La nuit (21h–06h Africa/Ouagadougou) ajoute +500 FCFA.
+ */
+export interface DeliveryTier {
+  minKm: number;
+  maxKm: number | null; // null = illimité
+  minPrice: number;
+  maxPrice: number;
+}
+
+export interface DeliveryPricingResult {
+  fee: number;
+  distanceKm: number;
+  tier: DeliveryTier;
+  isNight: boolean;
+  nightSurcharge: number;
   baseFee: number;
-  ratePerKm: number;
+  vehicleType: VehicleType;
+}
+
+const DEFAULT_TIERS: DeliveryTier[] = [
+  { minKm: 0,   maxKm: 15, minPrice: 1500, maxPrice: 2000 },
+  { minKm: 16,  maxKm: 20, minPrice: 2000, maxPrice: 2500 },
+  { minKm: 21,  maxKm: 25, minPrice: 2500, maxPrice: 3000 },
+  { minKm: 26,  maxKm: 30, minPrice: 3000, maxPrice: 3500 },
+  { minKm: 31,  maxKm: null, minPrice: 3500, maxPrice: 4000 }, // au-delà de 30 km
+];
+
+const NIGHT_START_HOUR = 21; // 21:00
+const NIGHT_END_HOUR = 6;    // 06:00
+const NIGHT_SURCHARGE = 500;
+const TIMEZONE = 'Africa/Ouagadougou';
+
+/**
+ * Calcule le prix dans une tranche.
+ * Par défaut : milieu de la fourchette (min + max) / 2.
+ * Peut être surchargé par config (poids, véhicule, etc.).
+ */
+function priceInTier(tier: DeliveryTier, _vehicleType: VehicleType, _weightKg?: number): number {
+  // Milieu de la fourchette — configurable plus tard selon poids/volume
+  return Math.round((tier.minPrice + tier.maxPrice) / 2);
 }
 
 /**
- * Tarification livraison dynamique.
- * Le cache statique est rempli par SettingsService.onModuleInit().
- * Fallback hardcodé si le cache est vide.
+ * Vérifie si une date tombe dans la période de nuit (Africa/Ouagadougou).
  */
+function isNightTime(date: Date = new Date()): boolean {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    hour: '2-digit',
+    hour12: false,
+  });
+  const hour = parseInt(formatter.format(date), 10);
+  return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR;
+}
+
 @Injectable()
 export class DeliveryPricingService {
   private readonly logger = new Logger(DeliveryPricingService.name);
+  private tiers: DeliveryTier[];
 
-  static readonly DEFAULTS: Record<VehicleType, PricingConfig> = {
-    [VehicleType.BICYCLE]:    { baseFee: 250, ratePerKm: 100 },
-    [VehicleType.MOTORCYCLE]: { baseFee: 400, ratePerKm: 150 },
-    [VehicleType.CAR]:        { baseFee: 800, ratePerKm: 300 },
-  };
+  /** Override statique pour compatibilité SettingsService */
+  static override: Record<string, { baseFee: number; ratePerKm: number }> | null = null;
 
-  /** Cache rempli par SettingsService.onModuleInit() */
-  static override: Record<string, PricingConfig> | null = null;
+  constructor(private readonly configService: ConfigService) {
+    // Charger les tranches depuis la config ou utiliser les défauts
+    const configTiers = this.configService.get<DeliveryTier[]>('DELIVERY_TIERS');
+    this.tiers = configTiers?.length ? configTiers : DEFAULT_TIERS;
+    this.tiers.sort((a, b) => a.minKm - b.minKm);
+  }
 
+  /**
+   * Calcule le frais de livraison selon la distance + surcharge nuit.
+   * Remplace l'ancienne formule linéaire (baseFee + distance * ratePerKm).
+   */
   calculateDeliveryFee(
+    distanceKm: number,
+    vehicleType: VehicleType = VehicleType.MOTORCYCLE,
+    _surgeMultiplier: number = 1.0,
+    weightKg?: number,
+    date?: Date,
+  ): DeliveryPricingResult {
+    if (distanceKm < 0) {
+      this.logger.warn(`[Pricing] Distance négative: ${distanceKm}km. Forcée à 0.`);
+      distanceKm = 0;
+    }
+
+    // BACKWARD COMPAT: si SettingsService a mis un override (ancien format linéaire), l'utiliser
+    if (DeliveryPricingService.override && DeliveryPricingService.override[vehicleType]) {
+      const profile = DeliveryPricingService.override[vehicleType];
+      const rawCost = profile.baseFee + distanceKm * profile.ratePerKm;
+      const roundedFee = Math.ceil(rawCost / 25) * 25;
+      return {
+        fee: roundedFee,
+        distanceKm,
+        tier: { minKm: 0, maxKm: null, minPrice: roundedFee, maxPrice: roundedFee },
+        isNight: false,
+        nightSurcharge: 0,
+        baseFee: roundedFee,
+        vehicleType,
+      };
+    }
+
+    // NOUVEAU: tranches tarifaires
+    const tier = this.tiers.find(t => distanceKm >= t.minKm && (t.maxKm === null || distanceKm <= t.maxKm))
+      ?? this.tiers[this.tiers.length - 1];
+
+    const baseFee = priceInTier(tier, vehicleType, weightKg);
+
+    // Surcharge nuit
+    const isNight = isNightTime(date);
+    const nightSurcharge = isNight ? NIGHT_SURCHARGE : 0;
+
+    const totalFee = baseFee + nightSurcharge;
+
+    this.logger.log(
+      `[Pricing] Distance: ${distanceKm.toFixed(2)}km | Tranche: ${tier.minKm}–${tier.maxKm ?? '+'}km | ` +
+      `Base: ${baseFee} FCFA | Nuit: ${isNight ? 'OUI (+500)' : 'NON'} | Total: ${totalFee} FCFA`,
+    );
+
+    return {
+      fee: totalFee,
+      distanceKm,
+      tier,
+      isNight,
+      nightSurcharge,
+      baseFee,
+      vehicleType,
+    };
+  }
+
+  /**
+   * Compatibilité ascendante : renvoie juste le montant (ancienne signature).
+   */
+  calculateDeliveryFeeLegacy(
     distanceKm: number,
     vehicleType: VehicleType = VehicleType.MOTORCYCLE,
     surgeMultiplier: number = 1.0,
   ): number {
-    const profiles = DeliveryPricingService.override || DeliveryPricingService.DEFAULTS;
-    const profile = profiles[vehicleType] || DeliveryPricingService.DEFAULTS[VehicleType.MOTORCYCLE];
-
-    if (distanceKm < 0) {
-      this.logger.warn(`[Pricing Warning] Distance négative: ${distanceKm}km. Forcée à 0.`);
-      distanceKm = 0;
-    }
-
-    const rawCost = (profile.baseFee + distanceKm * profile.ratePerKm) * surgeMultiplier;
-    const roundedFee = Math.ceil(rawCost / 25) * 25;
-
-    this.logger.log(
-      `[Pricing Engine] Véhicule: ${vehicleType} | Distance: ${distanceKm.toFixed(2)}km | Prix: ${roundedFee} FCFA`,
-    );
-
-    return roundedFee;
+    return this.calculateDeliveryFee(distanceKm, vehicleType, surgeMultiplier).fee;
   }
 
   resolveVehicleType(requestedType?: string): VehicleType {

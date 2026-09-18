@@ -307,34 +307,42 @@ export class OrdersService {
       );
     }
 
-    // 🧮 DELIVERY_FEE calculée côté serveur : max(distance GPS boutique→client, 800 FCFA).
+    // 🧮 DELIVERY_FEE calculée côté serveur selon les tranches tarifaires + surcharge nuit.
     // Le montant envoyé par le client (dto.deliveryFee) est ignoré pour les commandes livrées.
     let effectiveDeliveryFee = 0;
     if (isDelivery) {
       const businessLat = business.latitude;
       const businessLng = business.longitude;
+
+      // 🔒 REJETER si l'agence n'a pas de coordonnées GPS valides
+      if (businessLat == null || businessLng == null) {
+        throw new BadRequestException(
+          "Cette agence n'a pas de coordonnées GPS enregistrées. Impossible de calculer la livraison.",
+        );
+      }
+
       const clientLat = deliveryLatitude;
       const clientLng = deliveryLongitude;
-      if (
-        businessLat != null &&
-        businessLng != null &&
-        clientLat != null &&
-        clientLng != null
-      ) {
-        const distance = this.distanceCalculatorService.calculateDistance(
-          businessLat,
-          businessLng,
-          clientLat,
-          clientLng,
+      if (clientLat == null || clientLng == null) {
+        throw new BadRequestException(
+          'Les coordonnées de livraison (latitude, longitude) sont obligatoires pour ce type de commande.',
         );
-        effectiveDeliveryFee =
-          this.deliveryPricingService.calculateDeliveryFee(distance);
-        this.logger.log(
-          `[Pricing] Livraison marchand calculée : ${distance} km → ${effectiveDeliveryFee} FCFA (min ${MIN_DELIVERY_FEE})`,
-        );
-      } else {
-        effectiveDeliveryFee = deliveryFee ?? MIN_DELIVERY_FEE;
       }
+
+      const distance = this.distanceCalculatorService.calculateDistance(
+        businessLat,
+        businessLng,
+        clientLat,
+        clientLng,
+      );
+
+      const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
+      effectiveDeliveryFee = pricingResult.fee;
+
+      this.logger.log(
+        `[Pricing] Livraison calculée : ${distance.toFixed(2)} km | Tranche: ${pricingResult.tier.minKm}–${pricingResult.tier.maxKm ?? '+'}km | ` +
+        `Base: ${pricingResult.baseFee} FCFA | Nuit: ${pricingResult.isNight ? 'OUI (+500)' : 'NON'} | Total: ${effectiveDeliveryFee} FCFA`,
+      );
     }
 
     let promotionCode: string | null = null;
@@ -567,7 +575,7 @@ export class OrdersService {
           dto.deliveryLatitude,
           dto.deliveryLongitude,
         );
-        deliveryFee = this.deliveryPricingService.calculateDeliveryFee(distance);
+        deliveryFee = this.deliveryPricingService.calculateDeliveryFee(distance).fee;
       } else {
         // Pas de coordonnées → tarif minimum garanti
         deliveryFee = MIN_DELIVERY_FEE;
