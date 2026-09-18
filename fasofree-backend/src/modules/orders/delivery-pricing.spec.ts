@@ -145,13 +145,16 @@ describe('DeliveryPricingService — tranches tarifaires + surcharge nuit', () =
   // ─── Compatibilité SettingsService (override statique) ────────────────────
 
   describe('Compatibilité override statique (ancien format linéaire)', () => {
+    afterEach(() => {
+      DeliveryPricingService.override = null;
+    });
+
     it('utilise l\'override si présent', () => {
       DeliveryPricingService.override = {
         [VehicleType.MOTORCYCLE]: { baseFee: 1000, ratePerKm: 200 },
       };
-      const fee = service.calculateDeliveryFee(5).fee; // 1000 + 5*200 = 2000 → arrondi 25 → 2000
+      const fee = service.calculateDeliveryFee(5).fee;
       expect(fee).toBe(2000);
-      delete DeliveryPricingService.override;
     });
 
     it('retourne tier factice avec minPrice=maxPrice=fee', () => {
@@ -162,7 +165,6 @@ describe('DeliveryPricingService — tranches tarifaires + surcharge nuit', () =
       expect(result.tier.minPrice).toBe(result.fee);
       expect(result.tier.maxPrice).toBe(result.fee);
       expect(result.isNight).toBe(false);
-      delete DeliveryPricingService.override;
     });
   });
 });
