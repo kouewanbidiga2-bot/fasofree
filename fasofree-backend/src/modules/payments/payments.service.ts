@@ -73,10 +73,14 @@ export class PaymentsService {
       return await this.initiateGeniusPay(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
-      // Marquer la commande FAILED pour éviter les commandes PENDING orphelines
+      // Marquer la commande ET la transaction en FAILED
       try {
         await this.orderRepository.update(order.id, { status: 'FAILED' as any });
-        this.logger.log(`Order ${order.id} marked FAILED after GeniusPay error`);
+        const tx = await this.transactionRepository.findOne({ where: { orderId: order.id } });
+        if (tx && tx.status === TransactionStatus.PENDING) {
+          await this.transactionRepository.update(tx.id, { status: TransactionStatus.FAILED });
+        }
+        this.logger.log(`Order ${order.id} + transaction marked FAILED after GeniusPay error`);
       } catch (updateErr) {
         this.logger.error(`Failed to mark order ${order.id} as FAILED: ${updateErr.message}`);
       }

@@ -263,6 +263,12 @@ export class GeniusPayController {
       this.logger.error(
         `Webhook GeniusPay: montant incohérent pour ${orderId} — attendu ${expectedAmount}, reçu ${receivedAmount}`,
       );
+      // Marquer transaction + commande en FAILED pour éviter un blocage
+      await this.transactionRepository.update(
+        { orderId },
+        { status: TransactionStatus.FAILED },
+      );
+      await this.ordersService.markAsPaymentFailed(orderId);
       return;
     }
 
