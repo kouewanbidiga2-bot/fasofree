@@ -26,6 +26,8 @@ export class BusinessesService {
       phone: dto.phone,
       ownerId,
       brandId: dto.brandId ?? null,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
       location: {
         type: 'Point',
         coordinates: [dto.longitude, dto.latitude], // ⚠️ Format GeoJSON : [Longitude, Latitude]
@@ -357,6 +359,8 @@ export class BusinessesService {
 
     // Mise à jour de la géolocalisation si fournie
     if (dto.latitude !== undefined && dto.longitude !== undefined) {
+      business.latitude = dto.latitude;
+      business.longitude = dto.longitude;
       business.location = {
         type: 'Point',
         coordinates: [dto.longitude, dto.latitude],
