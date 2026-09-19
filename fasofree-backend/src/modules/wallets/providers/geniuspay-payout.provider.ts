@@ -27,7 +27,7 @@ export class GeniusPayPayoutProvider {
     const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
     this.baseUrl =
       paymentEnv === 'sandbox'
-        ? 'https://pay.genius.ci/sandbox/api/v1/merchant'
+        ? 'https://pay.genius.ci/sandbox'
         : 'https://pay.genius.ci/api/v1/merchant';
     this.apiKey = this.configService.get<string>('GENIUSPAY_API_KEY', '');
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
