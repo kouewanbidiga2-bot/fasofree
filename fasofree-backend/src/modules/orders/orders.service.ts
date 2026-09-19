@@ -85,6 +85,7 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
 const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+  [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
@@ -1422,9 +1423,31 @@ private readonly geoDispatchService: GeoDispatchService,
         throw new NotFoundException(`Commande ${orderId} introuvable.`);
       }
 
-      if (order.status === OrderStatus.PAID) {
+      // 🔒 Idempotence : ignorer si déjà payée ou avancée
+      const terminalPaidStatuses: OrderStatus[] = [
+        OrderStatus.PAID,
+        OrderStatus.IN_PREPARATION,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PROCESSING,
+        OrderStatus.IN_DELIVERY,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+      ];
+      if (terminalPaidStatuses.includes(order.status)) {
         this.logger.warn(
-          `La commande ${orderId} est déjà marquée comme payée.`,
+          `La commande ${orderId} est déjà au statut ${order.status} — ignoré.`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      // Valider la transition FSM
+      const allowedTransitions = ORDER_STATUS_FSM[order.status] || [];
+      if (!allowedTransitions.includes(OrderStatus.PAID)) {
+        this.logger.error(
+          `[Order Paid] Transition invalide: ${order.status} → PAID pour la commande ${orderId}`,
         );
         await queryRunner.rollbackTransaction();
         return;

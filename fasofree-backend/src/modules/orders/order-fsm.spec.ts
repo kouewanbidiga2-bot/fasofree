@@ -8,6 +8,7 @@ import { UserRole } from '../users/entities/user-role.enum';
  */
 
 const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+  [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
@@ -80,6 +81,18 @@ describe('FSM des statuts de commande', () => {
     it('DISPUTED → REFUNDED (remboursement)', () => {
       expect(ORDER_STATUS_FSM[OrderStatus.DISPUTED]).toContain(OrderStatus.REFUNDED);
     });
+
+    it('AWAITING_PAYMENT → PAID (webhook GeniusPay confirmé)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).toContain(OrderStatus.PAID);
+    });
+
+    it('AWAITING_PAYMENT → CANCELLED (annulation client)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).toContain(OrderStatus.CANCELLED);
+    });
+
+    it('AWAITING_PAYMENT → FAILED (échec paiement)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).toContain(OrderStatus.FAILED);
+    });
   });
 
   describe('Transitions INTERDITES (failles de sécurité)', () => {
@@ -129,6 +142,18 @@ describe('FSM des statuts de commande', () => {
 
     it('COMPLETED → PENDING INTERDIT (ne peut pas revenir)', () => {
       expect(ORDER_STATUS_FSM[OrderStatus.COMPLETED]).not.toContain(OrderStatus.PENDING);
+    });
+
+    it('AWAITING_PAYMENT → IN_PREPARATION INTERDIT (doit payer d\'abord)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).not.toContain(OrderStatus.IN_PREPARATION);
+    });
+
+    it('AWAITING_PAYMENT → IN_DELIVERY INTERDIT (doit payer d\'abord)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).not.toContain(OrderStatus.IN_DELIVERY);
+    });
+
+    it('AWAITING_PAYMENT → COMPLETED INTERDIT (doit payer d\'abord)', () => {
+      expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).not.toContain(OrderStatus.COMPLETED);
     });
   });
 
