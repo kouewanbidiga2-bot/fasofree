@@ -55,19 +55,25 @@ const P2PDelivery = () => {
 
   const isStepValid = (current) => {
     if (current === 1) {
+      const hasCoords = pickup.latitude != null && pickup.longitude != null &&
+        !isNaN(Number(pickup.latitude)) && !isNaN(Number(pickup.longitude));
       return (
         pickup.address.trim() &&
         pickup.contactName.trim() &&
         pickup.contactPhone.trim() &&
-        !!formatBurkinaPhone(pickup.contactPhone)
+        !!formatBurkinaPhone(pickup.contactPhone) &&
+        hasCoords
       );
     }
     if (current === 2) {
+      const hasCoords = dropoff.latitude != null && dropoff.longitude != null &&
+        !isNaN(Number(dropoff.latitude)) && !isNaN(Number(dropoff.longitude));
       return (
         dropoff.address.trim() &&
         dropoff.contactName.trim() &&
         dropoff.contactPhone.trim() &&
-        !!formatBurkinaPhone(dropoff.contactPhone)
+        !!formatBurkinaPhone(dropoff.contactPhone) &&
+        hasCoords
       );
     }
     return packageInfo.description.trim() && packageInfo.estimatedAmount.trim();
