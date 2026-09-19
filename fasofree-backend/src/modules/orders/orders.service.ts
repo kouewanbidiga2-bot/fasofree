@@ -701,6 +701,8 @@ private readonly geoDispatchService: GeoDispatchService,
         TransactionReason.ORDER_PAYMENT,
         `ESCROW-${savedOrder.id}`,
         `Séquestre course FasoFree Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
+        undefined,
+        queryRunner.manager,
       );
 
       this.logger.log(
@@ -1570,10 +1572,11 @@ private readonly geoDispatchService: GeoDispatchService,
       OrderStatus.FAILED,
     ];
     if (cancellableStatuses.includes(order.status)) {
+      const previousStatus = order.status;
       order.status = OrderStatus.FAILED;
       await this.orderRepository.save(order);
       this.logger.log(
-        `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${order.status === OrderStatus.FAILED ? 'déjà FAILED' : order.status})`,
+        `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
       );
     }
   }

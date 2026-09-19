@@ -257,9 +257,9 @@ export class GeniusPayController {
       return;
     }
 
-    const receivedAmount = Number(data.amount);
+    const receivedAmount = Number(data.amount ?? payload.amount);
     const expectedAmount = Number(order.totalAmount);
-    if (Math.abs(expectedAmount - receivedAmount) > 1) {
+    if (!Number.isFinite(receivedAmount) || Math.abs(expectedAmount - receivedAmount) > 1) {
       this.logger.error(
         `Webhook GeniusPay: montant incohérent pour ${orderId} — attendu ${expectedAmount}, reçu ${receivedAmount}`,
       );

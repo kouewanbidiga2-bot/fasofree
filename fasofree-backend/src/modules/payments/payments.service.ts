@@ -73,6 +73,13 @@ export class PaymentsService {
       return await this.initiateGeniusPay(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
+      // Marquer la commande FAILED pour éviter les commandes PENDING orphelines
+      try {
+        await this.orderRepository.update(order.id, { status: 'FAILED' as any });
+        this.logger.log(`Order ${order.id} marked FAILED after GeniusPay error`);
+      } catch (updateErr) {
+        this.logger.error(`Failed to mark order ${order.id} as FAILED: ${updateErr.message}`);
+      }
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
         'Impossible de contacter la passerelle de paiement. Veuillez réessayer.',

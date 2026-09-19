@@ -134,15 +134,18 @@ export class PaymentsController {
     try {
       if (event === 'payment.success' || payload.status === 'SUCCESS' || payload.status === 'success') {
         if (orderId) {
-          // ✅ Sécurité : vérifier le montant reçu avant de valider le paiement
-          const receivedAmount = data.amount || payload.amount;
-          if (receivedAmount) {
-            const amountValid = await this.paymentsService.validatePaymentAmount(orderId, receivedAmount);
-            if (!amountValid) {
-              this.logger.error(`❌ Montant invalide pour commande ${orderId}: reçu ${receivedAmount}`);
-              await this.ordersService.markAsPaymentFailed(orderId);
-              return { success: false, error: 'Amount mismatch' };
-            }
+          // ✅ Sécurité : montant obligatoire et valide
+          const receivedAmount = Number(data.amount ?? payload.amount);
+          if (!Number.isFinite(receivedAmount)) {
+            this.logger.error(`❌ Montant absent ou invalide pour commande ${orderId}`);
+            await this.ordersService.markAsPaymentFailed(orderId);
+            throw new BadRequestException('Amount missing or invalid');
+          }
+          const amountValid = await this.paymentsService.validatePaymentAmount(orderId, receivedAmount);
+          if (!amountValid) {
+            this.logger.error(`❌ Montant invalide pour commande ${orderId}: reçu ${receivedAmount}`);
+            await this.ordersService.markAsPaymentFailed(orderId);
+            throw new BadRequestException('Amount mismatch');
           }
           await this.paymentsService.processSuccessfulPayment(orderId, geniusPayRef, 'GENIUSPAY');
           this.logger.log(`✅ Order ${orderId} marked as paid (deprecated endpoint)`);
@@ -176,6 +179,7 @@ export class PaymentsController {
       }
     } catch (error) {
       this.logger.error(`Webhook processing error: ${error.message}`);
+      throw error;
     }
 
     return { success: true };

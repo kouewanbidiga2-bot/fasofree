@@ -186,7 +186,8 @@ export class WalletService {
   }
 
   /**
-   * Débite le solde d'un portefeuille (avec vérification de solde suffisant)
+   * Débite le solde d'un portefeuille (avec vérification de solde suffisant).
+   * Si externalManager est fourni, le débit s'effectue dans la transaction existante.
    */
   async debitWallet(
     userId: string,
@@ -196,78 +197,92 @@ export class WalletService {
     reference?: string,
     description?: string,
     branchId?: string,
+    externalManager?: any,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
     }
 
+    // Si un EntityManager externe est fourni, l'utiliser (même transaction)
+    if (externalManager) {
+      return this.debitWalletWithManager(externalManager, userId, userRole, amount, reason, reference, description, branchId);
+    }
+
+    // Sinon, créer sa propre transaction
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const whereDebit: any = { userId, userRole };
-      if (branchId) whereDebit.branchId = branchId;
-
-      const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: whereDebit,
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!wallet) {
-        throw new NotFoundException(
-          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
-        );
-      }
-
-      if (Number(wallet.balance) < Number(amount)) {
-        throw new BadRequestException(
-          `Solde insuffisant. Solde actuel: ${wallet.balance} XOF, Requis: ${amount} XOF`,
-        );
-      }
-
-      wallet.balance = Number(wallet.balance) - Number(amount);
-      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
-      await queryRunner.manager.save(wallet);
-
-      const transaction = queryRunner.manager.create(WalletTransaction, {
-        walletId: wallet.id,
-        branchId: branchId || null,
-        type: TransactionType.DEBIT,
-        reason,
-        status: TransactionStatus.COMPLETED,
-        amount,
-        balanceAfter: wallet.balance,
-        reference,
-        description,
-      });
-      await queryRunner.manager.save(transaction);
-
+      const result = await this.debitWalletWithManager(queryRunner.manager, userId, userRole, amount, reason, reference, description, branchId);
       await queryRunner.commitTransaction();
-      this.logger.log(
-        `[Wallet Debit] -${amount} XOF pour ${userRole} ${userId}. Nouveau solde: ${wallet.balance}`,
-      );
-
-      return { wallet, transaction };
+      return result;
     } catch (error: unknown) {
-      // Annulation OBLIGATOIRE de la transaction en cas d'erreur
       await queryRunner.rollbackTransaction();
-
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(`[Wallet Debit Error] ${errorMessage}`);
-
-      // On relance l'erreur originale si c'est une exception NestJS (ex: NotFound ou BadRequest)
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException(
-        'Une erreur inattendue est survenue lors du débit',
-      );
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Une erreur inattendue est survenue lors du débit');
     } finally {
-      // Libération OBLIGATOIRE du queryRunner pour éviter les fuites de mémoire
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Logique interne de débit — opère sur un EntityManager donné.
+   */
+  private async debitWalletWithManager(
+    manager: any,
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    reason: TransactionReason,
+    reference?: string,
+    description?: string,
+    branchId?: string,
+  ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    const whereDebit: any = { userId, userRole };
+    if (branchId) whereDebit.branchId = branchId;
+
+    const wallet = await manager.findOne(Wallet, {
+      where: whereDebit,
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!wallet) {
+      throw new NotFoundException(
+        `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+      );
+    }
+
+    if (Number(wallet.balance) < Number(amount)) {
+      throw new BadRequestException(
+        `Solde insuffisant. Solde actuel: ${wallet.balance} XOF, Requis: ${amount} XOF`,
+      );
+    }
+
+    wallet.balance = Number(wallet.balance) - Number(amount);
+    wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
+    await manager.save(wallet);
+
+    const transaction = manager.create(WalletTransaction, {
+      walletId: wallet.id,
+      branchId: branchId || null,
+      type: TransactionType.DEBIT,
+      reason,
+      status: TransactionStatus.COMPLETED,
+      amount,
+      balanceAfter: wallet.balance,
+      reference,
+      description,
+    });
+    await manager.save(transaction);
+
+    this.logger.log(
+      `[Wallet Debit] -${amount} XOF pour ${userRole} ${userId}. Nouveau solde: ${wallet.balance}`,
+    );
+
+    return { wallet, transaction };
   }
 
   /**
