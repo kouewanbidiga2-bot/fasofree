@@ -26,6 +26,10 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { OrdersService } from '../orders/orders.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Transaction, TransactionStatus } from './entities/transaction.entity';
+import { OrderStatus } from '../orders/entities/order.entity';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -37,6 +41,8 @@ export class PaymentsController {
     private readonly geniusPayService: GeniusPayService,
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
+    @InjectRepository(Transaction)
+    private readonly transactionRepository: Repository<Transaction>,
   ) {}
 
   @ApiBearerAuth('JWT-auth')
@@ -92,7 +98,7 @@ export class PaymentsController {
   }
 
   @Post('webhook/geniuspay')
-  @ApiOperation({ summary: '[DÉPRÉCIÉ] Utiliser POST /geniuspay/webhook — redirige automatiquement' })
+  @ApiOperation({ summary: '[DÉPRÉCIÉ] Redirige vers POST /geniuspay/webhook' })
   @HttpCode(HttpStatus.OK)
   async handleGeniusPayWebhookDeprecated(
     @Body() payload: any,
@@ -101,8 +107,9 @@ export class PaymentsController {
     @Headers('x-webhook-signature') whSignature?: string,
     @Headers('x-webhook-timestamp') whTimestamp?: string,
   ) {
-    this.logger.warn('[DEPRECATED] /payments/webhook/geniuspay est déprécié — utiliser /geniuspay/webhook');
-    // 🔒 Vérification HMAC — fail-closed
+    this.logger.warn('[DEPRECATED] /payments/webhook/geniuspay → traitement unifié');
+
+    // Même vérification HMAC que /geniuspay/webhook
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
     if (!webhookSecret) {
       this.logger.error('GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
@@ -111,35 +118,57 @@ export class PaymentsController {
     const sig = whSignature || signature;
     const ts = whTimestamp || timestamp;
     if (!sig || !ts) {
-      this.logger.error('Webhook GeniusPay : signature ou timestamp manquant — requête rejetée');
       throw new BadRequestException('Missing webhook signature');
     }
     const rawBody = JSON.stringify(payload);
-    const isValid = this.geniusPayService.verifyWebhookSignature(rawBody, sig, ts, webhookSecret);
-    if (!isValid) {
-      this.logger.error('Webhook GeniusPay : signature HMAC invalide — requête rejetée');
+    if (!this.geniusPayService.verifyWebhookSignature(rawBody, sig, ts, webhookSecret)) {
       throw new BadRequestException('Invalid webhook signature');
     }
-    // Redirige vers le même traitement que /geniuspay/webhook
+
+    // Même traitement que /geniuspay/webhook
     const event = payload.event || payload.type || 'unknown';
-    if (payload.status === 'SUCCESS' || payload.status === 'success' || event === 'payment.success') {
-      const orderId = payload.metadata?.order_id || payload.data?.metadata?.order_id;
-      const transactionRef = payload.reference || payload.id || payload.data?.reference;
-      if (orderId) {
-        const amountOk = await this.paymentsService.validatePaymentAmount(orderId, payload.amount || payload.data?.amount);
-        if (!amountOk) {
-          this.logger.error(`Webhook: montant incohérent pour la commande ${orderId}`);
-          return { ok: false, error: 'Amount mismatch' };
+    const data = payload.data || payload;
+    const orderId = data.metadata?.order_id || payload.metadata?.order_id;
+    const geniusPayRef = data.reference || String(data.id || '');
+
+    try {
+      if (event === 'payment.success' || payload.status === 'SUCCESS' || payload.status === 'success') {
+        if (orderId) {
+          await this.paymentsService.processSuccessfulPayment(orderId, geniusPayRef, 'GENIUSPAY');
+          this.logger.log(`✅ Order ${orderId} marked as paid (deprecated endpoint)`);
         }
-        await this.paymentsService.processSuccessfulPayment(orderId, transactionRef, 'GENIUSPAY');
+      } else if (event === 'payment.failed' || event === 'payment.cancelled') {
+        if (orderId) {
+          const tx = await this.transactionRepository.findOne({
+            where: [
+              { orderId, status: TransactionStatus.PENDING },
+              { reference: geniusPayRef, status: TransactionStatus.PENDING },
+              { paymentGatewayId: geniusPayRef, status: TransactionStatus.PENDING },
+            ],
+          });
+          if (tx) {
+            await this.transactionRepository.update(tx.id, { status: TransactionStatus.FAILED });
+          }
+          await this.ordersService.markAsPaymentFailed(orderId);
+          this.logger.log(`❌ Order ${orderId} payment ${event} (deprecated endpoint)`);
+        }
+      } else if (event === 'payment.refunded') {
+        const tx = await this.transactionRepository.findOne({
+          where: [
+            { orderId, status: TransactionStatus.SUCCESS },
+            { reference: geniusPayRef, status: TransactionStatus.SUCCESS },
+            { paymentGatewayId: geniusPayRef, status: TransactionStatus.SUCCESS },
+          ],
+        });
+        if (tx) {
+          await this.transactionRepository.update(tx.id, { status: TransactionStatus.REFUNDED });
+        }
       }
-    } else {
-      const failedOrderId = payload.metadata?.order_id || payload.data?.metadata?.order_id;
-      if (failedOrderId) {
-        try { await this.ordersService.markAsPaymentFailed(failedOrderId); } catch {}
-      }
+    } catch (error) {
+      this.logger.error(`Webhook processing error: ${error.message}`);
     }
-    return { ok: true };
+
+    return { success: true };
   }
 
   @ApiBearerAuth('JWT-auth')

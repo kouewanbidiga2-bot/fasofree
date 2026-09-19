@@ -300,19 +300,33 @@ export class GeniusPayController {
   private async handlePaymentFailed(payload: any) {
     const data = payload.data;
     const orderId = data.metadata?.order_id;
+    const geniusPayRef = data.reference || String(data.id);
 
     if (orderId) {
-      await this.transactionRepository.update(
-        { reference: data.reference },
-        { status: TransactionStatus.FAILED },
-      );
+      // Trouver la transaction par orderId OU par référence GeniusPay
+      const transaction = await this.transactionRepository.findOne({
+        where: [
+          { orderId, status: TransactionStatus.PENDING },
+          { reference: geniusPayRef, status: TransactionStatus.PENDING },
+          { paymentGatewayId: geniusPayRef, status: TransactionStatus.PENDING },
+        ],
+      });
 
-      // 🔒 Annuler la commande pour éviter qu'elle soit préparée/livrée sans paiement
+      if (transaction) {
+        await this.transactionRepository.update(transaction.id, {
+          status: TransactionStatus.FAILED,
+        });
+      } else {
+        this.logger.warn(
+          `Webhook failed: aucune transaction PENDING trouvée pour commande ${orderId}, ref ${geniusPayRef}`,
+        );
+      }
+
       try {
         await this.ordersService.markAsPaymentFailed(orderId);
       } catch (error) {
         this.logger.error(
-          `Erreur lors de l'annulation de la commande ${orderId} après échec paiement: ${error.message}`,
+          `Erreur annulation commande ${orderId} après échec paiement: ${error.message}`,
         );
       }
 
@@ -323,21 +337,33 @@ export class GeniusPayController {
   private async handlePaymentCancelled(payload: any) {
     const data = payload.data;
     const orderId = data.metadata?.order_id;
+    const geniusPayRef = data.reference || String(data.id);
 
-    if (data.reference) {
-      await this.transactionRepository.update(
-        { reference: data.reference },
-        { status: TransactionStatus.FAILED },
-      );
-    }
-
-    // 🔒 Annuler la commande si le client a annulé le paiement
     if (orderId) {
+      // Trouver la transaction par orderId OU par référence GeniusPay
+      const transaction = await this.transactionRepository.findOne({
+        where: [
+          { orderId, status: TransactionStatus.PENDING },
+          { reference: geniusPayRef, status: TransactionStatus.PENDING },
+          { paymentGatewayId: geniusPayRef, status: TransactionStatus.PENDING },
+        ],
+      });
+
+      if (transaction) {
+        await this.transactionRepository.update(transaction.id, {
+          status: TransactionStatus.FAILED,
+        });
+      } else {
+        this.logger.warn(
+          `Webhook cancelled: aucune transaction PENDING trouvée pour commande ${orderId}, ref ${geniusPayRef}`,
+        );
+      }
+
       try {
         await this.ordersService.markAsPaymentFailed(orderId);
       } catch (error) {
         this.logger.error(
-          `Erreur lors de l'annulation de la commande ${orderId} après annulation paiement: ${error.message}`,
+          `Erreur annulation commande ${orderId} après annulation paiement: ${error.message}`,
         );
       }
 
@@ -347,11 +373,25 @@ export class GeniusPayController {
 
   private async handlePaymentRefunded(payload: any) {
     const data = payload.data;
+    const orderId = data.metadata?.order_id;
+    const geniusPayRef = data.reference || String(data.id);
 
-    if (data.reference) {
-      await this.transactionRepository.update(
-        { reference: data.reference },
-        { status: TransactionStatus.REFUNDED },
+    // Trouver la transaction par orderId OU par référence GeniusPay
+    const transaction = await this.transactionRepository.findOne({
+      where: [
+        { orderId, status: TransactionStatus.SUCCESS },
+        { reference: geniusPayRef, status: TransactionStatus.SUCCESS },
+        { paymentGatewayId: geniusPayRef, status: TransactionStatus.SUCCESS },
+      ],
+    });
+
+    if (transaction) {
+      await this.transactionRepository.update(transaction.id, {
+        status: TransactionStatus.REFUNDED,
+      });
+    } else {
+      this.logger.warn(
+        `Webhook refunded: aucune transaction SUCCESS trouvée pour ref ${geniusPayRef}`,
       );
     }
   }

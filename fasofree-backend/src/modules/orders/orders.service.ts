@@ -1443,6 +1443,20 @@ private readonly geoDispatchService: GeoDispatchService,
         return;
       }
 
+      // 🔒 Refuser un paiement sur une commande FAILED/CANCELLED/REFUNDED
+      const deadStatuses: OrderStatus[] = [
+        OrderStatus.FAILED,
+        OrderStatus.CANCELLED,
+        OrderStatus.REFUNDED,
+      ];
+      if (deadStatuses.includes(order.status)) {
+        this.logger.error(
+          `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement GeniusPay ignoré (commande morte)`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
       // Valider la transition FSM
       const allowedTransitions = ORDER_STATUS_FSM[order.status] || [];
       if (!allowedTransitions.includes(OrderStatus.PAID)) {
@@ -1528,10 +1542,18 @@ private readonly geoDispatchService: GeoDispatchService,
       return;
     }
 
-    // Annulation uniquement si PENDING ou FAILED
-    if (order.status === OrderStatus.PENDING || order.status === OrderStatus.FAILED) {
+    // Annulation si en attente de paiement ou déjà échoué
+    const cancellableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.AWAITING_PAYMENT,
+      OrderStatus.FAILED,
+    ];
+    if (cancellableStatuses.includes(order.status)) {
       order.status = OrderStatus.FAILED;
       await this.orderRepository.save(order);
+      this.logger.log(
+        `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${order.status === OrderStatus.FAILED ? 'déjà FAILED' : order.status})`,
+      );
     }
   }
 
