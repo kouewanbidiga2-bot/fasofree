@@ -832,14 +832,24 @@ private readonly geoDispatchService: GeoDispatchService,
       `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km) | Statut: AWAITING_PAYMENT`,
     );
 
+    // Récupérer le téléphone du client pour GeniusPay
+    const client = await this.usersService.findById(clientId);
+    const clientPhone = client?.phone;
+    const clientEmail = client?.email;
+
+    // 🔒 Vérifier que le client a un téléphone valide pour GeniusPay
+    if (!clientPhone) {
+      throw new BadRequestException('Un numéro de téléphone est obligatoire pour le paiement GeniusPay.');
+    }
+
     // Initier paiement GeniusPay
     const payment = await this.geniusPayService.createPayment({
       amount: totalAmount,
       description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
       paymentMethod: undefined, // GeniusPay routage automatique BF
       customer: {
-        email: undefined,
-        phone: undefined,
+        email: clientEmail,
+        phone: clientPhone,
       },
       metadata: {
         order_id: savedOrder.id,
@@ -855,14 +865,15 @@ private readonly geoDispatchService: GeoDispatchService,
       paymentGatewayId: String(payment.id),
     });
 
-    // Retourner l'URL de checkout au frontend
-    if (!payment.checkout_url) {
-      this.logger.error(`[P2P Order] GeniusPay n'a pas retourné d'URL de checkout pour #${savedOrder.id}`);
+    // Retourner l'URL de checkout au frontend (accepter checkout_url OU payment_url)
+    const checkoutUrl = payment.checkout_url ?? payment.payment_url;
+    if (!checkoutUrl) {
+      this.logger.error(`[P2P Order] GeniusPay n'a pas retourné d'URL de paiement pour #${savedOrder.id}`);
       throw new BadRequestException("Impossible de générer l'URL de paiement. Réessayez plus tard.");
     }
     return {
       order: savedOrder,
-      checkoutUrl: payment.checkout_url,
+      checkoutUrl,
     };
   }
 
