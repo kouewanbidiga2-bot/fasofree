@@ -179,10 +179,15 @@ const Checkout = () => {
             window.location.href = payResult.checkoutUrl;
             return;
           }
-          // Pas de checkoutUrl → paiement mock ou provider non configuré
+
+          // Pas de checkoutUrl et pas cash → ERREUR (ne pas confirmer localement)
+          if (paymentMethod !== 'cash') {
+            throw new Error('Impossible de générer l\'URL de paiement GeniusPay. Veuillez réessayer.');
+          }
+
         }
 
-        // Paiement cash OU pas de checkoutUrl → la commande est confirmée localement
+        // Paiement cash uniquement → la commande est confirmée localement
         addOrder({
           id: order.id,
           restaurant: restaurant?.name || 'Restaurant',
