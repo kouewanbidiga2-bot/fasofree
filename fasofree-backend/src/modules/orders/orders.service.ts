@@ -736,55 +736,66 @@ private readonly geoDispatchService: GeoDispatchService,
   }
 
   /**
-   * 🚚 Création d'une commande P2P (Course à la demande)
-   * Retourne { order, checkoutUrl } pour redirection GeniusPay
+   * 🚚 Création d'une commande P2P (FasoColis)
+   * Flux : validation → commande AWAITING_PAYMENT → GeniusPay → redirect
+   * En cas d'échec GeniusPay, la commande et la transaction sont nettoyées.
    */
   private async createP2POrder(
     clientId: string,
     dto: CreateOrderDto,
   ): Promise<{ order: Order; checkoutUrl: string }> {
-    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
-      dto;
+    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } = dto;
 
-    // Validation des champs P2P
+    // ─── 1. VALIDATIONS PRÉALABLES (avant création en base) ───────────────
     if (!pickupLocation || !dropoffLocation) {
       throw new BadRequestException(
         'Les lieux de ramassage et de livraison sont obligatoires pour une course P2P',
       );
     }
 
-    // Calcul du prix basé sur la distance
-    const deliveryCalculation =
-      this.distanceCalculatorService.calculateP2PDelivery(
-        pickupLocation.latitude,
-        pickupLocation.longitude,
-        dropoffLocation.latitude,
-        dropoffLocation.longitude,
-        packageDetails?.isFragile || false,
-        packageDetails?.weight || 0,
+    // Vérifier et normaliser le téléphone du client
+    const client = await this.usersService.findById(clientId);
+    if (!client?.phone) {
+      throw new BadRequestException(
+        'Un numéro de téléphone est obligatoire pour le paiement. Ajoutez un numéro dans votre profil.',
       );
+    }
+    const normalizedPhone = this.normalizePhone(client.phone);
+    if (!normalizedPhone) {
+      throw new BadRequestException(
+        `Le numéro de téléphone "${client.phone}" n'est pas valide. Utilisez le format +226 XX XX XX XX.`,
+      );
+    }
+
+    // ─── 2. CALCUL DU PRIX ────────────────────────────────────────────────
+    const deliveryCalculation = this.distanceCalculatorService.calculateP2PDelivery(
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+      dropoffLocation.latitude,
+      dropoffLocation.longitude,
+      packageDetails?.isFragile || false,
+      packageDetails?.weight || 0,
+    );
 
     const financials = await this.pricingService.calculateFinancials(
       0,
       deliveryCalculation.price,
       { clientId, orderType: OrderType.P2P_DELIVERY },
     );
-
     const totalAmount = financials.totalAmount;
 
     this.logger.log(
-      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Prix de base: ${deliveryCalculation.price} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
+      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Base: ${deliveryCalculation.price} FCFA, Total: ${totalAmount} FCFA`,
     );
 
+    // ─── 3. CRÉER COMMANDE + TRANSACTION ──────────────────────────────────
     const order = this.orderRepository.create({
       clientId,
-      businessId: undefined, // Pas de business pour P2P
+      businessId: undefined,
       orderType: OrderType.P2P_DELIVERY,
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
-      fulfillmentDetails: {
-        notes: packageDetails?.description,
-      },
-      productsSubtotal: 0, // Pas de produits pour P2P
+      fulfillmentDetails: { notes: packageDetails?.description },
+      productsSubtotal: 0,
       itemsTotal: 0,
       deliveryFee: financials.deliveryFee,
       serviceFee: financials.serviceFee,
@@ -792,7 +803,7 @@ private readonly geoDispatchService: GeoDispatchService,
       driverCommissionAmount: 0,
       platformCommission: financials.platformCommission,
       totalAmount,
-      merchantPayoutAmount: 0, // Pas de payout pour P2P
+      merchantPayoutAmount: 0,
       commissionPayer: financials.commissionPayer,
       pickupLocation,
       dropoffLocation,
@@ -812,11 +823,6 @@ private readonly geoDispatchService: GeoDispatchService,
     savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
     await this.orderRepository.save(savedOrder);
 
-    this.logger.log(
-      `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km)`,
-    );
-
-    // Créer la transaction
     const transaction = this.transactionRepository.create({
       orderId: savedOrder.id,
       reference: this.generateTransactionReference(savedOrder.id),
@@ -824,57 +830,95 @@ private readonly geoDispatchService: GeoDispatchService,
       commissionAmount: financials.platformCommission,
       status: TransactionStatus.PENDING,
     });
-
     await this.transactionRepository.save(transaction);
 
-    // ⚠️ PAS de dispatch : attend confirmation paiement (AWAITING_PAYMENT → PAID via webhook)
     this.logger.log(
-      `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km) | Statut: AWAITING_PAYMENT`,
+      `[P2P Order] #${savedOrder.id} créée (AWAITING_PAYMENT) — Total: ${totalAmount} FCFA`,
     );
 
-    // Récupérer le téléphone du client pour GeniusPay
-    const client = await this.usersService.findById(clientId);
-    const clientPhone = client?.phone;
-    const clientEmail = client?.email;
+    // ─── 4. INITIER GENIUSPAY (avec cleanup en cas d'échec) ──────────────
+    try {
+      const payment = await this.geniusPayService.createPayment({
+        amount: totalAmount,
+        description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
+        paymentMethod: undefined,
+        customer: {
+          email: client.email,
+          phone: normalizedPhone,
+        },
+        metadata: {
+          order_id: savedOrder.id,
+          user_id: clientId,
+          order_type: OrderType.P2P_DELIVERY,
+        },
+        successUrl: this.configService.get<string>('P2P_SUCCESS_URL') || 'https://fasofree.site/p2p/success',
+        errorUrl: this.configService.get<string>('P2P_ERROR_URL') || 'https://fasofree.site/p2p/error',
+      });
 
-    // 🔒 Vérifier que le client a un téléphone valide pour GeniusPay
-    if (!clientPhone) {
-      throw new BadRequestException('Un numéro de téléphone est obligatoire pour le paiement GeniusPay.');
+      const checkoutUrl = payment.checkout_url ?? payment.payment_url;
+      if (!checkoutUrl) {
+        throw new BadRequestException("GeniusPay n'a retourné aucune URL de paiement.");
+      }
+
+      // Enregistrer la référence GeniusPay sur la transaction
+      await this.transactionRepository.update(transaction.id, {
+        paymentGatewayId: String(payment.id),
+      });
+
+      this.logger.log(
+        `[P2P Order] #${savedOrder.id} — GeniusPay initialisé, redirect vers checkout`,
+      );
+
+      return { order: savedOrder, checkoutUrl };
+
+    } catch (payError) {
+      // ╔══════════════════════════════════════════════════════════════════╗
+      // ║ CLEANUP : annuler la commande + la transaction si GeniusPay     ║
+      // ║ échoue. On passe la commande en FAILED pour qu'elle soit        ║
+      // ║ nettoyée par le cron cleanupExpiredPendingOrders.               ║
+      // ╚══════════════════════════════════════════════════════════════════╝
+      this.logger.error(
+        `[P2P Order] GeniusPay échoué pour #${savedOrder.id}: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}`,
+      );
+
+      // Marquer transaction comme FAILED
+      await this.transactionRepository.update(transaction.id, {
+        status: TransactionStatus.FAILED,
+      });
+
+      // Marquer commande comme FAILED (sera nettoyée par le cron)
+      await this.orderRepository.update(savedOrder.id, {
+        status: OrderStatus.FAILED,
+      });
+
+      throw new BadRequestException(
+        `Le paiement GeniusPay a échoué: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}. La commande a été annulée.`,
+      );
     }
+  }
 
-    // Initier paiement GeniusPay
-    const payment = await this.geniusPayService.createPayment({
-      amount: totalAmount,
-      description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
-      paymentMethod: undefined, // GeniusPay routage automatique BF
-      customer: {
-        email: clientEmail,
-        phone: clientPhone,
-      },
-      metadata: {
-        order_id: savedOrder.id,
-        user_id: clientId,
-        order_type: OrderType.P2P_DELIVERY,
-      },
-      successUrl: this.configService.get<string>('P2P_SUCCESS_URL') || 'https://fasofree.site/p2p/success',
-      errorUrl: this.configService.get<string>('P2P_ERROR_URL') || 'https://fasofree.site/p2p/error',
-    });
+  /**
+   * 📱 Normalise un numéro de téléphone au format Burkina Faso (+226).
+   * Accepte : 70123456, 070123456, +22670123456, 22670123456
+   * Retourne : +22670123456 ou null si invalide.
+   */
+  private normalizePhone(phone: string): string | null {
+    if (!phone) return null;
 
-    // Mettre à jour la transaction avec la référence GeniusPay
-    await this.transactionRepository.update(transaction.id, {
-      paymentGatewayId: String(payment.id),
-    });
+    // Retirer tous les espaces, tirets, points
+    let cleaned = phone.replace(/[\s\-\.]/g, '');
 
-    // Retourner l'URL de checkout au frontend (accepter checkout_url OU payment_url)
-    const checkoutUrl = payment.checkout_url ?? payment.payment_url;
-    if (!checkoutUrl) {
-      this.logger.error(`[P2P Order] GeniusPay n'a pas retourné d'URL de paiement pour #${savedOrder.id}`);
-      throw new BadRequestException("Impossible de générer l'URL de paiement. Réessayez plus tard.");
-    }
-    return {
-      order: savedOrder,
-      checkoutUrl,
-    };
+    // Déjà en format international +226XXXXXXXX
+    if (/^\+226\d{8}$/.test(cleaned)) return cleaned;
+
+    // Format sans + : 226XXXXXXXX
+    if (/^226\d{8}$/.test(cleaned)) return `+${cleaned}`;
+
+    // Numéro local sans indicatif : 0XXXXXXXX ou XXXXXXXX (8 chiffres)
+    if (/^0\d{8}$/.test(cleaned)) return `+226${cleaned.slice(1)}`;
+    if (/^\d{8}$/.test(cleaned)) return `+226${cleaned}`;
+
+    return null;
   }
 
   /**
