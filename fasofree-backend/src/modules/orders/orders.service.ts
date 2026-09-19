@@ -259,8 +259,9 @@ private readonly geoDispatchService: GeoDispatchService,
 
   /**
    * 🛍️ 1. Création d'une commande (BROUILLON) — invisible jusqu'au paiement confirmé
+   * Pour P2P_DELIVERY et RIDE, retourne { order, checkoutUrl } pour redirection GeniusPay
    */
-  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order> {
+  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order | { order: Order; checkoutUrl: string }> {
     const {
       orderType,
       fulfillmentType,
@@ -736,11 +737,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
   /**
    * 🚚 Création d'une commande P2P (Course à la demande)
+   * Retourne { order, checkoutUrl } pour redirection GeniusPay
    */
   private async createP2POrder(
     clientId: string,
     dto: CreateOrderDto,
-  ): Promise<Order> {
+  ): Promise<{ order: Order; checkoutUrl: string }> {
     const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
       dto;
 
@@ -830,7 +832,38 @@ private readonly geoDispatchService: GeoDispatchService,
       `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km) | Statut: AWAITING_PAYMENT`,
     );
 
-    return this.findOne(savedOrder.id);
+    // Initier paiement GeniusPay
+    const payment = await this.geniusPayService.createPayment({
+      amount: totalAmount,
+      description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
+      paymentMethod: undefined, // GeniusPay routage automatique BF
+      customer: {
+        email: undefined,
+        phone: undefined,
+      },
+      metadata: {
+        order_id: savedOrder.id,
+        user_id: clientId,
+        order_type: OrderType.P2P_DELIVERY,
+      },
+      successUrl: this.configService.get<string>('P2P_SUCCESS_URL') || 'https://fasofree.site/p2p/success',
+      errorUrl: this.configService.get<string>('P2P_ERROR_URL') || 'https://fasofree.site/p2p/error',
+    });
+
+    // Mettre à jour la transaction avec la référence GeniusPay
+    await this.transactionRepository.update(transaction.id, {
+      paymentGatewayId: String(payment.id),
+    });
+
+    // Retourner l'URL de checkout au frontend
+    if (!payment.checkout_url) {
+      this.logger.error(`[P2P Order] GeniusPay n'a pas retourné d'URL de checkout pour #${savedOrder.id}`);
+      throw new BadRequestException("Impossible de générer l'URL de paiement. Réessayez plus tard.");
+    }
+    return {
+      order: savedOrder,
+      checkoutUrl: payment.checkout_url,
+    };
   }
 
   /**
