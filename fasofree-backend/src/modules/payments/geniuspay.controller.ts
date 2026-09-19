@@ -250,29 +250,13 @@ export class GeniusPayController {
       return;
     }
 
-    // 🔒 Vérification du montant — empêcher les falsifications
     const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) {
       this.logger.error(`Webhook GeniusPay: commande ${orderId} introuvable`);
       return;
     }
 
-    const receivedAmount = Number(data.amount ?? payload.amount);
-    const expectedAmount = Number(order.totalAmount);
-    if (!Number.isFinite(receivedAmount) || Math.abs(expectedAmount - receivedAmount) > 1) {
-      this.logger.error(
-        `Webhook GeniusPay: montant incohérent pour ${orderId} — attendu ${expectedAmount}, reçu ${receivedAmount}`,
-      );
-      // Marquer transaction + commande en FAILED pour éviter un blocage
-      await this.transactionRepository.update(
-        { orderId },
-        { status: TransactionStatus.FAILED },
-      );
-      await this.ordersService.markAsPaymentFailed(orderId);
-      return;
-    }
-
-    // 🔒 Idempotence : ignorer si déjà payée
+    // 🔒 Idempotence : ignorer si déjà payée (AVANT validation du montant)
     const terminalPaidStatuses: OrderStatus[] = [
       OrderStatus.PAID,
       OrderStatus.IN_PREPARATION,
@@ -288,6 +272,22 @@ export class GeniusPayController {
     ];
     if (terminalPaidStatuses.includes(order.status)) {
       this.logger.warn(`Webhook GeniusPay: commande ${orderId} déjà au statut ${order.status} — ignoré`);
+      return;
+    }
+
+    // 🔒 Vérification du montant — empêcher les falsifications
+    const receivedAmount = Number(data.amount ?? payload.amount);
+    const expectedAmount = Number(order.totalAmount);
+    if (!Number.isFinite(receivedAmount) || Math.abs(expectedAmount - receivedAmount) > 1) {
+      this.logger.error(
+        `Webhook GeniusPay: montant incohérent pour ${orderId} — attendu ${expectedAmount}, reçu ${receivedAmount}`,
+      );
+      // Marquer UNIQUEMENT les transactions encore PENDING
+      await this.transactionRepository.update(
+        { orderId, status: TransactionStatus.PENDING },
+        { status: TransactionStatus.FAILED },
+      );
+      await this.ordersService.markAsPaymentFailed(orderId);
       return;
     }
 

@@ -42,6 +42,12 @@ export class PaymentsService {
       throw new BadRequestException('Cette commande ne vous appartient pas');
     }
 
+    // 🔁 Retry : si la commande est FAILED, la remettre en AWAITING_PAYMENT
+    if (order.status === 'FAILED') {
+      await this.orderRepository.update(order.id, { status: 'AWAITING_PAYMENT' as any });
+      this.logger.log(`Order ${order.id} remise en AWAITING_PAYMENT pour retry`);
+    }
+
     const reference = `FF-PAY-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const commissionAmount = Number(
       order.merchantCommissionAmount ?? order.platformCommission ?? 0,
@@ -52,6 +58,10 @@ export class PaymentsService {
     });
 
     if (transaction) {
+      // 🔁 Retry : remettre la transaction en PENDING si elle était FAILED
+      if (transaction.status === TransactionStatus.FAILED) {
+        transaction.status = TransactionStatus.PENDING;
+      }
       transaction.reference = reference;
       transaction.paymentMethod = dto.paymentMethod;
       transaction.amount = order.totalAmount;
