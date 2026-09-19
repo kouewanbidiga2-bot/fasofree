@@ -145,6 +145,7 @@ const Checkout = () => {
         orderType: 'MERCHANT',
         fulfillmentType,
         fulfillmentDetails: { notes: formData.notes || undefined },
+        paymentMethod: paymentMethod || 'cash',
       };
 
       if (isDelivery) {

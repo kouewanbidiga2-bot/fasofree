@@ -275,6 +275,7 @@ private readonly geoDispatchService: GeoDispatchService,
       pickupLocation,
       dropoffLocation,
       packageDetails,
+      paymentMethod,
     } = dto;
 
     // --- 🚚 GESTION P2P DELIVERY ---
@@ -424,6 +425,10 @@ private readonly geoDispatchService: GeoDispatchService,
         ? { latitude: deliveryLatitude, longitude: deliveryLongitude }
         : undefined;
 
+    // 💵 Cash = PAID immédiatement (pas de webhook en attente)
+    const isCash = paymentMethod === 'cash';
+    const initialStatus = isCash ? OrderStatus.PAID : OrderStatus.PENDING;
+
     const order = this.orderRepository.create({
       clientId,
       businessId,
@@ -444,7 +449,7 @@ private readonly geoDispatchService: GeoDispatchService,
       promotionDiscount,
       deliveryLocation,
       landmark: dto.landmark ?? undefined,
-      status: OrderStatus.PENDING,
+      status: initialStatus,
       deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
@@ -502,13 +507,21 @@ private readonly geoDispatchService: GeoDispatchService,
       reference: this.generateTransactionReference(savedOrder.id),
       amount: financials.totalAmount,
       commissionAmount: financials.platformCommission,
-      status: TransactionStatus.PENDING,
+      status: isCash ? TransactionStatus.SUCCESS : TransactionStatus.PENDING,
     });
 
     await this.transactionRepository.save(transaction);
 
-    // 🔒 PAS DE NOTIFICATION MARCHAND/LIVREUR ICI — uniquement après webhook PAID
-    // Le dispatch et la notification se font dans markAsPaidAndDispatch()
+    if (isCash) {
+      // 💵 Cash : dispatch immédiat + notification marchand/livreur
+      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+      this.logger.log(
+        `[Order Cash] #${savedOrder.id} — PAID (cash) → dispatch immédiat`,
+      );
+    } else {
+      // 🔒 PAS DE NOTIFICATION MARCHAND/LIVREUR ICI — uniquement après webhook PAID
+      // Le dispatch et la notification se font dans markAsPaidAndDispatch()
+    }
 
     return this.findOne(savedOrder.id);
   }

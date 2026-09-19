@@ -204,4 +204,13 @@ export class CreateOrderDto {
   @ValidateIf((o) => o.orderType === OrderType.RIDE)
   @IsEnum(RideOption)
   rideOption?: RideOption;
+
+  @ApiPropertyOptional({
+    description: 'Mode de paiement: cash, orange_money, moov_money, wave. Si cash, la commande est marquée PAID immédiatement.',
+    example: 'cash',
+    enum: ['cash', 'orange_money', 'moov_money', 'wave'],
+  })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }
