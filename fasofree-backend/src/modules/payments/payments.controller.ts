@@ -134,6 +134,16 @@ export class PaymentsController {
     try {
       if (event === 'payment.success' || payload.status === 'SUCCESS' || payload.status === 'success') {
         if (orderId) {
+          // ✅ Sécurité : vérifier le montant reçu avant de valider le paiement
+          const receivedAmount = data.amount || payload.amount;
+          if (receivedAmount) {
+            const amountValid = await this.paymentsService.validatePaymentAmount(orderId, receivedAmount);
+            if (!amountValid) {
+              this.logger.error(`❌ Montant invalide pour commande ${orderId}: reçu ${receivedAmount}`);
+              await this.ordersService.markAsPaymentFailed(orderId);
+              return { success: false, error: 'Amount mismatch' };
+            }
+          }
           await this.paymentsService.processSuccessfulPayment(orderId, geniusPayRef, 'GENIUSPAY');
           this.logger.log(`✅ Order ${orderId} marked as paid (deprecated endpoint)`);
         }

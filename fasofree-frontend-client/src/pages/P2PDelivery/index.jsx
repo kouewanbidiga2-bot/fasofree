@@ -139,14 +139,10 @@ const P2PDelivery = () => {
       const response = await api.createOrder(buildPayload());
       // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }
       // Rediriger vers GeniusPay pour le paiement
-      if (response?.checkoutUrl) {
-        window.location.href = response.checkoutUrl;
-        return;
+      if (!response?.checkoutUrl) {
+        throw new Error('URL de paiement indisponible');
       }
-      // Fallback: commande marchand classique
-      setSuccess({
-        id: response?.orderId || response?.id || 'FF' + Date.now().toString().slice(-8),
-      });
+      window.location.href = response.checkoutUrl;
     } catch (err) {
       setError(
         err?.message ||

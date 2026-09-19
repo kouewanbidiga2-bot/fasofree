@@ -209,6 +209,12 @@ const Checkout = () => {
         if (payErr?.message) {
           errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
         }
+        // Annuler la commande créée côté backend pour éviter les commandes orphelines
+        try {
+          await api.cancelOrder(order.id, 'Échec du paiement GeniusPay');
+        } catch (cancelErr) {
+          console.error('Failed to cancel order after payment error:', cancelErr);
+        }
         toast.error(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
         navigate('/cart', { replace: true });
         return;

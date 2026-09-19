@@ -57,7 +57,8 @@ const STEP_LABELS_RIDE = [
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
-  PAID: 'Confirmée',
+  PAID: 'Paiement confirmé',
+  AWAITING_PAYMENT: 'En attente de paiement',
   IN_PREPARATION: 'En préparation',
   READY_FOR_PICKUP: 'Prête (retrait)',
   DRIVER_ASSIGNED: 'Livreur assigné',

@@ -682,13 +682,18 @@ private readonly geoDispatchService: GeoDispatchService,
       clientValidatedAt: null,
     });
 
-    const savedOrder = await this.orderRepository.save(order);
-    savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
-    await this.orderRepository.save(savedOrder);
+    // 🔒 Transaction base de données pour garantir l'atomicité des opérations critiques
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
-    // la commande est supprimée et l'erreur propagée → aucune course sans paiement.
     try {
+      const savedOrder = await queryRunner.manager.save(order);
+      savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+      await queryRunner.manager.save(savedOrder);
+
+      // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
+      // tout est rollbacké → aucune course sans paiement.
       await this.walletService.debitWallet(
         clientId,
         WalletUserRole.CUSTOMER,
@@ -697,56 +702,59 @@ private readonly geoDispatchService: GeoDispatchService,
         `ESCROW-${savedOrder.id}`,
         `Séquestre course FasoFree Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
       );
+
+      this.logger.log(
+        `[Ride Order Created] #${savedOrder.id} - Total séquestré: ${totalAmount} FCFA (Distance: ${estimate.distanceKm} km)`,
+      );
+
+      const transaction = this.transactionRepository.create({
+        orderId: savedOrder.id,
+        reference: this.generateTransactionReference(savedOrder.id),
+        amount: totalAmount,
+        commissionAmount: financials.platformCommission,
+        status: TransactionStatus.SUCCESS,
+      });
+
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      // 🧾 Reçu client automatique (non bloquant en cas d'échec)
+      try {
+        await this.receiptsService.createClientOrderReceipt(savedOrder);
+      } catch (receiptError) {
+        this.logger.warn(
+          `[Receipt] Échec reçu client pour ${savedOrder.id}: ${receiptError.message}`,
+        );
+      }
+
+      // 🚀 Dispatch aux chauffeurs
+      try {
+        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+        this.dispatchService
+          .autoDispatchOrder(savedOrder.id)
+          .catch((err) => {
+            this.logger.error(
+              `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
+            );
+          });
+      } catch (error) {
+        this.logger.error(
+          `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
+          error.stack,
+        );
+      }
+
+      return savedOrder;
     } catch (error) {
-      await this.orderRepository.delete(savedOrder.id).catch(() => undefined);
+      await queryRunner.rollbackTransaction();
       this.logger.error(
-        `[Ride Order] Débit séquestre échoué pour la commande #${savedOrder.id}: ${error.message}`,
+        `[Ride Order] Transaction rollbackée pour commande: ${error.message}`,
       );
       throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    this.logger.log(
-      `[Ride Order Created] #${savedOrder.id} - Total séquestré: ${totalAmount} FCFA (Distance: ${estimate.distanceKm} km)`,
-    );
-
-    const transaction = this.transactionRepository.create({
-      orderId: savedOrder.id,
-      reference: this.generateTransactionReference(savedOrder.id),
-      amount: totalAmount,
-      commissionAmount: financials.platformCommission,
-      status: TransactionStatus.SUCCESS,
-    });
-
-    await this.transactionRepository.save(transaction);
-
-    // 🧾 Reçu client automatique (non bloquant en cas d'échec)
-    try {
-      await this.receiptsService.createClientOrderReceipt(savedOrder);
-    } catch (receiptError) {
-      this.logger.warn(
-        `[Receipt] Échec reçu client pour ${savedOrder.id}: ${receiptError.message}`,
-      );
-    }
-
-    // 🚀 Dispatch aux chauffeurs : broadcast (tous les livreurs en ligne)
-    // puis offre ciblée aux meilleurs candidats (scoring distance + note).
-    try {
-      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-      this.dispatchService
-        .autoDispatchOrder(savedOrder.id)
-        .catch((err) => {
-          this.logger.error(
-            `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
-          );
-        });
-    } catch (error) {
-      this.logger.error(
-        `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
-        error.stack,
-      );
-    }
-
-    return this.findOne(savedOrder.id);
   }
 
   /**
@@ -2029,11 +2037,11 @@ private readonly geoDispatchService: GeoDispatchService,
       // Notifier selon le nouveau statut
       switch (order.status) {
         case OrderStatus.PAID: {
-          // Client: "Votre commande a été confirmée par le restaurant"
+          // Client: "Paiement confirmé, en attente de préparation"
           const fcmSuccess = clientFcmToken
             ? await this.notificationsService.sendToDevice(clientFcmToken, {
-                title: 'Commande confirmée',
-                body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
+                title: 'Paiement confirmé',
+                body: 'Paiement confirmé, en attente de préparation par le restaurant.',
                 data: { orderId: order.id, type: 'ORDER_CONFIRMED' },
               })
             : false;
@@ -2042,8 +2050,8 @@ private readonly geoDispatchService: GeoDispatchService,
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
-            title: 'Commande confirmée',
-            body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
+            title: 'Paiement confirmé',
+            body: 'Paiement confirmé, en attente de préparation par le restaurant.',
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });

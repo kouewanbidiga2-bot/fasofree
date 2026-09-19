@@ -68,8 +68,19 @@ const RideBooking = () => {
     );
   };
 
+  // Bornes approximatives du Burkina Faso
+  const BF_BOUNDS = { minLat: 9.4, maxLat: 15.1, minLng: -5.5, maxLng: 2.4 };
+
   const isLocationValid = (loc) =>
-    loc.address.trim() && loc.contactName.trim() && loc.contactPhone.trim();
+    loc.address.trim() && 
+    loc.contactName.trim() && 
+    loc.contactPhone.trim() &&
+    loc.latitude !== null && 
+    loc.longitude !== null &&
+    loc.latitude !== 0 && 
+    loc.longitude !== 0 &&
+    loc.latitude >= BF_BOUNDS.minLat && loc.latitude <= BF_BOUNDS.maxLat &&
+    loc.longitude >= BF_BOUNDS.minLng && loc.longitude <= BF_BOUNDS.maxLng;
 
   const handleEstimate = async (e) => {
     e.preventDefault();
