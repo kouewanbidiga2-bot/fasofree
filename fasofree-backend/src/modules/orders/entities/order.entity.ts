@@ -13,6 +13,7 @@ import { Transaction } from '../../payments/entities/transaction.entity';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
+  AWAITING_PAYMENT = 'AWAITING_PAYMENT',
   PAID = 'PAID',
   IN_PREPARATION = 'IN_PREPARATION',
   READY_FOR_PICKUP = 'READY_FOR_PICKUP',

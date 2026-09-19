@@ -57,9 +57,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { RidePricingService } from './services/ride-pricing.service';
 import { WalletService } from '../wallets/wallet.service';
+import { GeniusPayService } from '../payments/providers/geniuspay.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
-import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
 
 /**
@@ -199,9 +200,10 @@ export class OrdersService {
     private readonly receiptsService: ReceiptsService,
     private readonly events: EventEmitter2,
     private readonly configService: ConfigService,
-    private readonly geoDispatchService: GeoDispatchService,
+private readonly geoDispatchService: GeoDispatchService,
     private readonly ridePricingService: RidePricingService,
     private readonly walletService: WalletService,
+    private readonly geniusPayService: GeniusPayService,
     private readonly notificationStore: NotificationStoreService,
   ) {}
 
@@ -575,7 +577,8 @@ export class OrdersService {
           dto.deliveryLatitude,
           dto.deliveryLongitude,
         );
-        deliveryFee = this.deliveryPricingService.calculateDeliveryFee(distance).fee;
+        const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
+        deliveryFee = typeof pricingResult === 'number' ? pricingResult : pricingResult.fee;
       } else {
         // Pas de coordonnées → tarif minimum garanti
         deliveryFee = MIN_DELIVERY_FEE;
@@ -796,7 +799,7 @@ export class OrdersService {
         latitude: dropoffLocation.latitude,
         longitude: dropoffLocation.longitude,
       },
-      status: OrderStatus.PENDING,
+      status: OrderStatus.AWAITING_PAYMENT,
       deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
@@ -822,15 +825,10 @@ export class OrdersService {
 
     await this.transactionRepository.save(transaction);
 
-    // Dispatch directement aux chauffeurs (pas de business pour P2P)
-    try {
-      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-    } catch (error) {
-      this.logger.error(
-        `[WebSocket Error] Échec du dispatch P2P pour la commande #${savedOrder.id}`,
-        error.stack,
-      );
-    }
+    // ⚠️ PAS de dispatch : attend confirmation paiement (AWAITING_PAYMENT → PAID via webhook)
+    this.logger.log(
+      `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km) | Statut: AWAITING_PAYMENT`,
+    );
 
     return this.findOne(savedOrder.id);
   }
