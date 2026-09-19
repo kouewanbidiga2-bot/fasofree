@@ -1691,17 +1691,21 @@ private readonly geoDispatchService: GeoDispatchService,
   @Cron(CronExpression.EVERY_10_MINUTES)
   async cleanupExpiredPendingOrders(): Promise<void> {
     const expiredThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes
+
+    // Nettoyer les commandes PENDING et AWAITING_PAYMENT qui n'ont pas été payées
     const result = await this.orderRepository
       .createQueryBuilder()
       .update(Order)
       .set({ status: OrderStatus.FAILED })
-      .where('status = :status', { status: OrderStatus.PENDING })
+      .where('status IN (:...statuses)', {
+        statuses: [OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT],
+      })
       .andWhere('"createdAt" < :threshold', { threshold: expiredThreshold })
       .execute();
 
     if (result.affected && result.affected > 0) {
       this.logger.log(
-        `[Cleanup] ${result.affected} commande(s) PENDING expirée(s) marquée(s) FAILED`,
+        `[Cleanup] ${result.affected} commande(s) sans paiement (PENDING/AWAITING_PAYMENT) expirée(s) marquée(s) FAILED`,
       );
     }
   }
