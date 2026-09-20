@@ -22,7 +22,7 @@ import { WalletService } from './wallet.service';
 import { PayoutsService } from './payouts.service';
 import { PayoutStatus } from '../financial/entities/payout-request.entity';
 import { UserRole } from './entities/wallet.entity';
-import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
+import { RequestWithdrawalDto, ApprovePayoutDto } from './dto/request-withdrawal.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -51,15 +51,16 @@ export class WalletController {
 
   @Post('admin/payouts/:id/approve')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @Roles(AppUserRole.SUPER_ADMIN)
   async approveManualPayout(
     @Param('id') id: string,
-    @Body() body: { phoneNumber: string; provider?: string },
+    @Body() dto: ApprovePayoutDto,
   ) {
     return this.payoutsService.approveManualPayout(
       id,
-      body.phoneNumber,
-      body.provider,
+      dto.phoneNumber,
+      dto.provider,
     );
   }
 

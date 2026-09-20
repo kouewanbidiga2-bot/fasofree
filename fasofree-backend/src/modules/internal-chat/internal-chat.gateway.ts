@@ -12,11 +12,14 @@ import { Logger, UsePipes, ValidationPipe } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import {
   InternalChatService,
   InternalChannel,
 } from './internal-chat.service';
+import { User } from '../users/entities/user.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 type InternalSocket = Socket & { data: { user?: JwtPayload } };
@@ -29,7 +32,26 @@ const dmRoom = (u1: string, u2: string) => {
 };
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: (origin, callback) => {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (!origin || !isProduction) {
+        callback(null, true);
+      } else {
+        const allowedPatterns = [
+          /\.fasofree\.site$/,
+          /\.vercel\.app$/,
+          /\.onrender\.com$/,
+        ];
+        if (allowedPatterns.some((re) => re.test(origin))) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    },
+    credentials: true,
+  },
   namespace: '/internal-chat',
 })
 @UsePipes(new ValidationPipe({ transform: true }))
@@ -45,6 +67,8 @@ export class InternalChatGateway
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly internalChatService: InternalChatService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   afterInit() {
@@ -163,6 +187,16 @@ export class InternalChatGateway
       return { status: 'error', message: 'Destinataire invalide' };
     }
 
+    const recipient = await this.userRepository.findOne({ where: { id: recipientId } });
+    if (!recipient) {
+      return { status: 'error', message: 'Destinataire introuvable' };
+    }
+
+    const teamRoles = ['super_admin', 'admin', 'support'];
+    if (!teamRoles.includes(recipient.role)) {
+      return { status: 'error', message: 'Destinataire non autorisé' };
+    }
+
     const roomName = dmRoom(user.sub, recipientId);
     client.join(roomName);
 
@@ -188,10 +222,22 @@ export class InternalChatGateway
       return { status: 'error', message: 'Payload invalide' };
     }
 
+    const recipient = await this.userRepository.findOne({ where: { id: recipientId } });
+    if (!recipient) {
+      return { status: 'error', message: 'Destinataire introuvable' };
+    }
+
+    const teamRoles = ['super_admin', 'admin', 'support'];
+    if (!teamRoles.includes(recipient.role)) {
+      return { status: 'error', message: 'Destinataire non autorisé' };
+    }
+
+    const sanitizedMessage = message.trim().slice(0, 2000).replace(/<[^>]*>/g, '');
+
     const saved = await this.internalChatService.saveMessage(
       'dm' as InternalChannel,
       user.sub,
-      message.trim(),
+      sanitizedMessage,
       recipientId,
     );
 
@@ -201,7 +247,7 @@ export class InternalChatGateway
       senderId: user.sub,
       senderRole: user.role,
       recipientId,
-      message: message.trim(),
+      message: sanitizedMessage,
       timestamp: saved.createdAt.toISOString(),
     };
 

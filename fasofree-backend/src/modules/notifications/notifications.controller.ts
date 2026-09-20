@@ -151,6 +151,12 @@ export class NotificationsController {
     if (!body.role || !body.title || !body.body) {
       throw new BadRequestException('role, title et body sont requis');
     }
+
+    const allowedRoles = ['client', 'driver', 'courier', 'business_admin', 'super_admin', 'admin', 'support'];
+    if (!allowedRoles.includes(body.role)) {
+      throw new BadRequestException(`Rôle invalide : ${body.role}. Rôles autorisés : ${allowedRoles.join(', ')}`);
+    }
+
     const count = await this.store.broadcastToRole(
       body.role,
       body.title,

@@ -535,6 +535,16 @@ export class DispatchService {
       throw new Error(`Commande #${orderId} introuvable`);
     }
 
+    const assignableStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.READY_FOR_PICKUP,
+    ];
+    if (!assignableStatuses.includes(order.status)) {
+      throw new Error(
+        `Impossible d'assigner un livreur : commande au statut "${order.status}". Statuts acceptés : ${assignableStatuses.join(', ')}`,
+      );
+    }
+
     const driver = await this.userRepository.findOne({
       where: { id: driverId, role: In([UserRole.DRIVER, UserRole.COURIER]) },
     });

@@ -269,14 +269,25 @@ export class NotificationsService {
 
   // ─── HELPERS ────────────────────────────────────────────────────────────────
 
+  private escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   private wrapHtml(subject: string, message: string): string {
+    const safeSubject = this.escapeHtml(subject);
+    const safeMessage = this.escapeHtml(message);
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: #C1652E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0;">
-          <h1 style="margin: 0; font-size: 20px;">${subject}</h1>
+          <h1 style="margin: 0; font-size: 20px;">${safeSubject}</h1>
         </div>
         <div style="background: #FAF6F1; padding: 30px; border-radius: 0 0 8px 8px;">
-          <p style="white-space: pre-line;">${message}</p>
+          <p style="white-space: pre-line;">${safeMessage}</p>
         </div>
         <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
       </div>

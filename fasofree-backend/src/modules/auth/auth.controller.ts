@@ -11,6 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -54,6 +55,7 @@ export class AuthController {
   // 🔑 Route publique : POST /auth/login (Renvoie 200 OK au lieu de 201 Created)
   @HttpCode(HttpStatus.OK)
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Se connecter et obtenir un JWT' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
@@ -71,6 +73,7 @@ export class AuthController {
   // 🔑 Demande de réinitialisation du mot de passe
   @HttpCode(HttpStatus.OK)
   @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 300000 } })
   @ApiOperation({ summary: 'Demander un lien de réinitialisation du mot de passe' })
   async forgotPassword(@Body('email') email: string) {
     await this.authService.forgotPassword(email);
@@ -80,6 +83,7 @@ export class AuthController {
   // 🔑 Réinitialiser le mot de passe avec le token
   @HttpCode(HttpStatus.OK)
   @Post('reset-password')
+  @Throttle({ default: { limit: 5, ttl: 300000 } })
   @ApiOperation({ summary: 'Réinitialiser le mot de passe avec le token reçu' })
   async resetPassword(
     @Body('token') token: string,

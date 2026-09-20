@@ -1,29 +1,12 @@
 import { OrderStatus, OrderType, FulfillmentType } from './entities/order.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { ORDER_STATUS_FSM } from './orders.service';
 
 /**
  * Tests de la FSM (Machine à États) des statuts de commande.
  * Vérifie que les transitions interdites sont bien rejetées
  * et que les transitions autorisées fonctionnent.
  */
-
-const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
-  [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
-  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
-  [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
-  [OrderStatus.IN_PREPARATION]: [OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.DRIVER_ASSIGNED, OrderStatus.CANCELLED],
-  [OrderStatus.DRIVER_ASSIGNED]: [OrderStatus.IN_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.IN_DELIVERY]: [OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
-  [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: [OrderStatus.DELIVERED, OrderStatus.COMPLETED, OrderStatus.DISPUTED],
-  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.DISPUTED, OrderStatus.REFUNDED],
-  [OrderStatus.PROCESSING]: [OrderStatus.IN_DELIVERY, OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
-  [OrderStatus.COMPLETED]: [],
-  [OrderStatus.CANCELLED]: [],
-  [OrderStatus.FAILED]: [],
-  [OrderStatus.DISPUTED]: [OrderStatus.REFUNDED, OrderStatus.COMPLETED],
-  [OrderStatus.REFUNDED]: [],
-};
 
 const DRIVER_TRANSITIONS: OrderStatus[] = [
   OrderStatus.IN_DELIVERY,

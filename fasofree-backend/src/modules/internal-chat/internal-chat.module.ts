@@ -6,11 +6,12 @@ import { InternalMessage } from './entities/internal-message.entity';
 import { InternalChatService } from './internal-chat.service';
 import { InternalChatController } from './internal-chat.controller';
 import { InternalChatGateway } from './internal-chat.gateway';
+import { User } from '../users/entities/user.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([InternalMessage]),
+    TypeOrmModule.forFeature([InternalMessage, User]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

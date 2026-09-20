@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
@@ -17,6 +18,7 @@ import { Business } from '../businesses/entities/business.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, BanRequest, Favorite, Business]),
+    ConfigModule,
     UploadModule,
     forwardRef(() => NotificationsModule),
   ],

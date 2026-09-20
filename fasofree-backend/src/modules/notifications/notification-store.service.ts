@@ -70,8 +70,15 @@ export class NotificationStoreService {
     type: NotificationType = NotificationType.SYSTEM,
     actionUrl?: string,
   ): Promise<number> {
-    // 1. Persister en DB
-    const notifications = userIds.map((userId) =>
+    const MAX_RECIPIENTS = 500;
+    const safeUserIds = userIds.slice(0, MAX_RECIPIENTS);
+    if (userIds.length > MAX_RECIPIENTS) {
+      this.logger.warn(
+        `[sendToUsers] Tronqué de ${userIds.length} à ${MAX_RECIPIENTS} destinataires`,
+      );
+    }
+
+    const notifications = safeUserIds.map((userId) =>
       this.repo.create({
         userId,
         type,

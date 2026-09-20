@@ -160,7 +160,6 @@ const [clients, businesses] = await Promise.all([
 
       const acceptableStatuses = [
         OrderStatus.READY_FOR_PICKUP,
-        OrderStatus.PENDING,
         OrderStatus.PAID,
       ];
       if (!acceptableStatuses.includes(order.status)) {

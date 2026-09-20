@@ -15,6 +15,24 @@ export enum PayoutProviderEnum {
   WAVE = 'WAVE',
 }
 
+export class ApprovePayoutDto {
+  @ApiProperty({
+    example: '+22670000000',
+    description: 'Numéro Mobile Money où effectuer le transfert manuel',
+  })
+  @IsPhoneNumber('BF', { message: 'Numéro Mobile Money burkinabè invalide' })
+  phoneNumber: string;
+
+  @ApiPropertyOptional({
+    enum: PayoutProviderEnum,
+    example: PayoutProviderEnum.ORANGE_MONEY,
+    description: 'Opérateur Mobile Money utilisé pour le transfert',
+  })
+  @IsEnum(PayoutProviderEnum)
+  @IsOptional()
+  provider?: PayoutProviderEnum;
+}
+
 export class RequestWithdrawalDto {
   @ApiProperty({
     example: 5000,

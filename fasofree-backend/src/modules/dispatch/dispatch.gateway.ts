@@ -27,7 +27,26 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: (origin, callback) => {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (!origin || !isProduction) {
+        callback(null, true);
+      } else {
+        const allowedPatterns = [
+          /\.fasofree\.site$/,
+          /\.vercel\.app$/,
+          /\.onrender\.com$/,
+        ];
+        if (allowedPatterns.some((re) => re.test(origin))) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    },
+    credentials: true,
+  },
   namespace: '/dispatch',
 })
 @UsePipes(new ValidationPipe({ transform: true }))
@@ -135,6 +154,18 @@ export class DispatchGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() dto: JoinBusinessRoomDto,
   ) {
+    const userRole = client.data?.user?.role;
+    const userBusinessId = client.data?.user?.businessId;
+
+    if (userRole !== UserRole.SUPER_ADMIN && userRole !== UserRole.ADMIN) {
+      if (!userBusinessId || userBusinessId !== dto.businessId) {
+        this.logger.warn(
+          `[WS Auth] Socket ${client.id} tenté de rejoindre business ${dto.businessId} sans autorisation`,
+        );
+        return { event: 'error', data: 'Accès non autorisé à cette salle' };
+      }
+    }
+
     return this.roomHandler.handleJoinBusinessRoom(client, dto.businessId);
   }
 

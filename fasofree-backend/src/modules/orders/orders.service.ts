@@ -84,7 +84,7 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - DRIVER_ASSIGNED → IN_DELIVERY : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
-const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+export const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
   [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
@@ -1621,132 +1621,137 @@ private readonly geoDispatchService: GeoDispatchService,
     userId: string,
     role: UserRole,
   ): Promise<Order> {
-    const order = await this.orderRepository.findOne({ where: { id } });
-
-    if (!order) {
-      throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
-    }
-
-    // ✅ FIX #2 : Vérification de propriété — empêche toute modification non autorisée
-    if (role === UserRole.DRIVER || role === UserRole.COURIER) {
-      if (order.driverId && order.driverId !== userId) {
-        throw new ForbiddenException('Vous n\'êtes pas le livreur assigné à cette commande');
-      }
-    }
-    if (role === UserRole.BUSINESS_ADMIN) {
-      if (!order.businessId) {
-        throw new ForbiddenException('Cette commande n\'est pas liée à un commerce');
-      }
-      await this.businessesService.assertManagedBy(order.businessId, userId, role);
-    }
-
-    const previousStatus = order.status;
-
-    // 🔒 1. Vérifier que la transition est possible dans la FSM
-    const allowedTransitions = ORDER_STATUS_FSM[previousStatus] || [];
-    if (!allowedTransitions.includes(status)) {
-      throw new BadRequestException(
-        `Transition invalide : ${previousStatus} → ${status}. Transitions autorisées : ${allowedTransitions.join(', ') || 'aucune'}`,
-      );
-    }
-
-    // 🔒 2. Vérifier que le rôle est autorisé pour cette transition
-    const isDriverTransition = DRIVER_TRANSITIONS.includes(status);
-    const isMerchantTransition =
-      MERCHANT_TRANSITIONS.includes(status) ||
-      status === OrderStatus.CANCELLED;
-
-    // Déterminer si c'est une flotte interne (hasOwnDrivers)
-    let hasOwnFleet = false;
-    if (order.businessId) {
-      try {
-        const business = await this.businessesService.findOne(order.businessId);
-        hasOwnFleet = business?.hasOwnDrivers === true;
-      } catch {
-        // fallback: pas de fleet interne
-      }
-    }
-
-    const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
-    const isMerchant = role === UserRole.BUSINESS_ADMIN;
-
-    // Le restaurant peut gérer IN_DELIVERY / DELIVERED uniquement si hasOwnFleet
-    if (isDriverTransition) {
-      if (isDriver) {
-        // OK — le livreur peut faire ces transitions
-      } else if (isMerchant && hasOwnFleet) {
-        // OK — le restaurant avec flotte interne peut gérer
-      } else if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
-        // OK — admin peut tout
-      } else {
-        throw new ForbiddenException(
-          `Transition ${status} réservée aux livreurs/coursiers` +
-            (hasOwnFleet ? '' : ' (flotte interne non activée)'),
-        );
-      }
-    }
-
-    if (isMerchantTransition && isDriver) {
-      throw new ForbiddenException(
-        `Transition ${status} réservée au restaurant`,
-      );
-    }
-
-    // ✅ Appliquer la transition
-    order.status = status;
-    const updatedOrder = await this.orderRepository.save(order);
-
-    // 📡 Broadcast temps réel : tous les dashboards reçoivent le changement sans reconnexion
-    this.dispatchGateway.broadcastOrderStatusChanged({
-      id: updatedOrder.id,
-      status: updatedOrder.status,
-      driverId: updatedOrder.driverId,
-      businessId: updatedOrder.businessId,
-    });
-
-    // ⏳ 3. Séquestre financier : programmer la libération des fonds à J+3h
-    if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
-      updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
-      updatedOrder.payoutReleased = false;
-      await this.orderRepository.save(updatedOrder);
-      this.logger.log(
-        `[Holding] Commande #${id} → séquestre 3h (libération prévue ${updatedOrder.payoutScheduledAt.toISOString()})`,
-      );
-    }
-
-    // 🔔 Settlement financier : livreur (delivered) & marchand (completed)
-    this.emitOrderSettlementEvents(updatedOrder, previousStatus);
-    // 💬 Archivage du chat éphémère si la commande atteint un statut terminal
-    this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
-
-    // 🚀 Auto-Dispatch: Quand la commande est en préparation
-    if (
-      (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
-      previousStatus !== OrderStatus.PAID &&
-      previousStatus !== OrderStatus.IN_PREPARATION
-    ) {
-      this.logger.log(
-        `[Auto-Dispatch] Déclenchement du dispatch automatique pour la commande #${id}`,
-      );
-      this.dispatchService.autoDispatchOrder(id).catch((err) => {
-        this.logger.error(
-          `[Auto-Dispatch Error] Échec du dispatch pour la commande #${id}: ${err.message}`,
-        );
-      });
-    }
-
-    // 📱 Notifications FCM & WebSocket selon le statut
-    await this.sendStatusNotifications(updatedOrder, previousStatus);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
     try {
-      await this.analyticsService.invalidateMerchantCache(order.businessId);
-    } catch (error) {
-      this.logger.warn(
-        `Échec invalidation cache analytics: ${error?.message || error}`,
-      );
-    }
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :id', { id })
+        .getOne();
 
-    return updatedOrder;
+      if (!order) {
+        throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
+      }
+
+      if (role === UserRole.DRIVER || role === UserRole.COURIER) {
+        if (order.driverId && order.driverId !== userId) {
+          throw new ForbiddenException('Vous n\'êtes pas le livreur assigné à cette commande');
+        }
+      }
+      if (role === UserRole.BUSINESS_ADMIN) {
+        if (!order.businessId) {
+          throw new ForbiddenException('Cette commande n\'est pas liée à un commerce');
+        }
+        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+      }
+
+      const previousStatus = order.status;
+
+      const allowedTransitions = ORDER_STATUS_FSM[previousStatus] || [];
+      if (!allowedTransitions.includes(status)) {
+        throw new BadRequestException(
+          `Transition invalide : ${previousStatus} → ${status}. Transitions autorisées : ${allowedTransitions.join(', ') || 'aucune'}`,
+        );
+      }
+
+      const isDriverTransition = DRIVER_TRANSITIONS.includes(status);
+      const isMerchantTransition =
+        MERCHANT_TRANSITIONS.includes(status) ||
+        status === OrderStatus.CANCELLED;
+
+      let hasOwnFleet = false;
+      if (order.businessId) {
+        try {
+          const business = await this.businessesService.findOne(order.businessId);
+          hasOwnFleet = business?.hasOwnDrivers === true;
+        } catch {
+          // fallback: pas de fleet interne
+        }
+      }
+
+      const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
+      const isMerchant = role === UserRole.BUSINESS_ADMIN;
+
+      if (isDriverTransition) {
+        if (isDriver) {
+          // OK
+        } else if (isMerchant && hasOwnFleet) {
+          // OK
+        } else if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
+          // OK
+        } else {
+          throw new ForbiddenException(
+            `Transition ${status} réservée aux livreurs/coursiers` +
+              (hasOwnFleet ? '' : ' (flotte interne non activée)'),
+          );
+        }
+      }
+
+      if (isMerchantTransition && isDriver) {
+        throw new ForbiddenException(
+          `Transition ${status} réservée au restaurant`,
+        );
+      }
+
+      order.status = status;
+      const updatedOrder = await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      this.dispatchGateway.broadcastOrderStatusChanged({
+        id: updatedOrder.id,
+        status: updatedOrder.status,
+        driverId: updatedOrder.driverId,
+        businessId: updatedOrder.businessId,
+      });
+
+      if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
+        updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
+        updatedOrder.payoutReleased = false;
+        await this.orderRepository.save(updatedOrder);
+        this.logger.log(
+          `[Holding] Commande #${id} → séquestre 3h (libération prévue ${updatedOrder.payoutScheduledAt.toISOString()})`,
+        );
+      }
+
+      this.emitOrderSettlementEvents(updatedOrder, previousStatus);
+      this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
+
+      if (
+        (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
+        previousStatus !== OrderStatus.PAID &&
+        previousStatus !== OrderStatus.IN_PREPARATION
+      ) {
+        this.logger.log(
+          `[Auto-Dispatch] Déclenchement du dispatch automatique pour la commande #${id}`,
+        );
+        this.dispatchService.autoDispatchOrder(id).catch((err) => {
+          this.logger.error(
+            `[Auto-Dispatch Error] Échec du dispatch pour la commande #${id}: ${err.message}`,
+          );
+        });
+      }
+
+      await this.sendStatusNotifications(updatedOrder, previousStatus);
+
+      try {
+        await this.analyticsService.invalidateMerchantCache(order.businessId);
+      } catch (error) {
+        this.logger.warn(
+          `Échec invalidation cache analytics: ${error?.message || error}`,
+        );
+      }
+
+      return updatedOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ========================================================================
@@ -1914,66 +1919,81 @@ private readonly geoDispatchService: GeoDispatchService,
     clientId: string,
     pinCode: string,
   ): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.clientId !== clientId) {
-      throw new ForbiddenException('Cette commande ne vous appartient pas');
-    }
-
-    if (order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
-      throw new BadRequestException(
-        `La commande n'est pas en attente de confirmation (statut actuel: "${order.status}")`,
-      );
-    }
-
-    const expectedCode = this.getOrderCode(orderId);
-    if (!pinCode || pinCode !== expectedCode) {
-      throw new BadRequestException('Code invalide. Veuillez réessayer.');
-    }
-
-    order.clientValidatedAt = new Date();
-    order.status = OrderStatus.COMPLETED;
-
-    const saved = await this.orderRepository.save(order);
-
-    // 📡 Broadcast temps réel
-    this.dispatchGateway.broadcastOrderStatusChanged({
-      id: saved.id,
-      status: saved.status,
-      driverId: saved.driverId,
-      businessId: saved.businessId,
-    });
-
-    // 🔔 Settlement marchand : crédit du wallet (payout net de commission)
-    this.emitOrderSettlementEvents(
-      saved,
-      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
-    );
-    // 💬 Archivage du chat éphémère (commande COMPLETED)
-    this.notifyChatClosedIfTerminal(
-      saved,
-      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
-    );
-
-    this.logger.log(
-      `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
-    );
-
-    // Déclencher le Payout automatique au marchand
-    this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
-      this.logger.error(`Erreur Payout après validation #${saved.id}`, err);
-    });
-
-    // Invalider le cache analytics
     try {
-      await this.analyticsService.invalidateMerchantCache(order.businessId);
-    } catch (error) {
-      this.logger.warn(
-        `Échec invalidation cache analytics: ${error?.message || error}`,
-      );
-    }
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
 
-    return saved;
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.clientId !== clientId) {
+        throw new ForbiddenException('Cette commande ne vous appartient pas');
+      }
+
+      if (order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
+        throw new BadRequestException(
+          `La commande n'est pas en attente de confirmation (statut actuel: "${order.status}")`,
+        );
+      }
+
+      const expectedCode = this.getOrderCode(orderId);
+      if (!pinCode || pinCode !== expectedCode) {
+        throw new BadRequestException('Code invalide. Veuillez réessayer.');
+      }
+
+      order.clientValidatedAt = new Date();
+      order.status = OrderStatus.COMPLETED;
+
+      const saved = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+
+      this.dispatchGateway.broadcastOrderStatusChanged({
+        id: saved.id,
+        status: saved.status,
+        driverId: saved.driverId,
+        businessId: saved.businessId,
+      });
+
+      this.emitOrderSettlementEvents(
+        saved,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
+      this.notifyChatClosedIfTerminal(
+        saved,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
+
+      this.logger.log(
+        `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
+      );
+
+      this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
+        this.logger.error(`Erreur Payout après validation #${saved.id}`, err);
+      });
+
+      try {
+        await this.analyticsService.invalidateMerchantCache(order.businessId);
+      } catch (error) {
+        this.logger.warn(
+          `Échec invalidation cache analytics: ${error?.message || error}`,
+        );
+      }
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ========================================================================
@@ -1985,33 +2005,52 @@ private readonly geoDispatchService: GeoDispatchService,
     clientId: string,
     reason: string,
   ): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.clientId !== clientId) {
-      throw new ForbiddenException('Cette commande ne vous appartient pas');
-    }
+    try {
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
 
-    if (
-      order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
-      order.status !== OrderStatus.DELIVERED
-    ) {
-      throw new BadRequestException(
-        `Impossible d'ouvrir un litige : la commande est au statut "${order.status}"`,
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.clientId !== clientId) {
+        throw new ForbiddenException('Cette commande ne vous appartient pas');
+      }
+
+      if (
+        order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
+        order.status !== OrderStatus.DELIVERED
+      ) {
+        throw new BadRequestException(
+          `Impossible d'ouvrir un litige : la commande est au statut "${order.status}"`,
+        );
+      }
+
+      const previousStatus = order.status;
+      order.status = OrderStatus.DISPUTED;
+      const saved = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+
+      this.notifyChatClosedIfTerminal(saved, previousStatus);
+
+      this.logger.warn(
+        `[DISPUTE] Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,
       );
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    const previousStatus = order.status;
-    order.status = OrderStatus.DISPUTED;
-    const saved = await this.orderRepository.save(order);
-
-    // 💬 Archivage du chat éphémère (commande DISPUTED = statut terminal)
-    this.notifyChatClosedIfTerminal(saved, previousStatus);
-
-    this.logger.warn(
-      `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,
-    );
-
-    return saved;
   }
 
   // ========================================================================
