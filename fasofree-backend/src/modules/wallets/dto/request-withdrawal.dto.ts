@@ -36,8 +36,7 @@ export class RequestWithdrawalDto {
     example: '+22670000000',
     description: 'Numéro Mobile Money de réception',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsPhoneNumber('BF', { message: 'Numéro Mobile Money burkinabè invalide' })
   phoneNumber: string;
 
   @ApiPropertyOptional({

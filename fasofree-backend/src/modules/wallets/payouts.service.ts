@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
-import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
+import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
 import { UserRole } from './entities/wallet.entity';
@@ -42,13 +42,20 @@ export class PayoutsService {
     if (!phoneNumber?.trim()) {
       throw new BadRequestException('Le numéro Mobile Money est obligatoire');
     }
+    const normalizedPhone = phoneNumber?.replace(/[\s-]/g, '');
+    if (!/^(?:\+226|226)?[567]\d{7}$/.test(normalizedPhone || '')) {
+      throw new BadRequestException('Numéro Mobile Money burkinabè invalide');
+    }
+    if (provider && !Object.values(PayoutProviderEnum).includes(provider as PayoutProviderEnum)) {
+      throw new BadRequestException('Opérateur Mobile Money invalide');
+    }
     const result = await this.payoutRequestRepository
       .createQueryBuilder()
       .update(PayoutRequest)
       .set({
         status: PayoutStatus.APPROVED,
-        phoneNumber: phoneNumber.trim(),
-        provider: provider?.trim() || null,
+        phoneNumber: normalizedPhone,
+        provider: provider?.trim().toUpperCase() || null,
       })
       .where('id = :id', { id: payoutRequestId })
       .andWhere('status = :status', { status: PayoutStatus.PENDING })
@@ -138,6 +145,7 @@ export class PayoutsService {
       role,
       feeInfo.netAmount,
       branchId,
+      payoutReference,
     );
 
     // 2. Créer le PayoutRequest AVANT d'appeler GeniusPay
@@ -162,7 +170,7 @@ export class PayoutsService {
       this.logger.error(
         `[Payout] Échec création PayoutRequest pour ${userId}: ${saveError instanceof Error ? saveError.message : 'Erreur inconnue'}`,
       );
-      await this.walletService.releaseHeldFunds(userId, role, feeInfo.netAmount, branchId);
+      await this.walletService.releaseHeldFunds(userId, role, feeInfo.netAmount, branchId, payoutReference);
       throw new BadRequestException('Erreur interne lors de la création de la demande de retrait');
     }
 
@@ -263,12 +271,25 @@ export class PayoutsService {
       `[Payout Failure] Ref ${payoutRequestId}: ${reason}. Libération de ${netAmount} XOF.`,
     );
 
+    const payoutRequest = await this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    let released = true;
     try {
-      await this.walletService.releaseHeldFunds(userId, role, netAmount, branchId);
+      await this.walletService.releaseHeldFunds(
+        userId,
+        role,
+        netAmount,
+        branchId,
+        payoutRequest?.transactionReference ?? undefined,
+      );
     } catch (releaseError) {
+      released = false;
       this.logger.error(
         `[PAYOUT CRITIQUE] Échec de libération pour ${userId}: ${releaseError instanceof Error ? releaseError.message : 'Erreur inconnue'}. Montant bloqué: ${netAmount} XOF`,
       );
+    }
+
+    if (!released) {
+      throw new BadRequestException('Impossible de libérer les fonds du retrait');
     }
 
     await this.payoutRequestRepository.update(payoutRequestId, {
@@ -297,7 +318,7 @@ export class PayoutsService {
       .update(PayoutRequest)
       .set({ status: PayoutStatus.EXECUTED, completedAt: () => 'CURRENT_TIMESTAMP' })
       .where('id = :id', { id: payoutRequestId })
-      .andWhere('status IN (:...statuses)', { statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED] })
+      .andWhere('status = :status', { status: PayoutStatus.APPROVED })
       .execute();
 
     if (!result.affected || result.affected === 0) {
@@ -319,7 +340,8 @@ export class PayoutsService {
     }
 
     // Confirmer le débit (held → balance)
-    await this.walletService.confirmHold(
+    try {
+      await this.walletService.confirmHold(
       payoutRequest.userId,
       payoutRequest.userRole as unknown as UserRole,
       payoutRequest.netAmount,
@@ -327,7 +349,15 @@ export class PayoutsService {
       payoutRequest.transactionReference ?? undefined,
       `Retrait confirmé vers ${payoutRequest.provider}`,
       payoutRequest.branchId ?? undefined,
-    );
+      );
+    } catch (error) {
+      await this.payoutRequestRepository.update(payoutRequest.id, {
+        status: PayoutStatus.APPROVED,
+        completedAt: null,
+        failureReason: `Confirmation wallet échouée: ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+      });
+      throw error;
+    }
 
     this.logger.log(
       `[Payout Confirm] ${payoutRequest.netAmount} XOF confirmés pour ${payoutRequest.userId}. Ref: ${payoutRequest.transactionReference}`,
@@ -346,12 +376,16 @@ export class PayoutsService {
 
   // ─── FAIL PAYOUT (webhook cashout.failed) ────────────────────────────────
 
-  async failPayout(payoutRequestId: string, reason: string): Promise<PayoutRequest | null> {
+  async failPayout(
+    payoutRequestId: string,
+    reason: string,
+    finalStatus: PayoutStatus = PayoutStatus.FAILED,
+  ): Promise<PayoutRequest | null> {
     // UPDATE conditionnel
     const result = await this.payoutRequestRepository
       .createQueryBuilder()
       .update(PayoutRequest)
-      .set({ status: PayoutStatus.FAILED, failureReason: reason, completedAt: () => 'CURRENT_TIMESTAMP' })
+      .set({ status: finalStatus, failureReason: reason, completedAt: () => 'CURRENT_TIMESTAMP' })
       .where('id = :id', { id: payoutRequestId })
       .andWhere('status IN (:...statuses)', { statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED] })
       .execute();
@@ -375,11 +409,17 @@ export class PayoutsService {
         payoutRequest.userRole as unknown as UserRole,
         payoutRequest.netAmount,
         payoutRequest.branchId ?? undefined,
+        payoutRequest.transactionReference ?? undefined,
       );
     } catch (releaseError) {
       this.logger.error(
         `[PAYOUT CRITIQUE] Échec libération pour ${payoutRequest.userId}: ${releaseError instanceof Error ? releaseError.message : 'Erreur inconnue'}`,
       );
+      await this.payoutRequestRepository.update(payoutRequestId, {
+        status: PayoutStatus.APPROVED,
+        failureReason: `Libération des fonds échouée: ${releaseError instanceof Error ? releaseError.message : 'erreur inconnue'}`,
+      });
+      throw new BadRequestException('Impossible de libérer les fonds du retrait');
     }
 
     // Notification : retrait échoué + fonds libérés
@@ -404,7 +444,7 @@ export class PayoutsService {
     try {
       await this.notificationStore.create({
         userId,
-        type: NotificationType.ORDER_UPDATE,
+        type: NotificationType.SYSTEM,
         title,
         body,
         actionUrl: `/wallet/payout/${payoutRequestId}`,

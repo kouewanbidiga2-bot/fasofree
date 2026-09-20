@@ -12,12 +12,15 @@ import {
   HttpStatus,
   Headers,
   Logger,
+  ValidationPipe,
+  UsePipes,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { WalletService } from './wallet.service';
 import { PayoutsService } from './payouts.service';
+import { PayoutStatus } from '../financial/entities/payout-request.entity';
 import { UserRole } from './entities/wallet.entity';
 import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -77,7 +80,11 @@ export class WalletController {
     @Param('id') id: string,
     @Body() body: { reason?: string },
   ) {
-    return this.payoutsService.failPayout(id, body.reason || 'Retrait rejeté par le SuperAdmin');
+    return this.payoutsService.failPayout(
+      id,
+      body.reason || 'Retrait rejeté par le SuperAdmin',
+      PayoutStatus.REJECTED,
+    );
   }
 
   @Post('fee-preview')
@@ -89,6 +96,7 @@ export class WalletController {
   }
 
   @Post('withdrawals')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
   @ApiOperation({ summary: 'Demander un retrait Mobile Money (via GeniusPay)' })
   async requestWithdrawal(
     @Request()
