@@ -7,6 +7,8 @@ describe('DeliveryPricingService — tranches tarifaires + surcharge nuit', () =
   let service: DeliveryPricingService;
 
   beforeEach(() => {
+    DeliveryPricingService.tiersFromDB = null;
+    DeliveryPricingService.override = null;
     service = new DeliveryPricingService({
       get: jest.fn((key: string) => {
         if (key === 'DELIVERY_TIERS') return undefined;
@@ -127,7 +129,7 @@ describe('DeliveryPricingService — tranches tarifaires + surcharge nuit', () =
       const result = service.calculateDeliveryFee(10, VehicleType.MOTORCYCLE, 1.0, undefined, DAY_DATE);
       expect(result).toHaveProperty('fee', 1750);
       expect(result).toHaveProperty('distanceKm', 10);
-      expect(result.tier).toEqual({ minKm: 0, maxKm: 15, minPrice: 1500, maxPrice: 2000 });
+      expect(result.tier).toEqual({ minKm: 0, maxKm: 15, minPrice: 1500, maxPrice: 2000, label: '0–15 km' });
       expect(result.isNight).toBe(false);
       expect(result.nightSurcharge).toBe(0);
       expect(result.baseFee).toBe(1750);

@@ -168,6 +168,13 @@ const SuperAdminDashboard = () => {
       MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
       CAR:        { baseFee: 800, ratePerKm: 300 },
     },
+    deliveryTiers: [
+      { minKm: 0,  maxKm: 15, price: 1750, label: '0-15 km' },
+      { minKm: 16, maxKm: 20, price: 2250, label: '16-20 km' },
+      { minKm: 21, maxKm: 25, price: 2750, label: '21-25 km' },
+      { minKm: 26, maxKm: 30, price: 3250, label: '26-30 km' },
+      { minKm: 31, maxKm: null, price: 3750, label: '31+ km' },
+    ],
     fasoRidePricing: {
       MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
       ECONOMY:    { minFare: 500, pricePerKm: 200 },
@@ -216,6 +223,13 @@ const SuperAdminDashboard = () => {
           MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
           CAR:        { baseFee: 800, ratePerKm: 300 },
         },
+        deliveryTiers: data.deliveryTiers || [
+          { minKm: 0,  maxKm: 15, price: 1750, label: '0-15 km' },
+          { minKm: 16, maxKm: 20, price: 2250, label: '16-20 km' },
+          { minKm: 21, maxKm: 25, price: 2750, label: '21-25 km' },
+          { minKm: 26, maxKm: 30, price: 3250, label: '26-30 km' },
+          { minKm: 31, maxKm: null, price: 3750, label: '31+ km' },
+        ],
         fasoRidePricing: data.fasoRidePricing || {
           MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
           ECONOMY:    { minFare: 500, pricePerKm: 200 },
@@ -634,6 +648,7 @@ const SuperAdminDashboard = () => {
       await api.patch('/admin/settings', {
         platformFee: platformSettings.platformFee,
         deliveryPricing: platformSettings.deliveryPricing,
+        deliveryTiers: platformSettings.deliveryTiers,
         fasoRidePricing: platformSettings.fasoRidePricing,
         maxDeliveryRadius: platformSettings.maxDeliveryRadius,
         enableScheduling: platformSettings.enableScheduling,
@@ -2416,54 +2431,101 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
 
-            {/* Matrice Livraison */}
+            {/* Tranches Tarifaires Livraison */}
             <div className="card p-6">
-              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
                 <Truck size={16} className="text-accent-primary" />
-                Matrice Tarifaire — Livraison
+                Tranches Tarifaires — Livraison
               </h3>
+              <p className="text-xs text-text-secondary mb-4">
+                Prix fixe par palier de distance. La distance est calculée automatiquement entre le restaurant et le point de livraison.
+                Surcharge nuit automatique (+500 FCFA) de 21h à 06h.
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-light">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Véhicule</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Tarif de base (FCFA)</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix/km (FCFA)</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Palier</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance min (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance max (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix (FCFA)</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {['BICYCLE', 'MOTORCYCLE', 'CAR'].map((v) => (
-                      <tr key={v} className="border-b border-border-light/50">
-                        <td className="py-2 px-3 font-medium text-text-primary">
-                          {v === 'BICYCLE' ? 'Vélo' : v === 'MOTORCYCLE' ? 'Moto' : 'Voiture'}
+                    {(platformSettings.deliveryTiers || []).map((tier, idx) => (
+                      <tr key={idx} className="border-b border-border-light/50">
+                        <td className="py-2 px-3 font-medium text-text-primary">{tier.label || `Palier ${idx + 1}`}</td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-20 text-right"
+                            value={tier.minKm}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], minKm: Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
+                          />
                         </td>
                         <td className="text-right py-2 px-3">
                           <input
                             type="number"
-                            className="input-field w-24 text-right"
-                            value={platformSettings.deliveryPricing[v]?.baseFee || 0}
-                            onChange={(e) => setPlatformSettings(prev => ({
-                              ...prev,
-                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], baseFee: Number(e.target.value) } }
-                            }))}
+                            className="input-field w-20 text-right"
+                            placeholder="∞"
+                            value={tier.maxKm ?? ''}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], maxKm: e.target.value === '' ? null : Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
                           />
                         </td>
                         <td className="text-right py-2 px-3">
                           <input
                             type="number"
                             className="input-field w-24 text-right"
-                            value={platformSettings.deliveryPricing[v]?.ratePerKm || 0}
-                            onChange={(e) => setPlatformSettings(prev => ({
-                              ...prev,
-                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], ratePerKm: Number(e.target.value) } }
-                            }))}
+                            value={tier.price}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], price: Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
                           />
+                        </td>
+                        <td className="py-2 px-1">
+                          <button
+                            onClick={() => {
+                              const newTiers = platformSettings.deliveryTiers.filter((_, i) => i !== idx);
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
+                            className="text-status-error/60 hover:text-status-error p-1"
+                            title="Supprimer"
+                          >
+                            <XCircle size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <button
+                onClick={() => {
+                  const lastTier = platformSettings.deliveryTiers[platformSettings.deliveryTiers.length - 1];
+                  const newMin = lastTier ? (lastTier.maxKm != null ? lastTier.maxKm + 1 : (lastTier.minKm || 30) + 1) : 0;
+                  setPlatformSettings(prev => ({
+                    ...prev,
+                    deliveryTiers: [
+                      ...prev.deliveryTiers,
+                      { minKm: newMin, maxKm: null, price: 3750, label: `${newMin}+ km` },
+                    ],
+                  }));
+                }}
+                className="mt-3 text-xs text-accent-primary hover:underline flex items-center gap-1"
+              >
+                + Ajouter un palier
+              </button>
             </div>
 
             {/* Matrice Faso Ride */}

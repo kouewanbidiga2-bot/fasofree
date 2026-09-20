@@ -9,7 +9,6 @@ export enum VehicleType {
 
 /**
  * Tranches de livraison (colis / motos) — Burkina Faso.
- * Basé sur l'image fournie (fourchettes min/max).
  * La nuit (21h–06h Africa/Ouagadougou) ajoute +500 FCFA.
  */
 export interface DeliveryTier {
@@ -17,6 +16,7 @@ export interface DeliveryTier {
   maxKm: number | null; // null = illimité
   minPrice: number;
   maxPrice: number;
+  label?: string;
 }
 
 export interface DeliveryPricingResult {
@@ -30,31 +30,18 @@ export interface DeliveryPricingResult {
 }
 
 const DEFAULT_TIERS: DeliveryTier[] = [
-  { minKm: 0,   maxKm: 15, minPrice: 1500, maxPrice: 2000 },
-  { minKm: 16,  maxKm: 20, minPrice: 2000, maxPrice: 2500 },
-  { minKm: 21,  maxKm: 25, minPrice: 2500, maxPrice: 3000 },
-  { minKm: 26,  maxKm: 30, minPrice: 3000, maxPrice: 3500 },
-  { minKm: 31,  maxKm: null, minPrice: 3500, maxPrice: 4000 }, // au-delà de 30 km
+  { minKm: 0,   maxKm: 15, minPrice: 1500, maxPrice: 2000, label: '0–15 km' },
+  { minKm: 16,  maxKm: 20, minPrice: 2000, maxPrice: 2500, label: '16–20 km' },
+  { minKm: 21,  maxKm: 25, minPrice: 2500, maxPrice: 3000, label: '21–25 km' },
+  { minKm: 26,  maxKm: 30, minPrice: 3000, maxPrice: 3500, label: '26–30 km' },
+  { minKm: 31,  maxKm: null, minPrice: 3500, maxPrice: 4000, label: '31+ km' },
 ];
 
-const NIGHT_START_HOUR = 21; // 21:00
-const NIGHT_END_HOUR = 6;    // 06:00
+const NIGHT_START_HOUR = 21;
+const NIGHT_END_HOUR = 6;
 const NIGHT_SURCHARGE = 500;
 const TIMEZONE = 'Africa/Ouagadougou';
 
-/**
- * Calcule le prix dans une tranche.
- * Par défaut : milieu de la fourchette (min + max) / 2.
- * Peut être surchargé par config (poids, véhicule, etc.).
- */
-function priceInTier(tier: DeliveryTier, _vehicleType: VehicleType, _weightKg?: number): number {
-  // Milieu de la fourchette — configurable plus tard selon poids/volume
-  return Math.round((tier.minPrice + tier.maxPrice) / 2);
-}
-
-/**
- * Vérifie si une date tombe dans la période de nuit (Africa/Ouagadougou).
- */
 function isNightTime(date: Date = new Date()): boolean {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: TIMEZONE,
@@ -70,20 +57,18 @@ export class DeliveryPricingService {
   private readonly logger = new Logger(DeliveryPricingService.name);
   private tiers: DeliveryTier[];
 
-  /** Override statique pour compatibilité SettingsService */
+  /** Override legacy (linéaire: baseFee + ratePerKm). Null si tranches DB actives. */
   static override: Record<string, { baseFee: number; ratePerKm: number }> | null = null;
 
+  /** Tranches depuis la DB (prioritaires sur override legacy). */
+  static tiersFromDB: { minKm: number; maxKm: number | null; price: number; label?: string }[] | null = null;
+
   constructor(private readonly configService: ConfigService) {
-    // Charger les tranches depuis la config ou utiliser les défauts
     const configTiers = this.configService.get<DeliveryTier[]>('DELIVERY_TIERS');
     this.tiers = configTiers?.length ? configTiers : DEFAULT_TIERS;
     this.tiers.sort((a, b) => a.minKm - b.minKm);
   }
 
-  /**
-   * Calcule le frais de livraison selon la distance + surcharge nuit.
-   * Remplace l'ancienne formule linéaire (baseFee + distance * ratePerKm).
-   */
   calculateDeliveryFee(
     distanceKm: number,
     vehicleType: VehicleType = VehicleType.MOTORCYCLE,
@@ -96,7 +81,41 @@ export class DeliveryPricingService {
       distanceKm = 0;
     }
 
-    // BACKWARD COMPAT: si SettingsService a mis un override (ancien format linéaire), l'utiliser
+    // 1. Priorité : tranches depuis la DB (nouveau système admin)
+    if (DeliveryPricingService.tiersFromDB && DeliveryPricingService.tiersFromDB.length > 0) {
+      const dbTiers = DeliveryPricingService.tiersFromDB;
+      const matched = dbTiers.find(t => distanceKm >= t.minKm && (t.maxKm === null || distanceKm <= t.maxKm));
+      const tier = matched ?? dbTiers[dbTiers.length - 1];
+
+      const isNight = isNightTime(date);
+      const nightSurcharge = isNight ? NIGHT_SURCHARGE : 0;
+      const totalFee = tier.price + nightSurcharge;
+
+      const resultTier: DeliveryTier = {
+        minKm: tier.minKm,
+        maxKm: tier.maxKm,
+        minPrice: tier.price,
+        maxPrice: tier.price,
+        label: tier.label,
+      };
+
+      this.logger.log(
+        `[Pricing] Distance: ${distanceKm.toFixed(2)}km | Palier: ${tier.label ?? `${tier.minKm}–${tier.maxKm ?? '+'}km`} | ` +
+        `Prix: ${tier.price} FCFA | Nuit: ${isNight ? 'OUI (+500)' : 'NON'} | Total: ${totalFee} FCFA`,
+      );
+
+      return {
+        fee: totalFee,
+        distanceKm,
+        tier: resultTier,
+        isNight,
+        nightSurcharge,
+        baseFee: tier.price,
+        vehicleType,
+      };
+    }
+
+    // 2. Fallback legacy : formule linéaire (baseFee + distance × ratePerKm)
     if (DeliveryPricingService.override && DeliveryPricingService.override[vehicleType]) {
       const profile = DeliveryPricingService.override[vehicleType];
       const rawCost = profile.baseFee + distanceKm * profile.ratePerKm;
@@ -112,16 +131,13 @@ export class DeliveryPricingService {
       };
     }
 
-    // NOUVEAU: tranches tarifaires
+    // 3. Dernier fallback : tranches par défaut hardcodées
     const tier = this.tiers.find(t => distanceKm >= t.minKm && (t.maxKm === null || distanceKm <= t.maxKm))
       ?? this.tiers[this.tiers.length - 1];
 
-    const baseFee = priceInTier(tier, vehicleType, weightKg);
-
-    // Surcharge nuit
+    const baseFee = Math.round((tier.minPrice + tier.maxPrice) / 2);
     const isNight = isNightTime(date);
     const nightSurcharge = isNight ? NIGHT_SURCHARGE : 0;
-
     const totalFee = baseFee + nightSurcharge;
 
     this.logger.log(
@@ -140,9 +156,6 @@ export class DeliveryPricingService {
     };
   }
 
-  /**
-   * Compatibilité ascendante : renvoie juste le montant (ancienne signature).
-   */
   calculateDeliveryFeeLegacy(
     distanceKm: number,
     vehicleType: VehicleType = VehicleType.MOTORCYCLE,
