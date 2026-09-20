@@ -34,11 +34,22 @@ export class PayoutsService {
     });
   }
 
-  async approveManualPayout(payoutRequestId: string): Promise<PayoutRequest | null> {
+  async approveManualPayout(
+    payoutRequestId: string,
+    phoneNumber: string,
+    provider?: string,
+  ): Promise<PayoutRequest | null> {
+    if (!phoneNumber?.trim()) {
+      throw new BadRequestException('Le numéro Mobile Money est obligatoire');
+    }
     const result = await this.payoutRequestRepository
       .createQueryBuilder()
       .update(PayoutRequest)
-      .set({ status: PayoutStatus.APPROVED })
+      .set({
+        status: PayoutStatus.APPROVED,
+        phoneNumber: phoneNumber.trim(),
+        provider: provider?.trim() || null,
+      })
       .where('id = :id', { id: payoutRequestId })
       .andWhere('status = :status', { status: PayoutStatus.PENDING })
       .execute();
