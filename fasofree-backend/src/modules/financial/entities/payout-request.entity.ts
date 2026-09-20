@@ -9,6 +9,7 @@ import {
 
 export enum PayoutStatus {
   PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
   EXECUTED = 'EXECUTED',
   FAILED = 'FAILED',
   REJECTED = 'REJECTED',
@@ -16,7 +17,9 @@ export enum PayoutStatus {
 
 export enum UserRole {
   DRIVER = 'DRIVER',
+  COURIER = 'COURIER',
   MERCHANT = 'MERCHANT',
+  SUPER_ADMIN = 'SUPER_ADMIN',
 }
 
 @Entity('payout_requests')

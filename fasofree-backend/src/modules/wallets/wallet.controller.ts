@@ -23,6 +23,8 @@ import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
+import { Roles } from '../../core/security/roles.decorator';
+import { RolesGuard } from '../../core/security/roles.guard';
 
 @ApiTags('Wallets')
 @UseGuards(AuthGuard('jwt'))
@@ -36,6 +38,40 @@ export class WalletController {
     private readonly configService: ConfigService,
     private readonly businessesService: BusinessesService,
   ) {}
+
+  @Get('admin/payouts/pending')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(AppUserRole.SUPER_ADMIN)
+  async listPendingManualPayouts() {
+    return this.payoutsService.listPendingManualPayouts();
+  }
+
+  @Post('admin/payouts/:id/approve')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(AppUserRole.SUPER_ADMIN)
+  async approveManualPayout(@Param('id') id: string) {
+    return this.payoutsService.approveManualPayout(id);
+  }
+
+  @Post('admin/payouts/:id/paid')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(AppUserRole.SUPER_ADMIN)
+  async markManualPayoutPaid(
+    @Param('id') id: string,
+    @Body() body: { providerReference?: string },
+  ) {
+    return this.payoutsService.confirmPayout(id, body.providerReference);
+  }
+
+  @Post('admin/payouts/:id/reject')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(AppUserRole.SUPER_ADMIN)
+  async rejectManualPayout(
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.payoutsService.failPayout(id, body.reason || 'Retrait rejeté par le SuperAdmin');
+  }
 
   @Post('fee-preview')
   @ApiOperation({ summary: 'Prévisualisation des frais de retrait' })

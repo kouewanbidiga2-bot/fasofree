@@ -11,6 +11,7 @@ import { SettingsService } from '../settings/settings.service';
 import { PayoutRequest, PayoutStatus, UserRole as PayoutUserRole } from '../financial/entities/payout-request.entity';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PayoutsService {
@@ -23,7 +24,31 @@ export class PayoutsService {
     @InjectRepository(PayoutRequest)
     private readonly payoutRequestRepository: Repository<PayoutRequest>,
     private readonly notificationStore: NotificationStoreService,
+    private readonly configService: ConfigService,
   ) {}
+
+  async listPendingManualPayouts(): Promise<PayoutRequest[]> {
+    return this.payoutRequestRepository.find({
+      where: [{ status: PayoutStatus.PENDING }, { status: PayoutStatus.APPROVED }],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async approveManualPayout(payoutRequestId: string): Promise<PayoutRequest | null> {
+    const result = await this.payoutRequestRepository
+      .createQueryBuilder()
+      .update(PayoutRequest)
+      .set({ status: PayoutStatus.APPROVED })
+      .where('id = :id', { id: payoutRequestId })
+      .andWhere('status = :status', { status: PayoutStatus.PENDING })
+      .execute();
+    const payout = await this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    if (result.affected && payout) {
+      await this.notifyPayoutStep(payout.userId, 'Retrait approuvé',
+        `Votre retrait de ${payout.netAmount} FCFA a été approuvé et sera payé manuellement.`, payout.id);
+    }
+    return payout;
+  }
 
   async calculatePayoutFee(amountFcfa: number): Promise<{
     fee: number;
@@ -136,6 +161,24 @@ export class PayoutsService {
       payoutRequest.id,
     );
 
+    if (this.configService.get<string>('PAYOUTS_MANUAL_ONLY', 'true') === 'true') {
+      await this.notifyPayoutStep(userId, 'Retrait en attente de paiement',
+        `Votre retrait de ${dto.amountFcfa} FCFA est en attente de validation par le SuperAdmin.`,
+        payoutRequest.id);
+      return {
+        status: PayoutStatus.PENDING,
+        manual: true,
+        message: 'Demande enregistrée. Le SuperAdmin effectuera le transfert manuellement.',
+        payoutRequestId: payoutRequest.id,
+        reference: payoutReference,
+        amountRequestedFcfa: dto.amountFcfa,
+        feeFcfa: feeInfo.fee,
+        netAmountFcfa: feeInfo.netAmount,
+        newAvailableBalanceFcfa: wallet.availableBalance,
+        newHeldBalanceFcfa: wallet.heldBalance,
+      };
+    }
+
     // 4. Appeler GeniusPay API
     try {
       const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
@@ -236,14 +279,14 @@ export class PayoutsService {
    * Confirme un retrait réussi.
    * FIX #3 : UPDATE conditionnel pour éviter le double débit en cas de webhook concurrent.
    */
-  async confirmPayout(payoutRequestId: string): Promise<PayoutRequest | null> {
+  async confirmPayout(payoutRequestId: string, providerReference?: string): Promise<PayoutRequest | null> {
     // FIX #3 : UPDATE atomique conditionnel — seule la première exécution passe
     const result = await this.payoutRequestRepository
       .createQueryBuilder()
       .update(PayoutRequest)
       .set({ status: PayoutStatus.EXECUTED, completedAt: () => 'CURRENT_TIMESTAMP' })
       .where('id = :id', { id: payoutRequestId })
-      .andWhere('status = :status', { status: PayoutStatus.PENDING })
+      .andWhere('status IN (:...statuses)', { statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED] })
       .execute();
 
     if (!result.affected || result.affected === 0) {
@@ -258,6 +301,11 @@ export class PayoutsService {
       where: { id: payoutRequestId },
     });
     if (!payoutRequest) return null;
+
+    if (providerReference) {
+      await this.payoutRequestRepository.update(payoutRequest.id, { providerReference });
+      payoutRequest.providerReference = providerReference;
+    }
 
     // Confirmer le débit (held → balance)
     await this.walletService.confirmHold(
@@ -294,7 +342,7 @@ export class PayoutsService {
       .update(PayoutRequest)
       .set({ status: PayoutStatus.FAILED, failureReason: reason, completedAt: () => 'CURRENT_TIMESTAMP' })
       .where('id = :id', { id: payoutRequestId })
-      .andWhere('status = :status', { status: PayoutStatus.PENDING })
+      .andWhere('status IN (:...statuses)', { statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED] })
       .execute();
 
     if (!result.affected || result.affected === 0) {
