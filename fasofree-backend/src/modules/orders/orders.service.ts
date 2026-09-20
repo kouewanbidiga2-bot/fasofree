@@ -1581,6 +1581,7 @@ private readonly geoDispatchService: GeoDispatchService,
     if (cancellableStatuses.includes(order.status)) {
       const previousStatus = order.status;
       const result = await queryRunner.manager.update(
+        Order,
         { id: orderId, status: In(cancellableStatuses) },
         { status: OrderStatus.FAILED },
       );
@@ -1589,7 +1590,8 @@ private readonly geoDispatchService: GeoDispatchService,
           `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
         );
       }
-      await queryRunner.commitTransaction();
+    }
+    await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
