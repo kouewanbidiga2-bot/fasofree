@@ -1535,11 +1535,17 @@ private readonly geoDispatchService: GeoDispatchService,
       `[Payment Failed] Annulation de la commande ${orderId} pour échec de paiement`,
     );
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
     if (!order) {
       this.logger.error(`Commande ${orderId} introuvable pour l'annulation.`);
+      await queryRunner.rollbackTransaction();
       return;
     }
 
@@ -1562,6 +1568,7 @@ private readonly geoDispatchService: GeoDispatchService,
       this.logger.warn(
         `[Payment Failed] Commande ${orderId} déjà au statut ${order.status} — annulation ignorée`,
       );
+      await queryRunner.rollbackTransaction();
       return;
     }
 
@@ -1573,7 +1580,7 @@ private readonly geoDispatchService: GeoDispatchService,
     ];
     if (cancellableStatuses.includes(order.status)) {
       const previousStatus = order.status;
-      const result = await this.orderRepository.update(
+      const result = await queryRunner.manager.update(
         { id: orderId, status: In(cancellableStatuses) },
         { status: OrderStatus.FAILED },
       );
@@ -1582,6 +1589,12 @@ private readonly geoDispatchService: GeoDispatchService,
           `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
         );
       }
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -1756,6 +1769,25 @@ private readonly geoDispatchService: GeoDispatchService,
   @Cron(CronExpression.EVERY_10_MINUTES)
   async cleanupExpiredPendingOrders(): Promise<void> {
     const expiredThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes
+
+    const expiredPromotionalOrders = await this.orderRepository
+      .createQueryBuilder('o')
+      .where('o.status IN (:...statuses)', {
+        statuses: [OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT],
+      })
+      .andWhere('o."createdAt" < :threshold', { threshold: expiredThreshold })
+      .andWhere('o."promotionCode" IS NOT NULL')
+      .getMany();
+
+    for (const expiredOrder of expiredPromotionalOrders) {
+      await this.promotionsService
+        .releaseByCode(expiredOrder.promotionCode)
+        .catch((error) =>
+          this.logger.error(
+            `[Cleanup] Promotion non libérée pour ${expiredOrder.id}: ${error.message}`,
+          ),
+        );
+    }
 
     // Nettoyer les commandes PENDING et AWAITING_PAYMENT qui n'ont pas été payées
     const result = await this.orderRepository

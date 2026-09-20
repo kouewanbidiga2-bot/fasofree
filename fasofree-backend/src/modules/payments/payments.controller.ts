@@ -189,7 +189,9 @@ export class PaymentsController {
       }
     } catch (error) {
       this.logger.error(`Webhook processing error: ${error.message}`);
-      throw error;
+      // Webhook authentifié et reçu : répondre 200 pour éviter les retries
+      // infinis de l'ancienne URL. Les erreurs d'authentification restent 4xx.
+      return { success: false, error: error.message };
     }
 
     return { success: true };

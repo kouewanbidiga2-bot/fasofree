@@ -265,13 +265,13 @@ export class GeniusPayController {
 
     if (!orderId) {
       this.logger.warn('Webhook GeniusPay: order_id manquant dans metadata');
-      return;
+      throw new BadRequestException('Webhook order_id manquant');
     }
 
     const order = await this.orderRepository.findOne({ where: { id: orderId } });
     if (!order) {
       this.logger.error(`Webhook GeniusPay: commande ${orderId} introuvable`);
-      return;
+      throw new BadRequestException('Commande du webhook introuvable');
     }
 
     // 🔒 Idempotence : ignorer si déjà payée (AVANT validation du montant)
