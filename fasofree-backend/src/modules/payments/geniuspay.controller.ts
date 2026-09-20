@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
@@ -69,6 +70,22 @@ export class GeniusPayController {
       throw new ForbiddenException('Cette commande ne vous appartient pas');
     }
 
+    if ([
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ].includes(order.status)) {
+      throw new BadRequestException('Cette commande ne peut plus être payée');
+    }
+
     const amount = Number(order.totalAmount);
 
     const payment = await this.geniusPayService.createPayment({
@@ -90,7 +107,9 @@ export class GeniusPayController {
       orderId: order.id,
       amount,
       commissionAmount,
-      paymentMethod: PaymentMethod.CASH,
+      paymentMethod: Object.values(PaymentMethod).includes(body.paymentMethod as PaymentMethod)
+        ? (body.paymentMethod as PaymentMethod)
+        : PaymentMethod.ORANGE_MONEY,
       reference: payment.reference,
       paymentGatewayId: String(payment.id),
       status: TransactionStatus.PENDING,
@@ -179,7 +198,6 @@ export class GeniusPayController {
    * 🔔 Webhook GeniusPay — Notifications de paiement
    */
   @Post('webhook')
-  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Webhook GeniusPay — notifications de paiement' })
   async handleWebhook(
     @Body() payload: any,
@@ -195,12 +213,12 @@ export class GeniusPayController {
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
     if (!webhookSecret) {
       this.logger.error('❌ GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
-      return { success: false, error: 'Webhook not configured' };
+      throw new ForbiddenException('Webhook not configured');
     }
 
     if (!signature || !timestamp) {
       this.logger.error('❌ Missing webhook signature or timestamp');
-      return { success: false, error: 'Missing signature' };
+      throw new ForbiddenException('Missing signature');
     }
     const bodyStr = JSON.stringify(payload);
     const isValid = this.geniusPayService.verifyWebhookSignature(
@@ -212,7 +230,7 @@ export class GeniusPayController {
 
     if (!isValid) {
       this.logger.error('❌ Invalid GeniusPay webhook signature');
-      return { success: false, error: 'Invalid signature' };
+      throw new ForbiddenException('Invalid signature');
     }
 
     // Traiter l'événement
@@ -237,7 +255,7 @@ export class GeniusPayController {
       return { success: true };
     } catch (error: any) {
       this.logger.error(`❌ Webhook processing error: ${error.message}`);
-      return { success: false, error: error.message };
+      throw error;
     }
   }
 
@@ -395,6 +413,7 @@ export class GeniusPayController {
       await this.transactionRepository.update(transaction.id, {
         status: TransactionStatus.REFUNDED,
       });
+      await this.ordersService.markOrderAsRefunded(orderId);
     } else {
       this.logger.warn(
         `Webhook refunded: aucune transaction SUCCESS trouvée pour ref ${geniusPayRef}`,

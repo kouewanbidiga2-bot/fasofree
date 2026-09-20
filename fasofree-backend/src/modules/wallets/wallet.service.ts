@@ -255,9 +255,19 @@ export class WalletService {
       );
     }
 
-    if (Number(wallet.balance) < Number(amount)) {
+    if (reference) {
+      const existing = await manager.findOne(WalletTransaction, {
+        where: { walletId: wallet.id, reference, status: TransactionStatus.COMPLETED },
+      });
+      if (existing) return { wallet, transaction: existing };
+    }
+
+    if (
+      Number(wallet.balance) < Number(amount) ||
+      Number(wallet.availableBalance) < Number(amount)
+    ) {
       throw new BadRequestException(
-        `Solde insuffisant. Solde actuel: ${wallet.balance} XOF, Requis: ${amount} XOF`,
+        `Solde disponible insuffisant. Disponible: ${wallet.availableBalance} XOF, Requis: ${amount} XOF`,
       );
     }
 
@@ -407,6 +417,20 @@ export class WalletService {
       wallet.heldBalance = Number(wallet.heldBalance) + Number(amount);
       await queryRunner.manager.save(wallet);
 
+      await queryRunner.manager.save(
+        queryRunner.manager.create(WalletTransaction, {
+          walletId: wallet.id,
+          branchId: branchId || null,
+          type: TransactionType.DEBIT,
+          reason: TransactionReason.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          amount,
+          balanceAfter: wallet.balance,
+          reference: `HOLD-${wallet.id}-${Date.now()}`,
+          description: 'Blocage temporaire pour retrait',
+        }),
+      );
+
       await queryRunner.commitTransaction();
       this.logger.log(
         `[Wallet Hold] ${amount} XOF bloqués pour ${userRole} ${userId}. Disponible: ${wallet.availableBalance}, En attente: ${wallet.heldBalance}`,
@@ -466,6 +490,20 @@ export class WalletService {
       wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
       wallet.availableBalance = Number(wallet.availableBalance) + Number(amount);
       await queryRunner.manager.save(wallet);
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(WalletTransaction, {
+          walletId: wallet.id,
+          branchId: branchId || null,
+          type: TransactionType.CREDIT,
+          reason: TransactionReason.WITHDRAWAL,
+          status: TransactionStatus.COMPLETED,
+          amount,
+          balanceAfter: wallet.balance,
+          reference: `RELEASE-${wallet.id}-${Date.now()}`,
+          description: 'Libération d’un retrait échoué',
+        }),
+      );
 
       await queryRunner.commitTransaction();
       this.logger.log(

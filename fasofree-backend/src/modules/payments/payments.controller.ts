@@ -106,6 +106,7 @@ export class PaymentsController {
     @Headers('x-timestamp') timestamp?: string,
     @Headers('x-webhook-signature') whSignature?: string,
     @Headers('x-webhook-timestamp') whTimestamp?: string,
+    @Headers('x-webhook-event') webhookEvent?: string,
   ) {
     this.logger.warn('[DEPRECATED] /payments/webhook/geniuspay → traitement unifié');
 
@@ -126,7 +127,7 @@ export class PaymentsController {
     }
 
     // Même traitement que /geniuspay/webhook
-    const event = payload.event || payload.type || 'unknown';
+    const event = webhookEvent || payload.event || payload.type || 'unknown';
     const data = payload.data || payload;
     const orderId = data.metadata?.order_id || payload.metadata?.order_id;
     const geniusPayRef = data.reference || String(data.id || '');
@@ -137,12 +138,20 @@ export class PaymentsController {
           // ✅ Sécurité : montant obligatoire et valide
           const receivedAmount = Number(data.amount ?? payload.amount);
           if (!Number.isFinite(receivedAmount)) {
+            await this.transactionRepository.update(
+              { orderId, status: TransactionStatus.PENDING },
+              { status: TransactionStatus.FAILED },
+            );
             this.logger.error(`❌ Montant absent ou invalide pour commande ${orderId}`);
             await this.ordersService.markAsPaymentFailed(orderId);
             throw new BadRequestException('Amount missing or invalid');
           }
           const amountValid = await this.paymentsService.validatePaymentAmount(orderId, receivedAmount);
           if (!amountValid) {
+            await this.transactionRepository.update(
+              { orderId, status: TransactionStatus.PENDING },
+              { status: TransactionStatus.FAILED },
+            );
             this.logger.error(`❌ Montant invalide pour commande ${orderId}: reçu ${receivedAmount}`);
             await this.ordersService.markAsPaymentFailed(orderId);
             throw new BadRequestException('Amount mismatch');
@@ -175,6 +184,7 @@ export class PaymentsController {
         });
         if (tx) {
           await this.transactionRepository.update(tx.id, { status: TransactionStatus.REFUNDED });
+          await this.ordersService.markOrderAsRefunded(orderId);
         }
       }
     } catch (error) {

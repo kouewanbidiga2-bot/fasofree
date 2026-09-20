@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, IsNull } from 'typeorm';
 
 // Entités et DTOs
 import {
@@ -1573,12 +1573,31 @@ private readonly geoDispatchService: GeoDispatchService,
     ];
     if (cancellableStatuses.includes(order.status)) {
       const previousStatus = order.status;
-      order.status = OrderStatus.FAILED;
-      await this.orderRepository.save(order);
-      this.logger.log(
-        `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
+      const result = await this.orderRepository.update(
+        { id: orderId, status: In(cancellableStatuses) },
+        { status: OrderStatus.FAILED },
       );
+      if (result.affected === 1) {
+        this.logger.log(
+          `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
+        );
+      }
     }
+  }
+
+  async markOrderAsRefunded(orderId: string): Promise<void> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order || order.status === OrderStatus.REFUNDED) return;
+    const previousStatus = order.status;
+    order.status = OrderStatus.REFUNDED;
+    const saved = await this.orderRepository.save(order);
+    this.notifyChatClosedIfTerminal(saved, previousStatus);
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
   }
 
   async updateStatus(
@@ -1754,6 +1773,31 @@ private readonly geoDispatchService: GeoDispatchService,
         `[Cleanup] ${result.affected} commande(s) sans paiement (PENDING/AWAITING_PAYMENT) expirée(s) marquée(s) FAILED`,
       );
     }
+
+    // Ride : le client est débité dès la création. Sans chauffeur après 30 min,
+    // annuler la course et rembourser le séquestre de façon idempotente.
+    const expiredRides = await this.orderRepository.find({
+      where: {
+        orderType: OrderType.RIDE,
+        status: OrderStatus.PAID,
+        driverId: IsNull(),
+      },
+    });
+    for (const ride of expiredRides.filter((r) => r.createdAt < expiredThreshold)) {
+      await this.orderRepository.update(ride.id, { status: OrderStatus.FAILED });
+      await this.walletService.creditWallet(
+        ride.clientId,
+        WalletUserRole.CUSTOMER,
+        Number(ride.totalAmount),
+        TransactionReason.REFUND,
+        `RIDE-REFUND-${ride.id}`,
+        `Remboursement automatique : aucun livreur pour la course ${ride.id}`,
+      );
+      await this.transactionRepository.update(
+        { orderId: ride.id, status: TransactionStatus.SUCCESS },
+        { status: TransactionStatus.REFUNDED },
+      );
+    }
   }
 
   // ========================================================================
@@ -1922,11 +1966,12 @@ private readonly geoDispatchService: GeoDispatchService,
       );
     }
 
+    const previousStatus = order.status;
     order.status = OrderStatus.DISPUTED;
     const saved = await this.orderRepository.save(order);
 
     // 💬 Archivage du chat éphémère (commande DISPUTED = statut terminal)
-    this.notifyChatClosedIfTerminal(saved, order.status);
+    this.notifyChatClosedIfTerminal(saved, previousStatus);
 
     this.logger.warn(
       `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,

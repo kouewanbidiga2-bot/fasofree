@@ -120,7 +120,7 @@ export class NotificationStoreService {
       .select('id')
       .from('users', 'u')
       .where('u.role = :role', { role })
-      .getMany();
+      .getRawMany();
 
     const userIds = result.map((r: any) => r.id);
     if (userIds.length === 0) return 0;
@@ -140,6 +140,9 @@ export class NotificationStoreService {
       .from('orders', 'o')
       .where('o."businessId" IN (:...businessIds)', { businessIds })
       .andWhere('o."clientId" IS NOT NULL')
+      .andWhere('o.status NOT IN (:...excluded)', {
+        excluded: ['CANCELLED', 'FAILED'],
+      })
       .getRawMany();
     return result.map((r: any) => r.clientId).filter(Boolean);
   }

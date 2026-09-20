@@ -42,9 +42,26 @@ export class PaymentsService {
       throw new BadRequestException('Cette commande ne vous appartient pas');
     }
 
+    const terminalStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+    if (terminalStatuses.includes(order.status)) {
+      throw new BadRequestException('Cette commande ne peut plus être payée');
+    }
+
     // 🔁 Retry : si la commande est FAILED, la remettre en AWAITING_PAYMENT
     if (order.status === 'FAILED') {
-      await this.orderRepository.update(order.id, { status: 'AWAITING_PAYMENT' as any });
+      await this.orderRepository.update(order.id, { status: OrderStatus.AWAITING_PAYMENT });
       this.logger.log(`Order ${order.id} remise en AWAITING_PAYMENT pour retry`);
     }
 
@@ -85,7 +102,7 @@ export class PaymentsService {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
       // Marquer la commande ET la transaction en FAILED
       try {
-        await this.orderRepository.update(order.id, { status: 'FAILED' as any });
+        await this.orderRepository.update(order.id, { status: OrderStatus.FAILED });
         const tx = await this.transactionRepository.findOne({ where: { orderId: order.id } });
         if (tx && tx.status === TransactionStatus.PENDING) {
           await this.transactionRepository.update(tx.id, { status: TransactionStatus.FAILED });
