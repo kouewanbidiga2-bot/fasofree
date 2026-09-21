@@ -304,18 +304,19 @@ export class DisputesService {
           `[Dispute Refund] Wallet du client ${order.clientId} crédité de ${refundAmount} FCFA. Nouveau solde: ${wallet.balance}`,
         );
 
-        // 📱 Notifier le client
+        // 📱 Notifier le client (dispatcher multi-canal : push + fallback email/SMS/WhatsApp)
         const client = await this.usersService.findById(order.clientId);
-        if (client?.fcmToken) {
-          await this.notificationsService.sendToDevice(client.fcmToken, {
-            title: 'Remboursement effectué 💰',
-            body: `Votre compte a été crédité de ${refundAmount.toLocaleString()} FCFA suite à votre réclamation.`,
-            data: {
+        if (client) {
+          await this.notificationsService.sendNotification(
+            client,
+            'Remboursement effectué 💰',
+            `Votre compte a été crédité de ${refundAmount.toLocaleString()} FCFA suite à votre réclamation.`,
+            {
               orderId: order.id,
               disputeId: dispute.id,
               type: 'REFUND_CREDITED',
             },
-          });
+          );
         }
       } catch (walletError) {
         this.logger.error(

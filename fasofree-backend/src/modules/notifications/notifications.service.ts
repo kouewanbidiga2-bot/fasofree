@@ -33,6 +33,7 @@ export class NotificationsService {
     user: User,
     subject: string,
     message: string,
+    data?: Record<string, string>,
   ): Promise<boolean> {
     const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
     let channelOk = false;
@@ -41,7 +42,7 @@ export class NotificationsService {
     switch (channel) {
       case NotificationChannel.PUSH: {
         if (user.fcmToken) {
-          channelOk = await this.sendToDevice(user.fcmToken, { title: subject, body: message });
+          channelOk = await this.sendToDevice(user.fcmToken, { title: subject, body: message, data });
         }
         if (!channelOk && user.email) {
           channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
@@ -80,7 +81,7 @@ export class NotificationsService {
 
     // 2. Push FCM en parallèle (complément, non bloquant) — sauf si le canal principal EST déjà PUSH
     if (channel !== NotificationChannel.PUSH && user.fcmToken) {
-      this.sendToDevice(user.fcmToken, { title: subject, body: message }).catch(() => {});
+      this.sendToDevice(user.fcmToken, { title: subject, body: message, data }).catch(() => {});
     }
 
     return channelOk;

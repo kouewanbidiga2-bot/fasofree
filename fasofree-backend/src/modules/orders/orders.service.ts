@@ -36,7 +36,6 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
@@ -185,7 +184,6 @@ export class OrdersService {
     @Inject(forwardRef(() => PromotionsService))
     private readonly promotionsService: PromotionsService,
     private readonly notificationsService: NotificationsService,
-    private readonly smsService: SmsService,
     private readonly usersService: UsersService,
     private readonly qrCodeService: QrCodeService,
     private readonly distanceCalculatorService: DistanceCalculatorService,
@@ -1505,91 +1503,63 @@ export class OrdersService {
     previousStatus: OrderStatus,
   ): Promise<void> {
     try {
-      // Récupérer le client pour son FCM token
+      // Récupérer le client (email / phone / FCM) pour la notification
       const client = await this.usersService.findById(order.clientId);
-      const clientFcmToken = client?.fcmToken;
-
-      // Récupérer le livreur assigné pour son FCM token
-      let driverFcmToken: string | null = null;
-      if (order.driverId) {
-        const driver = await this.usersService.findById(order.driverId);
-        driverFcmToken = driver?.fcmToken ?? null;
+      if (!client) {
+        this.logger.warn(
+          `[Notifications] Client ${order.clientId} introuvable — notifications de statut ignorées`,
+        );
+        return;
       }
 
-      // Notifier selon le nouveau statut
+      // Notifier selon le nouveau statut via le DISPATCHER MULTI-CANAL :
+      //   canal préféré du client (EMAIL/PUSH/SMS/WHATSAPP) → fallback automatique
+      //   (ex: FCM non initialisé ou token nul → email ; email KO → SMS).
+      // `data` conserve le lien profond vers la commande dans le push FCM.
       switch (order.status) {
-        case OrderStatus.PAID: {
-          // Client: "Votre commande a été confirmée par le restaurant"
-          const fcmSuccess = clientFcmToken
-            ? await this.notificationsService.sendToDevice(clientFcmToken, {
-                title: 'Commande confirmée ✅',
-                body: 'Votre commande a été confirmée par le restaurant. Préparation en cours!',
-                data: { orderId: order.id, type: 'ORDER_CONFIRMED' },
-              })
-            : false;
-
-          // SMS fallback si FCM échoue ou pas de token
-          if (!fcmSuccess && client?.phone) {
-            await this.smsService.sendOrderConfirmationSms(
-              client.phone,
-              order.id,
-              order.totalAmount,
-            );
-          }
+        case OrderStatus.PAID:
+          await this.notificationsService.sendNotification(
+            client,
+            'Commande confirmée ✅',
+            `Votre commande #${order.id.slice(-8)} a été confirmée par le restaurant. Total: ${order.totalAmount} FCFA. Préparation en cours!`,
+            { orderId: order.id, type: 'ORDER_CONFIRMED' },
+          );
           break;
-        }
 
         case OrderStatus.IN_PREPARATION:
-          // Client: "Votre commande est en préparation"
-          if (clientFcmToken) {
-            await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'En préparation 🍳',
-              body: 'Votre commande est en cours de préparation.',
-              data: { orderId: order.id, type: 'ORDER_PREPARING' },
-            });
-          }
+          await this.notificationsService.sendNotification(
+            client,
+            'En préparation 🍳',
+            'Votre commande est en cours de préparation.',
+            { orderId: order.id, type: 'ORDER_PREPARING' },
+          );
           break;
 
-        case OrderStatus.PROCESSING: {
-          // Client: "Le livreur est en route avec votre repas"
-          const fcmEnRouteSuccess = clientFcmToken
-            ? await this.notificationsService.sendToDevice(clientFcmToken, {
-                title: 'Livreur en route 🛵',
-                body: 'Le livreur est en route avec votre repas. Il arrivera bientôt!',
-                data: { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
-              })
-            : false;
-
-          // SMS fallback si FCM échoue
-          if (!fcmEnRouteSuccess && client?.phone) {
-            await this.smsService.sendDeliveryNotificationSms(
-              client.phone,
-              order.id,
-            );
-          }
+        case OrderStatus.PROCESSING:
+          await this.notificationsService.sendNotification(
+            client,
+            'Livreur en route 🛵',
+            `Votre livreur est en route avec votre commande #${order.id.slice(-8)}. Il arrivera bientôt!`,
+            { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
+          );
           break;
-        }
 
         case OrderStatus.DELIVERED:
-          // Client: "Le livreur est arrivé à destination"
-          if (clientFcmToken) {
-            await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Livreur arrivé 📍',
-              body: 'Le livreur est arrivé à destination. Prêt à récupérer votre commande!',
-              data: { orderId: order.id, type: 'DRIVER_ARRIVED' },
-            });
-          }
+          await this.notificationsService.sendNotification(
+            client,
+            'Livreur arrivé 📍',
+            'Le livreur est arrivé à destination. Prêt à récupérer votre commande!',
+            { orderId: order.id, type: 'DRIVER_ARRIVED' },
+          );
           break;
 
         case OrderStatus.COMPLETED:
-          // Client: "Commande livrée avec succès"
-          if (clientFcmToken) {
-            await this.notificationsService.sendToDevice(clientFcmToken, {
-              title: 'Commande livrée 🎉',
-              body: 'Votre commande a été livrée avec succès. Bon appétit!',
-              data: { orderId: order.id, type: 'ORDER_COMPLETED' },
-            });
-          }
+          await this.notificationsService.sendNotification(
+            client,
+            'Commande livrée 🎉',
+            'Votre commande a été livrée avec succès. Bon appétit!',
+            { orderId: order.id, type: 'ORDER_COMPLETED' },
+          );
           break;
       }
 

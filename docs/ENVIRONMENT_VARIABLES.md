@@ -62,10 +62,14 @@ Référence des variables pour **staging / production**. Aucun secret n'est cod�
 |---|---|
 | `SMTP_USER` / `SMTP_PASS` | Gmail SMTP (principal). |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Fallback Resend. |
+| `EMAIL_FROM` | Expéditeur visible (défaut `FasoFree <noreply@fasofree.site>`). |
+| `EMAIL_REPLY_TO` | Boîte de réception des réponses clients (défaut `fasofree2@gmail.com`). |
 | `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Meta Cloud API. |
 | `WHATSAPP_VERIFY_TOKEN` | Jeton de vérification **GET** — aucune valeur par défaut. |
 | `WHATSAPP_APP_SECRET` | App Secret Meta pour vérifier `X-Hub-Signature-256` des événements **POST** (fail-closed). |
-| `SMS_PROVIDER` | `fallback`. |
+| `SMS_PROVIDER` | `fallback` (dev, log uniquement). Autres : `twilio`, `africastalking`. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` | SMS via Twilio (si `SMS_PROVIDER=twilio`). |
+| `AFRICASTALKING_USERNAME` / `AFRICASTALKING_API_KEY` / `AFRICASTALKING_SENDER_ID` | SMS via Africa's Talking (si `SMS_PROVIDER=africastalking`). |
 
 ## Stockage, push, monitoring
 
