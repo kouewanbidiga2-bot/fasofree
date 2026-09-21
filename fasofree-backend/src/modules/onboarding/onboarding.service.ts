@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { BusinessesService } from '../businesses/businesses.service';
 import { WalletService } from '../wallets/wallet.service';
@@ -104,7 +104,7 @@ export class OnboardingService {
     // - DRIVER   → mot de passe temporaire alphanumérique
     const tempPassword =
       applicationType === 'MERCHANT'
-        ? String(Math.floor(100000 + Math.random() * 900000))
+        ? String(randomInt(100000, 999999))
         : `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
     const salt = await bcrypt.genSalt(10);
     user.passwordHash = await bcrypt.hash(tempPassword, salt);

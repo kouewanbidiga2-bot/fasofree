@@ -88,10 +88,10 @@ export class WalletTransaction {
 
   @Column({ type: 'varchar', nullable: true })
   @Index()
-  reference: string; // ID de commande ou ID de transaction LigdiCash
+  reference: string | null; // ID de commande ou référence de transaction GeniusPay
 
   @Column({ type: 'text', nullable: true })
-  description: string;
+  description: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

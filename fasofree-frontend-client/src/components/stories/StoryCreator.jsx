@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload } from 'lucide-react';
 import { api } from '../../services/api';
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
 
 const StoryCreator = ({ businessId, onClose, onCreated }) => {
   const [mediaFile, setMediaFile] = useState(null);

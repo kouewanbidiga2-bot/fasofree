@@ -28,10 +28,29 @@ import { resolveJwtSecret } from '../../config/jwt.config';
 type ChatSocket = Socket & { data: { user?: JwtPayload } };
 
 export const chatRoom = (orderId: string, channel: ChatChannel) =>
-  `order_chat_${orderId}:${channel}`;
+  `order_chat_${orderId}_${channel}`;
 
 @WebSocketGateway({
-  cors: { origin: '*' },
+  cors: {
+    origin: (origin, callback) => {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (!origin || !isProduction) {
+        callback(null, true);
+      } else {
+        const allowedPatterns = [
+          /\.fasofree\.site$/,
+          /\.vercel\.app$/,
+          /\.onrender\.com$/,
+        ];
+        if (allowedPatterns.some((re) => re.test(origin))) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      }
+    },
+    credentials: true,
+  },
   namespace: '/chat',
 })
 @UsePipes(new ValidationPipe({ transform: true }))
@@ -230,7 +249,7 @@ export class ChatGateway
       channel,
       senderId: user.sub,
       senderRole: user.role,
-      message: payload.message.trim(),
+      message: payload.message.trim().slice(0, 2000).replace(/<[^>]*>/g, ''),
       timestamp: new Date().toISOString(),
     };
 

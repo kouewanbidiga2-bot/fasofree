@@ -29,7 +29,7 @@ export const getDatabaseConfig = (
     synchronize,
     migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
     migrationsRun,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : true,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     logging: configService.get<string>('NODE_ENV') === 'development',
     extra: {
       max: 20,

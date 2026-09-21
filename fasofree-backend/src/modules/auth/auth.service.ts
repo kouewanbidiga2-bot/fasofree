@@ -321,6 +321,8 @@ export class AuthService {
       applicationStatus: user.applicationStatus,
       applicationType: user.applicationType,
       vehicleType: user.vehicleType,
+      isOnline: user.isOnline ?? false,
+      isAvailable: user.isAvailable ?? false,
     };
 
     // 🏷️ Pour les marchands : inclure les marques et agences
@@ -400,7 +402,27 @@ export class AuthService {
   // 🎟️ 4. Génération du Jeton JWT avec format frontend-compatible
   private async generateToken(user: User, requiresVerification = false) {
     try {
-      const payload = { sub: user.id, role: user.role };
+      const payload: Record<string, any> = { sub: user.id, role: user.role };
+
+      // 🏷️ Pour les marchands : inclure businessId dans le JWT (pour WebSocket room)
+      if (user.role === UserRole.BUSINESS_ADMIN) {
+        const brands = await this.brandRepository.find({
+          where: { ownerId: user.id },
+          relations: { businesses: true },
+        });
+        if (brands.length > 0) {
+          payload.businessId = brands[0].businesses[0]?.id || null;
+          payload.brandId = brands[0].id;
+        } else {
+          const business = await this.businessRepository.findOne({
+            where: { ownerId: user.id },
+          });
+          if (business) {
+            payload.businessId = business.id;
+          }
+        }
+      }
+
       const accessToken = this.jwtService.sign(payload);
 
       const result: Record<string, any> = {

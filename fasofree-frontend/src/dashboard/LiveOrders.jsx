@@ -11,6 +11,7 @@ import { ArrowLeft, Radio, RefreshCw, Truck, MapPin, Package, UserPlus, X } from
 import useAuthStore from '../store/authStore';
 import { getAdminOrders, assignDriverToOrder, getActiveDrivers } from '../services/ordersService';
 import { StatusBadge } from './components/StatCard';
+import { getDispatchSocket } from '../services/realtime';
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
@@ -27,7 +28,9 @@ const OUAGADOUGOU = [12.3714, -1.5197];
 
 const LiveOrders = () => {
   const navigate = useNavigate();
-  const { user, logout, getDashboardRoute } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
+  const getDashboardRoute = useAuthStore(state => state.getDashboardRoute);
   const [orders, setOrders] = useState([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
@@ -59,6 +62,27 @@ const LiveOrders = () => {
     load();
     const timer = setInterval(() => load(true), 10000);
     return () => clearInterval(timer);
+  }, [load]);
+
+  // 📡 Dispatch socket : refresh immédiat sur changement de statut
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => load(true);
+    socket.on('orderStatusChanged', onStatusChanged);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        load(true);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+    };
   }, [load]);
 
   const counts = useMemo(() => {

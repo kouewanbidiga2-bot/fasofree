@@ -1,24 +1,17 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { Business } from '../businesses/entities/business.entity';
 
 /**
- * 🧑💼 Compte initial de la plateforme, créé uniquement s'il n'existe pas.
- * Seul compte créé automatiquement — les autres comptes sont créés par ce
- * SUPER_ADMIN via le Dashboard (POST /users).
+ * Compte initial de la plateforme, créé uniquement s'il n'existe pas.
+ * Les identifiants sont lus depuis les variables d'environnement.
  */
-const MASTER_SUPER_ADMIN = {
-  email: 'kouewanbidiga2@gmail.com',
-  password: 'Test@12345',
-  fullName: 'Master Admin',
-  phone: '+22661010011',
-};
-
 @Injectable()
 export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
@@ -28,6 +21,7 @@ export class UsersService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -39,15 +33,23 @@ export class UsersService implements OnModuleInit {
    * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    // Chercher le SUPER_ADMIN par email ou par rôle (pour migrer l'ancien compte)
+    const email = this.configService.get<string>('SUPER_ADMIN_EMAIL', 'kouewanbidiga2@gmail.com');
+    const password = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
+    const fullName = this.configService.get<string>('SUPER_ADMIN_FULLNAME', 'Master Admin');
+    const phone = this.configService.get<string>('SUPER_ADMIN_PHONE', '+22661010011');
+
+    if (!password) {
+      this.logger.warn('[Bootstrap] SUPER_ADMIN_PASSWORD non défini — création du compte super_admin ignorée');
+      return;
+    }
+
     let existing = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
-      .where('user.email = :email', { email: MASTER_SUPER_ADMIN.email })
+      .where('user.email = :email', { email })
       .getOne();
 
     if (!existing) {
-      // Ancien compte avec master@fasofree.bf → le migrer
       existing = await this.userRepository
         .createQueryBuilder('user')
         .addSelect('user.passwordHash')
@@ -58,23 +60,20 @@ export class UsersService implements OnModuleInit {
     if (existing) {
       let changed = false;
 
-      // Mettre à jour email si ancien
-      if (existing.email !== MASTER_SUPER_ADMIN.email) {
-        this.logger.log(`[Bootstrap] Migration email SUPER_ADMIN : ${existing.email} → ${MASTER_SUPER_ADMIN.email}`);
-        existing.email = MASTER_SUPER_ADMIN.email;
+      if (existing.email !== email) {
+        this.logger.log(`[Bootstrap] Migration email SUPER_ADMIN : ${existing.email} → ${email}`);
+        existing.email = email;
         changed = true;
       }
 
-      // Mettre à jour phone si manquant ou ancien
-      if (!existing.phone || existing.phone !== MASTER_SUPER_ADMIN.phone) {
-        existing.phone = MASTER_SUPER_ADMIN.phone;
+      if (!existing.phone || existing.phone !== phone) {
+        existing.phone = phone;
         changed = true;
       }
 
-      // Ré-hacher le password si manquant
       if (!existing.passwordHash) {
         const salt = await bcrypt.genSalt(10);
-        existing.passwordHash = await bcrypt.hash(MASTER_SUPER_ADMIN.password, salt);
+        existing.passwordHash = await bcrypt.hash(password, salt);
         changed = true;
         this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash manquant → ré-haché`);
       }
@@ -86,14 +85,14 @@ export class UsersService implements OnModuleInit {
     }
 
     await this.create({
-      email: MASTER_SUPER_ADMIN.email,
-      password: MASTER_SUPER_ADMIN.password,
+      email,
+      password,
       role: UserRole.SUPER_ADMIN,
-      fullName: MASTER_SUPER_ADMIN.fullName,
-      phone: MASTER_SUPER_ADMIN.phone,
+      fullName,
+      phone,
     });
     this.logger.log(
-      `[Bootstrap] Compte SUPER_ADMIN initial créé : ${MASTER_SUPER_ADMIN.email}`,
+      `[Bootstrap] Compte SUPER_ADMIN initial créé : ${email}`,
     );
   }
 
@@ -231,6 +230,11 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Utilisateur introuvable');
     }
     return user;
+  }
+
+  async findByIds(ids: string[]): Promise<User[]> {
+    if (!ids.length) return [];
+    return this.userRepository.find({ where: { id: In(ids) } });
   }
 
   async findProfileWithBusiness(id: string): Promise<Record<string, unknown>> {
@@ -404,10 +408,8 @@ export class UsersService implements OnModuleInit {
   }
 
   async findAll(): Promise<User[]> {
-    return this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.passwordPlain')
-      .getMany();
+    // ✅ FIX #38 : ne plus exposer passwordPlain (mot de passe en clair)
+    return this.userRepository.find();
   }
 
   // ➕ Méthode de création isolée & typée pour la CLI et l'Auth
@@ -442,7 +444,7 @@ export class UsersService implements OnModuleInit {
     // Support des variantes de nommage (password vs passwordHash)
     (user as any).password = hashedPassword;
     (user as any).passwordHash = hashedPassword;
-    (user as any).passwordPlain = data.password;
+    // ✅ FIX #38 : passwordPlain supprimé — le mot de passe en clair n'est jamais stocké
 
     return this.userRepository.save(user);
   }

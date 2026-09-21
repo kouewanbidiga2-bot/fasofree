@@ -31,7 +31,8 @@ import InternalChat from '../components/InternalChat';
 
 const SupportDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
 
   // Platform stats
@@ -273,6 +274,7 @@ const SupportDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
     socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
       if (res?.status === 'ok') {

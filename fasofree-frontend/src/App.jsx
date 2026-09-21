@@ -1,20 +1,21 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './guards';
+import retryLazy from './utils/lazyWithRetry.jsx';
 
 // 1. DIRECT IMPORTS for critical components (eliminates lazy loading crashes)
 import Loading from './pages/Loading';
 import PhoneAuth from './pages/PhoneAuth';
 import Unauthorized from './pages/Unauthorized';
 
-// 2. LAZY LOADING for dashboards (non-critical pages)
-const BusinessAdminDashboard = lazy(() => import('./dashboard/BusinessAdminDashboard'));
-const DriverDashboard = lazy(() => import('./dashboard/DriverDashboard'));
-const SuperAdminDashboard = lazy(() => import('./dashboard/SuperAdminDashboard'));
-const AdminManagerDashboard = lazy(() => import('./dashboard/AdminManagerDashboard'));
-const SupportDashboard = lazy(() => import('./dashboard/SupportDashboard'));
-const LiveOrders = lazy(() => import('./dashboard/LiveOrders'));
-const ApplicationsDashboard = lazy(() => import('./dashboard/ApplicationsDashboard'));
+// 2. LAZY LOADING avec retry auto (fix page noire après deploy Vercel)
+const BusinessAdminDashboard = retryLazy(() => import('./dashboard/BusinessAdminDashboard'));
+const DriverDashboard = retryLazy(() => import('./dashboard/DriverDashboard'));
+const SuperAdminDashboard = retryLazy(() => import('./dashboard/SuperAdminDashboard'));
+const AdminManagerDashboard = retryLazy(() => import('./dashboard/AdminManagerDashboard'));
+const SupportDashboard = retryLazy(() => import('./dashboard/SupportDashboard'));
+const LiveOrders = retryLazy(() => import('./dashboard/LiveOrders'));
+const ApplicationsDashboard = retryLazy(() => import('./dashboard/ApplicationsDashboard'));
 
 function App() {
   return (

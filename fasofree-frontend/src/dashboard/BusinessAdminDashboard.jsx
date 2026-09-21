@@ -31,7 +31,7 @@ import { getWallet, getWalletByBranch, getBrandWallets } from '../services/walle
 import { getBusinessProducts, getLowStockAlerts, updateStock, generateSKU } from '../services/inventoryService';
 import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import { ProductType, InventoryStatus } from '../types';
 import ImageUpload from '../components/ImageUpload';
 import BranchSelector from './components/BranchSelector';
@@ -297,10 +297,20 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
 };
 
 // ─── Business Admin Dashboard ────────────────────────────────────────────
+const ALLOWED_ROLES = ['business_admin', 'business', 'merchant', 'restaurant', 'super_admin'];
+
 const BusinessAdminDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // 🛡️ Garde-fou : si le rôle n'est pas autorisé, rediriger immédiatement
+  const normalizedRole = String(user?.role || '').toLowerCase().replace('-', '_');
+  if (user && !ALLOWED_ROLES.includes(normalizedRole)) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
 
   // Données
   const [analytics, setAnalytics] = useState(null);
@@ -324,6 +334,7 @@ const BusinessAdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [productTypeFilter, setProductTypeFilter] = useState('ALL');
   const [updating, setUpdating] = useState({});
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -334,6 +345,7 @@ const BusinessAdminDashboard = () => {
   const [chatChannel, setChatChannel] = useState('merchant');
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
+  const loadedOnceRef = useRef(false);
 
   // Assignation livreur
   const [driverModal, setDriverModal] = useState(null);
@@ -349,11 +361,15 @@ const BusinessAdminDashboard = () => {
   const businessId = resolvedBusinessId || user?.businessId || user?.business?.id;
   const brandId = resolvedBrandId || user?.brandId || null;
   const branches = React.useMemo(() => resolvedBranches.length > 0 ? resolvedBranches : (user?.branches || []), [resolvedBranches, user?.branches]);
+  const branchesRef = useRef(branches);
+  branchesRef.current = branches;
 
   // Sélection d'agence (null = vue marque)
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [brandAnalytics, setBrandAnalytics] = useState(null);
   const [branchWallets, setBranchWallets] = useState({});
+  // Wallets agrégés de la marque (toutes agences) — GET /wallets/brand/:brandId
+  const [brandWallets, setBrandWallets] = useState(null);
 
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
   const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
@@ -399,7 +415,7 @@ const BusinessAdminDashboard = () => {
   }, [businessId]);
 
   const handleSaveSettings = async () => {
-    setLoading(prev => ({ ...prev, settings: true }));
+    setSettingsSaving(true);
     try {
       await api.patch(`/businesses/${businessId}`, businessSettings);
       const updatedBusiness = (await api.get(`/businesses/${businessId}`)).data;
@@ -413,7 +429,7 @@ const BusinessAdminDashboard = () => {
     } catch (err) {
       setError('settings', err.message);
     } finally {
-      setLoading(prev => ({ ...prev, settings: false }));
+      setSettingsSaving(false);
     }
   };
 
@@ -473,13 +489,13 @@ const BusinessAdminDashboard = () => {
   }, [brandId]);
 
   const loadOrders = useCallback(async () => {
-    setLoad('orders', true);
+    if (!loadedOnceRef.current) setLoad('orders', true);
     try {
       let data;
       if (selectedBranchId) {
         data = await getBusinessOrders(selectedBranchId);
-      } else if (branches.length > 1) {
-        data = await getBrandOrders(branches.map(b => b.id));
+      } else if (branchesRef.current.length > 1) {
+        data = await getBrandOrders(branchesRef.current.map(b => b.id));
       } else if (businessId) {
         data = await getBusinessOrders(businessId);
       } else {
@@ -487,12 +503,13 @@ const BusinessAdminDashboard = () => {
         return;
       }
       setOrders(Array.isArray(data) ? data : []);
+      loadedOnceRef.current = true;
     } catch (err) {
       setError('orders', err.message);
     } finally {
       setLoad('orders', false);
     }
-  }, [selectedBranchId, businessId, branches]);
+  }, [selectedBranchId, businessId]);
 
   const loadProducts = useCallback(async () => {
     const targetId = selectedBranchId || businessId;
@@ -541,10 +558,14 @@ const BusinessAdminDashboard = () => {
   }, [user?.id, selectedBranchId, brandId]);
 
   const loadBranchWallets = useCallback(async () => {
-    if (!brandId || branches.length === 0) return;
+    if (!brandId || branchesRef.current.length === 0) return;
+    // Wallets agrégés de la marque (toutes les agences) en parallèle
+    getBrandWallets(brandId)
+      .then((data) => setBrandWallets(data))
+      .catch(() => setBrandWallets(null));
     try {
       const wallets = {};
-      for (const branch of branches) {
+      for (const branch of branchesRef.current) {
         try {
           const data = await getWalletByBranch('business_admin', user.id, branch.id);
           wallets[branch.id] = data;
@@ -556,7 +577,13 @@ const BusinessAdminDashboard = () => {
     } catch {
       // Silently fail
     }
-  }, [brandId, branches, user?.id]);
+  }, [brandId, user?.id]);
+
+  // ✅ FIX STALE CLOSURE : refs pour callbacks
+  const loadOrdersRef = useRef(loadOrders);
+  loadOrdersRef.current = loadOrders;
+  const loadAnalyticsRef = useRef(loadAnalytics);
+  loadAnalyticsRef.current = loadAnalytics;
 
   useEffect(() => {
     if (!businessId && branches.length === 0) return;
@@ -573,11 +600,48 @@ const BusinessAdminDashboard = () => {
     }
 
     const ordersInterval = setInterval(() => {
-      loadOrders();
+      loadOrdersRef.current();
     }, 12000);
 
     return () => clearInterval(ordersInterval);
-  }, [loadAnalytics, loadOrders, loadProducts, loadLowStockAlerts, loadWallet, loadSettings, loadBrandAnalytics, loadBranchWallets, brandId, businessId, branches.length]);
+  }, [businessId, branches.length]);
+
+  // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+
+    const onStatusChanged = (payload) => {
+      if (payload?.orderId) {
+        loadOrdersRef.current();
+        loadAnalyticsRef.current();
+      }
+    };
+    
+    const onNewOrderAlert = (payload) => {
+      console.log('[Business] Nouvelle commande reçue:', payload);
+      loadOrdersRef.current();
+      loadAnalyticsRef.current();
+    };
+    
+    socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('newOrderAlert', onNewOrderAlert);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        loadOrdersRef.current();
+        loadAnalyticsRef.current();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('newOrderAlert', onNewOrderAlert);
+    };
+  }, []);
 
   const handleBranchChange = useCallback((branchId) => {
     setSelectedBranchId(branchId);
@@ -606,11 +670,22 @@ const BusinessAdminDashboard = () => {
     };
   }, [selectedChatOrder, chatChannel]);
 
-  const handleViewChatHistory = async (orderId) => {
+  // ✅ FIX #25 : le canal est passé explicitement en paramètre.
+  // setChatChannel(ch) est async : lire chatChannel du closure dans le même
+  // handler donnerait l'ANCIENNE valeur → historique/room socket sur le mauvais canal.
+  const handleViewChatHistory = async (orderId, channel) => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
+
+    // Si aucun canal spécifié, utiliser celui de la conversation (dernier message)
+    if (!channel) {
+      const conv = conversations.find(c => c.orderId === orderId);
+      channel = conv?.channel || 'merchant';
+    }
+    setChatChannel(channel);
+
     try {
-      const data = await getChatHistory(orderId, chatChannel);
+      const data = await getChatHistory(orderId, channel);
       setChatHistory(data?.history || data || []);
     } catch {
       setChatHistory([]);
@@ -625,15 +700,16 @@ const BusinessAdminDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
-    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+    socket.emit('joinOrderChat', { orderId, channel }, (res) => {
       if (res?.status === 'ok') {
         setChatHistory(res.history || []);
       }
     });
 
     socket.on('newOrderMessage', (msg) => {
-      if (msg.orderId === orderId && msg.channel === chatChannel) {
+      if (msg.orderId === orderId && msg.channel === channel) {
         setChatHistory((prev) => [...prev, msg]);
       }
     });
@@ -713,7 +789,7 @@ const BusinessAdminDashboard = () => {
 
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
-    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => o.status === 'PENDING' || o.status === 'CONFIRMED').length },
+    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => ['PENDING', 'PAID', 'IN_PREPARATION'].includes(o.status)).length },
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -775,7 +851,13 @@ const BusinessAdminDashboard = () => {
               <span className="text-text-tertiary text-xs">Portefeuille</span>
             </div>
             <p className="text-text-primary text-sm font-bold">
-              {(wallet.balance || 0).toLocaleString()} FCFA
+              {(selectedBranchId
+                ? (wallet.balance || 0)
+                : (brandWallets?.totalBalance ?? wallet?.balance ?? 0)
+              ).toLocaleString()} FCFA
+            </p>
+            <p className="text-text-tertiary text-[10px]">
+              {selectedBranchId ? 'Agence sélectionnée' : 'Total toutes agences'}
             </p>
           </div>
         )}
@@ -797,17 +879,17 @@ const BusinessAdminDashboard = () => {
           </button>
         </header>
 
-        <div className="lg:hidden flex overflow-x-auto scrollbar-hide gap-1 px-4 pt-4 pb-1 border-b border-border-light">
+        <div className="lg:hidden flex overflow-x-auto scrollbar-hide gap-2 px-4 pt-4 pb-2 border-b border-border-light">
           {tabs.map(tab => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`tab-btn flex items-center gap-1.5 ${activeTab === tab.id ? 'active' : ''}`}
+                className={`tab-btn flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon size={14} strokeWidth={1.5} />
-                {tab.label}
+                <span className="text-xs">{tab.label}</span>
                 {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center">{tab.badge}</span>}
               </button>
             );
@@ -860,7 +942,14 @@ const BusinessAdminDashboard = () => {
               {/* Cartes financières par agence (vue marque) */}
               {!selectedBranchId && brandAnalytics?.branches?.length > 0 && (
                 <div className="mb-6">
-                  <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-3 ml-1">Agences</h3>
+                  <div className="flex items-center justify-between mb-3 ml-1">
+                    <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Agences</h3>
+                    {brandWallets && (
+                      <span className="text-xs text-text-secondary">
+                        Total toutes agences : <strong>{(brandWallets.totalBalance || 0).toLocaleString()} FCFA</strong>
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {brandAnalytics.branches.map((branch) => (
                       <BranchFinancialCard
@@ -954,7 +1043,7 @@ const BusinessAdminDashboard = () => {
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-text-primary">#{order.id?.slice(-6)}</p>
-                          <p className="text-[10px] text-text-secondary">{new Date(order.createdAt).toLocaleDateString('fr-FR')}</p>
+                          <p className="text-[10px] text-text-secondary">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR') : '—'}</p>
                         </div>
                       </div>
                       <div className="text-right">
@@ -983,10 +1072,15 @@ const BusinessAdminDashboard = () => {
                   >
                     <option value="ALL">Tous les statuts</option>
                     <option value="PENDING">En attente</option>
-                    <option value="CONFIRMED">Confirmées</option>
-                    <option value="PREPARING">En préparation</option>
-                    <option value="IN_TRANSIT">En livraison</option>
+                    <option value="PAID">Payées</option>
+                    <option value="IN_PREPARATION">En préparation</option>
+                    <option value="READY_FOR_PICKUP">Prêtes</option>
+                    <option value="DRIVER_ASSIGNED">Livreur assigné</option>
+                    <option value="IN_DELIVERY">En livraison</option>
+                    <option value="DELIVERED_PENDING_CONFIRMATION">Livrées (attente)</option>
                     <option value="DELIVERED">Livrées</option>
+                    <option value="COMPLETED">Terminées</option>
+                    <option value="CANCELLED">Annulées</option>
                   </select>
                   <button onClick={loadOrders} className="btn-secondary gap-2 text-xs">
                     <RefreshCw size={12} className={loading.orders ? 'animate-spin' : ''} />
@@ -1279,7 +1373,7 @@ const BusinessAdminDashboard = () => {
                       {['merchant', 'driver'].map(ch => (
                         <button
                           key={ch}
-                          onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                          onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder, ch); }}
                           className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
                         >
                           {ch === 'merchant' ? 'Marchand' : 'Livreur'}
@@ -1432,9 +1526,10 @@ const BusinessAdminDashboard = () => {
               {/* Bouton de sauvegarde */}
               <button
                 onClick={handleSaveSettings}
-                className="btn-primary w-full py-3"
+                disabled={settingsSaving}
+                className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Sauvegarder les paramètres
+                {settingsSaving ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
               </button>
             </div>
           )}

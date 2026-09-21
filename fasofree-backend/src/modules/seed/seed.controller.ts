@@ -11,12 +11,14 @@ import { Request as ExpressRequest } from 'express';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { SeedService } from './seed.service';
 
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
 import { Product } from '../products/entities/product.entity';
 import { Brand } from '../brands/entities/brand.entity';
+import { Wallet } from '../wallets/entities/wallet.entity';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 
@@ -28,6 +30,7 @@ type RequestWithUser = ExpressRequest & {
 @Controller('seed')
 export class SeedController {
   constructor(
+    private readonly seedService: SeedService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Business)
@@ -36,6 +39,8 @@ export class SeedController {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Brand)
     private readonly brandRepository: Repository<Brand>,
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
   ) {}
 
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -57,7 +62,7 @@ export class SeedController {
       admin = this.userRepository.create({
         email: 'admin@chitirchicken.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
+        // ✅ FIX #38 : plus de mot de passe en clair en base
         fullName: 'Chitir Chicken Admin',
         phone: '+22677000001',
         role: UserRole.BUSINESS_ADMIN,
@@ -194,13 +199,18 @@ export class SeedController {
       client = this.userRepository.create({
         email: 'test.client@fasofree.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
         fullName: 'Awa Ouédraogo',
         phone: '+22670000001',
         role: UserRole.CLIENT,
+        isEmailVerified: true,
+        isActive: true,
         referralCode: `AWA-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       });
       client = await this.userRepository.save(client);
+    } else if (!client.isEmailVerified) {
+      client.isEmailVerified = true;
+      client.isActive = true;
+      await this.userRepository.save(client);
     }
 
     // Create test driver
@@ -213,10 +223,11 @@ export class SeedController {
       driver = this.userRepository.create({
         email: 'test.driver@fasofree.bf',
         passwordHash,
-        passwordPlain: 'Test@12345',
         fullName: 'Issa Kaboré',
         phone: '+22670000002',
         role: UserRole.DRIVER,
+        isEmailVerified: true,
+        isActive: true,
         isOnline: true,
         isAvailable: true,
         latitude: 12.376,
@@ -224,6 +235,10 @@ export class SeedController {
         referralCode: `ISSA-${Date.now().toString(36).slice(-4).toUpperCase()}`,
       });
       driver = await this.userRepository.save(driver);
+    } else if (!driver.isEmailVerified) {
+      driver.isEmailVerified = true;
+      driver.isActive = true;
+      await this.userRepository.save(driver);
     }
 
     // Create Faso Délices brand + branches
@@ -240,13 +255,18 @@ export class SeedController {
         merchantAdmin = this.userRepository.create({
           email: 'test.merchant@fasofree.bf',
           passwordHash,
-          passwordPlain: 'Test@12345',
           fullName: 'Moussa Traoré',
           phone: '+22670000003',
           role: UserRole.BUSINESS_ADMIN,
+          isEmailVerified: true,
+          isActive: true,
           referralCode: `MOU-${Date.now().toString(36).slice(-4).toUpperCase()}`,
         });
         merchantAdmin = await this.userRepository.save(merchantAdmin);
+      } else if (!merchantAdmin.isEmailVerified) {
+        merchantAdmin.isEmailVerified = true;
+        merchantAdmin.isActive = true;
+        await this.userRepository.save(merchantAdmin);
       }
 
       brand = this.brandRepository.create({
@@ -302,6 +322,39 @@ export class SeedController {
         client: { email: 'test.client@fasofree.bf', password: 'Test@12345' },
         driver: { email: 'test.driver@fasofree.bf', password: 'Test@12345' },
       },
+    };
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('fix-orphan-wallet-credits')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Backfill : déplacer les crédits orphelins vers le vrai wallet marchand (ownerId)' })
+  async fixOrphanWalletCredits() {
+    return this.seedService.fixOrphanWalletCredits();
+  }
+
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN)
+  @Post('fix-wallet-userroles')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Corriger les userRole=DRIVER des branch wallets vers MERCHANT' })
+  async fixWalletUserRoles() {
+    // Fix branch wallets that have userRole=DRIVER but belong to a merchant user
+    const result = await this.walletRepository
+      .createQueryBuilder()
+      .update()
+      .set({ userRole: 'MERCHANT' as any })
+      .where('"userRole" = :wrongRole', { wrongRole: 'DRIVER' })
+      .andWhere('"branchId" IS NOT NULL')
+      .andWhere('"userId" IN (SELECT id FROM users WHERE role = :role)', {
+        role: 'business_admin',
+      })
+      .execute();
+
+    return {
+      success: true,
+      message: `${result.affected || 0} wallets corrigés (DRIVER → MERCHANT)`,
     };
   }
 }

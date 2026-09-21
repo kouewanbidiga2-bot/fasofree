@@ -14,6 +14,16 @@ export class HealthController {
     private db: TypeOrmHealthIndicator,
   ) {}
 
+  @Get()
+  @HealthCheck()
+  @ApiOperation({ summary: 'Health check global (liveness + database)' })
+  checkAll() {
+    return this.health.check([
+      () => ({ uptime: { status: 'up' } }),
+      () => this.db.pingCheck('database', { timeout: 5000 }),
+    ]);
+  }
+
   @Get('live')
   @HealthCheck()
   @ApiOperation({
@@ -25,7 +35,6 @@ export class HealthController {
     ]);
   }
 
-  @Get()
   @Get('ready')
   @HealthCheck()
   @ApiOperation({

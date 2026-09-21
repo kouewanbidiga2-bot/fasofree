@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -9,6 +9,13 @@ import {
   BusinessCategory,
 } from '../businesses/entities/business.entity';
 import { Product } from '../products/entities/product.entity';
+import { Wallet, UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
+import {
+  WalletTransaction,
+  TransactionType,
+  TransactionReason,
+  TransactionStatus,
+} from '../wallets/entities/wallet-transaction.entity';
 
 const SALT_ROUNDS = 10;
 
@@ -286,7 +293,166 @@ export class SeedService implements OnModuleInit {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    @InjectRepository(Wallet)
+    private readonly walletRepository: Repository<Wallet>,
+    @InjectRepository(WalletTransaction)
+    private readonly walletTransactionRepository: Repository<WalletTransaction>,
+    private readonly dataSource: DataSource,
   ) {}
+
+  /**
+   * 🩹 Backfill des crédits orphelins (err. 4.3 du rapport) :
+   * avant le FIX 2, les settlements crédaient le wallet marchand avec
+   * userId = businessId au lieu du ownerId. Cette méthode déplace les crédits
+   * mal orientés (CREDIT ORDER_PAYMENT, branchId = ancienne agence du owner)
+   * vers le vrai wallet (userId = ownerId, branchId = agence courante).
+   * Idempotent : ne traite que les transactions sans REFUND de remédiation.
+   */
+  async fixOrphanWalletCredits(): Promise<{
+    success: boolean;
+    transactionsMoved: number;
+    totalAmountMoved: number;
+    walletsAdjusted: number;
+    message: string;
+  }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let transactionsMoved = 0;
+    let totalAmountMoved = 0;
+    const adjustedWalletIds = new Set<string>();
+
+    try {
+      const manager = queryRunner.manager;
+
+      // 1. Trouve les wallets "orphelins" : userId = id d'une agence (business)
+      const orphanWallets = await manager.find(Wallet, {
+        where: { userRole: WalletUserRole.MERCHANT },
+      });
+
+      for (const orphan of orphanWallets) {
+        const business = await this.businessRepository.findOne({
+          where: { id: orphan.userId },
+        });
+        if (!business) continue; // userId n'est pas une agence → wallet légitime
+        if (!business.ownerId) continue; // agence sans propriétaire → non corrigeable automatiquement
+
+        const ownerUser = await this.userRepository.findOne({
+          where: { id: business.ownerId },
+        });
+        if (!ownerUser) continue;
+
+        // 2. Trouve les crédits de settlement sur ce wallet orphelin
+        const orphanCredits = await manager.find(WalletTransaction, {
+          where: {
+            walletId: orphan.id,
+            type: TransactionType.CREDIT,
+            reason: TransactionReason.ORDER_PAYMENT,
+            status: TransactionStatus.COMPLETED,
+          },
+        });
+
+        // Ignorer ceux déjà remédiés (REFUND de backfill précédent)
+        const refunds = await manager.find(WalletTransaction, {
+          where: {
+            walletId: orphan.id,
+            type: TransactionType.DEBIT,
+            reason: TransactionReason.REFUND,
+          },
+        });
+        const refundedRefs = new Set(
+          refunds.map((r) => r.reference).filter(Boolean),
+        );
+
+        const toMove = orphanCredits.filter(
+          (tx) => !refundedRefs.has(tx.reference),
+        );
+        if (toMove.length === 0) continue;
+
+        // 3. Localise le vrai wallet marchand (ownerId + agence courante)
+        let target = await manager.findOne(Wallet, {
+          where: {
+            userId: ownerUser.id,
+            branchId: business.id,
+            userRole: WalletUserRole.MERCHANT,
+          },
+        });
+        if (!target) {
+          target = manager.create(Wallet, {
+            userId: ownerUser.id,
+            userRole: WalletUserRole.MERCHANT,
+            branchId: business.id,
+            balance: 0,
+          });
+          target = await manager.save(target);
+        }
+
+        // 4. Débite le wallet orphelin, crédite le vrai wallet, journalise
+        const movedAmount = toMove.reduce((s, tx) => s + Number(tx.amount), 0);
+
+        orphan.balance = Number(orphan.balance) - movedAmount;
+        await manager.save(orphan);
+
+        target.balance = Number(target.balance) + movedAmount;
+        await manager.save(target);
+
+        for (const tx of toMove) {
+          await manager.save(
+            WalletTransaction,
+            manager.create(WalletTransaction, {
+              walletId: target.id,
+              branchId: tx.branchId,
+              type: TransactionType.CREDIT,
+              reason: TransactionReason.ORDER_PAYMENT,
+              status: TransactionStatus.COMPLETED,
+              amount: tx.amount,
+              balanceAfter: target.balance,
+              reference: tx.reference,
+              description: `[Backfill] Crédit orphelin déplacé depuis le wallet agence ${business.name}`,
+            }),
+          );
+          await manager.save(
+            WalletTransaction,
+            manager.create(WalletTransaction, {
+              walletId: orphan.id,
+              branchId: tx.branchId,
+              type: TransactionType.DEBIT,
+              reason: TransactionReason.REFUND,
+              status: TransactionStatus.COMPLETED,
+              amount: tx.amount,
+              balanceAfter: orphan.balance,
+              reference: tx.reference,
+              description: `[Backfill] Remédiation crédit orphelin (voir wallet ${target.id})`,
+            }),
+          );
+        }
+
+        transactionsMoved += toMove.length;
+        totalAmountMoved += movedAmount;
+        adjustedWalletIds.add(target.id);
+        adjustedWalletIds.add(orphan.id);
+      }
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        transactionsMoved,
+        totalAmountMoved,
+        walletsAdjusted: adjustedWalletIds.size,
+        message:
+          transactionsMoved === 0
+            ? 'Aucun crédit orphelin à corriger.'
+            : `${transactionsMoved} transaction(s) déplacée(s) pour un total de ${totalAmountMoved.toLocaleString()} FCFA.`,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
 
   async onModuleInit(): Promise<void> {
     await this.seedClientUser();
@@ -308,7 +474,8 @@ export class SeedService implements OnModuleInit {
       email: data.email,
       phone: data.phone,
       passwordHash,
-      passwordPlain: data.password,
+      // ✅ FIX #38 : le mot de passe en clair n'est JAMAIS stocké en base.
+      // (ancien champ passwordPlain supprimé — risque critique de sécurité)
       role,
       isActive: true,
       referralCode: `${data.fullName.split(' ')[0].toUpperCase()}-${Date.now().toString(36).slice(-4).toUpperCase()}`,

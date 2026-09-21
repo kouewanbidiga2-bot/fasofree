@@ -71,6 +71,7 @@ export class StoriesService {
   }
 
   async getActiveStories(userId?: string): Promise<any[]> {
+    try {
     const now = new Date();
     const stories = await this.storyRepository
       .createQueryBuilder('story')
@@ -125,6 +126,10 @@ export class StoriesService {
     }
 
     return Object.values(grouped);
+    } catch (err) {
+      this.logger.error('Erreur lors de la récupération des stories actives', err?.stack ?? err);
+      return [];
+    }
   }
 
   async viewStory(storyId: string, userId: string): Promise<void> {

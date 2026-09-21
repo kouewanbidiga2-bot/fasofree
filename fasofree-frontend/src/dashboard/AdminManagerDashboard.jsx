@@ -23,11 +23,12 @@ import { getBusinesses } from '../services/subscriptionService';
 import { getUsers, getActiveConversations, getChatHistory } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
 const AdminManagerDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
 
   const [platformStats, setPlatformStats] = useState({
@@ -115,6 +116,39 @@ const AdminManagerDashboard = () => {
     loadKyc();
   }, [loadPlatformStats, loadPendingDisputes, loadKyc]);
 
+  // 📡 Dispatch socket : temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => {
+      loadPlatformStats();
+      loadPendingDisputes();
+    };
+    
+    const onNewOrderAlert = () => {
+      console.log('[Admin] Nouvelle commande reçue');
+      loadPlatformStats();
+    };
+    
+    socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('newOrderAlert', onNewOrderAlert);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        loadPlatformStats();
+        loadPendingDisputes();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('newOrderAlert', onNewOrderAlert);
+    };
+  }, [loadPlatformStats, loadPendingDisputes]);
+
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
     try {
@@ -138,11 +172,14 @@ const AdminManagerDashboard = () => {
     };
   }, [selectedChatOrder, chatChannel]);
 
-  const handleViewChatHistory = async (orderId) => {
+  // ✅ FIX #25 : le canal est passé explicitement en paramètre.
+  // setChatChannel(ch) est async : lire chatChannel du closure dans le même
+  // handler donnerait l'ANCIENNE valeur → historique/room socket sur le mauvais canal.
+  const handleViewChatHistory = async (orderId, channel = chatChannel) => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
     try {
-      const data = await getChatHistory(orderId, chatChannel);
+      const data = await getChatHistory(orderId, channel);
       setChatHistory(data?.history || data || []);
     } catch {
       setChatHistory([]);
@@ -157,15 +194,16 @@ const AdminManagerDashboard = () => {
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
-    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+    socket.emit('joinOrderChat', { orderId, channel }, (res) => {
       if (res?.status === 'ok') {
         setChatHistory(res.history || []);
       }
     });
 
     socket.on('newOrderMessage', (msg) => {
-      if (msg.orderId === orderId && msg.channel === chatChannel) {
+      if (msg.orderId === orderId && msg.channel === channel) {
         setChatHistory((prev) => [...prev, msg]);
       }
     });
@@ -659,7 +697,7 @@ const AdminManagerDashboard = () => {
                     {['merchant', 'driver'].map(ch => (
                       <button
                         key={ch}
-                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder, ch); }}
                         className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
                       >
                         {ch === 'merchant' ? 'Marchand' : 'Livreur'}

@@ -99,6 +99,14 @@ export class PromotionsService {
       .execute();
   }
 
+  async releaseByCode(code: string | null | undefined): Promise<void> {
+    if (!code) return;
+    const promotion = await this.promotions.findOne({
+      where: { code: code.trim().toUpperCase() },
+    });
+    if (promotion) await this.release(promotion.id);
+  }
+
   @OnEvent(USER_REGISTERED, { async: true })
   async rewardReferral(event: {
     userId: string;

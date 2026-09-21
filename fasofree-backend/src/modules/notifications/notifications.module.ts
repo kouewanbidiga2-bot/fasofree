@@ -11,12 +11,14 @@ import { WhatsAppService } from './whatsapp.service';
 import { NotificationsController } from './notifications.controller';
 import { WhatsAppWebhookController } from './whatsapp-webhook.controller';
 import { UsersModule } from '../users/users.module';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
     ConfigModule,
     TypeOrmModule.forFeature([Notification]),
     forwardRef(() => UsersModule),
+    BusinessesModule,
   ],
   controllers: [NotificationsController, WhatsAppWebhookController],
   providers: [

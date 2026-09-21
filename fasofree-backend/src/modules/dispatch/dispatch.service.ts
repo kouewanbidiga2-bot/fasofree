@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
@@ -123,7 +123,7 @@ export class DispatchService {
     // 1. Récupérer tous les livreurs actifs et disponibles
     const drivers = await this.userRepository.find({
       where: {
-        role: UserRole.DRIVER,
+        role: In([UserRole.DRIVER, UserRole.COURIER]),
         isActive: true,
       },
     });
@@ -358,7 +358,7 @@ export class DispatchService {
       earningXOF: calculatedFee || order.deliveryFee,
       totalAmount: order.totalAmount,
       estimatedDistanceKm: topCandidates[0].distanceKm,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(), // 5 minutes
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
     });
 
     this.logger.log(
@@ -368,7 +368,7 @@ export class DispatchService {
 
   /**
    * ⏰ CRON JOB: Vérifier les timeouts de dispatch (toutes les minutes)
-   * Réassigne aux candidats suivants si aucun livreur n'accepte dans les 5 minutes
+   * Réassigne aux candidats suivants si aucun livreur n'accepte dans les 10 minutes
    */
   @Cron(CronExpression.EVERY_MINUTE)
   async checkDispatchTimeouts(): Promise<void> {
@@ -395,7 +395,7 @@ export class DispatchService {
         }
 
         this.logger.log(
-          `[Dispatch Timeout] Commande #${order.id} en attente depuis 5 min - Réassignation`,
+          `[Dispatch Timeout] Commande #${order.id} en attente depuis 10 min - Réassignation`,
         );
 
         // Trouver le candidat suivant qui n'a pas encore été notifié
@@ -500,6 +500,14 @@ export class DispatchService {
     });
     if (!order) throw new Error(`Commande #${orderId} introuvable`);
 
+    if (order.driverId === driverId) {
+      throw new Error(`Vous etes deja assigne a cette commande`);
+    }
+
+    if (order.status !== 'PENDING' && order.status !== 'PAID' && order.status !== 'READY_FOR_PICKUP') {
+      throw new Error(`Impossible de refuser : commande au statut "${order.status}"`);
+    }
+
     const candidates = order.dispatchCandidates || [];
     const existing = candidates.find((c) => c.driverId === driverId);
     if (existing) {
@@ -527,8 +535,18 @@ export class DispatchService {
       throw new Error(`Commande #${orderId} introuvable`);
     }
 
+    const assignableStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.READY_FOR_PICKUP,
+    ];
+    if (!assignableStatuses.includes(order.status)) {
+      throw new Error(
+        `Impossible d'assigner un livreur : commande au statut "${order.status}". Statuts acceptés : ${assignableStatuses.join(', ')}`,
+      );
+    }
+
     const driver = await this.userRepository.findOne({
-      where: { id: driverId, role: UserRole.DRIVER },
+      where: { id: driverId, role: In([UserRole.DRIVER, UserRole.COURIER]) },
     });
     if (!driver) {
       throw new Error(`Livreur ${driverId} introuvable`);
@@ -542,9 +560,17 @@ export class DispatchService {
 
     // Notifier le livreur
     this.dispatchGateway.notifyCandidateDrivers([driverId], {
-      type: 'ORDER_ASSIGNED',
+      type: 'order_assigned',
       orderId: order.id,
       message: 'Vous avez été assigné à cette commande',
+    });
+
+    // 📡 Broadcast temps réel : le dashboard du livreur et du marchand se mettent à jour
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: updatedOrder.id,
+      status: updatedOrder.status,
+      driverId: updatedOrder.driverId,
+      businessId: updatedOrder.businessId,
     });
 
     return updatedOrder;

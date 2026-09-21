@@ -1,26 +1,73 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { CinetPayPayoutProvider } from './providers/cinetpay-payout.provider';
-import { RequestWithdrawalDto } from './dto/request-withdrawal.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
+import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
 import { UserRole } from './entities/wallet.entity';
 import { TransactionReason } from './entities/wallet-transaction.entity';
 import { SettingsService } from '../settings/settings.service';
+import { PayoutRequest, PayoutStatus, UserRole as PayoutUserRole } from '../financial/entities/payout-request.entity';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
 
   constructor(
-    private readonly cinetPayPayoutProvider: CinetPayPayoutProvider,
+    private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
+    @InjectRepository(PayoutRequest)
+    private readonly payoutRequestRepository: Repository<PayoutRequest>,
+    private readonly notificationStore: NotificationStoreService,
+    private readonly configService: ConfigService,
   ) {}
 
-  /**
-   * Calcule les frais de retrait à partir de la config globale
-   * Retourne { fee, netAmount, feePercentage, isExempt }
-   */
+  async listPendingManualPayouts(): Promise<PayoutRequest[]> {
+    return this.payoutRequestRepository.find({
+      where: [{ status: PayoutStatus.PENDING }, { status: PayoutStatus.APPROVED }],
+      order: { createdAt: 'ASC' },
+    });
+  }
+
+  async approveManualPayout(
+    payoutRequestId: string,
+    phoneNumber: string,
+    provider?: string,
+  ): Promise<PayoutRequest | null> {
+    if (!phoneNumber?.trim()) {
+      throw new BadRequestException('Le numéro Mobile Money est obligatoire');
+    }
+    const normalizedPhone = phoneNumber?.replace(/[\s-]/g, '');
+    if (!/^(?:\+226|226)?[567]\d{7}$/.test(normalizedPhone || '')) {
+      throw new BadRequestException('Numéro Mobile Money burkinabè invalide');
+    }
+    if (provider && !Object.values(PayoutProviderEnum).includes(provider as PayoutProviderEnum)) {
+      throw new BadRequestException('Opérateur Mobile Money invalide');
+    }
+    const result = await this.payoutRequestRepository
+      .createQueryBuilder()
+      .update(PayoutRequest)
+      .set({
+        status: PayoutStatus.APPROVED,
+        phoneNumber: normalizedPhone,
+        provider: provider?.trim().toUpperCase() || null,
+      })
+      .where('id = :id', { id: payoutRequestId })
+      .andWhere('status = :status', { status: PayoutStatus.PENDING })
+      .execute();
+    const payout = await this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    if (result.affected && payout) {
+      await this.notifyPayoutStep(payout.userId, 'Retrait approuvé',
+        `Votre retrait de ${payout.netAmount} FCFA a été approuvé et sera payé manuellement.`, payout.id);
+    }
+    return payout;
+  }
+
   async calculatePayoutFee(amountFcfa: number): Promise<{
     fee: number;
     netAmount: number;
@@ -29,7 +76,6 @@ export class PayoutsService {
     isExempt: boolean;
   }> {
     const settings = await this.settingsService.get();
-
     const isActive = settings.isPayoutFeeActive;
     const percentage = Number(settings.payoutFeePercentage) || 0;
     const threshold = settings.payoutFreeThreshold || 0;
@@ -54,36 +100,107 @@ export class PayoutsService {
     };
   }
 
+  // ─── FIND PAYOUT BY MULTIPLE FIELDS ──────────────────────────────────────
+
   /**
-   * Traite une demande de retrait en vérifiant le solde et en exécutant le virement
+   * Recherche un PayoutRequest par id, transactionReference ou providerReference.
+   * Le webhook GeniusPay peut renvoyer n'importe lequel de ces identifiants.
    */
+  async findPayoutByIdentifier(identifier: string): Promise<PayoutRequest | null> {
+    // 1. Essayer par ID interne
+    const byId = await this.payoutRequestRepository.findOne({ where: { id: identifier } });
+    if (byId) return byId;
+
+    // 2. Essayer par transactionReference (notre ref PAYOUT_...)
+    const byTxRef = await this.payoutRequestRepository.findOne({
+      where: { transactionReference: identifier },
+    });
+    if (byTxRef) return byTxRef;
+
+    // 3. Essayer par providerReference (ref GeniusPay)
+    const byProviderRef = await this.payoutRequestRepository.findOne({
+      where: { providerReference: identifier },
+    });
+    return byProviderRef;
+  }
+
+  // ─── REQUEST WITHDRAWAL ──────────────────────────────────────────────────
+
   async requestWithdrawal(
     userId: string,
     role: UserRole,
     dto: RequestWithdrawalDto,
+    branchId?: string,
   ) {
     const payoutReference = `PAYOUT_${Date.now()}_${uuidv4().substring(0, 6)}`;
-
-    // Calcul dynamique des frais
     const feeInfo = await this.calculatePayoutFee(dto.amountFcfa);
 
     this.logger.log(
-      `[Payout Request] User: ${userId} | Montant: ${dto.amountFcfa} FCFA | Frais: ${feeInfo.fee} FCFA | Net: ${feeInfo.netAmount} FCFA | Ref: ${payoutReference}`,
+      `[Payout Request] User: ${userId} | Montant: ${dto.amountFcfa} FCFA | Frais: ${feeInfo.fee} FCFA | Net: ${feeInfo.netAmount} FCFA | Ref: ${payoutReference}${branchId ? ` | Agence: ${branchId}` : ''}`,
     );
 
-    // 1. Débiter d'abord le Wallet — le montant NET (après frais)
-    const debitResult = await this.walletService.debitWallet(
+    // 1. Bloquer les fonds (hold)
+    const wallet = await this.walletService.holdFunds(
       userId,
       role,
       feeInfo.netAmount,
-      TransactionReason.WITHDRAWAL,
+      branchId,
       payoutReference,
-      `Retrait vers ${dto.provider} (frais: ${feeInfo.fee} FCFA)`,
     );
 
-    // 2. Déclencher le virement Mobile Money via l'agrégateur
+    // 2. Créer le PayoutRequest AVANT d'appeler GeniusPay
+    let payoutRequest: PayoutRequest;
     try {
-      const transferResult = await this.cinetPayPayoutProvider.sendTransfer(
+      payoutRequest = this.payoutRequestRepository.create({
+        userId,
+        userRole: role as unknown as PayoutUserRole,
+        walletId: wallet.id,
+        branchId: branchId ?? null,
+        amount: dto.amountFcfa,
+        fees: feeInfo.fee,
+        netAmount: feeInfo.netAmount,
+        phoneNumber: dto.phoneNumber,
+        provider: dto.provider,
+        status: PayoutStatus.PENDING,
+        transactionReference: payoutReference,
+      });
+      payoutRequest = await this.payoutRequestRepository.save(payoutRequest);
+    } catch (saveError) {
+      // FIX #6 : si la création du PayoutRequest échoue, libérer les fonds tenus
+      this.logger.error(
+        `[Payout] Échec création PayoutRequest pour ${userId}: ${saveError instanceof Error ? saveError.message : 'Erreur inconnue'}`,
+      );
+      await this.walletService.releaseHeldFunds(userId, role, feeInfo.netAmount, branchId, payoutReference);
+      throw new BadRequestException('Erreur interne lors de la création de la demande de retrait');
+    }
+
+    // 3. Notification : retrait demandé
+    await this.notifyPayoutStep(userId, 'Retrait demandé',
+      `Votre demande de retrait de ${dto.amountFcfa} FCFA via ${dto.provider} est en cours de traitement.`,
+      payoutRequest.id,
+    );
+
+    if (this.configService.get<string>('PAYOUTS_MANUAL_ONLY', 'true') === 'true') {
+      await this.notifyPayoutStep(userId, 'Retrait en attente de paiement',
+        `Votre retrait de ${dto.amountFcfa} FCFA est en attente de validation par le SuperAdmin.`,
+        payoutRequest.id);
+      return {
+        status: PayoutStatus.PENDING,
+        manual: true,
+        message: 'Demande enregistrée. Le SuperAdmin effectuera le transfert manuellement.',
+        payoutRequestId: payoutRequest.id,
+        reference: payoutReference,
+        amountRequestedFcfa: dto.amountFcfa,
+        feeFcfa: feeInfo.fee,
+        netAmountFcfa: feeInfo.netAmount,
+        newAvailableBalanceFcfa: wallet.availableBalance,
+        newHeldBalanceFcfa: wallet.heldBalance,
+      };
+    }
+
+    // 4. Appeler GeniusPay API
+    try {
+      const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
         payoutReference,
         feeInfo.netAmount,
         dto.phoneNumber,
@@ -91,16 +208,29 @@ export class PayoutsService {
       );
 
       if (transferResult.success) {
+        await this.payoutRequestRepository.update(payoutRequest.id, {
+          providerReference: transferResult.providerReference ?? null,
+        });
+
+        // Notification : retrait en traitement
+        await this.notifyPayoutStep(userId, 'Retrait en traitement',
+          `Votre retrait de ${dto.amountFcfa} FCFA est en cours de virement Mobile Money.`,
+          payoutRequest.id,
+        );
+
         return {
-          status: 'SUCCESS',
-          message: 'Votre retrait a été crédité sur votre compte Mobile Money.',
+          status: 'PROCESSING',
+          message: 'Votre retrait est en cours de traitement. Vous recevrez une notification une fois le virement effectué.',
+          payoutRequestId: payoutRequest.id,
           reference: payoutReference,
           amountRequestedFcfa: dto.amountFcfa,
           feeFcfa: feeInfo.fee,
           netAmountFcfa: feeInfo.netAmount,
-          newWalletBalanceFcfa: debitResult.wallet.balance,
+          newAvailableBalanceFcfa: wallet.availableBalance,
+          newHeldBalanceFcfa: wallet.heldBalance,
           phoneNumber: dto.phoneNumber,
           provider: dto.provider,
+          branchId: branchId ?? null,
           feeBreakdown: {
             feePercentage: feeInfo.feePercentage,
             freeThreshold: feeInfo.freeThreshold,
@@ -108,31 +238,219 @@ export class PayoutsService {
           },
         };
       } else {
-        // En cas d'échec du virement externe, re-créditer l'argent
-        await this.walletService.creditWallet(
-          userId,
-          role,
-          feeInfo.netAmount,
-          TransactionReason.REFUND,
-          payoutReference,
-          `Remboursement suite à l'échec du retrait: ${transferResult.message}`,
+        await this.handlePayoutFailure(
+          payoutRequest.id, userId, role, feeInfo.netAmount, branchId,
+          transferResult.message,
         );
         throw new BadRequestException(
-          `Le virement a échoué: ${transferResult.message}. Le montant a été recrédité sur votre solde.`,
+          `Le virement a échoué: ${transferResult.message}. Les fonds ont été libérés sur votre solde.`,
         );
       }
     } catch (error) {
       if (!(error instanceof BadRequestException)) {
-        await this.walletService.creditWallet(
-          userId,
-          role,
-          feeInfo.netAmount,
-          TransactionReason.REFUND,
-          payoutReference,
-          `Remboursement suite à l'échec du retrait (Erreur système)`,
+        await this.handlePayoutFailure(
+          payoutRequest.id, userId, role, feeInfo.netAmount, branchId,
+          error instanceof Error ? error.message : 'Erreur système',
         );
       }
       throw error;
+    }
+  }
+
+  // ─── HANDLE FAILURE ──────────────────────────────────────────────────────
+
+  async handlePayoutFailure(
+    payoutRequestId: string,
+    userId: string,
+    role: UserRole,
+    netAmount: number,
+    branchId: string | undefined,
+    reason: string,
+  ): Promise<void> {
+    this.logger.warn(
+      `[Payout Failure] Ref ${payoutRequestId}: ${reason}. Libération de ${netAmount} XOF.`,
+    );
+
+    const payoutRequest = await this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    let released = true;
+    try {
+      await this.walletService.releaseHeldFunds(
+        userId,
+        role,
+        netAmount,
+        branchId,
+        payoutRequest?.transactionReference ?? undefined,
+      );
+    } catch (releaseError) {
+      released = false;
+      this.logger.error(
+        `[PAYOUT CRITIQUE] Échec de libération pour ${userId}: ${releaseError instanceof Error ? releaseError.message : 'Erreur inconnue'}. Montant bloqué: ${netAmount} XOF`,
+      );
+    }
+
+    if (!released) {
+      throw new BadRequestException('Impossible de libérer les fonds du retrait');
+    }
+
+    await this.payoutRequestRepository.update(payoutRequestId, {
+      status: PayoutStatus.FAILED,
+      failureReason: reason,
+      completedAt: new Date(),
+    });
+
+    // Notification : retrait échoué + fonds libérés
+    await this.notifyPayoutStep(userId, 'Retrait échoué',
+      `Votre retrait de ${netAmount} FCFA a échoué: ${reason}. Les fonds ont été recrédités sur votre solde.`,
+      payoutRequestId,
+    );
+  }
+
+  // ─── CONFIRM PAYOUT (webhook cashout.completed) ──────────────────────────
+
+  /**
+   * Confirme un retrait réussi.
+   * FIX #3 : UPDATE conditionnel pour éviter le double débit en cas de webhook concurrent.
+   */
+  async confirmPayout(payoutRequestId: string, providerReference?: string): Promise<PayoutRequest | null> {
+    // FIX #3 : UPDATE atomique conditionnel — seule la première exécution passe
+    const result = await this.payoutRequestRepository
+      .createQueryBuilder()
+      .update(PayoutRequest)
+      .set({ status: PayoutStatus.EXECUTED, completedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('id = :id', { id: payoutRequestId })
+      .andWhere('status = :status', { status: PayoutStatus.APPROVED })
+      .execute();
+
+    if (!result.affected || result.affected === 0) {
+      this.logger.warn(
+        `[Payout Confirm] Ignoré (déjà traité ou introuvable): ${payoutRequestId}`,
+      );
+      return this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    }
+
+    // Recharger le PayoutRequest mis à jour
+    const payoutRequest = await this.payoutRequestRepository.findOne({
+      where: { id: payoutRequestId },
+    });
+    if (!payoutRequest) return null;
+
+    if (providerReference) {
+      await this.payoutRequestRepository.update(payoutRequest.id, { providerReference });
+      payoutRequest.providerReference = providerReference;
+    }
+
+    // Confirmer le débit (held → balance)
+    try {
+      await this.walletService.confirmHold(
+      payoutRequest.userId,
+      payoutRequest.userRole as unknown as UserRole,
+      payoutRequest.netAmount,
+      TransactionReason.WITHDRAWAL,
+      payoutRequest.transactionReference ?? undefined,
+      `Retrait confirmé vers ${payoutRequest.provider}`,
+      payoutRequest.branchId ?? undefined,
+      );
+    } catch (error) {
+      await this.payoutRequestRepository.update(payoutRequest.id, {
+        status: PayoutStatus.APPROVED,
+        completedAt: null,
+        failureReason: `Confirmation wallet échouée: ${error instanceof Error ? error.message : 'erreur inconnue'}`,
+      });
+      throw error;
+    }
+
+    this.logger.log(
+      `[Payout Confirm] ${payoutRequest.netAmount} XOF confirmés pour ${payoutRequest.userId}. Ref: ${payoutRequest.transactionReference}`,
+    );
+
+    // Notification : retrait réussi
+    await this.notifyPayoutStep(
+      payoutRequest.userId,
+      'Retrait réussi',
+      `Votre retrait de ${payoutRequest.netAmount} FCFA a été crédité sur votre compte ${payoutRequest.provider}.`,
+      payoutRequest.id,
+    );
+
+    return payoutRequest;
+  }
+
+  // ─── FAIL PAYOUT (webhook cashout.failed) ────────────────────────────────
+
+  async failPayout(
+    payoutRequestId: string,
+    reason: string,
+    finalStatus: PayoutStatus = PayoutStatus.FAILED,
+  ): Promise<PayoutRequest | null> {
+    // UPDATE conditionnel
+    const result = await this.payoutRequestRepository
+      .createQueryBuilder()
+      .update(PayoutRequest)
+      .set({ status: finalStatus, failureReason: reason, completedAt: () => 'CURRENT_TIMESTAMP' })
+      .where('id = :id', { id: payoutRequestId })
+      .andWhere('status IN (:...statuses)', { statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED] })
+      .execute();
+
+    if (!result.affected || result.affected === 0) {
+      this.logger.warn(
+        `[Payout Fail] Ignoré (déjà traité ou introuvable): ${payoutRequestId}`,
+      );
+      return this.payoutRequestRepository.findOne({ where: { id: payoutRequestId } });
+    }
+
+    const payoutRequest = await this.payoutRequestRepository.findOne({
+      where: { id: payoutRequestId },
+    });
+    if (!payoutRequest) return null;
+
+    // Libérer les fonds tenus
+    try {
+      await this.walletService.releaseHeldFunds(
+        payoutRequest.userId,
+        payoutRequest.userRole as unknown as UserRole,
+        payoutRequest.netAmount,
+        payoutRequest.branchId ?? undefined,
+        payoutRequest.transactionReference ?? undefined,
+      );
+    } catch (releaseError) {
+      this.logger.error(
+        `[PAYOUT CRITIQUE] Échec libération pour ${payoutRequest.userId}: ${releaseError instanceof Error ? releaseError.message : 'Erreur inconnue'}`,
+      );
+      await this.payoutRequestRepository.update(payoutRequestId, {
+        status: PayoutStatus.APPROVED,
+        failureReason: `Libération des fonds échouée: ${releaseError instanceof Error ? releaseError.message : 'erreur inconnue'}`,
+      });
+      throw new BadRequestException('Impossible de libérer les fonds du retrait');
+    }
+
+    // Notification : retrait échoué + fonds libérés
+    await this.notifyPayoutStep(
+      payoutRequest.userId,
+      'Retrait échoué',
+      `Votre retrait de ${payoutRequest.netAmount} FCFA a échoué: ${reason}. Les fonds ont été recrédités sur votre solde.`,
+      payoutRequest.id,
+    );
+
+    return payoutRequest;
+  }
+
+  // ─── NOTIFICATIONS ───────────────────────────────────────────────────────
+
+  private async notifyPayoutStep(
+    userId: string,
+    title: string,
+    body: string,
+    payoutRequestId: string,
+  ): Promise<void> {
+    try {
+      await this.notificationStore.create({
+        userId,
+        type: NotificationType.SYSTEM,
+        title,
+        body,
+        actionUrl: `/wallet/payout/${payoutRequestId}`,
+      });
+    } catch (err) {
+      this.logger.warn(`[Payout Notify] Échec notification pour ${userId}: ${err}`);
     }
   }
 }

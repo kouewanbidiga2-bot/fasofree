@@ -63,13 +63,20 @@ export class CreateOrderDto {
   businessId?: string;
 
   @ApiProperty({
-    description: 'Montant total de la commande en FCFA (XOF)',
+    description: 'Montant total de la commande en FCFA (XOF). Optionnel pour P2P_DELIVERY et RIDE (recalculé backend).',
     example: 5000,
     minimum: 0,
+    required: false,
   })
+  @IsOptional()
   @Type(() => Number)
+  @ValidateIf(
+    (o) =>
+      o.orderType !== OrderType.P2P_DELIVERY &&
+      o.orderType !== OrderType.RIDE,
+  )
   @IsPositive()
-  totalAmount: number;
+  totalAmount?: number;
 
   @ApiPropertyOptional({
     description: 'Articles de la commande (pour les commandes MERCHANT)',
@@ -197,4 +204,13 @@ export class CreateOrderDto {
   @ValidateIf((o) => o.orderType === OrderType.RIDE)
   @IsEnum(RideOption)
   rideOption?: RideOption;
+
+  @ApiPropertyOptional({
+    description: 'Mode de paiement: cash, orange_money, moov_money, wave. Si cash, la commande est marquée PAID immédiatement.',
+    example: 'cash',
+    enum: ['cash', 'orange_money', 'moov_money', 'wave'],
+  })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
 }

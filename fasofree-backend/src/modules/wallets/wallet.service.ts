@@ -1,11 +1,12 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Wallet, UserRole } from './entities/wallet.entity';
 import { WalletTransaction, TransactionType, TransactionReason, TransactionStatus } from './entities/wallet-transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { PayoutRequest, PayoutStatus, UserRole as PayoutUserRole } from '../financial/entities/payout-request.entity';
 import { ConfigService } from '@nestjs/config';
 
 // Définition propre pour le retour des requêtes SUM()
@@ -22,6 +23,7 @@ interface PayoutEligibility {
   availableForPayout: number;
   periodRevenue: number;
   periodPaid: number;
+  branchId?: string;
 }
 
 @Injectable()
@@ -37,6 +39,8 @@ export class WalletService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    @InjectRepository(PayoutRequest)
+    private readonly payoutRequestRepository: Repository<PayoutRequest>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {}
@@ -57,6 +61,8 @@ export class WalletService {
         userRole,
         branchId: branchId || null,
         balance: 0,
+        availableBalance: 0,
+        heldBalance: 0,
       });
       await this.walletRepository.save(wallet);
       this.logger.log(
@@ -104,6 +110,8 @@ export class WalletService {
           userRole,
           branchId: branchId || null,
           balance: 0,
+          availableBalance: 0,
+          heldBalance: 0,
         });
         await queryRunner.manager.save(wallet);
       }
@@ -134,6 +142,7 @@ export class WalletService {
 
       // 2. Calculer le nouveau solde
       wallet.balance = Number(wallet.balance) + Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) + Number(amount);
       await queryRunner.manager.save(wallet);
 
       // 3. Enregistrer l'écriture au grand livre (Ledger)
@@ -178,7 +187,8 @@ export class WalletService {
   }
 
   /**
-   * Débite le solde d'un portefeuille (avec vérification de solde suffisant)
+   * Débite le solde d'un portefeuille (avec vérification de solde suffisant).
+   * Si externalManager est fourni, le débit s'effectue dans la transaction existante.
    */
   async debitWallet(
     userId: string,
@@ -188,77 +198,102 @@ export class WalletService {
     reference?: string,
     description?: string,
     branchId?: string,
+    externalManager?: any,
   ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
     if (amount <= 0) {
       throw new BadRequestException('Le montant doit être supérieur à 0');
     }
 
+    // Si un EntityManager externe est fourni, l'utiliser (même transaction)
+    if (externalManager) {
+      return this.debitWalletWithManager(externalManager, userId, userRole, amount, reason, reference, description, branchId);
+    }
+
+    // Sinon, créer sa propre transaction
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const whereDebit: any = { userId, userRole };
-      if (branchId) whereDebit.branchId = branchId;
-
-      const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: whereDebit,
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!wallet) {
-        throw new NotFoundException(
-          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
-        );
-      }
-
-      if (Number(wallet.balance) < Number(amount)) {
-        throw new BadRequestException(
-          `Solde insuffisant. Solde actuel: ${wallet.balance} XOF, Requis: ${amount} XOF`,
-        );
-      }
-
-      wallet.balance = Number(wallet.balance) - Number(amount);
-      await queryRunner.manager.save(wallet);
-
-      const transaction = queryRunner.manager.create(WalletTransaction, {
-        walletId: wallet.id,
-        branchId: branchId || null,
-        type: TransactionType.DEBIT,
-        reason,
-        status: TransactionStatus.COMPLETED,
-        amount,
-        balanceAfter: wallet.balance,
-        reference,
-        description,
-      });
-      await queryRunner.manager.save(transaction);
-
+      const result = await this.debitWalletWithManager(queryRunner.manager, userId, userRole, amount, reason, reference, description, branchId);
       await queryRunner.commitTransaction();
-      this.logger.log(
-        `[Wallet Debit] -${amount} XOF pour ${userRole} ${userId}. Nouveau solde: ${wallet.balance}`,
-      );
-
-      return { wallet, transaction };
+      return result;
     } catch (error: unknown) {
-      // Annulation OBLIGATOIRE de la transaction en cas d'erreur
       await queryRunner.rollbackTransaction();
-
-      const errorMessage =
-        error instanceof Error ? error.message : 'Erreur inconnue';
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(`[Wallet Debit Error] ${errorMessage}`);
-
-      // On relance l'erreur originale si c'est une exception NestJS (ex: NotFound ou BadRequest)
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new BadRequestException(
-        'Une erreur inattendue est survenue lors du débit',
-      );
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Une erreur inattendue est survenue lors du débit');
     } finally {
-      // Libération OBLIGATOIRE du queryRunner pour éviter les fuites de mémoire
       await queryRunner.release();
     }
+  }
+
+  /**
+   * Logique interne de débit — opère sur un EntityManager donné.
+   */
+  private async debitWalletWithManager(
+    manager: any,
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    reason: TransactionReason,
+    reference?: string,
+    description?: string,
+    branchId?: string,
+  ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    const whereDebit: any = { userId, userRole };
+    if (branchId) whereDebit.branchId = branchId;
+
+    const wallet = await manager.findOne(Wallet, {
+      where: whereDebit,
+      lock: { mode: 'pessimistic_write' },
+    });
+
+    if (!wallet) {
+      throw new NotFoundException(
+        `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+      );
+    }
+
+    if (reference) {
+      const existing = await manager.findOne(WalletTransaction, {
+        where: { walletId: wallet.id, reference, status: TransactionStatus.COMPLETED },
+      });
+      if (existing) return { wallet, transaction: existing };
+    }
+
+    if (
+      Number(wallet.balance) < Number(amount) ||
+      Number(wallet.availableBalance) < Number(amount)
+    ) {
+      throw new BadRequestException(
+        `Solde disponible insuffisant. Disponible: ${wallet.availableBalance} XOF, Requis: ${amount} XOF`,
+      );
+    }
+
+    wallet.balance = Number(wallet.balance) - Number(amount);
+    wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
+    await manager.save(wallet);
+
+    const transaction = manager.create(WalletTransaction, {
+      walletId: wallet.id,
+      branchId: branchId || null,
+      type: TransactionType.DEBIT,
+      reason,
+      status: TransactionStatus.COMPLETED,
+      amount,
+      balanceAfter: wallet.balance,
+      reference,
+      description,
+    });
+    await manager.save(transaction);
+
+    this.logger.log(
+      `[Wallet Debit] -${amount} XOF pour ${userRole} ${userId}. Nouveau solde: ${wallet.balance}`,
+    );
+
+    return { wallet, transaction };
   }
 
   /**
@@ -299,6 +334,7 @@ export class WalletService {
       }
 
       wallet.balance = Number(wallet.balance) - Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
       await queryRunner.manager.save(wallet);
 
       const transaction = queryRunner.manager.create(WalletTransaction, {
@@ -333,6 +369,253 @@ export class WalletService {
       throw new BadRequestException(
         'Une erreur inattendue est survenue lors du débit',
       );
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Bloquer des fonds pour un retrait en cours (hold/release pattern).
+   * Déplace `amount` de availableBalance → heldBalance.
+   * Vérifie que availableBalance >= amount.
+   */
+  async holdFunds(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    branchId?: string,
+    reference?: string,
+  ): Promise<Wallet> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereHold: any = { userId, userRole };
+      if (branchId) whereHold.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereHold,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      if (Number(wallet.availableBalance) < Number(amount)) {
+        throw new BadRequestException(
+          `Solde disponible insuffisant. Disponible: ${wallet.availableBalance} XOF, Requis: ${amount} XOF`,
+        );
+      }
+
+      wallet.availableBalance = Number(wallet.availableBalance) - Number(amount);
+      wallet.heldBalance = Number(wallet.heldBalance) + Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(WalletTransaction, {
+          walletId: wallet.id,
+          branchId: branchId || null,
+          type: TransactionType.DEBIT,
+          reason: TransactionReason.WITHDRAWAL,
+          status: TransactionStatus.PENDING,
+          amount,
+          balanceAfter: wallet.balance,
+          reference: reference || `HOLD-${wallet.id}-${Date.now()}`,
+          description: 'Blocage temporaire pour retrait',
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Hold] ${amount} XOF bloqués pour ${userRole} ${userId}. Disponible: ${wallet.availableBalance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return wallet;
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors du blocage des fonds');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Libérer des fonds tenus (échec du retrait).
+   * Déplace `amount` de heldBalance → availableBalance.
+   */
+  async releaseHeldFunds(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    branchId?: string,
+    reference?: string,
+  ): Promise<Wallet> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereRelease: any = { userId, userRole };
+      if (branchId) whereRelease.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereRelease,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      const heldAmount = Number(wallet.heldBalance);
+      if (heldAmount < Number(amount)) {
+        this.logger.warn(
+          `[Wallet Release] Tentative de libération de ${amount} XOF mais heldBalance = ${heldAmount}. Clamp à ${heldAmount}.`,
+        );
+        amount = heldAmount;
+      }
+
+      wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
+      wallet.availableBalance = Number(wallet.availableBalance) + Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      if (reference) {
+        await queryRunner.manager.update(
+          WalletTransaction,
+          { walletId: wallet.id, reference, status: TransactionStatus.PENDING },
+          { status: TransactionStatus.FAILED },
+        );
+      }
+
+      await queryRunner.manager.save(
+        queryRunner.manager.create(WalletTransaction, {
+          walletId: wallet.id,
+          branchId: branchId || null,
+          type: TransactionType.CREDIT,
+          reason: TransactionReason.WITHDRAWAL,
+          status: TransactionStatus.COMPLETED,
+          amount,
+          balanceAfter: wallet.balance,
+          reference: `RELEASE-${wallet.id}-${Date.now()}`,
+          description: 'Libération d’un retrait échoué',
+        }),
+      );
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Release] ${amount} XOF libérés pour ${userRole} ${userId}. Disponible: ${wallet.availableBalance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return wallet;
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors de la libération des fonds');
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Confirmer un hold (retrait réussi → débit définitif).
+   * Décremente heldBalance et balance du montant retenu.
+   */
+  async confirmHold(
+    userId: string,
+    userRole: UserRole,
+    amount: number,
+    reason: TransactionReason,
+    reference?: string,
+    description?: string,
+    branchId?: string,
+  ): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    if (amount <= 0) {
+      throw new BadRequestException('Le montant doit être supérieur à 0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const whereConfirm: any = { userId, userRole };
+      if (branchId) whereConfirm.branchId = branchId;
+
+      const wallet = await queryRunner.manager.findOne(Wallet, {
+        where: whereConfirm,
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!wallet) {
+        throw new NotFoundException(
+          `Portefeuille introuvable pour ${userRole} ${userId}${branchId ? ` (agence ${branchId})` : ''}`,
+        );
+      }
+
+      // FIX #7 : vérifier que le montant retenu est suffisant
+      if (Number(wallet.heldBalance) < Number(amount)) {
+        throw new BadRequestException(
+          `Solde en attente insuffisant pour confirmer le hold. En attente: ${wallet.heldBalance} XOF, Requis: ${amount} XOF`,
+        );
+      }
+
+      wallet.heldBalance = Number(wallet.heldBalance) - Number(amount);
+      wallet.balance = Number(wallet.balance) - Number(amount);
+      await queryRunner.manager.save(wallet);
+
+      if (reference) {
+        await queryRunner.manager.update(
+          WalletTransaction,
+          { walletId: wallet.id, reference, status: TransactionStatus.PENDING },
+          { status: TransactionStatus.COMPLETED },
+        );
+      }
+
+      let transaction = reference
+        ? await queryRunner.manager.findOne(WalletTransaction, {
+            where: { walletId: wallet.id, reference, status: TransactionStatus.COMPLETED },
+          })
+        : null;
+      if (!transaction) {
+        transaction = queryRunner.manager.create(WalletTransaction, {
+        walletId: wallet.id,
+        branchId: branchId || null,
+        type: TransactionType.DEBIT,
+        reason,
+        status: TransactionStatus.COMPLETED,
+        amount,
+        balanceAfter: wallet.balance,
+        reference,
+        description,
+        });
+        await queryRunner.manager.save(transaction);
+      }
+
+      await queryRunner.commitTransaction();
+      this.logger.log(
+        `[Wallet Confirm Hold] -${amount} XOF confirmé pour ${userRole} ${userId}. Balance: ${wallet.balance}, En attente: ${wallet.heldBalance}`,
+      );
+
+      return { wallet, transaction };
+    } catch (error: unknown) {
+      await queryRunner.rollbackTransaction();
+      if (error instanceof HttpException) throw error;
+      throw new BadRequestException('Erreur lors de la confirmation du hold');
     } finally {
       await queryRunner.release();
     }
@@ -481,18 +764,20 @@ export class WalletService {
 
       const merchantPayouts: PayoutEligibility[] = [];
       for (const wallet of merchantWallets) {
-        const businesses = await this.businessRepository.find({
-          where: { ownerId: wallet.userId },
-          select: { id: true },
-        });
-        const businessIds = businesses.map((b) => b.id);
+        // 🔒 Si le wallet a un branchId, calculer les revenus de CETTE agence uniquement
+        const targetBusinessIds = wallet.branchId
+          ? [wallet.branchId]
+          : (await this.businessRepository.find({
+              where: { ownerId: wallet.userId },
+              select: { id: true },
+            })).map((b) => b.id);
 
-        if (businessIds.length === 0) continue;
+        if (targetBusinessIds.length === 0) continue;
 
         const totalRevenue = await this.orderRepository
           .createQueryBuilder('o')
           .select('SUM(o.merchantPayoutAmount)', 'sum')
-          .where('o.businessId IN (:...businessIds)', { businessIds })
+          .where('o.businessId IN (:...businessIds)', { businessIds: targetBusinessIds })
           .andWhere('o.status = :status', { status: OrderStatus.COMPLETED })
           .andWhere('o.createdAt >= :cutoff', {
             cutoff: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
@@ -520,6 +805,7 @@ export class WalletService {
             userId: wallet.userId,
             userRole: UserRole.MERCHANT,
             walletId: wallet.id,
+            branchId: wallet.branchId ?? undefined,
             currentBalance: Number(wallet.balance),
             availableForPayout: availableBalance,
             periodRevenue: revenue,
@@ -530,7 +816,7 @@ export class WalletService {
 
       // 2. Calculer les gains des livreurs
       const driverWallets = await this.walletRepository.find({
-        where: { userRole: UserRole.DRIVER },
+        where: { userRole: In([UserRole.DRIVER, UserRole.COURIER]) },
       });
 
       const driverPayouts: PayoutEligibility[] = [];
@@ -565,8 +851,9 @@ export class WalletService {
         if (availableBalance > 0) {
           driverPayouts.push({
             userId: wallet.userId,
-            userRole: UserRole.DRIVER,
+            userRole: wallet.userRole,
             walletId: wallet.id,
+            branchId: wallet.branchId ?? undefined,
             currentBalance: Number(wallet.balance),
             availableForPayout: availableBalance,
             periodRevenue: earnings,
@@ -582,8 +869,9 @@ export class WalletService {
         `[Payout Cron] ${driverPayouts.length} livreur(s) éligible(s) pour payout - Total: ${driverPayouts.reduce((sum, p) => sum + p.availableForPayout, 0).toLocaleString()} FCFA`,
       );
 
-      // 3. Enregistrer les demandes de payout dans une table (à créer) ou logger pour le moment
-      // TODO: Créer une entité PayoutRequest pour tracker les demandes
+      // 3. Persister les demandes de payout dans payout_requests (file d'attente
+      // pour approbation Super Admin) — idempotent : une seule demande PENDING
+      // par (userId, userRole) pour éviter de re-empiler chaque nuit.
       const minPayoutAmount = this.configService.get<number>(
         'MIN_PAYOUT_AMOUNT',
         5000,
@@ -603,21 +891,73 @@ export class WalletService {
         `[Payout Cron] ${eligibleDriverPayouts.length} livreur(s) au-dessus du seuil (${minPayoutAmount} FCFA)`,
       );
 
-      // Log des payouts éligibles pour approbation admin
-      eligibleMerchantPayouts.forEach((payout) => {
-        this.logger.log(
-          `[Payout Request] Commerçant ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA disponible`,
-        );
-      });
+      let created = 0;
+      for (const payout of [...eligibleMerchantPayouts, ...eligibleDriverPayouts]) {
+        let held = false;
+        let payoutReference = '';
+        try {
+          const existing = await this.payoutRequestRepository.findOne({
+            where: {
+              userId: payout.userId,
+              userRole: payout.userRole as unknown as PayoutUserRole,
+              status: In([PayoutStatus.PENDING, PayoutStatus.APPROVED]),
+            },
+          });
+          if (existing) continue;
 
-      eligibleDriverPayouts.forEach((payout) => {
-        this.logger.log(
-          `[Payout Request] Livreur ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA disponible`,
-        );
-      });
-    } catch (error) {
+          payoutReference = `CRON-PAYOUT-${payout.userId}-${Date.now()}`;
+          await this.holdFunds(
+            payout.userId,
+            payout.userRole,
+            payout.availableForPayout,
+            payout.branchId,
+            payoutReference,
+          );
+          held = true;
+          const request = this.payoutRequestRepository.create({
+            userId: payout.userId,
+            userRole: payout.userRole as unknown as PayoutUserRole,
+            walletId: payout.walletId,
+            branchId: payout.branchId ?? null,
+            amount: payout.availableForPayout,
+            fees: 0,
+            netAmount: payout.availableForPayout,
+            transactionReference: payoutReference,
+            phoneNumber: '', // renseigné au moment de l'exécution par le Super Admin
+            status: PayoutStatus.PENDING,
+          });
+          await this.payoutRequestRepository.save(request);
+          created++;
+          this.logger.log(
+            `[Payout Request] ${payout.userRole} ${payout.userId}: ${payout.availableForPayout.toLocaleString()} FCFA en file d'attente`,
+          );
+        } catch (err) {
+          if (held) {
+            await this.releaseHeldFunds(
+              payout.userId,
+              payout.userRole,
+              payout.availableForPayout,
+              payout.branchId,
+              payoutReference,
+            ).catch((releaseError) =>
+              this.logger.error(
+                `[Payout Cron] Échec de libération ${payout.userId}: ${releaseError instanceof Error ? releaseError.message : releaseError}`,
+              ),
+            );
+          }
+          this.logger.error(
+            `[Payout Cron] Échec d'enregistrement pour ${payout.userId}: ${err?.message ?? err}`,
+          );
+        }
+      }
+
+      this.logger.log(
+        `[Payout Cron] ${created} nouvelle(s) demande(s) de payout enregistrée(s)`,
+      );
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       this.logger.error(
-        `[Payout Cron Error] Erreur lors du calcul des payouts: ${error.message}`,
+        `[Payout Cron Error] Erreur lors du calcul des payouts: ${errorMessage}`,
       );
     }
   }
@@ -637,7 +977,7 @@ export class WalletService {
       throw new NotFoundException('Portefeuille introuvable');
     }
 
-    const availableBalance = Number(wallet.balance);
+    const availableBalance = Number(wallet.availableBalance);
     const minPayoutAmount = this.configService.get<number>(
       'MIN_PAYOUT_AMOUNT',
       5000,
@@ -651,9 +991,61 @@ export class WalletService {
       };
     }
 
-    // TODO: Créer une entité PayoutRequest et l'enregistrer
+    const existingRequest = await this.payoutRequestRepository.findOne({
+      where: {
+        userId,
+        userRole: userRole as unknown as PayoutUserRole,
+        status: In([PayoutStatus.PENDING, PayoutStatus.APPROVED]),
+      },
+    });
+    if (existingRequest) {
+      return {
+        success: true,
+        amount: Number(existingRequest.amount),
+        message:
+          "Une demande de payout est déjà en attente d'approbation Super Admin.",
+      };
+    }
+
+    const fees = Math.round(
+      availableBalance * Number(this.configService.get('PAYOUT_FEE_PERCENTAGE', 0)),
+    ) / 100;
+    const netAmount = Math.max(0, availableBalance - fees);
+    const payoutReference = `MANUAL-PAYOUT-${userId}-${Date.now()}`;
+    await this.holdFunds(
+      userId,
+      userRole,
+      netAmount,
+      wallet.branchId ?? undefined,
+      payoutReference,
+    );
+    const request = this.payoutRequestRepository.create({
+      userId,
+      userRole: userRole as unknown as PayoutUserRole,
+      walletId: wallet.id,
+      branchId: wallet.branchId,
+      amount: availableBalance,
+      fees,
+      netAmount,
+      transactionReference: payoutReference,
+      phoneNumber: '', // renseigné au moment de l'exécution par le Super Admin
+      status: PayoutStatus.PENDING,
+    });
+    try {
+      await this.payoutRequestRepository.save(request);
+    } catch (error) {
+      await this.releaseHeldFunds(
+        userId,
+        userRole,
+        netAmount,
+        wallet.branchId ?? undefined,
+        payoutReference,
+      );
+      throw error;
+    }
+
     this.logger.log(
-      `[Payout Request] Demande de payout pour ${userRole} ${userId}: ${availableBalance.toLocaleString()} FCFA`,
+      `[Payout Request] Demande de payout enregistrée pour ${userRole} ${userId}: ${availableBalance.toLocaleString()} FCFA`,
     );
 
     return {
@@ -662,6 +1054,50 @@ export class WalletService {
       message:
         "Demande de payout enregistrée. En attente d'approbation Super Admin.",
     };
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async reconcileStalePayoutRequests(): Promise<void> {
+    const threshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const stale = await this.payoutRequestRepository
+      .createQueryBuilder('p')
+      .where('p.status IN (:...statuses)', {
+        statuses: [PayoutStatus.PENDING, PayoutStatus.APPROVED],
+      })
+      .andWhere('p."createdAt" < :threshold', { threshold })
+      .getMany();
+
+    for (const payout of stale) {
+      try {
+        await this.releaseHeldFunds(
+          payout.userId,
+          payout.userRole as unknown as UserRole,
+          payout.netAmount,
+          payout.branchId ?? undefined,
+          payout.transactionReference ?? undefined,
+        );
+        await this.payoutRequestRepository.update(payout.id, {
+          status: PayoutStatus.FAILED,
+          failureReason: 'Demande expirée après 7 jours sans exécution',
+          completedAt: new Date(),
+        });
+      } catch (error) {
+        this.logger.error(
+          `[Payout Reconciliation] Fonds non libérés pour ${payout.id}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+  }
+
+  // ========================================================================
+  // 🔎 Vue super admin : tous les portefeuilles d'un utilisateur (tous rôles)
+  // ========================================================================
+  async getAllWalletsOfUser(
+    userId: string,
+  ): Promise<{ wallets: Wallet[]; totalBalance: number }> {
+    const wallets = await this.walletRepository.find({ where: { userId } });
+    const totalBalance = wallets.reduce((sum, w) => sum + Number(w.balance), 0);
+    return { wallets, totalBalance };
   }
 
   // ========================================================================

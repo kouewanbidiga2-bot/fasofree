@@ -45,15 +45,22 @@ import {
 import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
 
   const userRole = String(user?.role || '').toLowerCase().replace('-', '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(userRole);
+
+  // 🛡️ Garde-fou : rediriger si le rôle n'est pas autorisé
+  if (user && !isSuperAdmin) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
 
   // Financial data
   const [financialStats, setFinancialStats] = useState({
@@ -91,7 +98,7 @@ const SuperAdminDashboard = () => {
 
   // Pending validations
   const [pendingDisputes, setPendingDisputes] = useState([]);
-  const [processingDispute, setProcessingDispute] = useState(null);
+  const [processingDisputes, setProcessingDisputes] = useState(new Set());
 
   // KYC validation queue (commerçants & livreurs)
   const [kycPending, setKycPending] = useState([]);
@@ -161,6 +168,13 @@ const SuperAdminDashboard = () => {
       MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
       CAR:        { baseFee: 800, ratePerKm: 300 },
     },
+    deliveryTiers: [
+      { minKm: 0,  maxKm: 15, price: 1750, label: '0-15 km' },
+      { minKm: 16, maxKm: 20, price: 2250, label: '16-20 km' },
+      { minKm: 21, maxKm: 25, price: 2750, label: '21-25 km' },
+      { minKm: 26, maxKm: 30, price: 3250, label: '26-30 km' },
+      { minKm: 31, maxKm: null, price: 3750, label: '31+ km' },
+    ],
     fasoRidePricing: {
       MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
       ECONOMY:    { minFare: 500, pricePerKm: 200 },
@@ -209,6 +223,13 @@ const SuperAdminDashboard = () => {
           MOTORCYCLE: { baseFee: 400, ratePerKm: 150 },
           CAR:        { baseFee: 800, ratePerKm: 300 },
         },
+        deliveryTiers: data.deliveryTiers || [
+          { minKm: 0,  maxKm: 15, price: 1750, label: '0-15 km' },
+          { minKm: 16, maxKm: 20, price: 2250, label: '16-20 km' },
+          { minKm: 21, maxKm: 25, price: 2750, label: '21-25 km' },
+          { minKm: 26, maxKm: 30, price: 3250, label: '26-30 km' },
+          { minKm: 31, maxKm: null, price: 3750, label: '31+ km' },
+        ],
         fasoRidePricing: data.fasoRidePricing || {
           MOTORCYCLE: { minFare: 500, pricePerKm: 200 },
           ECONOMY:    { minFare: 500, pricePerKm: 200 },
@@ -379,6 +400,33 @@ const SuperAdminDashboard = () => {
     loadConversations();
   }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
 
+  // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
+  useEffect(() => {
+    const socket = getDispatchSocket();
+    if (!socket.connected) socket.connect();
+    const onStatusChanged = () => {
+      loadFinancialStats();
+      loadFinancialOverview();
+      loadUsers();
+    };
+    socket.on('orderStatusChanged', onStatusChanged);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (!socket.connected) socket.connect();
+        loadFinancialStats();
+        loadFinancialOverview();
+        loadUsers();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('orderStatusChanged', onStatusChanged);
+    };
+  }, [loadFinancialStats, loadFinancialOverview, loadUsers]);
+
   useEffect(() => {
     return () => {
       if (chatSocketRef.current) {
@@ -390,11 +438,14 @@ const SuperAdminDashboard = () => {
     };
   }, [selectedChatOrder, chatChannel]);
 
-  const handleViewChatHistory = async (orderId) => {
+  // ✅ FIX #25 : le canal est passé explicitement en paramètre.
+  // setChatChannel(ch) est async : lire chatChannel du closure dans le même
+  // handler donnerait l'ANCIENNE valeur → historique/room socket sur le mauvais canal.
+  const handleViewChatHistory = async (orderId, channel = chatChannel) => {
     setSelectedChatOrder(orderId);
     setChatHistoryLoading(true);
     try {
-      const data = await getChatHistory(orderId, chatChannel);
+      const data = await getChatHistory(orderId, channel);
       setChatHistory(data?.history || data || []);
     } catch {
       setChatHistory([]);
@@ -402,22 +453,23 @@ const SuperAdminDashboard = () => {
       setChatHistoryLoading(false);
     }
 
-    if (chatSocketRef.current) {
+    if (chatSocketRef.current && selectedChatOrder) {
       chatSocketRef.current.emit('leaveOrderChat', { orderId: selectedChatOrder, channel: chatChannel });
       chatSocketRef.current.off('newOrderMessage');
     }
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
-    socket.emit('joinOrderChat', { orderId, channel: chatChannel }, (res) => {
+    socket.emit('joinOrderChat', { orderId, channel }, (res) => {
       if (res?.status === 'ok') {
         setChatHistory(res.history || []);
       }
     });
 
     socket.on('newOrderMessage', (msg) => {
-      if (msg.orderId === orderId && msg.channel === chatChannel) {
+      if (msg.orderId === orderId && msg.channel === channel) {
         setChatHistory((prev) => [...prev, msg]);
       }
     });
@@ -596,6 +648,7 @@ const SuperAdminDashboard = () => {
       await api.patch('/admin/settings', {
         platformFee: platformSettings.platformFee,
         deliveryPricing: platformSettings.deliveryPricing,
+        deliveryTiers: platformSettings.deliveryTiers,
         fasoRidePricing: platformSettings.fasoRidePricing,
         maxDeliveryRadius: platformSettings.maxDeliveryRadius,
         enableScheduling: platformSettings.enableScheduling,
@@ -747,7 +800,7 @@ const SuperAdminDashboard = () => {
 
   // Handle dispute approval (refund)
   const handleApproveDispute = async (disputeId) => {
-    setProcessingDispute(disputeId);
+    setProcessingDisputes(prev => new Set([...prev, disputeId]));
     try {
       await approveRefund(disputeId, 'Remboursement approuvé par l\'administration');
       // Reload disputes
@@ -756,13 +809,17 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       setError('disputes', err.message);
     } finally {
-      setProcessingDispute(null);
+      setProcessingDisputes(prev => {
+        const next = new Set(prev);
+        next.delete(disputeId);
+        return next;
+      });
     }
   };
 
   // Handle dispute rejection
   const handleRejectDispute = async (disputeId) => {
-    setProcessingDispute(disputeId);
+    setProcessingDisputes(prev => new Set([...prev, disputeId]));
     try {
       await rejectDispute(disputeId, 'Litige rejeté par l\'administration');
       // Reload disputes
@@ -771,7 +828,11 @@ const SuperAdminDashboard = () => {
     } catch (err) {
       setError('disputes', err.message);
     } finally {
-      setProcessingDispute(null);
+      setProcessingDisputes(prev => {
+        const next = new Set(prev);
+        next.delete(disputeId);
+        return next;
+      });
     }
   };
 
@@ -1011,7 +1072,7 @@ const SuperAdminDashboard = () => {
                 value={kycPending.length}
                 icon={Shield}
                 color="#EF4444"
-                loading={loading.pending}
+                loading={loading.kyc}
               />
             </div>
 
@@ -1583,18 +1644,18 @@ const SuperAdminDashboard = () => {
                         </td>
                         <td>
                           <p className="text-text-tertiary text-xs">
-                            {new Date(dispute.createdAt).toLocaleDateString('fr-FR')}
+                            {dispute.createdAt ? new Date(dispute.createdAt).toLocaleDateString('fr-FR') : '—'}
                           </p>
                         </td>
                         <td>
                           <div className="flex gap-2">
                             <button 
                               onClick={() => handleApproveDispute(dispute.id)}
-                              disabled={processingDispute === dispute.id}
+                              disabled={processingDisputes.has(dispute.id)}
                               className="btn-icon text-status-success hover:bg-status-successBg disabled:opacity-50" 
                               title="Valider le remboursement"
                             >
-                              {processingDispute === dispute.id ? (
+                              {processingDisputes.has(dispute.id) ? (
                                 <span className="w-4 h-4 border-2 border-status-success/30 border-t-status-success rounded-full animate-spin" />
                               ) : (
                                 <CheckCircle size={14} />
@@ -1602,11 +1663,11 @@ const SuperAdminDashboard = () => {
                             </button>
                             <button 
                               onClick={() => handleRejectDispute(dispute.id)}
-                              disabled={processingDispute === dispute.id}
+                              disabled={processingDisputes.has(dispute.id)}
                               className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-50" 
                               title="Rejeter le litige"
                             >
-                              {processingDispute === dispute.id ? (
+                              {processingDisputes.has(dispute.id) ? (
                                 <span className="w-4 h-4 border-2 border-status-error/30 border-t-status-error rounded-full animate-spin" />
                               ) : (
                                 <XCircle size={14} />
@@ -1761,7 +1822,7 @@ const SuperAdminDashboard = () => {
                     {['merchant', 'driver'].map(ch => (
                       <button
                         key={ch}
-                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder); }}
+                        onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder, ch); }}
                         className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
                       >
                         {ch === 'merchant' ? 'Marchand' : 'Livreur'}
@@ -2337,8 +2398,8 @@ const SuperAdminDashboard = () => {
               <h2 className="text-xl font-bold text-text-primary">Paramètres de la Plateforme</h2>
               <div className="flex items-center gap-3">
                 {settingsLoading && <span className="text-xs text-text-secondary">Chargement...</span>}
-                {settingsSuccess && <span className="text-xs text-green-500 font-medium">{settingsSuccess}</span>}
-                {settingsError && <span className="text-xs text-red-500 font-medium">{settingsError}</span>}
+                {settingsSuccess && <span className="text-xs text-status-success font-medium">{settingsSuccess}</span>}
+                {settingsError && <span className="text-xs text-status-error font-medium">{settingsError}</span>}
               </div>
             </div>
 
@@ -2370,54 +2431,101 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
 
-            {/* Matrice Livraison */}
+            {/* Tranches Tarifaires Livraison */}
             <div className="card p-6">
-              <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
+              <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
                 <Truck size={16} className="text-accent-primary" />
-                Matrice Tarifaire — Livraison
+                Tranches Tarifaires — Livraison
               </h3>
+              <p className="text-xs text-text-secondary mb-4">
+                Prix fixe par palier de distance. La distance est calculée automatiquement entre le restaurant et le point de livraison.
+                Surcharge nuit automatique (+500 FCFA) de 21h à 06h.
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-light">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Véhicule</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Tarif de base (FCFA)</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix/km (FCFA)</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Palier</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance min (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance max (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix (FCFA)</th>
+                      <th className="w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {['BICYCLE', 'MOTORCYCLE', 'CAR'].map((v) => (
-                      <tr key={v} className="border-b border-border-light/50">
-                        <td className="py-2 px-3 font-medium text-text-primary">
-                          {v === 'BICYCLE' ? 'Vélo' : v === 'MOTORCYCLE' ? 'Moto' : 'Voiture'}
+                    {(platformSettings.deliveryTiers || []).map((tier, idx) => (
+                      <tr key={idx} className="border-b border-border-light/50">
+                        <td className="py-2 px-3 font-medium text-text-primary">{tier.label || `Palier ${idx + 1}`}</td>
+                        <td className="text-right py-2 px-3">
+                          <input
+                            type="number"
+                            className="input-field w-20 text-right"
+                            value={tier.minKm}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], minKm: Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
+                          />
                         </td>
                         <td className="text-right py-2 px-3">
                           <input
                             type="number"
-                            className="input-field w-24 text-right"
-                            value={platformSettings.deliveryPricing[v]?.baseFee || 0}
-                            onChange={(e) => setPlatformSettings(prev => ({
-                              ...prev,
-                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], baseFee: Number(e.target.value) } }
-                            }))}
+                            className="input-field w-20 text-right"
+                            placeholder="∞"
+                            value={tier.maxKm ?? ''}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], maxKm: e.target.value === '' ? null : Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
                           />
                         </td>
                         <td className="text-right py-2 px-3">
                           <input
                             type="number"
                             className="input-field w-24 text-right"
-                            value={platformSettings.deliveryPricing[v]?.ratePerKm || 0}
-                            onChange={(e) => setPlatformSettings(prev => ({
-                              ...prev,
-                              deliveryPricing: { ...prev.deliveryPricing, [v]: { ...prev.deliveryPricing[v], ratePerKm: Number(e.target.value) } }
-                            }))}
+                            value={tier.price}
+                            onChange={(e) => {
+                              const newTiers = [...platformSettings.deliveryTiers];
+                              newTiers[idx] = { ...newTiers[idx], price: Number(e.target.value) };
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
                           />
+                        </td>
+                        <td className="py-2 px-1">
+                          <button
+                            onClick={() => {
+                              const newTiers = platformSettings.deliveryTiers.filter((_, i) => i !== idx);
+                              setPlatformSettings(prev => ({ ...prev, deliveryTiers: newTiers }));
+                            }}
+                            className="text-status-error/60 hover:text-status-error p-1"
+                            title="Supprimer"
+                          >
+                            <XCircle size={14} />
+                          </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              <button
+                onClick={() => {
+                  const lastTier = platformSettings.deliveryTiers[platformSettings.deliveryTiers.length - 1];
+                  const newMin = lastTier ? (lastTier.maxKm != null ? lastTier.maxKm + 1 : (lastTier.minKm || 30) + 1) : 0;
+                  setPlatformSettings(prev => ({
+                    ...prev,
+                    deliveryTiers: [
+                      ...prev.deliveryTiers,
+                      { minKm: newMin, maxKm: null, price: 3750, label: `${newMin}+ km` },
+                    ],
+                  }));
+                }}
+                className="mt-3 text-xs text-accent-primary hover:underline flex items-center gap-1"
+              >
+                + Ajouter un palier
+              </button>
             </div>
 
             {/* Matrice Faso Ride */}

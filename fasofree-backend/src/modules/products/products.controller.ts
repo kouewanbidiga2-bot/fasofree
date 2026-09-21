@@ -6,14 +6,17 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { BusinessesService } from '../businesses/businesses.service';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -22,7 +25,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly businessesService: BusinessesService,
+  ) {}
 
   // ➕ Ajouter un produit (Gérants & Admins)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -43,8 +49,8 @@ export class ProductsController {
   // 📋 Route publique : Obtenir la carte / le catalogue d'un commerce
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Lister les produits d\u2019un commerce' })
-  async findByBusiness(@Param('businessId') businessId: string) {
-    return this.productsService.findByBusiness(businessId);
+  async findByBusiness(@Param('businessId') businessId: string, @Query('category') category?: string) {
+    return this.productsService.findByBusiness(businessId, category);
   }
 
   // ⚠️ Produits en stock bas pour un commerce
@@ -53,7 +59,14 @@ export class ProductsController {
   @Get('business/:businessId/low-stock')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Produits dont le stock est sous le seuil d\u2019alerte' })
-  async findLowStock(@Param('businessId') businessId: string) {
+  async findLowStock(
+    @Request() req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @Param('businessId') businessId: string,
+  ) {
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+    // 🔒 Vérifier que le marchand possède bien cette agence
+    await this.businessesService.assertManagedBy(businessId, userId, role as any);
     return this.productsService.findLowStock(businessId);
   }
 
@@ -90,6 +103,50 @@ export class ProductsController {
     const userId = req.user?.userId as string;
     const role = req.user?.role as string;
     return this.productsService.toggleAvailability(id, userId, role as any);
+  }
+
+  // 🔍 Détail d'un produit
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtenir le détail d\'un produit par son ID' })
+  async findOne(@Param('id') id: string) {
+    return this.productsService.findOne(id);
+  }
+
+  // 📦 Mettre à jour le stock d'un produit
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post(':id/stock')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Mettre à jour le stock d\'un produit' })
+  async updateStock(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @Param('id') id: string,
+    @Body() body: { quantity: number; reason?: string },
+  ) {
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+    return this.productsService.updateStock(id, body.quantity, body.reason ?? 'MANUAL_ADJUSTMENT', userId, role as any);
+  }
+
+  // 🏷️ Générer un SKU automatiquement
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post('generate-sku')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Générer un SKU automatiquement pour un produit' })
+  async generateSku(
+    @Request() req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @Body() body: { businessId: string; productName: string; category?: string },
+  ) {
+    if (!body.businessId || !body.productName) {
+      throw new BadRequestException('businessId et productName sont requis');
+    }
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+    // 🔒 Vérifier que le marchand possède bien cette agence
+    await this.businessesService.assertManagedBy(body.businessId, userId, role as any);
+    return { sku: this.productsService.generateSku(body.businessId, body.productName, body.category) };
   }
 
   // 🗑️ Supprimer un produit

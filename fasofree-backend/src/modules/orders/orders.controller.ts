@@ -9,9 +9,11 @@ import {
   UseGuards,
   Request as NestRequest,
   UnauthorizedException,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { OrdersService } from './orders.service';
+import { BusinessesService } from '../businesses/businesses.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QuoteOrderDto } from './dto/quote-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -45,6 +47,7 @@ export class OrdersController {
   constructor(
     private readonly ordersService: OrdersService,
     private readonly disputesService: DisputesService,
+    private readonly businessesService: BusinessesService,
   ) {}
 
   // 🎛️ Tour de contrôle : toutes les commandes (SUPER_ADMIN / ADMIN / SUPPORT)
@@ -108,15 +111,26 @@ export class OrdersController {
 
   // 📋 Obtenir mes commandes
   @Get('my-orders')
-  @ApiOperation({ summary: 'Lister les commandes du client connecté' })
+  @ApiOperation({ summary: 'Lister les commandes du client ou livreur connecté' })
   @ApiResponse({ status: 200, description: 'Liste des commandes récupérée' })
   @ApiResponse({ status: 401, description: 'Utilisateur non authentifié' })
-  async getMyOrders(@NestRequest() req: RequestWithUser) {
+  async getMyOrders(
+    @NestRequest() req: RequestWithUser,
+    @Query('status') status?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
     const userId = req.user?.userId;
+    const role = req.user?.role;
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    return this.ordersService.findClientOrders(userId);
+    const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
+    if (isDriver) {
+      const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
+      return this.ordersService.findDriverOrders(userId, statuses, limit, offset);
+    }
+    return this.ordersService.findClientOrders(userId, limit, offset);
   }
 
   @Get('my-recent')
@@ -139,6 +153,13 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Param('businessId') businessId: string,
   ) {
+    const role = req.user?.role as UserRole;
+    const userId = req.user?.userId;
+    if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+    // 🔒 Vérifier que le marchand administre bien ce commerce
+    if (role === UserRole.BUSINESS_ADMIN) {
+      await this.businessesService.assertManagedBy(businessId, userId, role);
+    }
     return this.ordersService.findAllByBusiness(businessId);
   }
 
@@ -152,6 +173,18 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
     @Body('businessIds') businessIds: string[],
   ) {
+    if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
+      throw new UnauthorizedException('businessIds est requis');
+    }
+    // 🔒 Vérifier que le marchand administre AU MOINS UN des commerces demandés
+    const role = req.user?.role as UserRole;
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+      for (const bid of businessIds) {
+        await this.businessesService.assertManagedBy(bid, userId, role);
+      }
+    }
     return this.ordersService.findAllByBusinesses(businessIds);
   }
 
@@ -242,29 +275,20 @@ export class OrdersController {
     return this.ordersService.updateStatus(id, dto.status, userId, role);
   }
 
-  // 🛵 Un livreur/coursier accepte une course (FOOD / P2P / RIDE)
+  // 🛵 Un livreur/coursier accepte une course — DÉPRÉCIÉ
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER, UserRole.COURIER)
   @Post(':id/accept')
   @ApiOperation({
     summary:
-      'Le livreur/coursier accepte une course (assignation driverId + statut PROCESSING)',
+      '[DÉPRÉCIÉ] Utiliser POST /dispatch/accept/:orderId à la place.',
   })
-  @ApiResponse({
-    status: 201,
-    description: 'Course acceptée — le GPS du livreur est diffusé au client',
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Non autorisé (rôle DRIVER/COURIER requis) ou course déjà acceptée',
-  })
-  @ApiResponse({ status: 400, description: 'Statut incompatible avec une acceptation' })
+  @ApiResponse({ status: 410, description: 'Route dépréciée' })
   async acceptOrder(@Param('id') id: string, @NestRequest() req: RequestWithUser) {
-    const userId = req.user?.userId;
-    if (!userId) {
-      throw new UnauthorizedException('Utilisateur non authentifié');
-    }
-    return this.ordersService.acceptOrder(id, userId);
+    // 🔒 Cette route est dépréciée — rediriger vers /dispatch/accept
+    throw new BadRequestException(
+      'Cette route est dépréciée. Utilisez POST /dispatch/accept/:orderId',
+    );
   }
 
   // ========================================================================
@@ -322,6 +346,51 @@ export class OrdersController {
   }
 
   // ========================================================================
+  // ✅ CONFIRMATION DE LIVRAISON (admin / marchand — sans PIN)
+  // Le marchand ou l'admin confirme la réception sans saisie de PIN
+  // ========================================================================
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.BUSINESS_ADMIN)
+  @Post(':id/confirm-delivery')
+  @ApiOperation({
+    summary: 'Confirmer la livraison d\'une commande (admin/marchand, sans PIN)',
+  })
+  @ApiResponse({ status: 200, description: 'Commande confirmée avec succès' })
+  async confirmDelivery(
+    @Param('id') id: string,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.ordersService.confirmDeliveryByAdmin(id, userId);
+  }
+
+  // ========================================================================
+  // 📍 LOCALISATION DU LIVREUR (temps réel)
+  // Le livreur envoie sa position GPS
+  // ========================================================================
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Post(':id/driver-location')
+  @ApiOperation({
+    summary: 'Enregistrer la position GPS du livreur pour une commande',
+  })
+  @ApiResponse({ status: 200, description: 'Position mise à jour' })
+  async updateDriverLocation(
+    @Param('id') id: string,
+    @Body() body: { latitude: number; longitude: number },
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.ordersService.updateDriverLocation(id, userId, body.latitude, body.longitude);
+  }
+
+  // ========================================================================
   // 🎯 ASSIGNATION MANUELLE D'UN LIVREUR (admin / support / marchand)
   // ========================================================================
   @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -340,9 +409,20 @@ export class OrdersController {
   async assignDriver(
     @Param('id') orderId: string,
     @Body('driverId') driverId: string,
+    @NestRequest() req: RequestWithUser,
   ) {
     if (!driverId) {
-      throw new UnauthorizedException('driverId est requis');
+      throw new BadRequestException('driverId est requis');
+    }
+    // 🔒 Vérifier que le marchand administre le commerce de cette commande
+    const role = req.user?.role as UserRole;
+    if (role === UserRole.BUSINESS_ADMIN) {
+      const userId = req.user?.userId;
+      if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+      const order = await this.ordersService.findOne(orderId);
+      if (order.businessId) {
+        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+      }
     }
     return this.ordersService.assignDriverToOrder(orderId, driverId);
   }

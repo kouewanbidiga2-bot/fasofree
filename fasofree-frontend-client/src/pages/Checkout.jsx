@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils, Navigation, Check, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -22,11 +23,12 @@ const FULFILLMENT_OPTIONS = [
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
-  const { addOrder } = useAuthStore();
+  const { addOrder, user } = useAuthStore();
+  const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
   const [restaurant, setRestaurant] = useState(null);
   const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
+    name: fullName || '',
+    phone: user?.phone || '',
     address: '',
     landmark: '',
     notes: '',
@@ -64,7 +66,7 @@ const Checkout = () => {
       if (def) {
         setSelectedAddressId(def.id);
         setFormData(f => ({ ...f, address: def.address }));
-        if (def.latitude && def.longitude) setDeliveryCoords({ lat: def.latitude, lng: def.longitude });
+        if (def.latitude && def.longitude) setDeliveryCoords({ latitude: def.latitude, longitude: def.longitude });
       }
     }).catch(() => {});
   }, []);
@@ -106,12 +108,12 @@ const Checkout = () => {
     if (submitting) return;
 
     if (!formData.phone || !formData.phone.replace(/\s/g, '').match(/^\+?\d{8,15}$/)) {
-      alert('Numéro de téléphone invalide. Utilisez le format +226 XX XX XX XX');
+      toast.error('Numéro de téléphone invalide. Utilisez le format +226 XX XX XX XX');
       return;
     }
 
     if (isDelivery && !deliveryCoords) {
-      alert('Veuillez sélectionner votre position de livraison');
+      toast.error('Veuillez sélectionner votre position de livraison');
       return;
     }
 
@@ -134,13 +136,16 @@ const Checkout = () => {
         unitPrice: item.price,
       }));
 
+      // 🔒 Le backend recalcule les prix, frais de livraison et frais de service.
+      // On n'envoie QUE le sous-total produits (vérifié par le backend).
       const payload = {
         businessId: restaurantId,
-        totalAmount: finalTotal,
+        totalAmount: subtotal,
         items: orderItems,
         orderType: 'MERCHANT',
         fulfillmentType,
         fulfillmentDetails: { notes: formData.notes || undefined },
+        paymentMethod: paymentMethod || 'cash',
       };
 
       if (isDelivery) {
@@ -159,21 +164,6 @@ const Checkout = () => {
 
       const order = await api.createOrder(payload);
 
-      addOrder({
-        id: order.id,
-        restaurant: restaurant?.name || 'Restaurant',
-        items,
-        subtotal,
-        deliveryFee,
-        platformFee,
-        total: finalTotal,
-        address: isDelivery ? formData.address : 'À récupérer',
-        phone: formData.phone,
-        paymentMethod,
-        fulfillmentType,
-        status: order.status || 'pending',
-      });
-
       try {
         if (paymentMethod !== 'cash') {
           const payResult = await api.initiatePayment({
@@ -183,22 +173,49 @@ const Checkout = () => {
           });
 
           if (payResult?.checkoutUrl) {
+            // 🔒 PAS addOrder() ici — la commande n'est PAS payée tant que
+            // le client n'a pas complété le paiement sur GeniusPay.
+            // Le webhook /geniuspay/webhook marquera la commande PAID.
+            // On stocke juste l'orderId pour la page de retour.
             window.location.href = payResult.checkoutUrl;
             return;
           }
-          // Pas de checkoutUrl → paiement mock ou provider non configuré, continuer
+
+          // Pas de checkoutUrl et pas cash → ERREUR (ne pas confirmer localement)
+          if (paymentMethod !== 'cash') {
+            throw new Error('Impossible de générer l\'URL de paiement GeniusPay. Veuillez réessayer.');
+          }
+
         }
+
+        // Paiement cash uniquement → la commande est confirmée localement
+        addOrder({
+          id: order.id,
+          restaurant: restaurant?.name || 'Restaurant',
+          items,
+          subtotal,
+          deliveryFee,
+          platformFee,
+          total: finalTotal,
+          address: isDelivery ? formData.address : 'À récupérer',
+          phone: formData.phone,
+          paymentMethod,
+          fulfillmentType,
+          status: order.status || 'pending',
+        });
       } catch (payErr) {
         console.error('Payment initiation error:', payErr);
-        // Extraire le message d'erreur depuis la réponse API
         let errorMsg = 'Paiement non disponible';
         if (payErr?.message) {
-          // Si le message est un array (format NestJS), prendre le premier
           errorMsg = Array.isArray(payErr.message) ? payErr.message[0] : payErr.message;
         }
-        // Annuler la commande côté backend (déjà fait par le service)
-        alert(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
-        // Retourner au panier au lieu d'afficher un reçu
+        // Annuler la commande créée côté backend pour éviter les commandes orphelines
+        try {
+          await api.cancelOrder(order.id, 'Échec du paiement GeniusPay');
+        } catch (cancelErr) {
+          console.error('Failed to cancel order after payment error:', cancelErr);
+        }
+        toast.error(`Erreur de paiement: ${errorMsg}. La commande a été annulée.`);
         navigate('/cart', { replace: true });
         return;
       }
@@ -219,7 +236,7 @@ const Checkout = () => {
       });
     } catch (err) {
       console.error('Order creation failed:', err);
-      alert(err.message || 'Erreur lors de la commande. Veuillez réessayer.');
+      toast.error(err.message || 'Erreur lors de la commande. Veuillez réessayer.');
     } finally {
       setSubmitting(false);
     }
@@ -238,7 +255,7 @@ const Checkout = () => {
         },
         (error) => {
           console.error('Error getting location:', error);
-          alert('Impossible de récupérer votre position');
+          toast.error('Impossible de récupérer votre position');
         }
       );
     }
@@ -312,7 +329,7 @@ const Checkout = () => {
                           onClick={() => {
                             setSelectedAddressId(addr.id);
                             setFormData(f => ({ ...f, address: addr.address }));
-                            if (addr.latitude && addr.longitude) setDeliveryCoords({ lat: addr.latitude, lng: addr.longitude });
+                            if (addr.latitude && addr.longitude) setDeliveryCoords({ latitude: addr.latitude, longitude: addr.longitude });
                           }}
                           className={`w-full text-left p-3 border transition-colors ${
                             selectedAddressId === addr.id

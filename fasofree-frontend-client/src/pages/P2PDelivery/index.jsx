@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle, Info } from 'lucide-react';
+import { toast } from 'sonner';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import { STEPS, emptyLocation, emptyPackage } from './constants';
@@ -36,7 +37,7 @@ const P2PDelivery = () => {
   // Récupère la position GPS du navigateur et remplit le lieu concerné
   const handleUseCurrentLocation = (setter) => {
     if (!navigator.geolocation) {
-      alert('Géolocalisation non disponible sur cet appareil');
+      toast.error('Géolocalisation non disponible sur cet appareil');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -48,25 +49,31 @@ const P2PDelivery = () => {
           longitude: Number(position.coords.longitude.toFixed(6)),
         }));
       },
-      () => alert('Impossible de récupérer votre position')
+      () => toast.error('Impossible de récupérer votre position')
     );
   };
 
   const isStepValid = (current) => {
     if (current === 1) {
+      const hasCoords = pickup.latitude != null && pickup.longitude != null &&
+        !isNaN(Number(pickup.latitude)) && !isNaN(Number(pickup.longitude));
       return (
         pickup.address.trim() &&
         pickup.contactName.trim() &&
         pickup.contactPhone.trim() &&
-        !!formatBurkinaPhone(pickup.contactPhone)
+        !!formatBurkinaPhone(pickup.contactPhone) &&
+        hasCoords
       );
     }
     if (current === 2) {
+      const hasCoords = dropoff.latitude != null && dropoff.longitude != null &&
+        !isNaN(Number(dropoff.latitude)) && !isNaN(Number(dropoff.longitude));
       return (
         dropoff.address.trim() &&
         dropoff.contactName.trim() &&
         dropoff.contactPhone.trim() &&
-        !!formatBurkinaPhone(dropoff.contactPhone)
+        !!formatBurkinaPhone(dropoff.contactPhone) &&
+        hasCoords
       );
     }
     return packageInfo.description.trim() && packageInfo.estimatedAmount.trim();
@@ -130,9 +137,12 @@ const P2PDelivery = () => {
     setSubmitting(true);
     try {
       const response = await api.createOrder(buildPayload());
-      setSuccess({
-        id: response?.orderId || response?.id || 'FF' + Date.now().toString().slice(-8),
-      });
+      // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }
+      // Rediriger vers GeniusPay pour le paiement
+      if (!response?.checkoutUrl) {
+        throw new Error('URL de paiement indisponible');
+      }
+      window.location.href = response.checkoutUrl;
     } catch (err) {
       setError(
         err?.message ||

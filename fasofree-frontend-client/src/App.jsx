@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
 import RideBooking from './pages/RideBooking';
@@ -14,6 +15,7 @@ import VipPass from './pages/VipPass';
 import Addresses from './pages/Addresses';
 import Settings from './pages/Settings';
 import Disputes from './pages/Disputes';
+import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import MerchantDashboard from './pages/MerchantDashboard';
 import MerchantProducts from './pages/MerchantProducts';
@@ -68,6 +70,7 @@ function App() {
 
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <Toaster position="top-center" richColors duration={4000} />
       <Routes>
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />
@@ -102,6 +105,7 @@ function App() {
         <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />
         <Route path="/merchant/wallet" element={<ProtectedRoute><MerchantWallet /></ProtectedRoute>} />
         <Route path="/merchant/settings" element={<ProtectedRoute><MerchantSettings /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
   );

@@ -10,6 +10,13 @@ export interface FasoRideOptionPricing {
   pricePerKm: number;
 }
 
+export interface DeliveryTierConfig {
+  minKm: number;
+  maxKm: number | null;
+  price: number;
+  label?: string;
+}
+
 /**
  * Configuration centralisée de la tarification FasoFree.
  * Ligne singleton (id=1) créée au démarrage si absente.
@@ -27,6 +34,18 @@ export class SystemSettings {
     default: () => `'{ "BICYCLE": { "baseFee": 250, "ratePerKm": 100 }, "MOTORCYCLE": { "baseFee": 400, "ratePerKm": 150 }, "CAR": { "baseFee": 800, "ratePerKm": 300 } }'::jsonb`,
   })
   deliveryPricing: Record<string, DeliveryVehiclePricing>;
+
+  @Column({
+    type: 'jsonb',
+    default: () => `'[
+      {"minKm": 0, "maxKm": 15, "price": 1750, "label": "0-15 km"},
+      {"minKm": 16, "maxKm": 20, "price": 2250, "label": "16-20 km"},
+      {"minKm": 21, "maxKm": 25, "price": 2750, "label": "21-25 km"},
+      {"minKm": 26, "maxKm": 30, "price": 3250, "label": "26-30 km"},
+      {"minKm": 31, "maxKm": null, "price": 3750, "label": "31+ km"}
+    ]'::jsonb`,
+  })
+  deliveryTiers: DeliveryTierConfig[];
 
   @Column({
     type: 'jsonb',

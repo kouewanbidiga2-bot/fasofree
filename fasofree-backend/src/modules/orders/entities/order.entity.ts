@@ -13,6 +13,7 @@ import { Transaction } from '../../payments/entities/transaction.entity';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
+  AWAITING_PAYMENT = 'AWAITING_PAYMENT',
   PAID = 'PAID',
   IN_PREPARATION = 'IN_PREPARATION',
   READY_FOR_PICKUP = 'READY_FOR_PICKUP',
@@ -65,12 +66,12 @@ export class Order {
   clientId: string;
 
   @Index()
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   businessId: string;
 
   // 🏷️ Agence (branch) — null = commande legacy
   @Index()
-  @Column({ type: 'varchar', nullable: true })
+  @Column({ type: 'uuid', nullable: true })
   branchId: string;
 
   @Column({ type: 'enum', enum: OrderType, default: OrderType.MERCHANT })

@@ -42,6 +42,29 @@ export class PaymentsService {
       throw new BadRequestException('Cette commande ne vous appartient pas');
     }
 
+    const terminalStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+    if (terminalStatuses.includes(order.status)) {
+      throw new BadRequestException('Cette commande ne peut plus être payée');
+    }
+
+    // 🔁 Retry : si la commande est FAILED, la remettre en AWAITING_PAYMENT
+    if (order.status === 'FAILED') {
+      await this.orderRepository.update(order.id, { status: OrderStatus.AWAITING_PAYMENT });
+      this.logger.log(`Order ${order.id} remise en AWAITING_PAYMENT pour retry`);
+    }
+
     const reference = `FF-PAY-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const commissionAmount = Number(
       order.merchantCommissionAmount ?? order.platformCommission ?? 0,
@@ -52,6 +75,10 @@ export class PaymentsService {
     });
 
     if (transaction) {
+      // 🔁 Retry : remettre la transaction en PENDING si elle était FAILED
+      if (transaction.status === TransactionStatus.FAILED) {
+        transaction.status = TransactionStatus.PENDING;
+      }
       transaction.reference = reference;
       transaction.paymentMethod = dto.paymentMethod;
       transaction.amount = order.totalAmount;
@@ -73,6 +100,17 @@ export class PaymentsService {
       return await this.initiateGeniusPay(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
+      // Marquer la commande ET la transaction en FAILED
+      try {
+        await this.orderRepository.update(order.id, { status: OrderStatus.FAILED });
+        const tx = await this.transactionRepository.findOne({ where: { orderId: order.id } });
+        if (tx && tx.status === TransactionStatus.PENDING) {
+          await this.transactionRepository.update(tx.id, { status: TransactionStatus.FAILED });
+        }
+        this.logger.log(`Order ${order.id} + transaction marked FAILED after GeniusPay error`);
+      } catch (updateErr) {
+        this.logger.error(`Failed to mark order ${order.id} as FAILED: ${updateErr.message}`);
+      }
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
         'Impossible de contacter la passerelle de paiement. Veuillez réessayer.',
@@ -141,12 +179,22 @@ export class PaymentsService {
       return;
     }
 
-    if (
-      order.status === OrderStatus.PAID ||
-      order.status === OrderStatus.IN_PREPARATION
-    ) {
+    const terminalPaidStatuses = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+
+    if (terminalPaidStatuses.includes(order.status)) {
       this.logger.warn(
-        `Webhook ignoré : la commande ${orderId} est déjà marquée comme payée.`,
+        `Webhook ignoré : la commande ${orderId} est déjà dans un état payé/terminé (${order.status}).`,
       );
       return;
     }

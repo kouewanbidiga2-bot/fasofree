@@ -15,7 +15,7 @@ import {
   Layout, MapPin, Clock, DollarSign, Star, LogOut,
   RefreshCw, AlertCircle, CheckCircle, XCircle, Navigation,
   TrendingUp, Wallet, Phone, MessageSquare, Power, PowerOff,
-  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft,
+  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/StatCard';
@@ -28,7 +28,7 @@ import {
   updateDriverStatus,
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
-import { getChatSocket } from '../services/realtime';
+import { getChatSocket, getDispatchSocket, forceReconnectRealtime } from '../services/realtime';
 import { DriverStatus, OrderStatus } from '../types';
 
 const STATUS_PROGRESS = [
@@ -45,10 +45,20 @@ const STATUS_LABELS = {
   [OrderStatus.DELIVERED]: 'Livrée',
 };
 
+const ALLOWED_DRIVER_ROLES = ['driver', 'courier', 'livreur'];
+
 const DriverDashboard = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('jobs');
+
+  // 🛡️ Garde-fou : rediriger si le rôle n'est pas autorisé
+  const normalizedRole = String(user?.role || '').toLowerCase().replace('-', '_');
+  if (user && !ALLOWED_DRIVER_ROLES.includes(normalizedRole)) {
+    navigate('/unauthorized', { replace: true });
+    return null;
+  }
 
   const [driverStatus, setDriverStatus] = useState(DriverStatus.OFFLINE);
 
@@ -57,6 +67,7 @@ const DriverDashboard = () => {
   const [currentJobStatus, setCurrentJobStatus] = useState(null);
   const [advancingStatus, setAdvancingStatus] = useState(false);
   const [acceptingJob, setAcceptingJob] = useState(null);
+  const [unreadMessages, setUnreadMessages] = useState(0);
 
   const [wallet, setWallet] = useState(null);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -79,7 +90,10 @@ const DriverDashboard = () => {
   const [errors, setErrors] = useState({});
 
   const chatSocketRef = useRef(null);
+  const dispatchSocketRef = useRef(null);
   const [chatOpen, setChatOpen] = useState(false);
+  const chatOpenRef = useRef(false);
+  useEffect(() => { chatOpenRef.current = chatOpen; }, [chatOpen]);
   const [chatHistory, setChatHistory] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [chatClosed, setChatClosed] = useState(false);
@@ -108,6 +122,7 @@ const DriverDashboard = () => {
         createdAt: o.createdAt,
       })));
     } catch (err) {
+      console.error('[Driver] loadAvailableJobs error:', err?.message || err);
       setAvailableJobs([]);
     } finally {
       setLoad('jobs', false);
@@ -117,7 +132,7 @@ const DriverDashboard = () => {
   // ─── LOAD CURRENT JOB ──────────────────────────────────────────────────
   const loadCurrentJob = useCallback(async () => {
     try {
-      const data = await getMyOrders({ status: 'DRIVER_ASSIGNED,IN_DELIVERY', limit: 5 });
+      const data = await getMyOrders({ status: 'DRIVER_ASSIGNED,PROCESSING,IN_DELIVERY,DELIVERED_PENDING_CONFIRMATION', limit: 5 });
       const orders = Array.isArray(data) ? data : data?.data || [];
       const mine = orders.find(o => o.driverId === user?.id);
       if (mine) {
@@ -128,20 +143,18 @@ const DriverDashboard = () => {
           pickupCoords: mine.pickupLocation,
           deliveryAddress: mine.deliveryLocation?.address || '—',
           deliveryCoords: mine.deliveryLocation,
-          customerName: mine.customerName || 'Client',
-          customerPhone: mine.customerPhone || '',
+          customerName: mine.clientName || mine.customerName || 'Client',
+          customerPhone: mine.clientPhone || mine.customerPhone || '',
           businessName: mine.businessName || '',
           deliveryFee: mine.deliveryFee || 0,
           items: mine.items || [],
         });
         setCurrentJobStatus(mine.status);
-      } else {
-        setCurrentJob(null);
-        setCurrentJobStatus(null);
       }
-    } catch {
-      setCurrentJob(null);
-      setCurrentJobStatus(null);
+      // Ne PAS clear currentJob si la réponse est vide (retard réseau, polling concurrent)
+    } catch (err) {
+      console.error('[Driver] loadCurrentJob error:', err?.message || err);
+      // Ne PAS clear currentJob sur erreur réseau
     }
   }, [user?.id]);
 
@@ -233,16 +246,31 @@ const DriverDashboard = () => {
   }, []);
 
   // ─── CHAT: Join / Leave / Send ───────────────────────────────────────────
-  const joinJobChat = useCallback((orderId) => {
-    if (!orderId) return;
-
+  const leaveJobChat = useCallback(async () => {
+    // On ne déconnecte JAMAIS le socket singleton global
+    // On retire les listeners et on quitte la room en attendant l'ack.
     if (chatSocketRef.current) {
       chatSocketRef.current.off('newOrderMessage');
-      chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' });
+      const orderId = currentJobOrderIdRef.current;
+      if (orderId) {
+        await new Promise((resolve) => {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId, channel: 'driver' }, () => resolve());
+        });
+      }
     }
+    setChatHistory([]);
+    setChatClosed(false);
+  }, []);
+
+  const joinJobChat = useCallback(async (orderId) => {
+    if (!orderId) return;
+
+    // Attendre que le leave précédent soit terminé avant de join
+    await leaveJobChat();
 
     const socket = getChatSocket();
     chatSocketRef.current = socket;
+    if (!socket.connected) socket.connect();
 
     socket.emit('joinOrderChat', { orderId, channel: 'driver' }, (res) => {
       if (res?.status === 'ok') {
@@ -260,20 +288,18 @@ const DriverDashboard = () => {
           setChatClosed(true);
         } else {
           setChatHistory((prev) => [...prev, msg]);
+          // Ignorer ses propres messages pour le badge
+          if (!chatOpenRef.current && msg.senderId !== user?.id) {
+            setUnreadMessages((prev) => prev + 1);
+          }
         }
       }
     });
   }, []);
 
-  const leaveJobChat = useCallback(() => {
-    if (chatSocketRef.current) {
-      chatSocketRef.current.off('newOrderMessage');
-      chatSocketRef.current.disconnect();
-      chatSocketRef.current = null;
-    }
-    setChatHistory([]);
-    setChatClosed(false);
-  }, []);
+  const currentJobOrderIdRef = useRef(null);
+  // Garder le ref à jour sans trigger de re-render
+  useEffect(() => { currentJobOrderIdRef.current = currentJob?.orderId || null; }, [currentJob?.orderId]);
 
   const handleSendChatMessage = useCallback(() => {
     if (!chatInput.trim() || !currentJob?.orderId || !chatSocketRef.current) return;
@@ -286,7 +312,8 @@ const DriverDashboard = () => {
   }, [chatInput, currentJob?.orderId]);
 
   useEffect(() => {
-    if (chatOpen && currentJob?.orderId) {
+    if (currentJob?.orderId) {
+      // Joindre le chat dès qu'une course existe (pour recevoir les messages en arrière-plan)
       joinJobChat(currentJob.orderId);
     }
     return () => {
@@ -294,11 +321,23 @@ const DriverDashboard = () => {
         chatSocketRef.current.off('newOrderMessage');
       }
     };
-  }, [chatOpen, currentJob?.orderId, joinJobChat]);
+  }, [currentJob?.orderId, joinJobChat]);
 
+  // Cleanup socket au démontage uniquement
   useEffect(() => {
-    return () => leaveJobChat();
-  }, [leaveJobChat]);
+    return () => {
+      if (chatSocketRef.current) {
+        chatSocketRef.current.off('newOrderMessage');
+        const oid = currentJobOrderIdRef.current;
+        if (oid) {
+          chatSocketRef.current.emit('leaveOrderChat', { orderId: oid, channel: 'driver' });
+        }
+        // NE PAS mettre chatSocketRef.current = null (singleton global)
+      }
+      setChatHistory([]);
+      setChatClosed(false);
+    };
+  }, []);
 
   useEffect(() => {
     loadWallet();
@@ -312,17 +351,136 @@ const DriverDashboard = () => {
     }
   }, [user?.isOnline]);
 
+  // ✅ FIX STALE CLOSURE : utiliser des refs pour que les intervals
+  // appellent TOUJOURS la dernière version des callbacks.
+  const loadCurrentJobRef = useRef(loadCurrentJob);
+  loadCurrentJobRef.current = loadCurrentJob;
+
+  const loadAvailableJobsRef = useRef(loadAvailableJobs);
+  loadAvailableJobsRef.current = loadAvailableJobs;
+
+  // Always poll current job (even when offline — to see manual assignments)
   useEffect(() => {
-    if (driverStatus === DriverStatus.ONLINE) {
-      loadAvailableJobs();
-      loadCurrentJob();
-      const interval = setInterval(() => {
-        loadAvailableJobs();
-        loadCurrentJob();
-      }, 15000);
-      return () => clearInterval(interval);
-    }
-  }, [driverStatus, loadAvailableJobs, loadCurrentJob]);
+    loadCurrentJobRef.current(); // Appel immédiat
+    const interval = setInterval(() => {
+      loadCurrentJobRef.current(); // Toujours la dernière version
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []); // ⚠️ deps vides = interval stable, jamais recréé
+
+  // Only poll available jobs when ONLINE
+  useEffect(() => {
+    loadAvailableJobsRef.current();
+    const interval = setInterval(() => {
+      loadAvailableJobsRef.current();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 📡 Dispatch socket: connect on mount + reconnaître au focus/visibility
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const connectDispatch = () => {
+      const socket = getDispatchSocket();
+      dispatchSocketRef.current = socket;
+      if (!socket.connected) {
+        socket.connect();
+      }
+      // 📍 Envoyer la VRAIE position GPS du livreur (0,0 = golfe de Guinée
+      // → le livreur était exclu du scoring de dispatch à plus de 10 km)
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            socket.emit('updateDriverLocation', {
+              userId: user.id,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          },
+          (err) => {
+            console.warn('[Driver] Géolocalisation refusée/échouée:', err?.message);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+        );
+      }
+      return socket;
+    };
+
+    const playNotifSound = () => {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(660, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+      } catch {}
+    };
+
+    let socket = connectDispatch();
+
+    // ✅ Utiliser les refs pour éviter les stale closures
+    const onNewJob = () => { playNotifSound(); loadAvailableJobsRef.current(); };
+    const onOffer = (payload) => {
+      playNotifSound();
+      if (payload?.orderId) loadCurrentJobRef.current();
+      loadAvailableJobsRef.current();
+    };
+    const onStatusChanged = (payload) => {
+      if (payload?.orderId) {
+        playNotifSound();
+        loadCurrentJobRef.current();
+        loadAvailableJobsRef.current();
+      }
+    };
+    const onAssigned = (payload) => {
+      playNotifSound();
+      loadCurrentJobRef.current();
+    };
+    
+    const onNewOrderAlert = (payload) => {
+      console.log('[Driver] Nouvelle commande alerte:', payload);
+      loadAvailableJobsRef.current();
+    };
+
+    socket.on('delivery_opportunity', onNewJob);
+    socket.on('targeted_order_offer', onOffer);
+    socket.on('orderStatusChanged', onStatusChanged);
+    socket.on('order_assigned', onAssigned);
+    socket.on('newOrderAlert', onNewOrderAlert);
+
+    // 🔄 Quand l'utilisateur revient sur l'onglet, reconnexion + refresh
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[Driver] Onglet visible — refresh forcé');
+        if (!socket?.connected) {
+          socket = connectDispatch();
+          socket.on('delivery_opportunity', onNewJob);
+          socket.on('targeted_order_offer', onOffer);
+          socket.on('orderStatusChanged', onStatusChanged);
+          socket.on('order_assigned', onAssigned);
+        }
+        loadCurrentJobRef.current();
+        loadAvailableJobsRef.current();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      socket.off('delivery_opportunity', onNewJob);
+      socket.off('targeted_order_offer', onOffer);
+      socket.off('orderStatusChanged', onStatusChanged);
+      socket.off('order_assigned', onAssigned);
+      socket.off('newOrderAlert', onNewOrderAlert);
+    };
+  }, [user?.id]);
 
   const toggleDriverStatus = async () => {
     const newStatus = driverStatus === DriverStatus.ONLINE ? DriverStatus.OFFLINE : DriverStatus.ONLINE;
@@ -342,10 +500,8 @@ const DriverDashboard = () => {
     setAcceptingJob(jobId);
     try {
       const result = await acceptDispatchOrder(jobId);
-      const job = availableJobs.find(j => j.id === jobId);
-      setCurrentJob(job);
-      setCurrentJobStatus(result?.status || OrderStatus.DRIVER_ASSIGNED);
       setAvailableJobs(prev => prev.filter(j => j.id !== jobId));
+      await loadCurrentJob();
     } catch (err) {
       setError('jobs', err.message || 'Échec de l\'acceptation');
     } finally {
@@ -373,8 +529,6 @@ const DriverDashboard = () => {
         nextStatus = OrderStatus.IN_DELIVERY;
       } else if (currentJobStatus === OrderStatus.IN_DELIVERY) {
         nextStatus = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
-      } else if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
-        nextStatus = OrderStatus.DELIVERED;
       }
 
       if (nextStatus) {
@@ -408,8 +562,8 @@ const DriverDashboard = () => {
 
   const getNextStatusLabel = () => {
     if (currentJobStatus === OrderStatus.DRIVER_ASSIGNED) return 'Commencer la livraison';
-    if (currentJobStatus === OrderStatus.IN_DELIVERY) return 'Marquer comme livrée';
-    if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) return 'Confirmer la livraison';
+    if (currentJobStatus === OrderStatus.IN_DELIVERY) return 'Marquer comme livree';
+    if (currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION) return 'En attente de la confirmation du client';
     return null;
   };
 
@@ -431,6 +585,8 @@ const DriverDashboard = () => {
         ? `https://www.google.com/maps/dir/${origin}/${dest}`
         : `https://www.google.com/maps/search/?api=1&query=${dest}`;
       window.open(url, '_blank');
+    } else {
+      alert('Coordonnées GPS non disponibles pour cette commande.');
     }
   };
 
@@ -441,10 +597,10 @@ const DriverDashboard = () => {
 
   const tabs = [
     { id: 'jobs', label: 'Courses', icon: Package, badge: availableJobs.length },
-    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: currentJob ? 1 : 0 },
+    { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessages },
     { id: 'earnings', label: 'Gains', icon: DollarSign },
     { id: 'history', label: 'Historique', icon: History },
-    { id: 'settings', label: 'Paramètres', icon: Layout },
+    { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
   const currentStepIndex = currentJobStatus ? STATUS_PROGRESS.indexOf(currentJobStatus) : -1;
@@ -521,9 +677,13 @@ const DriverDashboard = () => {
             <Wallet size={13} className="text-accent-primary" />
             <span className="text-text-tertiary text-xs">Portefeuille</span>
           </div>
-          <p className="text-text-primary text-sm font-bold">
-            {(wallet?.balance || 0).toLocaleString()} FCFA
-          </p>
+          {loading.wallet || !wallet ? (
+            <div className="h-5 w-24 animate-pulse rounded bg-background-tertiary" />
+          ) : (
+            <p className="text-text-primary text-sm font-bold">
+              {(wallet?.balance || 0).toLocaleString()} FCFA
+            </p>
+          )}
         </div>
 
         <div className="p-3 border-t border-border-light">
@@ -662,6 +822,7 @@ const DriverDashboard = () => {
                       <button
                         onClick={() => {
                           setChatOpen(true);
+                          setUnreadMessages(0);
                           setActiveTab('messages');
                         }}
                         className="btn-primary flex-1 gap-2"
@@ -676,7 +837,7 @@ const DriverDashboard = () => {
                       </button>
                     </div>
 
-                    {nextStatusButton && (
+                    {nextStatusButton && currentJobStatus !== OrderStatus.DELIVERED_PENDING_CONFIRMATION && (
                       <button
                         onClick={handleAdvanceStatus}
                         disabled={advancingStatus}
@@ -684,6 +845,11 @@ const DriverDashboard = () => {
                       >
                         {advancingStatus ? '...' : nextStatusButton}
                       </button>
+                    )}
+                    {currentJobStatus === OrderStatus.DELIVERED_PENDING_CONFIRMATION && (
+                      <div className="w-full py-3 text-center text-sm font-medium text-accent-primary bg-accent-primary/10 border border-accent-primary/20">
+                        En attente de la confirmation du client
+                      </div>
                     )}
                   </div>
                 </div>
@@ -804,7 +970,11 @@ const DriverDashboard = () => {
                   <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
                     <Wallet size={16} className="text-accent-primary" /> Solde disponible
                   </h3>
-                  <p className="text-3xl font-bold text-text-primary">{(wallet?.balance || 0).toLocaleString()} FCFA</p>
+                  {loading.wallet || !wallet ? (
+                    <div className="h-8 w-32 animate-pulse rounded bg-background-tertiary" />
+                  ) : (
+                    <p className="text-3xl font-bold text-text-primary">{(wallet?.balance || 0).toLocaleString()} FCFA</p>
+                  )}
                 </div>
               </div>
 
@@ -863,7 +1033,7 @@ const DriverDashboard = () => {
                   <button
                     onClick={() => {
                       setChatOpen(true);
-                      joinJobChat(currentJob.orderId);
+                      setUnreadMessages(0);
                     }}
                     className="btn-primary gap-2"
                   >

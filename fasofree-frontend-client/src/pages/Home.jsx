@@ -55,6 +55,7 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [allRestaurants, setAllRestaurants] = useState([]);
+  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
 
@@ -69,14 +70,32 @@ const Home = () => {
 
   useEffect(() => {
     let cancelled = false;
+    const getUserLocation = () => {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve({ lat: 12.37, lng: -1.52 });
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => resolve({ lat: 12.37, lng: -1.52 }),
+          { timeout: 5000, maximumAge: 300000 }
+        );
+      });
+    };
+
     const loadBusinesses = async () => {
+      setLoadingBusinesses(true);
       try {
-        const data = await api.getGroupedBusinesses(12.37, -1.52);
+        const { lat, lng } = await getUserLocation();
+        const data = await api.getGroupedBusinesses(lat, lng);
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }
       } catch {
         if (!cancelled) setAllRestaurants([]);
+      } finally {
+        if (!cancelled) setLoadingBusinesses(false);
       }
     };
     loadBusinesses();
@@ -286,13 +305,23 @@ const Home = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
-          {filteredRestaurants.map((restaurant) => (
-            <RestaurantCard
-              key={restaurant.id}
-              restaurant={restaurant}
-              onClick={() => navigate(`/restaurant/${restaurant.id}`)}
-            />
-          ))}
+          {loadingBusinesses && allRestaurants.length === 0
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-lg overflow-hidden animate-pulse">
+                  <div className="h-36 bg-gray-200" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  </div>
+                </div>
+              ))
+            : filteredRestaurants.map((restaurant) => (
+                <RestaurantCard
+                  key={restaurant.id}
+                  restaurant={restaurant}
+                  onClick={() => navigate(`/restaurant/${restaurant.id}`)}
+                />
+              ))}
         </div>
 
         {filteredRestaurants.length === 0 && (

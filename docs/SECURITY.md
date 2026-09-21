@@ -10,10 +10,7 @@ Chaque tunnel vérifie **l'authenticité** puis le **montant** avant de marquer 
 
 | Provider | Authentification | Montant validé ? |
 |---|---|---|
-| **PayDunya** | Hash `SHA-512(masterKey)` comparé en `timingSafeEqual` ; secret absent → rejeté | ✅ |
-| **YengaPay** | HMAC-SHA256 (`x-webhook-hash`) en `timingSafeEqual` ; secret ou en-tête absent → rejeté | ✅ |
-| **Wave** | `WaveWebhookGuard` (HMAC + `timingSafeEqual`) | ✅ |
-| **LigdiCash** | Jeton hash ; jeton absent/non configuré → rejeté | ✅ |
+| **GeniusPay** (seul provider) | Clé API `x-api-key` ; webhook signé, secret absent → rejeté | ✅ |
 
 `validatePaymentAmount` (tolérance 1 FCFA vs `order.totalAmount`) bloque tout montant falsifié.
 

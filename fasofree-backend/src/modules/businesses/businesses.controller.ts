@@ -103,24 +103,10 @@ export class BusinessesController {
 
     const businesses = await this.businessesService.findAllByOwner(userId);
 
-    // 🛡️ Auto-réparation : si le marchand n'a aucun business, en créer un
+    // Si le marchand n'a aucun business, retourner un objet vide
+    // plutôt que de créer une agence avec des coordonnées fictives
     if (!businesses.length) {
-      const user = req.user as any;
-      const newBusiness = await this.businessesService.create(
-        {
-          name: user.fullName || 'Mon Commerce',
-          address: 'Ouagadougou',
-          phone: user.phone || '+22600000000',
-          latitude: 12.3714,
-          longitude: -1.5197,
-        },
-        userId,
-      );
-      return {
-        ...newBusiness,
-        brandId: null,
-        branches: [{ id: newBusiness.id, name: newBusiness.name, address: newBusiness.address, isOpen: newBusiness.isOpen }],
-      };
+      return null;
     }
 
     const primary = businesses[0];
@@ -160,7 +146,18 @@ export class BusinessesController {
   @Patch(':id')
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: "Mettre à jour les paramètres d'un commerce" })
-  async update(@Param('id') id: string, @Body() dto: UpdateBusinessDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdateBusinessDto,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const userId = req.user?.userId;
+    const role = req.user?.role;
+    if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
+    // 🔒 Vérifier que le marchand administre bien ce commerce
+    if (role === UserRole.BUSINESS_ADMIN) {
+      await this.businessesService.assertManagedBy(id, userId, role);
+    }
     return this.businessesService.update(id, dto);
   }
 

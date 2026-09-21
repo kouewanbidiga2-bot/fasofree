@@ -4,7 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { randomBytes, createHash } from 'crypto';
+import { createHash } from 'crypto';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/entities/user-role.enum';
 import { Brand } from '../../brands/entities/brand.entity';
@@ -29,10 +29,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       secret = createHash('sha256')
         .update(dbUrl + 'fasofree-jwt-fallback-2024')
         .digest('hex');
-      logger.warn('⚠️  JWT_SECRET non défini — secret dérivé de DATABASE_URL (JwtStrategy)');
+      logger.warn('JWT_SECRET non défini — secret dérivé de DATABASE_URL (JwtStrategy)');
     } else {
-      secret = randomBytes(48).toString('hex');
-      logger.warn('⚠️ JWT_SECRET absent — clé temporaire dev (JwtStrategy)');
+      secret = createHash('sha256')
+        .update('fasofree-dev-jwt-secret-please-change-in-production')
+        .digest('hex');
+      logger.warn('JWT_SECRET absent — clé déterministe dev (JwtStrategy). Définissez JWT_SECRET dans .env');
     }
     return secret;
   }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -56,7 +57,8 @@ const STEP_LABELS_RIDE = [
 
 const STATUS_LABELS = {
   PENDING: 'En attente',
-  PAID: 'Confirmée',
+  PAID: 'Paiement confirmé',
+  AWAITING_PAYMENT: 'En attente de paiement',
   IN_PREPARATION: 'En préparation',
   READY_FOR_PICKUP: 'Prête (retrait)',
   DRIVER_ASSIGNED: 'Livreur assigné',
@@ -127,6 +129,13 @@ const OrderTracking = () => {
   const [disputeError, setDisputeError] = useState(null);
   const [disputeSuccess, setDisputeSuccess] = useState(false);
 
+  // Demander la permission de notification au chargement
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   const status = tracking?.status || 'PENDING';
   const isRide = tracking?.orderType === 'RIDE';
   const STEP_LABELS = isRide ? STEP_LABELS_RIDE : STEP_LABELS_FOOD;
@@ -181,6 +190,43 @@ const OrderTracking = () => {
 
     return () => {
       dispatchSocket.off('driverLocationUpdated', onLocation);
+    };
+  }, [orderId, dispatchSocket]);
+
+  // 3b. Notification sonore quand le livreur signale la livraison
+  useEffect(() => {
+    if (!orderId) return;
+    if (!dispatchSocket.connected) dispatchSocket.connect();
+
+    const onDeliveryPending = (data) => {
+      if (!data || data.orderId !== orderId) return;
+      // Jouer un son de notification
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.5);
+      } catch {}
+      // Notification navigateur
+      if (Notification.permission === 'granted') {
+        new Notification('FasoFree', {
+          body: data.message || 'Votre livreur est arrive. Confirmez la reception.',
+        });
+      }
+      // Rafraichir le suivi
+      api.getOrderTracking(orderId).then(setTracking).catch(() => {});
+    };
+
+    dispatchSocket.on('deliveryPendingConfirmation', onDeliveryPending);
+    return () => {
+      dispatchSocket.off('deliveryPendingConfirmation', onDeliveryPending);
     };
   }, [orderId, dispatchSocket]);
 
@@ -240,12 +286,12 @@ const OrderTracking = () => {
   }, [chatInput, chatActive, chatJoined, chatSocket, orderId, channel]);
 
   const handleConfirmReceipt = useCallback(() => {
-    const pin = window.prompt('Saisissez le Code PIN à 4 chiffres reçu :');
-    if (!pin) return;
+    const code = window.prompt('Dites le code de commande au livreur pour confirmer :');
+    if (!code) return;
     api
-      .clientValidateWithPin(orderId, pin)
+      .clientValidateWithPin(orderId, code)
       .then(() => navigate('/order-history'))
-      .catch((e) => window.alert(e.message || 'Code PIN invalide'));
+      .catch((e) => toast.error(e.message || 'Code invalide'));
   }, [orderId, navigate]);
 
   const handleOpenDispute = async (reason, password) => {
@@ -653,7 +699,7 @@ const OrderTracking = () => {
               </div>
             </div>
 
-            {/* Confirmation de réception (PIN) */}
+            {/* Confirmation de réception */}
             {status === 'DELIVERED_PENDING_CONFIRMATION' && (
               <div className="flex flex-col items-center bg-success/10 border border-success/30 p-6 mb-6">
                 <CheckCircle
@@ -666,12 +712,20 @@ const OrderTracking = () => {
                     ? 'Le chauffeur est arrivé. Confirmez pour terminer votre course.'
                     : 'Le livreur a marqué votre commande comme livrée.'}
                 </p>
+                <div className="mt-3 rounded-lg border border-success/30 bg-success/5 px-4 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-success/70 mb-0.5">
+                    Votre code
+                  </p>
+                  <p className="text-xl font-mono font-bold tracking-[0.2em] text-text-primary">
+                    {tracking?.id ? tracking.id.slice(-6) : '------'}
+                  </p>
+                </div>
                 <button
                   onClick={handleConfirmReceipt}
                   className="mt-4 px-6 py-3 text-sm font-medium text-white transition-colors"
                   style={{ backgroundColor: '#5C6B3C' }}
                 >
-                  Confirmer la réception (Code PIN)
+                  Confirmer la réception
                 </button>
               </div>
             )}

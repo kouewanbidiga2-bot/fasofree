@@ -11,7 +11,7 @@ import { Brand } from '../../brands/entities/brand.entity';
 import { GeniusPayService } from '../../payments/providers/geniuspay.service';
 import { WalletService } from '../../wallets/wallet.service';
 export interface FinancialDashboardSummary {
-  ligdiCash: {
+  geniusPay: {
     payinBalance: number;
     payoutBalance: number;
     totalRealCash: number;
@@ -116,7 +116,7 @@ export class FinancialMonitoringService {
       }
 
       return {
-        ligdiCash: {
+        geniusPay: {
           payinBalance: balances.available,
           payoutBalance: balances.pending,
           totalRealCash: balances.available + balances.pending,
@@ -140,7 +140,7 @@ export class FinancialMonitoringService {
       );
       // Retourne un résumé sûr par défaut pour éviter crashs en aval
       return {
-        ligdiCash: { payinBalance: 0, payoutBalance: 0, totalRealCash: 0 },
+        geniusPay: { payinBalance: 0, payoutBalance: 0, totalRealCash: 0 },
         internalLiabilities: {
           driversTotalBalance: 0,
           merchantsTotalBalance: 0,

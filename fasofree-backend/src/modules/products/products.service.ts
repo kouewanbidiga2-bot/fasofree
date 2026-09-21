@@ -67,9 +67,13 @@ export class ProductsService {
   }
 
   // 🏪 4. Lister les produits d'un commerce spécifique
-  async findByBusiness(businessId: string): Promise<Product[]> {
+  async findByBusiness(businessId: string, category?: string): Promise<Product[]> {
+    const where: any = { businessId };
+    if (category) {
+      where.category = category;
+    }
     return this.productRepository.find({
-      where: { businessId },
+      where,
       order: { category: 'ASC', name: 'ASC' },
     });
   }
@@ -107,6 +111,32 @@ export class ProductsService {
     const product = await this.findOne(id);
     await this.assertBusinessOwnership(product.businessId, userId, role);
     await this.productRepository.remove(product);
+  }
+
+  // 📦 8. Mettre à jour le stock d'un produit
+  async updateStock(
+    id: string,
+    quantity: number,
+    reason: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<Product> {
+    const product = await this.findOne(id);
+    await this.assertBusinessOwnership(product.businessId, userId, role);
+    product.stockQuantity = quantity;
+    return this.productRepository.save(product);
+  }
+
+  // 🏷️ 9. Générer un SKU automatiquement
+  generateSku(businessId: string, productName: string, category?: string): string {
+    const prefix = (category ?? 'GEN').substring(0, 3).toUpperCase();
+    const namePart = productName
+      .replace(/[^a-zA-Z0-9]/g, '')
+      .substring(0, 5)
+      .toUpperCase();
+    const businessPart = businessId.substring(0, 4).toUpperCase();
+    const timestamp = Date.now().toString(36).toUpperCase().slice(-4);
+    return `${prefix}-${namePart}-${businessPart}-${timestamp}`;
   }
 
   private async assertBusinessOwnership(

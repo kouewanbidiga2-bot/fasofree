@@ -72,10 +72,10 @@ export class GeniusPayService {
 
     const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
     if (paymentEnv === 'sandbox') {
-      this.baseUrl = 'https://sandbox.geniuspay.ci/api/v1/merchant';
+      this.baseUrl = 'https://pay.genius.ci/sandbox';
       this.logger.log('⚠️ GeniusPay SANDBOX mode');
     } else {
-      this.baseUrl = 'https://geniuspay.ci/api/v1/merchant';
+      this.baseUrl = 'https://pay.genius.ci/api/v1/merchant';
     }
 
     if (!this.apiKey || !this.apiSecret) {
@@ -149,7 +149,6 @@ export class GeniusPayService {
       const errData = error.response?.data;
       this.logger.error(`❌ GeniusPay createPayment error: ${error.message}`);
       this.logger.error(`❌ GeniusPay URL: ${this.baseUrl}/payments`);
-      this.logger.error(`❌ GeniusPay apiKey present: ${!!this.apiKey}, prefix: ${this.apiKey?.substring(0, 5)}`);
       if (errData) {
         this.logger.error(`❌ GeniusPay response body: ${JSON.stringify(errData)}`);
       }

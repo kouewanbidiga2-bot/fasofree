@@ -5,13 +5,32 @@ import {
   Min,
   IsString,
   IsNotEmpty,
+  IsOptional,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum PayoutProviderEnum {
   ORANGE_MONEY = 'ORANGE_MONEY',
   MOOV_MONEY = 'MOOV_MONEY',
   WAVE = 'WAVE',
+}
+
+export class ApprovePayoutDto {
+  @ApiProperty({
+    example: '+22670000000',
+    description: 'Numéro Mobile Money où effectuer le transfert manuel',
+  })
+  @IsPhoneNumber('BF', { message: 'Numéro Mobile Money burkinabè invalide' })
+  phoneNumber: string;
+
+  @ApiPropertyOptional({
+    enum: PayoutProviderEnum,
+    example: PayoutProviderEnum.ORANGE_MONEY,
+    description: 'Opérateur Mobile Money utilisé pour le transfert',
+  })
+  @IsEnum(PayoutProviderEnum)
+  @IsOptional()
+  provider?: PayoutProviderEnum;
 }
 
 export class RequestWithdrawalDto {
@@ -26,6 +45,7 @@ export class RequestWithdrawalDto {
   @ApiProperty({
     enum: PayoutProviderEnum,
     example: PayoutProviderEnum.ORANGE_MONEY,
+    description: 'Opérateur Mobile Money de réception (virement exécuté via GeniusPay)',
   })
   @IsEnum(PayoutProviderEnum)
   provider: PayoutProviderEnum;
@@ -34,7 +54,13 @@ export class RequestWithdrawalDto {
     example: '+22670000000',
     description: 'Numéro Mobile Money de réception',
   })
-  @IsString()
-  @IsNotEmpty()
+  @IsPhoneNumber('BF', { message: 'Numéro Mobile Money burkinabè invalide' })
   phoneNumber: string;
+
+  @ApiPropertyOptional({
+    description: 'ID de l\'agence (wallet par agence). Si omis, débite le wallet global.',
+  })
+  @IsString()
+  @IsOptional()
+  branchId?: string;
 }

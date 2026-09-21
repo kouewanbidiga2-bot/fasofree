@@ -21,7 +21,11 @@ const ProtectedRoute = ({
   allowedRoles = [], // Optional: Array of allowed roles
   requireAuth = true // Default: require authentication
 }) => {
-  const { user, isAuthenticated, isLoading, isHydrated, refreshProfile } = useAuthStore();
+  const user = useAuthStore(state => state.user);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
+  const isHydrated = useAuthStore(state => state.isHydrated);
+  const refreshProfile = useAuthStore(state => state.refreshProfile);
   const location = useLocation();
 
   // Re-validate role from server on first mount (fixes localStorage trust issue)
@@ -53,6 +57,20 @@ const ProtectedRoute = ({
     // FAIL-CLOSED: deny if role is missing, empty, or not in allowed list
     if (!user?.role || String(user.role).trim() === '') {
       return <Navigate to="/unauthorized" replace />;
+    }
+
+    // Pendant le re-validation du profil (isHydrated=false), ne PAS bloquer
+    // mais ne PAS monter les children non plus — afficher le spinner.
+    // Cela évite les appels API avec un rôle potentiellement stale.
+    if (!isHydrated) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background-primary">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-accent-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-text-secondary text-sm">Vérification des accès...</p>
+          </div>
+        </div>
+      );
     }
 
     const normalizedRole = String(user.role).toLowerCase().replace('-', '_');

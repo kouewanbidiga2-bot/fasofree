@@ -73,8 +73,21 @@ export class ChatService {
       }
     }
 
-    // DRIVER : seul le livreur assigné (ou le client) peut discuter
-    return order.driverId === userId;
+    // DRIVER : le livreur assigné ET le marchand du commerce peuvent discuter
+    if (order.driverId === userId) return true;
+    if (order.businessId) {
+      try {
+        await this.businessesService.assertManagedBy(
+          order.businessId,
+          userId,
+          normalizedRole as UserRole,
+        );
+        return true;
+      } catch {
+        // pas le marchand
+      }
+    }
+    return false;
   }
 
   /**
@@ -120,17 +133,18 @@ export class ChatService {
    * 📋 Commandes ayant des messages de chat (pour inbox admin/support).
    * Retourne les 50 commandes les plus récentes avec au moins un message.
    */
-  async getActiveConversations(): Promise<{ orderId: string; lastMessage: string; lastAt: Date; channel: string }[]> {
+  async getActiveConversations(): Promise<{ orderId: string; lastMessage: string; lastAt: Date; channel: string; messageCount: number }[]> {
     const result = await this.chatRepository
       .createQueryBuilder('msg')
       .select('msg.orderId', 'orderId')
       .addSelect('MAX(msg.createdAt)', 'lastAt')
+      .addSelect('COUNT(*)', 'messageCount')
       .addSelect(
-        `(SELECT m2.message FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        `(SELECT m2.message FROM order_chat_messages m2 WHERE m2."orderId" = msg."orderId" ORDER BY m2."createdAt" DESC LIMIT 1)`,
         'lastMessage',
       )
       .addSelect(
-        `(SELECT m2.channel FROM order_chat_messages m2 WHERE m2.orderId = msg.orderId ORDER BY m2.createdAt DESC LIMIT 1)`,
+        `(SELECT m2.channel FROM order_chat_messages m2 WHERE m2."orderId" = msg."orderId" ORDER BY m2."createdAt" DESC LIMIT 1)`,
         'channel',
       )
       .groupBy('msg.orderId')
@@ -143,6 +157,7 @@ export class ChatService {
       lastMessage: r.lastMessage,
       lastAt: r.lastAt,
       channel: r.channel,
+      messageCount: parseInt(r.messageCount, 10) || 0,
     }));
   }
 }

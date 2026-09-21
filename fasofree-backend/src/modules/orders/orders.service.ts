@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In, IsNull } from 'typeorm';
 
 // Entités et DTOs
 import {
@@ -19,6 +19,7 @@ import {
   FulfillmentType,
 } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Product } from '../products/entities/product.entity';
 import {
   Transaction,
   TransactionStatus,
@@ -36,6 +37,7 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
@@ -55,8 +57,11 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { RidePricingService } from './services/ride-pricing.service';
 import { WalletService } from '../wallets/wallet.service';
+import { GeniusPayService } from '../payments/providers/geniuspay.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 /**
  * 💬 Statuts terminaux : le canal de chat éphémère de la commande est archivé.
@@ -79,7 +84,8 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - DRIVER_ASSIGNED → IN_DELIVERY : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
-const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+export const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
+  [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
@@ -175,6 +181,8 @@ export class OrdersService {
     private readonly orderItemRepository: Repository<OrderItem>,
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
+    @InjectRepository(Product)
+    private readonly productRepository: Repository<Product>,
     private readonly dispatchGateway: DispatchGateway,
     private readonly dispatchService: DispatchService,
     private readonly analyticsService: AnalyticsService,
@@ -184,6 +192,7 @@ export class OrdersService {
     @Inject(forwardRef(() => PromotionsService))
     private readonly promotionsService: PromotionsService,
     private readonly notificationsService: NotificationsService,
+    private readonly smsService: SmsService,
     private readonly usersService: UsersService,
     private readonly qrCodeService: QrCodeService,
     private readonly distanceCalculatorService: DistanceCalculatorService,
@@ -192,9 +201,11 @@ export class OrdersService {
     private readonly receiptsService: ReceiptsService,
     private readonly events: EventEmitter2,
     private readonly configService: ConfigService,
-    private readonly geoDispatchService: GeoDispatchService,
+private readonly geoDispatchService: GeoDispatchService,
     private readonly ridePricingService: RidePricingService,
     private readonly walletService: WalletService,
+    private readonly geniusPayService: GeniusPayService,
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   /**
@@ -248,9 +259,10 @@ export class OrdersService {
   }
 
   /**
-   * 🛍️ 1. Création d'une commande + Transaction PENDING + Dispatch WebSockets
+   * 🛍️ 1. Création d'une commande (BROUILLON) — invisible jusqu'au paiement confirmé
+   * Pour P2P_DELIVERY et RIDE, retourne { order, checkoutUrl } pour redirection GeniusPay
    */
-  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order> {
+  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order | { order: Order; checkoutUrl: string }> {
     const {
       orderType,
       fulfillmentType,
@@ -263,6 +275,7 @@ export class OrdersService {
       pickupLocation,
       dropoffLocation,
       packageDetails,
+      paymentMethod,
     } = dto;
 
     // --- 🚚 GESTION P2P DELIVERY ---
@@ -276,7 +289,8 @@ export class OrdersService {
     }
 
     // --- 🛍️ GESTION MERCHANT (flux existant) ---
-    const isDelivery = orderType === OrderType.DELIVERY;
+    // isDelivery basé sur fulfillmentType (DELIVERY, PICKUP, DINE_IN) et non orderType
+    const isDelivery = fulfillmentType === FulfillmentType.DELIVERY;
 
     if (!businessId) {
       throw new BadRequestException(
@@ -298,43 +312,99 @@ export class OrdersService {
       );
     }
 
-    // 🧮 DELIVERY_FEE calculée côté serveur : max(distance GPS boutique→client, 800 FCFA).
+    // 🧮 DELIVERY_FEE calculée côté serveur selon les tranches tarifaires + surcharge nuit.
     // Le montant envoyé par le client (dto.deliveryFee) est ignoré pour les commandes livrées.
     let effectiveDeliveryFee = 0;
     if (isDelivery) {
       const businessLat = business.latitude;
       const businessLng = business.longitude;
+
+      // 🔒 REJETER si l'agence n'a pas de coordonnées GPS valides
+      if (businessLat == null || businessLng == null) {
+        throw new BadRequestException(
+          "Cette agence n'a pas de coordonnées GPS enregistrées. Impossible de calculer la livraison.",
+        );
+      }
+
       const clientLat = deliveryLatitude;
       const clientLng = deliveryLongitude;
-      if (
-        businessLat != null &&
-        businessLng != null &&
-        clientLat != null &&
-        clientLng != null
-      ) {
-        const distance = this.distanceCalculatorService.calculateDistance(
-          businessLat,
-          businessLng,
-          clientLat,
-          clientLng,
+      if (clientLat == null || clientLng == null) {
+        throw new BadRequestException(
+          'Les coordonnées de livraison (latitude, longitude) sont obligatoires pour ce type de commande.',
         );
-        effectiveDeliveryFee =
-          this.deliveryPricingService.calculateDeliveryFee(distance);
-        this.logger.log(
-          `[Pricing] Livraison marchand calculée : ${distance} km → ${effectiveDeliveryFee} FCFA (min ${MIN_DELIVERY_FEE})`,
-        );
-      } else {
-        effectiveDeliveryFee = deliveryFee ?? MIN_DELIVERY_FEE;
       }
+
+      const distance = this.distanceCalculatorService.calculateDistance(
+        businessLat,
+        businessLng,
+        clientLat,
+        clientLng,
+      );
+
+      const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
+      effectiveDeliveryFee = pricingResult.fee;
+
+      this.logger.log(
+        `[Pricing] Livraison calculée : ${distance.toFixed(2)} km | Tranche: ${pricingResult.tier.minKm}–${pricingResult.tier.maxKm ?? '+'}km | ` +
+        `Base: ${pricingResult.baseFee} FCFA | Nuit: ${pricingResult.isNight ? 'OUI (+500)' : 'NON'} | Total: ${effectiveDeliveryFee} FCFA`,
+      );
     }
 
     let promotionCode: string | null = null;
     let promotionDiscount = 0;
     let reservedPromotionId: string | null = null;
+
+    // 🔒 RECALCUL DES PRIX DEPUIS LA DB — ne jamais faire confiance aux prix frontend
+    let verifiedSubtotal = 0;
+    const verifiedItems: { productId: string; productName: string; quantity: number; unitPrice: number }[] = [];
+
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException(
+        'La commande doit contenir au moins un article.',
+      );
+    }
+
+    if (dto.items && dto.items.length > 0) {
+      const productIds = dto.items.map((item) => item.productId);
+      const products = await this.productRepository.find({
+        where: productIds.map((id) => ({ id })),
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
+
+      for (const item of dto.items) {
+        const dbProduct = productMap.get(item.productId);
+        if (!dbProduct) {
+          throw new BadRequestException(
+            `Produit #${item.productId} introuvable en base.`,
+          );
+        }
+        // 🔒 Vérifier que le produit appartient au même commerce
+        if (dbProduct.businessId !== businessId) {
+          throw new BadRequestException(
+            `Le produit "${dbProduct.name}" n'appartient pas à ce commerce.`,
+          );
+        }
+        if (!dbProduct.isAvailable) {
+          throw new BadRequestException(
+            `Le produit "${dbProduct.name}" n'est plus disponible.`,
+          );
+        }
+        const safeQuantity = Math.max(1, Math.floor(item.quantity));
+        const unitPrice = Number(dbProduct.price);
+        verifiedSubtotal += unitPrice * safeQuantity;
+        verifiedItems.push({
+          productId: item.productId,
+          productName: dbProduct.name,
+          quantity: safeQuantity,
+          unitPrice,
+        });
+      }
+    }
+
     if (dto.promoCode) {
       const quote = await this.promotionsService.quote(
         dto.promoCode,
-        rawSubtotal,
+        verifiedSubtotal,
       );
       await this.promotionsService.reserve(quote.promotion.id);
       promotionCode = quote.promotion.code;
@@ -343,7 +413,7 @@ export class OrdersService {
     }
 
     const financials = await this.pricingService.calculateFinancials(
-      Math.max(0, Number(rawSubtotal) - promotionDiscount),
+      Math.max(0, verifiedSubtotal - promotionDiscount),
       effectiveDeliveryFee,
       { clientId, businessId, orderType },
     );
@@ -354,6 +424,10 @@ export class OrdersService {
       deliveryLongitude !== undefined
         ? { latitude: deliveryLatitude, longitude: deliveryLongitude }
         : undefined;
+
+    // 💵 Cash = PAID immédiatement (pas de webhook en attente)
+    const isCash = paymentMethod === 'cash';
+    const initialStatus = isCash ? OrderStatus.PAID : OrderStatus.PENDING;
 
     const order = this.orderRepository.create({
       clientId,
@@ -375,8 +449,8 @@ export class OrdersService {
       promotionDiscount,
       deliveryLocation,
       landmark: dto.landmark ?? undefined,
-      status: OrderStatus.PENDING,
-      deliveryPinCode: isDelivery ? this.generatePinCode() : null,
+      status: initialStatus,
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
@@ -385,10 +459,12 @@ export class OrdersService {
     let savedOrder: Order;
     try {
       savedOrder = await this.orderRepository.save(order);
+      savedOrder.deliveryPinCode = isDelivery ? this.getOrderCode(savedOrder.id) : null;
+      await this.orderRepository.save(savedOrder);
 
-      // Sauvegarder les articles de la commande (OrderItems)
-      if (dto.items && dto.items.length > 0) {
-        const orderItems = dto.items.map((item) => {
+      // Sauvegarder les articles avec les prix vérifiés depuis la DB
+      if (verifiedItems.length > 0) {
+        const orderItems = verifiedItems.map((item) => {
           const oi = this.orderItemRepository.create({
             orderId: savedOrder.id,
             productId: item.productId,
@@ -431,21 +507,20 @@ export class OrdersService {
       reference: this.generateTransactionReference(savedOrder.id),
       amount: financials.totalAmount,
       commissionAmount: financials.platformCommission,
-      status: TransactionStatus.PENDING,
+      status: isCash ? TransactionStatus.SUCCESS : TransactionStatus.PENDING,
     });
 
     await this.transactionRepository.save(transaction);
 
-    try {
-      this.dispatchGateway.notifyNewOrderToBusiness(businessId, savedOrder);
-      if (isDelivery) {
-        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-      }
-    } catch (error) {
-      this.logger.error(
-        `[WebSocket Error] Échec de la notification temps réel pour la commande #${savedOrder.id}`,
-        error.stack,
+    if (isCash) {
+      // 💵 Cash : dispatch immédiat + notification marchand/livreur
+      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+      this.logger.log(
+        `[Order Cash] #${savedOrder.id} — PAID (cash) → dispatch immédiat`,
       );
+    } else {
+      // 🔒 PAS DE NOTIFICATION MARCHAND/LIVREUR ICI — uniquement après webhook PAID
+      // Le dispatch et la notification se font dans markAsPaidAndDispatch()
     }
 
     return this.findOne(savedOrder.id);
@@ -517,7 +592,8 @@ export class OrdersService {
           dto.deliveryLatitude,
           dto.deliveryLongitude,
         );
-        deliveryFee = this.deliveryPricingService.calculateDeliveryFee(distance);
+        const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
+        deliveryFee = typeof pricingResult === 'number' ? pricingResult : pricingResult.fee;
       } else {
         // Pas de coordonnées → tarif minimum garanti
         deliveryFee = MIN_DELIVERY_FEE;
@@ -600,17 +676,24 @@ export class OrdersService {
       },
       // 💳 Séquestre : le client est débité immédiatement → statut PAID (dispatch activé)
       status: OrderStatus.PAID,
-      deliveryPinCode: this.generatePinCode(),
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
     });
 
-    const savedOrder = await this.orderRepository.save(order);
+    // 🔒 Transaction base de données pour garantir l'atomicité des opérations critiques
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
-    // la commande est supprimée et l'erreur propagée → aucune course sans paiement.
     try {
+      const savedOrder = await queryRunner.manager.save(order);
+      savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+      await queryRunner.manager.save(savedOrder);
+
+      // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
+      // tout est rollbacké → aucune course sans paiement.
       await this.walletService.debitWallet(
         clientId,
         WalletUserRole.CUSTOMER,
@@ -618,108 +701,125 @@ export class OrdersService {
         TransactionReason.ORDER_PAYMENT,
         `ESCROW-${savedOrder.id}`,
         `Séquestre course FasoFree Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
+        undefined,
+        queryRunner.manager,
       );
+
+      this.logger.log(
+        `[Ride Order Created] #${savedOrder.id} - Total séquestré: ${totalAmount} FCFA (Distance: ${estimate.distanceKm} km)`,
+      );
+
+      const transaction = this.transactionRepository.create({
+        orderId: savedOrder.id,
+        reference: this.generateTransactionReference(savedOrder.id),
+        amount: totalAmount,
+        commissionAmount: financials.platformCommission,
+        status: TransactionStatus.SUCCESS,
+      });
+
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      // 🧾 Reçu client automatique (non bloquant en cas d'échec)
+      try {
+        await this.receiptsService.createClientOrderReceipt(savedOrder);
+      } catch (receiptError) {
+        this.logger.warn(
+          `[Receipt] Échec reçu client pour ${savedOrder.id}: ${receiptError.message}`,
+        );
+      }
+
+      // 🚀 Dispatch aux chauffeurs
+      try {
+        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+        this.dispatchService
+          .autoDispatchOrder(savedOrder.id)
+          .catch((err) => {
+            this.logger.error(
+              `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
+            );
+          });
+      } catch (error) {
+        this.logger.error(
+          `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
+          error.stack,
+        );
+      }
+
+      return savedOrder;
     } catch (error) {
-      await this.orderRepository.delete(savedOrder.id).catch(() => undefined);
+      await queryRunner.rollbackTransaction();
       this.logger.error(
-        `[Ride Order] Débit séquestre échoué pour la commande #${savedOrder.id}: ${error.message}`,
+        `[Ride Order] Transaction rollbackée pour commande: ${error.message}`,
       );
       throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    this.logger.log(
-      `[Ride Order Created] #${savedOrder.id} - Total séquestré: ${totalAmount} FCFA (Distance: ${estimate.distanceKm} km)`,
-    );
-
-    const transaction = this.transactionRepository.create({
-      orderId: savedOrder.id,
-      reference: this.generateTransactionReference(savedOrder.id),
-      amount: totalAmount,
-      commissionAmount: financials.platformCommission,
-      status: TransactionStatus.SUCCESS,
-    });
-
-    await this.transactionRepository.save(transaction);
-
-    // 🧾 Reçu client automatique (non bloquant en cas d'échec)
-    try {
-      await this.receiptsService.createClientOrderReceipt(savedOrder);
-    } catch (receiptError) {
-      this.logger.warn(
-        `[Receipt] Échec reçu client pour ${savedOrder.id}: ${receiptError.message}`,
-      );
-    }
-
-    // 🚀 Dispatch aux chauffeurs : broadcast (tous les livreurs en ligne)
-    // puis offre ciblée aux meilleurs candidats (scoring distance + note).
-    try {
-      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-      this.dispatchService
-        .autoDispatchOrder(savedOrder.id)
-        .catch((err) => {
-          this.logger.error(
-            `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
-          );
-        });
-    } catch (error) {
-      this.logger.error(
-        `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
-        error.stack,
-      );
-    }
-
-    return this.findOne(savedOrder.id);
   }
 
   /**
-   * 🚚 Création d'une commande P2P (Course à la demande)
+   * 🚚 Création d'une commande P2P (FasoColis)
+   * Flux : validation → commande AWAITING_PAYMENT → GeniusPay → redirect
+   * En cas d'échec GeniusPay, la commande et la transaction sont nettoyées.
    */
   private async createP2POrder(
     clientId: string,
     dto: CreateOrderDto,
-  ): Promise<Order> {
-    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
-      dto;
+  ): Promise<{ order: Order; checkoutUrl: string }> {
+    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } = dto;
 
-    // Validation des champs P2P
+    // ─── 1. VALIDATIONS PRÉALABLES (avant création en base) ───────────────
     if (!pickupLocation || !dropoffLocation) {
       throw new BadRequestException(
         'Les lieux de ramassage et de livraison sont obligatoires pour une course P2P',
       );
     }
 
-    // Calcul du prix basé sur la distance
-    const deliveryCalculation =
-      this.distanceCalculatorService.calculateP2PDelivery(
-        pickupLocation.latitude,
-        pickupLocation.longitude,
-        dropoffLocation.latitude,
-        dropoffLocation.longitude,
-        packageDetails?.isFragile || false,
-        packageDetails?.weight || 0,
+    // Vérifier et normaliser le téléphone du client
+    const client = await this.usersService.findById(clientId);
+    if (!client?.phone) {
+      throw new BadRequestException(
+        'Un numéro de téléphone est obligatoire pour le paiement. Ajoutez un numéro dans votre profil.',
       );
+    }
+    const normalizedPhone = this.normalizePhone(client.phone);
+    if (!normalizedPhone) {
+      throw new BadRequestException(
+        `Le numéro de téléphone "${client.phone}" n'est pas valide. Utilisez le format +226 XX XX XX XX.`,
+      );
+    }
+
+    // ─── 2. CALCUL DU PRIX ────────────────────────────────────────────────
+    const deliveryCalculation = this.distanceCalculatorService.calculateP2PDelivery(
+      pickupLocation.latitude,
+      pickupLocation.longitude,
+      dropoffLocation.latitude,
+      dropoffLocation.longitude,
+      packageDetails?.isFragile || false,
+      packageDetails?.weight || 0,
+    );
 
     const financials = await this.pricingService.calculateFinancials(
       0,
       deliveryCalculation.price,
       { clientId, orderType: OrderType.P2P_DELIVERY },
     );
-
     const totalAmount = financials.totalAmount;
 
     this.logger.log(
-      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Prix de base: ${deliveryCalculation.price} FCFA, Service: ${financials.serviceFee} FCFA, Total: ${totalAmount} FCFA`,
+      `[P2P Order] Distance: ${deliveryCalculation.distance} km, Base: ${deliveryCalculation.price} FCFA, Total: ${totalAmount} FCFA`,
     );
 
+    // ─── 3. CRÉER COMMANDE + TRANSACTION ──────────────────────────────────
     const order = this.orderRepository.create({
       clientId,
-      businessId: undefined, // Pas de business pour P2P
+      businessId: undefined,
       orderType: OrderType.P2P_DELIVERY,
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
-      fulfillmentDetails: {
-        notes: packageDetails?.description,
-      },
-      productsSubtotal: 0, // Pas de produits pour P2P
+      fulfillmentDetails: { notes: packageDetails?.description },
+      productsSubtotal: 0,
       itemsTotal: 0,
       deliveryFee: financials.deliveryFee,
       serviceFee: financials.serviceFee,
@@ -727,7 +827,7 @@ export class OrdersService {
       driverCommissionAmount: 0,
       platformCommission: financials.platformCommission,
       totalAmount,
-      merchantPayoutAmount: 0, // Pas de payout pour P2P
+      merchantPayoutAmount: 0,
       commissionPayer: financials.commissionPayer,
       pickupLocation,
       dropoffLocation,
@@ -736,20 +836,17 @@ export class OrdersService {
         latitude: dropoffLocation.latitude,
         longitude: dropoffLocation.longitude,
       },
-      status: OrderStatus.PENDING,
-      deliveryPinCode: this.generatePinCode(),
+      status: OrderStatus.AWAITING_PAYMENT,
+      deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
     });
 
     const savedOrder = await this.orderRepository.save(order);
+    savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+    await this.orderRepository.save(savedOrder);
 
-    this.logger.log(
-      `[P2P Order Created] #${savedOrder.id} - Total: ${savedOrder.totalAmount} FCFA (Distance: ${deliveryCalculation.distance} km)`,
-    );
-
-    // Créer la transaction
     const transaction = this.transactionRepository.create({
       orderId: savedOrder.id,
       reference: this.generateTransactionReference(savedOrder.id),
@@ -757,74 +854,176 @@ export class OrdersService {
       commissionAmount: financials.platformCommission,
       status: TransactionStatus.PENDING,
     });
-
     await this.transactionRepository.save(transaction);
 
-    // Dispatch directement aux chauffeurs (pas de business pour P2P)
+    this.logger.log(
+      `[P2P Order] #${savedOrder.id} créée (AWAITING_PAYMENT) — Total: ${totalAmount} FCFA`,
+    );
+
+    // ─── 4. INITIER GENIUSPAY (avec cleanup en cas d'échec) ──────────────
     try {
-      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-    } catch (error) {
+      const payment = await this.geniusPayService.createPayment({
+        amount: totalAmount,
+        description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
+        paymentMethod: undefined,
+        customer: {
+          email: client.email,
+          phone: normalizedPhone,
+        },
+        metadata: {
+          order_id: savedOrder.id,
+          user_id: clientId,
+          order_type: OrderType.P2P_DELIVERY,
+        },
+        successUrl: this.configService.get<string>('P2P_SUCCESS_URL') || 'https://fasofree.site/p2p/success',
+        errorUrl: this.configService.get<string>('P2P_ERROR_URL') || 'https://fasofree.site/p2p/error',
+      });
+
+      const checkoutUrl = payment.checkout_url ?? payment.payment_url;
+      if (!checkoutUrl) {
+        throw new BadRequestException("GeniusPay n'a retourné aucune URL de paiement.");
+      }
+
+      // Enregistrer la référence GeniusPay sur la transaction
+      await this.transactionRepository.update(transaction.id, {
+        paymentGatewayId: String(payment.id),
+      });
+
+      this.logger.log(
+        `[P2P Order] #${savedOrder.id} — GeniusPay initialisé, redirect vers checkout`,
+      );
+
+      return { order: savedOrder, checkoutUrl };
+
+    } catch (payError) {
+      // ╔══════════════════════════════════════════════════════════════════╗
+      // ║ CLEANUP : annuler la commande + la transaction si GeniusPay     ║
+      // ║ échoue. On passe la commande en FAILED pour qu'elle soit        ║
+      // ║ nettoyée par le cron cleanupExpiredPendingOrders.               ║
+      // ╚══════════════════════════════════════════════════════════════════╝
       this.logger.error(
-        `[WebSocket Error] Échec du dispatch P2P pour la commande #${savedOrder.id}`,
-        error.stack,
+        `[P2P Order] GeniusPay échoué pour #${savedOrder.id}: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}`,
+      );
+
+      // Marquer transaction comme FAILED
+      await this.transactionRepository.update(transaction.id, {
+        status: TransactionStatus.FAILED,
+      });
+
+      // Marquer commande comme FAILED (sera nettoyée par le cron)
+      await this.orderRepository.update(savedOrder.id, {
+        status: OrderStatus.FAILED,
+      });
+
+      throw new BadRequestException(
+        `Le paiement GeniusPay a échoué: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}. La commande a été annulée.`,
       );
     }
+  }
 
-    return this.findOne(savedOrder.id);
+  /**
+   * 📱 Normalise un numéro de téléphone au format Burkina Faso (+226).
+   * Accepte : 70123456, 070123456, +22670123456, 22670123456
+   * Retourne : +22670123456 ou null si invalide.
+   */
+  private normalizePhone(phone: string): string | null {
+    if (!phone) return null;
+
+    // Retirer tous les espaces, tirets, points
+    let cleaned = phone.replace(/[\s\-\.]/g, '');
+
+    // Déjà en format international +226XXXXXXXX
+    if (/^\+226\d{8}$/.test(cleaned)) return cleaned;
+
+    // Format sans + : 226XXXXXXXX
+    if (/^226\d{8}$/.test(cleaned)) return `+${cleaned}`;
+
+    // Numéro local sans indicatif : 0XXXXXXXX ou XXXXXXXX (8 chiffres)
+    if (/^0\d{8}$/.test(cleaned)) return `+226${cleaned.slice(1)}`;
+    if (/^\d{8}$/.test(cleaned)) return `+226${cleaned}`;
+
+    return null;
   }
 
   /**
    * 🛵 Acceptation d'une course / livraison par un livreur (DRIVER) ou coursier (COURIER).
    * Verrouille l'assignation : driverId fixé et statut → PROCESSING (le GPS est alors diffusé au client).
+   * Utilise une transaction SERIALIZABLE + lock pessimiste pour éviter les race conditions.
    */
   async acceptOrder(orderId: string, driverId: string): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.driverId && order.driverId !== driverId) {
-      throw new ForbiddenException(
-        'Cette course a déjà été acceptée par un autre livreur',
-      );
-    }
-
-    if (order.driverId === driverId) {
-      return order;
-    }
-
-    if (
-      order.status !== OrderStatus.PENDING &&
-      order.status !== OrderStatus.PAID
-    ) {
-      throw new BadRequestException(
-        `Impossible d'accepter : la commande est au statut "${order.status}"`,
-      );
-    }
-
-    const previousStatus = order.status;
-    order.driverId = driverId;
-    order.status = OrderStatus.PROCESSING;
-
-    const saved = await this.orderRepository.save(order);
-
-    // 🔔 Notifier le client et le livreur en temps réel (room order_<id>)
     try {
-      this.dispatchGateway.server
-        .to(`order_${orderId}`)
-        .emit('orderAccepted', {
-          message: '🛵 Un livreur a accepté votre course !',
-          orderId,
-          driverId,
-        });
-    } catch (error) {
-      this.logger.warn(
-        `Notification WebSocket échouée: ${error?.message || error}`,
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
+
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.driverId && order.driverId !== driverId) {
+        throw new ForbiddenException(
+          'Cette course a déjà été acceptée par un autre livreur',
+        );
+      }
+
+      if (order.driverId === driverId) {
+        await queryRunner.commitTransaction();
+        return order;
+      }
+
+      // 🔒 Sécurité : seules les commandes PAYÉES peuvent être acceptées
+      if (order.status === OrderStatus.PENDING) {
+        throw new BadRequestException(
+          'Impossible d\'accepter une commande non payée.',
+        );
+      }
+
+      if (order.status !== OrderStatus.PAID) {
+        throw new BadRequestException(
+          `Impossible d'accepter : la commande est au statut "${order.status}"`,
+        );
+      }
+
+      const previousStatus = order.status;
+      order.driverId = driverId;
+      order.status = OrderStatus.PROCESSING;
+
+      const saved = await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      // 🔔 Notifier le client et le livreur en temps réel (room order_<id>)
+      try {
+        this.dispatchGateway.server
+          .to(`order_${orderId}`)
+          .emit('orderAccepted', {
+            message: '🛵 Un livreur a accepté votre course !',
+            orderId,
+            driverId,
+          });
+      } catch (error) {
+        this.logger.warn(
+          `Notification WebSocket échouée: ${error?.message || error}`,
+        );
+      }
+
+      this.logger.log(
+        `[Order Accepted] Commande #${orderId} acceptée par le livreur ${driverId} (${previousStatus} → PROCESSING)`,
       );
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    this.logger.log(
-      `[Order Accepted] Commande #${orderId} acceptée par le livreur ${driverId} (${previousStatus} → PROCESSING)`,
-    );
-
-    return saved;
   }
 
   /**
@@ -852,12 +1051,57 @@ export class OrdersService {
     };
   }
 
-  async findClientOrders(clientId: string): Promise<Order[]> {
+  async findClientOrders(clientId: string, limit?: number, offset?: number): Promise<Order[]> {
     return await this.orderRepository.find({
       where: { clientId },
       relations: { items: true },
       order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
     });
+  }
+
+  async findDriverOrders(driverId: string, statuses?: string[], limit?: number, offset?: number): Promise<Order[]> {
+    const where: any = { driverId };
+    if (statuses && statuses.length > 0) {
+      where.status = In(statuses as OrderStatus[]);
+    }
+    const orders = await this.orderRepository.find({
+      where,
+      relations: { items: true },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
+
+    // Enrichir avec les infos client (clientName, clientPhone)
+    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    if (clientIds.length > 0) {
+      const clients = await this.dataSource.query(
+        `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
+        clientIds,
+      );
+      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
+      return orders.map(o => {
+        const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
+        return { 
+          ...o, 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
+        };
+      }) as any;
+    }
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
+    })) as any;
   }
 
   async findRecentForUser(userId: string, limit = 5): Promise<any[]> {
@@ -879,18 +1123,80 @@ export class OrdersService {
   }
 
   async findAllByBusiness(businessId: string): Promise<Order[]> {
-    return await this.orderRepository.find({
-      where: { businessId },
-      order: { createdAt: 'DESC' },
-    });
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.items', 'items')
+      .where('o."businessId" = :businessId', { businessId })
+      .orderBy('o."createdAt"', 'DESC')
+      .getMany();
+
+    // Enrichir avec les infos client via requête séparée (é(raw joins cassés)
+    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    if (clientIds.length > 0) {
+      const clients = await this.dataSource.query(
+        `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
+        clientIds,
+      );
+      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
+      return orders.map(o => {
+        const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
+        return { 
+          ...o, 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
+        };
+      }) as any;
+    }
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
+    })) as any;
   }
+
 
   async findAllByBusinesses(businessIds: string[]): Promise<Order[]> {
     if (!businessIds.length) return [];
-    return await this.orderRepository.find({
-      where: businessIds.map(id => ({ businessId: id })),
-      order: { createdAt: 'DESC' },
-    });
+    const orders = await this.orderRepository
+      .createQueryBuilder('o')
+      .leftJoinAndSelect('o.items', 'items')
+      .where('o."businessId" IN (:...businessIds)', { businessIds })
+      .orderBy('o."createdAt"', 'DESC')
+      .getMany();
+
+    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    if (clientIds.length > 0) {
+      const clients = await this.dataSource.query(
+        `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
+        clientIds,
+      );
+      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
+      return orders.map(o => {
+        const client = clientMap.get(o.clientId);
+        const name = client?.fullName || 'Client inconnu';
+        const phone = client?.phone || 'Non disponible';
+        return { 
+          ...o, 
+          clientName: name,
+          clientPhone: phone,
+          customerName: name,
+          customerPhone: phone,
+        };
+      }) as any;
+    }
+    return orders.map(o => ({
+      ...o,
+      clientName: 'Client inconnu',
+      clientPhone: 'Non disponible',
+      customerName: 'Client inconnu',
+      customerPhone: 'Non disponible',
+    })) as any;
   }
 
   /**
@@ -1140,9 +1446,45 @@ export class OrdersService {
         throw new NotFoundException(`Commande ${orderId} introuvable.`);
       }
 
-      if (order.status === OrderStatus.PAID) {
+      // 🔒 Idempotence : ignorer si déjà payée ou avancée
+      const terminalPaidStatuses: OrderStatus[] = [
+        OrderStatus.PAID,
+        OrderStatus.IN_PREPARATION,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PROCESSING,
+        OrderStatus.IN_DELIVERY,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+      ];
+      if (terminalPaidStatuses.includes(order.status)) {
         this.logger.warn(
-          `La commande ${orderId} est déjà marquée comme payée.`,
+          `La commande ${orderId} est déjà au statut ${order.status} — ignoré.`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      // 🔒 Refuser un paiement sur une commande FAILED/CANCELLED/REFUNDED
+      const deadStatuses: OrderStatus[] = [
+        OrderStatus.FAILED,
+        OrderStatus.CANCELLED,
+        OrderStatus.REFUNDED,
+      ];
+      if (deadStatuses.includes(order.status)) {
+        this.logger.error(
+          `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement GeniusPay ignoré (commande morte)`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      // Valider la transition FSM
+      const allowedTransitions = ORDER_STATUS_FSM[order.status] || [];
+      if (!allowedTransitions.includes(OrderStatus.PAID)) {
+        this.logger.error(
+          `[Order Paid] Transition invalide: ${order.status} → PAID pour la commande ${orderId}`,
         );
         await queryRunner.rollbackTransaction();
         return;
@@ -1193,16 +1535,84 @@ export class OrdersService {
       `[Payment Failed] Annulation de la commande ${orderId} pour échec de paiement`,
     );
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+    try {
+      const order = await queryRunner.manager.findOne(Order, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
     if (!order) {
       this.logger.error(`Commande ${orderId} introuvable pour l'annulation.`);
+      await queryRunner.rollbackTransaction();
       return;
     }
 
-    order.status = OrderStatus.FAILED;
-    await this.orderRepository.save(order);
+    // 🔒 Ne JAMAIS écraser une commande déjà payée ou en cours de livraison
+    const nonOverridableStatuses: OrderStatus[] = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.PROCESSING,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+      OrderStatus.DISPUTED,
+      OrderStatus.REFUNDED,
+    ];
+
+    if (nonOverridableStatuses.includes(order.status)) {
+      this.logger.warn(
+        `[Payment Failed] Commande ${orderId} déjà au statut ${order.status} — annulation ignorée`,
+      );
+      await queryRunner.rollbackTransaction();
+      return;
+    }
+
+    // Annulation si en attente de paiement ou déjà échoué
+    const cancellableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.AWAITING_PAYMENT,
+      OrderStatus.FAILED,
+    ];
+    if (cancellableStatuses.includes(order.status)) {
+      const previousStatus = order.status;
+      const result = await queryRunner.manager.update(
+        Order,
+        { id: orderId, status: In(cancellableStatuses) },
+        { status: OrderStatus.FAILED },
+      );
+      if (result.affected === 1) {
+        this.logger.log(
+          `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
+        );
+      }
+    }
+    await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async markOrderAsRefunded(orderId: string): Promise<void> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order || order.status === OrderStatus.REFUNDED) return;
+    const previousStatus = order.status;
+    order.status = OrderStatus.REFUNDED;
+    const saved = await this.orderRepository.save(order);
+    this.notifyChatClosedIfTerminal(saved, previousStatus);
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
   }
 
   async updateStatus(
@@ -1211,118 +1621,144 @@ export class OrdersService {
     userId: string,
     role: UserRole,
   ): Promise<Order> {
-    const order = await this.orderRepository.findOne({ where: { id } });
-
-    if (!order) {
-      throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
-    }
-
-    const previousStatus = order.status;
-
-    // 🔒 1. Vérifier que la transition est possible dans la FSM
-    const allowedTransitions = ORDER_STATUS_FSM[previousStatus] || [];
-    if (!allowedTransitions.includes(status)) {
-      throw new BadRequestException(
-        `Transition invalide : ${previousStatus} → ${status}. Transitions autorisées : ${allowedTransitions.join(', ') || 'aucune'}`,
-      );
-    }
-
-    // 🔒 2. Vérifier que le rôle est autorisé pour cette transition
-    const isDriverTransition = DRIVER_TRANSITIONS.includes(status);
-    const isMerchantTransition =
-      MERCHANT_TRANSITIONS.includes(status) ||
-      status === OrderStatus.CANCELLED;
-
-    // Déterminer si c'est une flotte interne (hasOwnDrivers)
-    let hasOwnFleet = false;
-    if (order.businessId) {
-      try {
-        const business = await this.businessesService.findOne(order.businessId);
-        hasOwnFleet = business?.hasOwnDrivers === true;
-      } catch {
-        // fallback: pas de fleet interne
-      }
-    }
-
-    const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
-    const isMerchant = role === UserRole.BUSINESS_ADMIN;
-
-    // Le restaurant peut gérer IN_DELIVERY / DELIVERED uniquement si hasOwnFleet
-    if (isDriverTransition) {
-      if (isDriver) {
-        // OK — le livreur peut faire ces transitions
-      } else if (isMerchant && hasOwnFleet) {
-        // OK — le restaurant avec flotte interne peut gérer
-      } else if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
-        // OK — admin peut tout
-      } else {
-        throw new ForbiddenException(
-          `Transition ${status} réservée aux livreurs/coursiers` +
-            (hasOwnFleet ? '' : ' (flotte interne non activée)'),
-        );
-      }
-    }
-
-    if (isMerchantTransition && isDriver) {
-      throw new ForbiddenException(
-        `Transition ${status} réservée au restaurant`,
-      );
-    }
-
-    // ✅ Appliquer la transition
-    order.status = status;
-    const updatedOrder = await this.orderRepository.save(order);
-
-    // ⏳ 3. Séquestre financier : programmer la libération des fonds à J+3h
-    if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
-      updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
-      updatedOrder.payoutReleased = false;
-      await this.orderRepository.save(updatedOrder);
-      this.logger.log(
-        `[Holding] Commande #${id} → séquestre 3h (libération prévue ${updatedOrder.payoutScheduledAt.toISOString()})`,
-      );
-    }
-
-    // 🔔 Settlement financier : livreur (delivered) & marchand (completed)
-    this.emitOrderSettlementEvents(updatedOrder, previousStatus);
-    // 💬 Archivage du chat éphémère si la commande atteint un statut terminal
-    this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
-
-    // 🚀 Auto-Dispatch: Quand la commande est en préparation
-    if (
-      (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
-      previousStatus !== OrderStatus.PAID &&
-      previousStatus !== OrderStatus.IN_PREPARATION
-    ) {
-      this.logger.log(
-        `[Auto-Dispatch] Déclenchement du dispatch automatique pour la commande #${id}`,
-      );
-      this.dispatchService.autoDispatchOrder(id).catch((err) => {
-        this.logger.error(
-          `[Auto-Dispatch Error] Échec du dispatch pour la commande #${id}: ${err.message}`,
-        );
-      });
-    }
-
-    // 📱 Notifications FCM & WebSocket selon le statut
-    await this.sendStatusNotifications(updatedOrder, previousStatus);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
     try {
-      await this.analyticsService.invalidateMerchantCache(order.businessId);
-    } catch (error) {
-      this.logger.warn(
-        `Échec invalidation cache analytics: ${error?.message || error}`,
-      );
-    }
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :id', { id })
+        .getOne();
 
-    return updatedOrder;
+      if (!order) {
+        throw new NotFoundException(`Commande avec l'ID #${id} introuvable.`);
+      }
+
+      if (role === UserRole.DRIVER || role === UserRole.COURIER) {
+        if (order.driverId && order.driverId !== userId) {
+          throw new ForbiddenException('Vous n\'êtes pas le livreur assigné à cette commande');
+        }
+      }
+      if (role === UserRole.BUSINESS_ADMIN) {
+        if (!order.businessId) {
+          throw new ForbiddenException('Cette commande n\'est pas liée à un commerce');
+        }
+        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+      }
+
+      const previousStatus = order.status;
+
+      const allowedTransitions = ORDER_STATUS_FSM[previousStatus] || [];
+      if (!allowedTransitions.includes(status)) {
+        throw new BadRequestException(
+          `Transition invalide : ${previousStatus} → ${status}. Transitions autorisées : ${allowedTransitions.join(', ') || 'aucune'}`,
+        );
+      }
+
+      const isDriverTransition = DRIVER_TRANSITIONS.includes(status);
+      const isMerchantTransition =
+        MERCHANT_TRANSITIONS.includes(status) ||
+        status === OrderStatus.CANCELLED;
+
+      let hasOwnFleet = false;
+      if (order.businessId) {
+        try {
+          const business = await this.businessesService.findOne(order.businessId);
+          hasOwnFleet = business?.hasOwnDrivers === true;
+        } catch {
+          // fallback: pas de fleet interne
+        }
+      }
+
+      const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
+      const isMerchant = role === UserRole.BUSINESS_ADMIN;
+
+      if (isDriverTransition) {
+        if (isDriver) {
+          // OK
+        } else if (isMerchant && hasOwnFleet) {
+          // OK
+        } else if (role === UserRole.SUPER_ADMIN || role === UserRole.ADMIN) {
+          // OK
+        } else {
+          throw new ForbiddenException(
+            `Transition ${status} réservée aux livreurs/coursiers` +
+              (hasOwnFleet ? '' : ' (flotte interne non activée)'),
+          );
+        }
+      }
+
+      if (isMerchantTransition && isDriver) {
+        throw new ForbiddenException(
+          `Transition ${status} réservée au restaurant`,
+        );
+      }
+
+      order.status = status;
+      const updatedOrder = await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      this.dispatchGateway.broadcastOrderStatusChanged({
+        id: updatedOrder.id,
+        status: updatedOrder.status,
+        driverId: updatedOrder.driverId,
+        businessId: updatedOrder.businessId,
+      });
+
+      if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
+        updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
+        updatedOrder.payoutReleased = false;
+        await this.orderRepository.save(updatedOrder);
+        this.logger.log(
+          `[Holding] Commande #${id} → séquestre 3h (libération prévue ${updatedOrder.payoutScheduledAt.toISOString()})`,
+        );
+      }
+
+      this.emitOrderSettlementEvents(updatedOrder, previousStatus);
+      this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
+
+      if (
+        (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
+        previousStatus !== OrderStatus.PAID &&
+        previousStatus !== OrderStatus.IN_PREPARATION
+      ) {
+        this.logger.log(
+          `[Auto-Dispatch] Déclenchement du dispatch automatique pour la commande #${id}`,
+        );
+        this.dispatchService.autoDispatchOrder(id).catch((err) => {
+          this.logger.error(
+            `[Auto-Dispatch Error] Échec du dispatch pour la commande #${id}: ${err.message}`,
+          );
+        });
+      }
+
+      await this.sendStatusNotifications(updatedOrder, previousStatus);
+
+      try {
+        await this.analyticsService.invalidateMerchantCache(order.businessId);
+      } catch (error) {
+        this.logger.warn(
+          `Échec invalidation cache analytics: ${error?.message || error}`,
+        );
+      }
+
+      return updatedOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ========================================================================
-  // 🔑 GÉNÉRATION DU CODE PIN (4 chiffres aléatoires)
+  // 🔑 CODE DE COMMANDE (6 derniers caractères de l'ID — déterministe)
   // ========================================================================
-  private generatePinCode(): string {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+  private getOrderCode(orderId: string): string {
+    return orderId.slice(-6);
   }
 
   // ========================================================================
@@ -1332,6 +1768,75 @@ export class OrdersService {
     const time = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `FSF-${orderId.slice(0, 8)}-${time.slice(-4)}${rand}`;
+  }
+
+  // ========================================================================
+  // 🧹 NETTOYAGE DES COMMANDES PENDING EXPIRÉES (>30 min sans paiement)
+  // ========================================================================
+  @Cron(CronExpression.EVERY_10_MINUTES)
+  async cleanupExpiredPendingOrders(): Promise<void> {
+    const expiredThreshold = new Date(Date.now() - 30 * 60 * 1000); // 30 minutes
+
+    const expiredPromotionalOrders = await this.orderRepository
+      .createQueryBuilder('o')
+      .where('o.status IN (:...statuses)', {
+        statuses: [OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT],
+      })
+      .andWhere('o."createdAt" < :threshold', { threshold: expiredThreshold })
+      .andWhere('o."promotionCode" IS NOT NULL')
+      .getMany();
+
+    for (const expiredOrder of expiredPromotionalOrders) {
+      await this.promotionsService
+        .releaseByCode(expiredOrder.promotionCode)
+        .catch((error) =>
+          this.logger.error(
+            `[Cleanup] Promotion non libérée pour ${expiredOrder.id}: ${error.message}`,
+          ),
+        );
+    }
+
+    // Nettoyer les commandes PENDING et AWAITING_PAYMENT qui n'ont pas été payées
+    const result = await this.orderRepository
+      .createQueryBuilder()
+      .update(Order)
+      .set({ status: OrderStatus.FAILED })
+      .where('status IN (:...statuses)', {
+        statuses: [OrderStatus.PENDING, OrderStatus.AWAITING_PAYMENT],
+      })
+      .andWhere('"createdAt" < :threshold', { threshold: expiredThreshold })
+      .execute();
+
+    if (result.affected && result.affected > 0) {
+      this.logger.log(
+        `[Cleanup] ${result.affected} commande(s) sans paiement (PENDING/AWAITING_PAYMENT) expirée(s) marquée(s) FAILED`,
+      );
+    }
+
+    // Ride : le client est débité dès la création. Sans chauffeur après 30 min,
+    // annuler la course et rembourser le séquestre de façon idempotente.
+    const expiredRides = await this.orderRepository.find({
+      where: {
+        orderType: OrderType.RIDE,
+        status: OrderStatus.PAID,
+        driverId: IsNull(),
+      },
+    });
+    for (const ride of expiredRides.filter((r) => r.createdAt < expiredThreshold)) {
+      await this.orderRepository.update(ride.id, { status: OrderStatus.FAILED });
+      await this.walletService.creditWallet(
+        ride.clientId,
+        WalletUserRole.CUSTOMER,
+        Number(ride.totalAmount),
+        TransactionReason.REFUND,
+        `RIDE-REFUND-${ride.id}`,
+        `Remboursement automatique : aucun livreur pour la course ${ride.id}`,
+      );
+      await this.transactionRepository.update(
+        { orderId: ride.id, status: TransactionStatus.SUCCESS },
+        { status: TransactionStatus.REFUNDED },
+      );
+    }
   }
 
   // ========================================================================
@@ -1357,9 +1862,9 @@ export class OrdersService {
     }
 
     if (
-      order.status !== OrderStatus.PAID &&
-      order.status !== OrderStatus.PROCESSING &&
-      order.status !== OrderStatus.IN_PREPARATION
+      order.status !== OrderStatus.DRIVER_ASSIGNED &&
+      order.status !== OrderStatus.IN_DELIVERY &&
+      order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION
     ) {
       throw new BadRequestException(
         `Impossible de valider : la commande est au statut "${order.status}"`,
@@ -1373,11 +1878,19 @@ export class OrdersService {
 
     const saved = await this.orderRepository.save(order);
 
+    // 📡 Broadcast temps réel : admin + marchand voient le changement sans reconnexion
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
+
     // 🔔 Settlement livreur : crédit gains + Pass Journée / micro-commission
     this.emitOrderSettlementEvents(saved, previousStatus);
 
     this.logger.log(
-      `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente du Code PIN du client.`,
+      `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente de confirmation du client.`,
     );
 
     // Notifier le client en temps réel
@@ -1386,8 +1899,9 @@ export class OrdersService {
         .to(`order_${orderId}`)
         .emit('deliveryPendingConfirmation', {
           message:
-            '📦 Le livreur a marqué votre commande comme livrée. Veuillez confirmer avec votre Code PIN.',
+            'Le livreur a marqué votre commande comme livrée. Confirmez la réception avec votre code de commande.',
           orderId,
+          orderCode: this.getOrderCode(orderId),
         });
     } catch (e) {
       this.logger.warn(`Notification WebSocket échouée: ${e?.message}`);
@@ -1405,57 +1919,81 @@ export class OrdersService {
     clientId: string,
     pinCode: string,
   ): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.clientId !== clientId) {
-      throw new ForbiddenException('Cette commande ne vous appartient pas');
-    }
-
-    if (order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
-      throw new BadRequestException(
-        `La commande n'est pas en attente de confirmation (statut actuel: "${order.status}")`,
-      );
-    }
-
-    if (!order.deliveryPinCode || order.deliveryPinCode !== pinCode) {
-      throw new BadRequestException('Code PIN invalide. Veuillez réessayer.');
-    }
-
-    order.clientValidatedAt = new Date();
-    order.status = OrderStatus.COMPLETED;
-
-    const saved = await this.orderRepository.save(order);
-
-    // 🔔 Settlement marchand : crédit du wallet (payout net de commission)
-    this.emitOrderSettlementEvents(
-      saved,
-      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
-    );
-    // 💬 Archivage du chat éphémère (commande COMPLETED)
-    this.notifyChatClosedIfTerminal(
-      saved,
-      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
-    );
-
-    this.logger.log(
-      `[Order Completed] ✅ Commande #${orderId} validée par le client avec Code PIN. Double validation réussie !`,
-    );
-
-    // Déclencher le Payout automatique au marchand
-    this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
-      this.logger.error(`Erreur Payout après validation PIN #${saved.id}`, err);
-    });
-
-    // Invalider le cache analytics
     try {
-      await this.analyticsService.invalidateMerchantCache(order.businessId);
-    } catch (error) {
-      this.logger.warn(
-        `Échec invalidation cache analytics: ${error?.message || error}`,
-      );
-    }
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
 
-    return saved;
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.clientId !== clientId) {
+        throw new ForbiddenException('Cette commande ne vous appartient pas');
+      }
+
+      if (order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
+        throw new BadRequestException(
+          `La commande n'est pas en attente de confirmation (statut actuel: "${order.status}")`,
+        );
+      }
+
+      const expectedCode = this.getOrderCode(orderId);
+      if (!pinCode || pinCode !== expectedCode) {
+        throw new BadRequestException('Code invalide. Veuillez réessayer.');
+      }
+
+      order.clientValidatedAt = new Date();
+      order.status = OrderStatus.COMPLETED;
+
+      const saved = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+
+      this.dispatchGateway.broadcastOrderStatusChanged({
+        id: saved.id,
+        status: saved.status,
+        driverId: saved.driverId,
+        businessId: saved.businessId,
+      });
+
+      this.emitOrderSettlementEvents(
+        saved,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
+      this.notifyChatClosedIfTerminal(
+        saved,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
+
+      this.logger.log(
+        `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
+      );
+
+      this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
+        this.logger.error(`Erreur Payout après validation #${saved.id}`, err);
+      });
+
+      try {
+        await this.analyticsService.invalidateMerchantCache(order.businessId);
+      } catch (error) {
+        this.logger.warn(
+          `Échec invalidation cache analytics: ${error?.message || error}`,
+        );
+      }
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // ========================================================================
@@ -1467,32 +2005,135 @@ export class OrdersService {
     clientId: string,
     reason: string,
   ): Promise<Order> {
-    const order = await this.findOne(orderId);
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction('SERIALIZABLE');
 
-    if (order.clientId !== clientId) {
-      throw new ForbiddenException('Cette commande ne vous appartient pas');
+    try {
+      const order = await queryRunner.manager
+        .createQueryBuilder(Order, 'o')
+        .setLock('pessimistic_write')
+        .where('o.id = :orderId', { orderId })
+        .getOne();
+
+      if (!order) {
+        throw new NotFoundException(`Commande #${orderId} introuvable`);
+      }
+
+      if (order.clientId !== clientId) {
+        throw new ForbiddenException('Cette commande ne vous appartient pas');
+      }
+
+      if (
+        order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
+        order.status !== OrderStatus.DELIVERED
+      ) {
+        throw new BadRequestException(
+          `Impossible d'ouvrir un litige : la commande est au statut "${order.status}"`,
+        );
+      }
+
+      const previousStatus = order.status;
+      order.status = OrderStatus.DISPUTED;
+      const saved = await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+
+      this.notifyChatClosedIfTerminal(saved, previousStatus);
+
+      this.logger.warn(
+        `[DISPUTE] Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,
+      );
+
+      return saved;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
+  }
+
+  // ========================================================================
+  // ✅ CONFIRMATION DE LIVRAISON (admin / marchand — sans PIN)
+  // ========================================================================
+  async confirmDeliveryByAdmin(orderId: string, userId: string): Promise<Order> {
+    const order = await this.findOne(orderId);
 
     if (
       order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
       order.status !== OrderStatus.DELIVERED
     ) {
       throw new BadRequestException(
-        `Impossible d'ouvrir un litige : la commande est au statut "${order.status}"`,
+        `Impossible de confirmer : la commande est au statut "${order.status}"`,
       );
     }
 
-    order.status = OrderStatus.DISPUTED;
+    order.clientValidatedAt = new Date();
+    order.status = OrderStatus.COMPLETED;
+
     const saved = await this.orderRepository.save(order);
 
-    // 💬 Archivage du chat éphémère (commande DISPUTED = statut terminal)
-    this.notifyChatClosedIfTerminal(saved, OrderStatus.DELIVERED);
+    // 📡 Broadcast temps réel
+    this.dispatchGateway.broadcastOrderStatusChanged({
+      id: saved.id,
+      status: saved.status,
+      driverId: saved.driverId,
+      businessId: saved.businessId,
+    });
 
-    this.logger.warn(
-      `[DISPUTE] ⚠️ Litige ouvert sur la commande #${orderId} par le client ${clientId}. Raison: ${reason}`,
+    // 🔔 Settlement marchand
+    this.emitOrderSettlementEvents(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    );
+    this.notifyChatClosedIfTerminal(
+      saved,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
     );
 
+    this.logger.log(
+      `[Order Completed] ✅ Commande #${orderId} confirmée par admin/marchand ${userId}.`,
+    );
+
+    // Déclencher le Payout automatique
+    this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
+      this.logger.error(`Erreur Payout après confirmation admin #${saved.id}`, err);
+    });
+
+    try {
+      await this.analyticsService.invalidateMerchantCache(order.businessId);
+    } catch {
+      // silencieux
+    }
+
     return saved;
+  }
+
+  // ========================================================================
+  // 📍 LOCALISATION DU LIVREUR (temps réel)
+  // ========================================================================
+  async updateDriverLocation(
+    orderId: string,
+    driverId: string,
+    latitude: number,
+    longitude: number,
+  ): Promise<{ success: boolean }> {
+    const order = await this.findOne(orderId);
+
+    if (order.driverId && order.driverId !== driverId) {
+      throw new ForbiddenException(
+        "Vous n'êtes pas le livreur assigné à cette commande",
+      );
+    }
+
+    // Stocker la position via le service geo-dispatch (Redis)
+    try {
+      await this.geoDispatchService.updateDriverLocation(driverId, latitude, longitude);
+    } catch {
+      // Silencieux — le tracking WebSocket gère aussi les mises à jour
+    }
+
+    return { success: true };
   }
 
   // ========================================================================
@@ -1503,63 +2144,163 @@ export class OrdersService {
     previousStatus: OrderStatus,
   ): Promise<void> {
     try {
-      // Récupérer le client (email / phone / FCM) pour la notification
+      // 📨 Multi-channel dispatcher : sendNotification handles FCM push,
+      //   SMS fallback, and in-app delivery automatically.
       const client = await this.usersService.findById(order.clientId);
       if (!client) {
         this.logger.warn(
-          `[Notifications] Client ${order.clientId} introuvable — notifications de statut ignorées`,
+          `[Notifications] Client ${order.clientId} introuvable — notifications ignorées pour la commande #${order.id}`,
         );
         return;
       }
 
-      // Notifier selon le nouveau statut via le DISPATCHER MULTI-CANAL :
-      //   canal préféré du client (EMAIL/PUSH/SMS/WHATSAPP) → fallback automatique
-      //   (ex: FCM non initialisé ou token nul → email ; email KO → SMS).
-      // `data` conserve le lien profond vers la commande dans le push FCM.
+      // Notifier selon le nouveau statut
       switch (order.status) {
-        case OrderStatus.PAID:
-          await this.notificationsService.sendNotification(
-            client,
-            'Commande confirmée ✅',
-            `Votre commande #${order.id.slice(-8)} a été confirmée par le restaurant. Total: ${order.totalAmount} FCFA. Préparation en cours!`,
-            { orderId: order.id, type: 'ORDER_CONFIRMED' },
-          );
+        case OrderStatus.PAID: {
+          // Client: "Paiement confirmé, en attente de préparation"
+          const data = { orderId: order.id, type: 'ORDER_CONFIRMED' };
+          await this.notificationsService.sendNotification(client, 'Paiement confirmé', 'Paiement confirmé, en attente de préparation par le restaurant.', data);
+
+          // 🔒 Notification persistante en DB
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Paiement confirmé',
+            body: 'Paiement confirmé, en attente de préparation par le restaurant.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
+        }
 
         case OrderStatus.IN_PREPARATION:
-          await this.notificationsService.sendNotification(
-            client,
-            'En préparation 🍳',
-            'Votre commande est en cours de préparation.',
-            { orderId: order.id, type: 'ORDER_PREPARING' },
-          );
+          // Client: "Votre commande est en préparation"
+          await this.notificationsService.sendNotification(client, 'En préparation', 'Votre commande est en cours de préparation.', { orderId: order.id, type: 'ORDER_PREPARING' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'En préparation',
+            body: 'Votre commande est en cours de préparation.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
 
-        case OrderStatus.PROCESSING:
-          await this.notificationsService.sendNotification(
-            client,
-            'Livreur en route 🛵',
-            `Votre livreur est en route avec votre commande #${order.id.slice(-8)}. Il arrivera bientôt!`,
-            { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
-          );
+        case OrderStatus.DRIVER_ASSIGNED: {
+          // Client: "Un livreur a été assigné à votre commande"
+          await this.notificationsService.sendNotification(client, 'Livreur assigné', 'Un livreur a été assigné à votre commande. Il arrive bientôt!', { orderId: order.id, type: 'DRIVER_ASSIGNED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Livreur assigné',
+            body: 'Un livreur a été assigné à votre commande.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
+        }
+
+        case OrderStatus.IN_DELIVERY: {
+          // Client: "Le livreur est en route avec votre repas"
+          await this.notificationsService.sendNotification(client, 'Livreur en route', 'Le livreur est en route avec votre repas. Il arrivera bientôt!', { orderId: order.id, type: 'DRIVER_EN_ROUTE' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livreur en route',
+            body: 'Le livreur est en route avec votre repas.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
+          break;
+        }
+
+        case OrderStatus.DELIVERED_PENDING_CONFIRMATION: {
+          // Client: "Le livreur est arrivé - confirmez la réception"
+          await this.notificationsService.sendNotification(client, 'Livreur arrivé', 'Le livreur est arrivé avec votre commande. Confirmez la réception!', { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livreur arrivé',
+            body: 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
+          break;
+        }
 
         case OrderStatus.DELIVERED:
-          await this.notificationsService.sendNotification(
-            client,
-            'Livreur arrivé 📍',
-            'Le livreur est arrivé à destination. Prêt à récupérer votre commande!',
-            { orderId: order.id, type: 'DRIVER_ARRIVED' },
-          );
+          // Client: "Le livreur est arrivé à destination"
+          await this.notificationsService.sendNotification(client, 'Livraison validée', 'Le livreur a validé la livraison. Confirmez la réception de votre commande!', { orderId: order.id, type: 'DRIVER_ARRIVED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.DELIVERY,
+            title: 'Livraison validée',
+            body: 'Le livreur a validé la livraison. Confirmez la réception!',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
 
         case OrderStatus.COMPLETED:
-          await this.notificationsService.sendNotification(
-            client,
-            'Commande livrée 🎉',
-            'Votre commande a été livrée avec succès. Bon appétit!',
-            { orderId: order.id, type: 'ORDER_COMPLETED' },
-          );
+          // Client: "Commande livrée avec succès"
+          await this.notificationsService.sendNotification(client, 'Commande livrée', 'Votre commande a été livrée avec succès. Bon appétit!', { orderId: order.id, type: 'ORDER_COMPLETED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande livrée',
+            body: 'Votre commande a été livrée avec succès.',
+            orderId: order.id,
+            actionUrl: `/receipt?orderId=${order.id}`,
+          });
+          break;
+
+        case OrderStatus.CANCELLED:
+          // Client: "Votre commande a été annulée"
+          await this.notificationsService.sendNotification(client, 'Commande annulée', 'Votre commande a été annulée. Aucun montant ne vous a été débité.', { orderId: order.id, type: 'ORDER_CANCELLED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande annulée',
+            body: 'Votre commande a été annulée.',
+            orderId: order.id,
+          });
+          break;
+
+        case OrderStatus.FAILED:
+          // Client: "Paiement échoué"
+          await this.notificationsService.sendNotification(client, 'Paiement échoué', 'Le paiement de votre commande a échoué. Veuillez réessayer.', { orderId: order.id, type: 'PAYMENT_FAILED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Paiement échoué',
+            body: 'Le paiement de votre commande a échoué.',
+            orderId: order.id,
+          });
+          break;
+
+        case OrderStatus.REFUNDED:
+          // Client: "Votre commande a été remboursée"
+          await this.notificationsService.sendNotification(client, 'Commande remboursée', 'Votre commande a été remboursée. Le montant sera crédité sous 48h.', { orderId: order.id, type: 'ORDER_REFUNDED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Commande remboursée',
+            body: 'Votre commande a été remboursée. Le montant sera crédité sous 48h.',
+            orderId: order.id,
+          });
+          break;
+
+        case OrderStatus.DISPUTED:
+          // Client + Marchand: "Un litige a été ouvert"
+          await this.notificationsService.sendNotification(client, 'Litige ouvert', 'Un litige a été ouvert sur votre commande. Notre équipe va examiner le dossier.', { orderId: order.id, type: 'ORDER_DISPUTED' });
+          await this.notificationStore.create({
+            userId: order.clientId,
+            type: NotificationType.ORDER_UPDATE,
+            title: 'Litige ouvert',
+            body: 'Un litige a été ouvert sur votre commande.',
+            orderId: order.id,
+            actionUrl: `/order-tracking?orderId=${order.id}`,
+          });
           break;
       }
 

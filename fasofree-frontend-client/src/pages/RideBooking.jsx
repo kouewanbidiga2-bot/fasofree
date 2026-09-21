@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import {
   ArrowLeft,
   Car,
@@ -50,7 +51,7 @@ const RideBooking = () => {
 
   const handleUseCurrentLocation = (setter) => {
     if (!navigator.geolocation) {
-      alert('Géolocalisation non disponible sur cet appareil');
+      toast.error('Géolocalisation non disponible sur cet appareil');
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -62,13 +63,24 @@ const RideBooking = () => {
           longitude: Number(position.coords.longitude.toFixed(6)),
         }));
       },
-      () => alert('Impossible de récupérer votre position'),
+      () => toast.error('Impossible de récupérer votre position'),
       { enableHighAccuracy: true, timeout: 10000 },
     );
   };
 
+  // Bornes approximatives du Burkina Faso
+  const BF_BOUNDS = { minLat: 9.4, maxLat: 15.1, minLng: -5.5, maxLng: 2.4 };
+
   const isLocationValid = (loc) =>
-    loc.address.trim() && loc.contactName.trim() && loc.contactPhone.trim();
+    loc.address.trim() && 
+    loc.contactName.trim() && 
+    loc.contactPhone.trim() &&
+    loc.latitude !== null && 
+    loc.longitude !== null &&
+    loc.latitude !== 0 && 
+    loc.longitude !== 0 &&
+    loc.latitude >= BF_BOUNDS.minLat && loc.latitude <= BF_BOUNDS.maxLat &&
+    loc.longitude >= BF_BOUNDS.minLng && loc.longitude <= BF_BOUNDS.maxLng;
 
   const handleEstimate = async (e) => {
     e.preventDefault();
@@ -135,7 +147,7 @@ const RideBooking = () => {
       });
       setSuccess({
         id: response?.id,
-        pinCode: response?.deliveryPinCode,
+        orderCode: response?.id ? response.id.slice(-6) : null,
         totalAmount: response?.totalAmount ?? totalAmount,
       });
     } catch (err) {
@@ -161,7 +173,7 @@ const RideBooking = () => {
               Course confirmée !
             </h1>
             <p className="mt-3 text-sm leading-6 text-text-secondary">
-              Votre chauffeur a été notifié. Présentez ce code PIN au chauffeur
+              Votre chauffeur a été notifié. Présentez ce code au chauffeur
               pour valider votre course.
             </p>
             <p className="mt-4 font-mono text-sm text-text-primary">
@@ -170,10 +182,10 @@ const RideBooking = () => {
 
             <div className="mt-6 mx-auto max-w-xs rounded-lg border-2 border-dashed border-accent-primary bg-accent-primary/5 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent-primary mb-2">
-                Code PIN de validation
+                Code de commande
               </p>
               <p className="text-4xl font-mono font-bold tracking-[0.3em] text-text-primary">
-                {success.pinCode || '----'}
+                {success.orderCode || '------'}
               </p>
             </div>
 

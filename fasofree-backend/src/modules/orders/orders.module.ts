@@ -9,6 +9,7 @@ import { DistanceCalculatorService } from './services/distance-calculator.servic
 import { RidePricingService } from './services/ride-pricing.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Product } from '../products/entities/product.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
@@ -26,7 +27,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, Transaction]),
+    TypeOrmModule.forFeature([Order, OrderItem, Product, Transaction]),
     forwardRef(() => DispatchModule),
     forwardRef(() => AnalyticsModule),
     forwardRef(() => PaymentsModule),

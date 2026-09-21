@@ -1,5 +1,6 @@
 export const UserRole = Object.freeze({
   CLIENT: 'client',
+  CUSTOMER: 'client',
   COURIER: 'courier',
   DRIVER: 'driver',
   BUSINESS_ADMIN: 'business_admin',

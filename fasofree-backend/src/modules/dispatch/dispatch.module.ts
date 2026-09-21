@@ -11,19 +11,22 @@ import { RoomHandler } from './handlers/room.handler';
 import { OrdersModule } from '../orders/orders.module';
 import { UsersModule } from '../users/users.module';
 import { BusinessesModule } from '../businesses/businesses.module';
+import { BrandsModule } from '../brands/brands.module';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { Order } from '../orders/entities/order.entity';
+import { Brand } from '../brands/entities/brand.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Global()
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([User, Business, Order]),
+    TypeOrmModule.forFeature([User, Business, Order, Brand]),
     forwardRef(() => OrdersModule),
     forwardRef(() => UsersModule),
     forwardRef(() => BusinessesModule),
+    forwardRef(() => BrandsModule),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

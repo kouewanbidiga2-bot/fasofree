@@ -43,6 +43,15 @@ export async function apiFetch(endpoint, options = {}) {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('fasofree_user');
+        if (!window.location.pathname.includes('/auth')) {
+          const { toast } = await import('sonner');
+          toast.error('Session expirée. Veuillez vous reconnecter.');
+          window.location.href = '/auth';
+        }
+      }
       throw new Error(data.message || 'Une erreur est survenue');
     }
 
@@ -56,6 +65,8 @@ export async function apiFetch(endpoint, options = {}) {
 export const api = {
   // Auth
   register: (data) => apiFetch('/auth/register', { method: 'POST', body: data }),
+  // Le backend accepte l'identifiant dans `email` : il détecte lui-même si
+  // c'est un numéro de téléphone (regex) et bascule sur la recherche par phone.
   login: (phoneOrEmail, password) => apiFetch('/auth/login', { method: 'POST', body: { email: phoneOrEmail, password } }),
   getProfile: () => apiFetch('/users/me', { method: 'GET' }),
   updateProfile: (data) => apiFetch('/users/me', { method: 'PATCH', body: data }),
@@ -121,9 +132,9 @@ export const api = {
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
   quoteOrder: (quoteData) => apiFetch('/orders/quote', { method: 'POST', body: quoteData }),
   getMyOrders: () => apiFetch('/orders/my-orders', { method: 'GET' }),
+  getAvailableOrders: () => apiFetch('/dispatch/available', { method: 'GET' }),
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
   getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
-  updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
   acceptOrder: (id) => apiFetch(`/orders/${id}/accept`, { method: 'POST' }),
   driverValidateDelivery: (id) => apiFetch(`/orders/${id}/driver-validate`, { method: 'POST' }),
   clientValidateWithPin: (id, pinCode) => apiFetch(`/orders/${id}/client-validate`, { method: 'POST', body: { pinCode } }),
@@ -165,13 +176,13 @@ export const api = {
   getMyDisputes: () => apiFetch('/disputes/me', { method: 'GET' }),
 
   // Promotions
-  getPromotionQuote: (data) => apiFetch('/promotions/quote', { method: 'POST', body: data }),
+  getPromotionQuote: (data) => apiFetch(`/promotions/quote?code=${encodeURIComponent(data.code)}&amount=${data.amount || 0}`, { method: 'GET' }),
 
   // Subscriptions marchand
   subscribeMerchant: (businessId, planCode = 'PRO', autoRenew = true) =>
     apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { businessId, planCode, autoRenew } }),
 
-  // Orders
+  // Orders (updateOrderStatus est déclaré dans la section Merchant Orders)
   cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED', reason } }),
   disputeOrder: (id, data) => apiFetch(`/disputes/orders/${id}`, { method: 'POST', body: data }),
 
@@ -202,14 +213,17 @@ export const api = {
   getReferralStats: () => apiFetch('/loyalty/referral/stats', { method: 'GET' }),
   applyReferralCode: (code) => apiFetch('/loyalty/referral/apply', { method: 'POST', body: { code } }),
 
-  // Upload (image directe)
+  // Upload (image directe) — ✅ FIX #22 : vérifier response.ok
   uploadImage: (formData) => {
     const token = localStorage.getItem('access_token');
     return fetch(`${API_URL}/uploads/image?folder=stories`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
-    }).then((r) => r.json());
+    }).then((r) => {
+      if (!r.ok) throw new Error(`Upload échoué (${r.status})`);
+      return r.json();
+    });
   },
 
   // Personnalisation

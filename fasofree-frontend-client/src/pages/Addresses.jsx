@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Plus, Trash2, Edit3, Check, Navigation, Loader2, X
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '../services/api';
 
 export default function Addresses() {
@@ -44,7 +45,7 @@ export default function Addresses() {
       resetForm();
       loadAddresses();
     } catch (err) {
-      alert(err.message || 'Erreur');
+      toast.error(err.message || 'Erreur');
     } finally {
       setSaving(false);
     }
@@ -56,7 +57,7 @@ export default function Addresses() {
       await api.deleteAddress(id);
       loadAddresses();
     } catch (err) {
-      alert(err.message || 'Erreur');
+      toast.error(err.message || 'Erreur');
     }
   };
 
@@ -67,14 +68,14 @@ export default function Addresses() {
   };
 
   const handleGPS = () => {
-    if (!navigator.geolocation) return alert('Geolocalisation non supportee');
+    if (!navigator.geolocation) return toast.error('Géolocalisation non supportée');
     setGpsLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
         setGpsLoading(false);
       },
-      () => { alert('Impossible d\'obtenir la position'); setGpsLoading(false); },
+      () => { toast.error('Impossible d\'obtenir la position'); setGpsLoading(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };

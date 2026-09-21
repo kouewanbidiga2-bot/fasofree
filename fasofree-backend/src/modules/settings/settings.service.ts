@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SystemSettings } from './entities/system-settings.entity';
+import { SystemSettings, DeliveryTierConfig } from './entities/system-settings.entity';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { DeliveryPricingService } from '../orders/delivery-pricing.service';
 import { RidePricingService } from '../orders/services/ride-pricing.service';
@@ -22,7 +22,6 @@ export class SettingsService implements OnModuleInit {
       await this.repo.save(this.repo.create({}));
       this.logger.log('[Settings] Ligne singleton initialisée avec les valeurs par défaut');
     }
-    // Peupler les caches statiques des services de tarification
     await this.syncStaticCaches();
   }
 
@@ -31,9 +30,14 @@ export class SettingsService implements OnModuleInit {
       const settings = await this.repo.findOne({ where: {} });
       if (!settings) return;
 
-      if (settings.deliveryPricing) {
+      // Tranches tarifaires (nouveau système) — prioritaire sur l'ancien override linéaire
+      if (settings.deliveryTiers && Array.isArray(settings.deliveryTiers) && settings.deliveryTiers.length > 0) {
+        DeliveryPricingService.tiersFromDB = settings.deliveryTiers;
+        DeliveryPricingService.override = null;
+        this.logger.log(`[Settings] Cache DeliveryPricingService synchronisé avec ${settings.deliveryTiers.length} tranches (DB)`);
+      } else if (settings.deliveryPricing) {
         DeliveryPricingService.override = settings.deliveryPricing;
-        this.logger.log('[Settings] Cache DeliveryPricingService synchronisé');
+        this.logger.log('[Settings] Cache DeliveryPricingService synchronisé (legacy linéaire)');
       }
 
       if (settings.fasoRidePricing) {
@@ -62,7 +66,6 @@ export class SettingsService implements OnModuleInit {
     const settings = await this.get();
     Object.assign(settings, dto);
     const saved = await this.repo.save(settings);
-    // Re-synchroniser les caches statiques après mise à jour
     await this.syncStaticCaches();
     return saved;
   }

@@ -27,19 +27,25 @@ export class ReceiptsService {
     const today = new Date();
     const date = today.toISOString().slice(0, 10).replace(/-/g, '');
     const prefix = `RC-${date}-`;
-    const todayCount = await this.receiptsRepo
-      .createQueryBuilder('r')
-      .where('r.receiptNumber LIKE :prefix', { prefix: `${prefix}%` })
-      .getCount();
 
-    const seq = String(todayCount + 1).padStart(4, '0');
-    const number = `${prefix}${seq}`;
+    // ✅ FIX #29 : Boucle avec retry pour gérer les concurrences
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const todayCount = await this.receiptsRepo
+        .createQueryBuilder('r')
+        .where('r.receiptNumber LIKE :prefix', { prefix: `${prefix}%` })
+        .getCount();
 
-    // Sécurité : si collision improbable, on incrémente
-    const exists = await this.receiptsRepo.findOne({
-      where: { receiptNumber: number },
-    });
-    return exists ? `${prefix}${String(todayCount + 2).padStart(4, '0')}` : number;
+      const seq = String(todayCount + 1 + attempt).padStart(4, '0');
+      const number = `${prefix}${seq}`;
+
+      const exists = await this.receiptsRepo.findOne({
+        where: { receiptNumber: number },
+      });
+      if (!exists) return number;
+    }
+
+    // Fallback improbable : timestamp comme suffixe
+    return `${prefix}${Date.now().toString().slice(-4)}`;
   }
 
   private async persist(data: Partial<Receipt>): Promise<Receipt> {
