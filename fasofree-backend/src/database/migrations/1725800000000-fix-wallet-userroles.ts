@@ -9,14 +9,22 @@ export class FixWalletUserroles1725800000000 implements MigrationInterface {
     // with business_admin role, but the role was incorrectly mapped
     // ⚠️ Cast ::text des deux côtés : wallets.userId est VARCHAR, users.id est UUID
     // -> sans cast, Postgres rejette avec "operator does not exist: character varying = uuid"
+    // ⚠️ Sur base vierge, la table "wallets" n'existe pas encore (créée par
+    // 1726100000000, postérieure). Le garde EXCEPTION undefined_table rend ce
+    // bloc no-op dans ce cas — sur une base vierge il n'y a aucune donnée à corriger.
     await queryRunner.query(`
-      UPDATE wallets
-      SET "userRole" = 'MERCHANT'
-      WHERE "userRole" = 'DRIVER'
-        AND "branchId" IS NOT NULL
-        AND "userId"::text IN (
-          SELECT id::text FROM users WHERE role = 'business_admin'
-        )
+      DO $$
+      BEGIN
+        UPDATE wallets
+        SET "userRole" = 'MERCHANT'
+        WHERE "userRole" = 'DRIVER'
+          AND "branchId" IS NOT NULL
+          AND "userId"::text IN (
+            SELECT id::text FROM users WHERE role = 'business_admin'
+          );
+      EXCEPTION WHEN undefined_table THEN NULL;
+      END
+      $$;
     `);
   }
 

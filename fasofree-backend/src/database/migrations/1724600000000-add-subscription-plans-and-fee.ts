@@ -68,12 +68,16 @@ export class AddSubscriptionPlansAndFee1724600000000
     `);
 
     // 3. Nouvelle raison de transaction : SUBSCRIPTION_FEE
+    // ⚠️ Sur base vierge, le type "wallet_transactions_reason_enum" n'existe
+    // pas encore (créé par 1726100000001, qui l'inclut déjà). Garde
+    // EXCEPTION undefined_object → no-op sans perte.
     await queryRunner.query(`
       DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'SUBSCRIPTION_FEE') THEN
           ALTER TYPE "wallet_transactions_reason_enum" ADD VALUE 'SUBSCRIPTION_FEE';
         END IF;
+      EXCEPTION WHEN undefined_object THEN NULL;
       END
       $$;
     `);

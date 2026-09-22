@@ -23,7 +23,7 @@ export class CreateWalletTransactionsTable1726100000001 implements MigrationInte
         CREATE TYPE wallet_transactions_reason_enum AS ENUM (
           'ORDER_PAYMENT', 'DELIVERY_FEE', 'COMMISSION', 'WITHDRAWAL',
           'TOPUP', 'REFUND', 'REFERRAL_REWARD', 'PAYOUT',
-          'DAILY_PASS_FEE', 'SERVICE_FEE', 'SUBSCRIPTION_FEE'
+          'DAILY_PASS_FEE', 'SERVICE_FEE', 'SUBSCRIPTION_FEE', 'STORY_FEE'
         );
       EXCEPTION WHEN duplicate_object THEN NULL;
       END $$;

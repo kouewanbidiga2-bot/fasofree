@@ -11,7 +11,18 @@ export class PurgePasswordPlain1726200000000 implements MigrationInterface {
   name = 'PurgePasswordPlain1726200000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`UPDATE "users" SET "passwordPlain" = NULL WHERE "passwordPlain" IS NOT NULL;`);
+    // ⚠️ Sur base vierge, la colonne "passwordPlain" n'existe pas (elle a été
+    // retirée de l'entité User). Le garde EXCEPTION undefined_column rend ce
+    // bloc no-op dans ce cas : sur une base vierge il n'y a aucun mot de passe
+    // en clair à purger.
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        UPDATE "users" SET "passwordPlain" = NULL WHERE "passwordPlain" IS NOT NULL;
+      EXCEPTION WHEN undefined_column THEN NULL;
+      END
+      $$;
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
