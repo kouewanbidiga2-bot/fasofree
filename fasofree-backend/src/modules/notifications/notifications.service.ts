@@ -106,7 +106,7 @@ export class NotificationsService {
           await this.sendToDevice(user.fcmToken, {
             title: `Compte ${roleLabel} approuvé !`,
             body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
-            data: { type: 'ONBOARDING_APPROVED', role: appType, tempPassword },
+            data: { type: 'ONBOARDING_APPROVED', role: appType },
           });
         }
         break;
