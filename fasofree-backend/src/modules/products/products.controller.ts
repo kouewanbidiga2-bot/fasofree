@@ -135,8 +135,10 @@ export class ProductsController {
   @ApiBody({
     schema: {
       type: 'object',
+      required: ['pdf', 'businessId'],
       properties: {
         pdf: { type: 'string', format: 'binary', description: 'PDF du menu (max 10 MB)' },
+        businessId: { type: 'string', format: 'uuid', description: 'ID du business' },
       },
     },
   })
@@ -144,13 +146,21 @@ export class ProductsController {
   async analyzePdf(
     @Request() req: ExpressRequest & { user?: { userId?: string; role?: string } },
     @UploadedFile() pdf?: Express.Multer.File,
+    @Body('businessId') businessId?: string,
   ) {
     if (!pdf) {
       throw new BadRequestException('Fichier PDF requis');
     }
 
+    if (!businessId) {
+      throw new BadRequestException('businessId requis');
+    }
+
     const userId = req.user?.userId as string;
     const role = req.user?.role as string;
+
+    // Vérifier que le marchand possède bien ce business
+    await this.businessesService.assertManagedBy(businessId, userId, role as any);
 
     // Vérifier que le service est disponible
     if (!this.pdfImportService.isAvailable()) {

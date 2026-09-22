@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useRef } from 'react';
 import api from '../services/api';
 
 /**
@@ -15,17 +15,29 @@ const PdfCatalogImport = ({ businessId, onImportComplete, onClose }) => {
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
   const [createdCount, setCreatedCount] = useState(0);
+  const fileInputRef = useRef(null);
 
   // ─── Upload & Analyse ──────────────────────────────────────────────────
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      setPdfFile(file);
-      setError(null);
-    } else {
-      setError('Veuillez sélectionner un fichier PDF');
+    if (!file) return;
+
+    const validType = file.type === 'application/pdf';
+    const validExt = file.name.toLowerCase().endsWith('.pdf');
+    const validSize = file.size <= 10 * 1024 * 1024;
+
+    if (!validType && !validExt) {
+      setError('Seuls les fichiers PDF sont acceptés (.pdf)');
+      return;
     }
+    if (!validSize) {
+      setError('Le fichier ne doit pas dépasser 10 MB');
+      return;
+    }
+
+    setPdfFile(file);
+    setError(null);
   };
 
   const handleAnalyze = async () => {
@@ -37,6 +49,7 @@ const PdfCatalogImport = ({ businessId, onImportComplete, onClose }) => {
     try {
       const formData = new FormData();
       formData.append('pdf', pdfFile);
+      formData.append('businessId', businessId);
 
       const response = await api.post('/products/import-pdf/analyze', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -237,7 +250,7 @@ const PdfCatalogImport = ({ businessId, onImportComplete, onClose }) => {
             <div style={styles.subtitle}>
               Uploadez votre menu PDF — l'IA extraira automatiquement les plats, prix et catégories.
             </div>
-            <div style={styles.uploadZone} onClick={() => document.getElementById('pdf-input').click()}>
+            <div style={styles.uploadZone} onClick={() => fileInputRef.current?.click()}>
               <div style={{ fontSize: 48, marginBottom: 8 }}>📁</div>
               <div style={{ fontWeight: 'bold' }}>
                 {pdfFile ? pdfFile.name : 'Cliquez pour sélectionner un PDF'}
@@ -246,7 +259,7 @@ const PdfCatalogImport = ({ businessId, onImportComplete, onClose }) => {
                 Max 10 MB — Format PDF uniquement
               </div>
               <input
-                id="pdf-input"
+                ref={fileInputRef}
                 type="file"
                 accept=".pdf"
                 onChange={handleFileChange}
