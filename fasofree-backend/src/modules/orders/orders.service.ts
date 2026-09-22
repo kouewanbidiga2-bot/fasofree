@@ -2197,6 +2197,15 @@ private readonly geoDispatchService: GeoDispatchService,
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });
+
+          // 🛵 Notifier le livreur assigné (fire-and-forget)
+          if (order.driverId) {
+            this.usersService.findById(order.driverId).then((driver) => {
+              if (driver) {
+                this.notificationsService.sendNotification(driver, 'Nouvelle commande assignée', `Commande #${order.id.slice(-8)} — ${order.totalAmount} FCFA. Allez récupérer!`, { orderId: order.id, type: 'DRIVER_NEW_ORDER' });
+              }
+            }).catch(() => {});
+          }
           break;
         }
 
@@ -2264,6 +2273,19 @@ private readonly geoDispatchService: GeoDispatchService,
             body: 'Votre commande a été annulée.',
             orderId: order.id,
           });
+
+          // 🏪 Notifier le marchand de l'annulation (fire-and-forget)
+          if (order.businessId) {
+            this.businessesService.findOne(order.businessId).then((business) => {
+              if (business?.ownerId) {
+                this.usersService.findById(business.ownerId).then((merchant) => {
+                  if (merchant) {
+                    this.notificationsService.sendNotification(merchant, 'Commande annulée', `La commande #${order.id.slice(-8)} a été annulée par le client.`, { orderId: order.id, type: 'ORDER_CANCELLED_MERCHANT' });
+                  }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
           break;
 
         case OrderStatus.FAILED:

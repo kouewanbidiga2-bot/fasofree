@@ -5,6 +5,7 @@ import { SmsService } from './sms.service';
 import { EmailService } from './email.service';
 import { WhatsAppService } from './whatsapp.service';
 import { User, NotificationChannel } from '../users/entities/user.entity';
+import { UsersService } from '../users/users.service';
 
 export interface PushPayload {
   title: string;
@@ -20,6 +21,7 @@ export class NotificationsService {
     private readonly smsService: SmsService,
     private readonly emailService: EmailService,
     private readonly whatsappService: WhatsAppService,
+    private readonly usersService: UsersService,
   ) {}
 
   // ─── DISPATCHER MULTI-CANAUX ────────────────────────────────────────────────
@@ -138,13 +140,13 @@ export class NotificationsService {
       }
     }
 
-    // 2. Push FCM en complément (sauf si le canal principal EST déjà PUSH)
+    // 2. Push FCM en complément — fire-and-forget (le canal principal a déjà réussi)
     if (channel !== NotificationChannel.PUSH && user.fcmToken) {
-      await this.sendToDevice(user.fcmToken, {
+      this.sendToDevice(user.fcmToken, {
         title: `Compte ${roleLabel} approuvé !`,
         body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
         data: { type: 'ONBOARDING_APPROVED', role: appType },
-      });
+      }).catch(() => {});
     }
   }
 
@@ -198,13 +200,13 @@ export class NotificationsService {
       }
     }
 
-    // Push FCM en complément
+    // Push FCM en complément — fire-and-forget
     if (channel !== NotificationChannel.PUSH && user.fcmToken) {
-      await this.sendToDevice(user.fcmToken, {
+      this.sendToDevice(user.fcmToken, {
         title: `Candidature ${roleLabel} refusée`,
         body: reason,
         data: { type: 'ONBOARDING_REJECTED', role: appType },
-      });
+      }).catch(() => {});
     }
   }
 
@@ -245,7 +247,8 @@ export class NotificationsService {
       // Tokens invalides/expirés : FCM rejette avec ces codes
       const invalidCodes = ['messaging/registration-token-not-registered', 'messaging/invalid-registration-token'];
       if (invalidCodes.includes(error?.code)) {
-        this.logger.warn(`[Push] Token FCM invalide/expiré: ${fcmToken.slice(0, 12)}… — suppression recommandée`);
+        this.logger.warn(`[Push] Token FCM invalide/expiré: ${fcmToken.slice(0, 12)}… — nettoyage en cours`);
+        this.usersService.clearFcmToken(fcmToken).catch(() => {});
       } else {
         this.logger.error(`[Push] Échec envoi: ${error.message}`);
       }

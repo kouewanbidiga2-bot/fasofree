@@ -237,6 +237,33 @@ export class UsersService implements OnModuleInit {
     return this.userRepository.find({ where: { id: In(ids) } });
   }
 
+  /**
+   * Requête légère pour les notifications — ne charge que les champs
+   * nécessaires au dispatcher (évite de transférer passwordHash, etc.).
+   */
+  async findNotificationRecipients(
+    ids: string[],
+  ): Promise<Pick<User, 'id' | 'fcmToken' | 'email' | 'phone' | 'preferredNotificationChannel'>[]> {
+    if (!ids.length) return [];
+    return this.userRepository
+      .createQueryBuilder('u')
+      .select(['u.id', 'u.fcmToken', 'u.email', 'u.phone', 'u.preferredNotificationChannel'])
+      .where('u.id IN (:...ids)', { ids })
+      .getMany();
+  }
+
+  /**
+   * Supprime un token FCM invalide/expiré de la base de données.
+   */
+  async clearFcmToken(fcmToken: string): Promise<void> {
+    await this.userRepository
+      .createQueryBuilder()
+      .update(User)
+      .set({ fcmToken: undefined as any })
+      .where('fcmToken = :fcmToken', { fcmToken })
+      .execute();
+  }
+
   async findProfileWithBusiness(id: string): Promise<Record<string, unknown>> {
     const user = await this.findById(id);
     const result: Record<string, unknown> = { ...user };

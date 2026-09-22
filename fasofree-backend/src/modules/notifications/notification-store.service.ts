@@ -89,22 +89,21 @@ export class NotificationStoreService {
     );
     await this.repo.save(notifications);
 
-    // 2. Envoyer FCM push en parallèle (non bloquant)
+    // 2. Envoyer via le dispatcher multi-canal (non bloquant)
     try {
-      const users = await this.usersService.findByIds(userIds);
+      const users = await this.usersService.findNotificationRecipients(userIds);
       await Promise.allSettled(
-        users.map((user) => {
-          if (user.fcmToken) {
-            return this.notificationsService.sendToDevice(user.fcmToken, {
-              title,
-              body,
-              data: { type: 'SYSTEM_NOTIFICATION', actionUrl: actionUrl ?? '/' },
-            });
-          }
-        }),
+        users.map((user) =>
+          this.notificationsService.sendNotification(
+            user as any,
+            title,
+            body,
+            { type: 'SYSTEM_NOTIFICATION', actionUrl: actionUrl ?? '/' },
+          ),
+        ),
       );
     } catch (err) {
-      this.logger.warn(`[sendToUsers] FCM push échoué: ${err}`);
+      this.logger.warn(`[sendToUsers] Envoi multi-canal échoué: ${err}`);
     }
 
     return notifications.length;
