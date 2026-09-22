@@ -69,6 +69,8 @@ export class DispatchGateway
     private readonly brandRepository: Repository<Brand>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
   ) {}
 
   /**
@@ -170,10 +172,42 @@ export class DispatchGateway
   }
 
   @SubscribeMessage(WsEvents.JOIN_ORDER_TRACKING)
-  handleJoinOrder(
+  async handleJoinOrder(
     @ConnectedSocket() client: Socket,
     @MessageBody() dto: JoinOrderTrackingDto,
   ) {
+    // 🔒 La room est réservée aux parties prenantes de la commande :
+    // le PIN de livraison y est diffusé (deliveryPendingConfirmation).
+    const user = client.data?.user as { userId?: string; role?: string } | undefined;
+    const role = user?.role;
+    const userId = user?.userId;
+
+    if (
+      role !== UserRole.SUPER_ADMIN &&
+      role !== UserRole.ADMIN &&
+      role !== UserRole.SUPPORT
+    ) {
+      let order: Order | null = null;
+      try {
+        order = await this.orderRepository.findOne({
+          where: { id: dto.orderId },
+        });
+      } catch {
+        order = null;
+      }
+
+      const isOwner = !!userId && order?.clientId === userId;
+      const isAssignedDriver =
+        !!userId && !!order?.driverId && order.driverId === userId;
+
+      if (!order || (!isOwner && !isAssignedDriver)) {
+        this.logger.warn(
+          `[WS Auth] Socket ${client.id} (${role ?? '?'}) refusé sur la room commande ${dto.orderId}`,
+        );
+        return { event: 'error', data: 'Accès non autorisé à cette salle' };
+      }
+    }
+
     return this.roomHandler.handleJoinOrderTracking(client, dto.orderId);
   }
 

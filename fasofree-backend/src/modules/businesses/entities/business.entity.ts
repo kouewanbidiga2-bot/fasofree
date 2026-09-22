@@ -11,6 +11,7 @@ import {
 import type { Point } from 'typeorm'; // 💡 'import type' résout l'erreur TS1272
 import { Product } from '../../products/entities/product.entity';
 import { Brand } from '../../brands/entities/brand.entity';
+import { User } from '../../users/entities/user.entity';
 import { MobileMoneyProvider } from '../../users/entities/user.entity';
 
 /**
@@ -53,6 +54,11 @@ export class Business {
   @Column({ type: 'uuid', nullable: true })
   ownerId: string | null;
 
+  // 🔗 Clé étrangère vers le compte utilisateur propriétaire
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'ownerId' })
+  owner: User;
+
   // 🏷️ Catégorie du commerce (Multi-Secteurs)
   @Column({
     type: 'enum',
@@ -84,10 +90,10 @@ export class Business {
   location: Point;
 
   // 📍 Coordonnées GPS simples (utilisées par le Dispatch)
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   latitude?: number;
 
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   longitude?: number;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

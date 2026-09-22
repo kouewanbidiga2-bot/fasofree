@@ -23,6 +23,11 @@ export class VerifiedGuard implements CanActivate {
       throw new ForbiddenException('Utilisateur introuvable');
     }
 
+    // 🚫 Compte désactivé → refusé, y compris pour les rôles admin.
+    if (!user.isActive) {
+      throw new ForbiddenException('Ce compte est désactivé');
+    }
+
     if (['admin', 'super_admin'].includes(user.role)) {
       return true;
     }

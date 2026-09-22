@@ -2,13 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Command } from 'nestjs-command';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 
-const MASTER_EMAIL = 'master@fasofree.bf';
-const MASTER_PASSWORD = 'Test@12345';
 const BCRYPT_ROUNDS = 10;
 
 @Injectable()
@@ -18,6 +17,7 @@ export class ResetSuperAdminCommand {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly configService: ConfigService,
   ) {}
 
   @Command({
@@ -25,14 +25,25 @@ export class ResetSuperAdminCommand {
     describe: 'Crée ou réinitialise de force le compte Super Admin maître',
   })
   async run(): Promise<void> {
-    const passwordHash = await bcrypt.hash(MASTER_PASSWORD, BCRYPT_ROUNDS);
+    // Aucun identifiant en dur : les credentials viennent de l'environnement.
+    const masterEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
+    const masterPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
+
+    if (!masterEmail || !masterPassword) {
+      this.logger.error(
+        '[seed:super-admin] SUPER_ADMIN_EMAIL et SUPER_ADMIN_PASSWORD doivent être définis dans l\'environnement.',
+      );
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(masterPassword, BCRYPT_ROUNDS);
     let user = await this.userRepository.findOne({
-      where: { email: MASTER_EMAIL },
+      where: { email: masterEmail },
     });
 
     if (!user) {
       user = this.userRepository.create({
-        email: MASTER_EMAIL,
+        email: masterEmail,
         fullName: 'Master Admin',
         phone: '+22670000000',
         passwordHash,
@@ -55,7 +66,7 @@ export class ResetSuperAdminCommand {
 
     const saved = await this.userRepository.save(user);
     const passwordIsValid = await bcrypt.compare(
-      MASTER_PASSWORD,
+      masterPassword,
       passwordHash,
     );
 

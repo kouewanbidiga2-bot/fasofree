@@ -97,6 +97,8 @@ export class Order {
     notes?: string;
   };
 
+  @Index()
+  @Index('idx_orders_status')
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
   status: OrderStatus;
 
@@ -251,8 +253,10 @@ export class Order {
   @OneToOne(() => Transaction, (transaction) => transaction.order)
   transaction: Transaction;
 
-  // --- 📌 CODE PIN DE LIVRAISON ---
-  @Column({ type: 'varchar', length: 4, nullable: true })
+  // --- 📌 CODE PIN DE LIVRAISON (6 chiffres, crypto.randomInt) ---
+  // 🔒 select: false — le PIN n'est chargé que sur les flux qui en ont besoin
+  // (création côté client, validation client/livreur). Jamais dans les listes.
+  @Column({ type: 'varchar', length: 6, nullable: true, select: false })
   deliveryPinCode: string | null;
 
   // --- ✅ DOUBLE VALIDATION ---

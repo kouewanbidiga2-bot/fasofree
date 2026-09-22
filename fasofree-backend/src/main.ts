@@ -72,7 +72,7 @@ async function bootstrap() {
 
   // 3bis. Stockage local supprimé — tous les fichiers vont sur Cloudinary/S3
 
-  // 4. Stratégie CORS Intelligente (Dev Local + Prod)
+  // 4. Stratégie CORS (strictes dans TOUS les environnements)
   const isProduction = process.env.NODE_ENV === 'production';
   const envOrigins = process.env.CORS_ORIGIN
     ? process.env.CORS_ORIGIN.split(',')
@@ -80,7 +80,21 @@ async function bootstrap() {
         .filter(Boolean)
     : [];
 
-  // Patterns regex autorises en prod (*.fasofree.site, *.vercel.app, *.onrender.com)
+  // Origines locales de développement (Vite / Next / CRA) — dev uniquement
+  const devOrigins = isProduction
+    ? []
+    : [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:5173',
+        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:8080',
+      ];
+
+  // Patterns regex autorisés en prod (*.fasofree.site, *.vercel.app, *.onrender.com)
   const allowedRegexPatterns = [
     /\.fasofree\.site$/,
     /\.vercel\.app$/,
@@ -89,17 +103,19 @@ async function bootstrap() {
 
   const isOriginAllowed = (origin: string) => {
     if (envOrigins.length > 0 && envOrigins.includes(origin)) return true;
+    if (devOrigins.includes(origin)) return true;
     return allowedRegexPatterns.some((re) => re.test(origin));
   };
 
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin || !isProduction || isOriginAllowed(origin)) {
-        // Pas d'origine (curl, serveur-à-serveur, outils) ou origine autorisée.
+      // Pas d'origine (curl, serveur-à-serveur, outils) → autorisé.
+      // Sinon l'origine DOIT être explicitement autorisée (même en dev) :
+      // plus d'allow-all en développement.
+      if (!origin || isOriginAllowed(origin)) {
         callback(null, true);
       } else {
         // 🛡️ Origine refusée : on REJETTE réellement la requête
-        // (l'ancien code faisait callback(null, true) = origine interdite autorisée).
         logger.warn(`CORS bloquée : ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
@@ -236,27 +252,29 @@ async function bootstrap() {
     .addTag('Webhooks', 'Webhooks paiement, WhatsApp')
     .build();
 
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-
-  // Génère la spec JSON uniquement hors production
+  // 🔒 Swagger (UI + doc OpenAPI) exposé UNIQUEMENT hors production :
+  // la documentation de l'API interne ne doit pas être publique en prod.
   if (!isProduction) {
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+
+    // Génère la spec JSON pour les outils de développement
     try {
       writeFileSync('./swagger-spec.json', JSON.stringify(document, null, 2));
     } catch (err) {
       logger.warn(`Impossible d'écrire swagger-spec.json : ${err.message}`);
     }
-  }
 
-  SwaggerModule.setup('api/docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      docExpansion: 'none', // Garde la documentation lisible au démarrage
-      filter: true, // Barre de recherche intégrée dans Swagger
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-    },
-    customSiteTitle: 'FasoFree API Docs',
-  });
+    SwaggerModule.setup('api/docs', app, document, {
+      swaggerOptions: {
+        persistAuthorization: true,
+        docExpansion: 'none', // Garde la documentation lisible au démarrage
+        filter: true, // Barre de recherche intégrée dans Swagger
+        tagsSorter: 'alpha',
+        operationsSorter: 'alpha',
+      },
+      customSiteTitle: 'FasoFree API Docs',
+    });
+  }
 
   // 9. Démarrage du serveur (Adapté pour Render / Cloud / Ngrok)
   const port = Number(process.env.PORT) || 3100;

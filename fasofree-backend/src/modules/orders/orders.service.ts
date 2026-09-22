@@ -10,6 +10,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, IsNull } from 'typeorm';
+import { randomInt, timingSafeEqual } from 'crypto';
 
 // Entités et DTOs
 import {
@@ -459,7 +460,7 @@ private readonly geoDispatchService: GeoDispatchService,
     let savedOrder: Order;
     try {
       savedOrder = await this.orderRepository.save(order);
-      savedOrder.deliveryPinCode = isDelivery ? this.getOrderCode(savedOrder.id) : null;
+      savedOrder.deliveryPinCode = isDelivery ? this.generateDeliveryPin() : null;
       await this.orderRepository.save(savedOrder);
 
       // Sauvegarder les articles avec les prix vérifiés depuis la DB
@@ -689,7 +690,7 @@ private readonly geoDispatchService: GeoDispatchService,
 
     try {
       const savedOrder = await queryRunner.manager.save(order);
-      savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+      savedOrder.deliveryPinCode = this.generateDeliveryPin();
       await queryRunner.manager.save(savedOrder);
 
       // 🏦 Débit du wallet client (séquestre). En cas d'échec (solde insuffisant),
@@ -844,7 +845,7 @@ private readonly geoDispatchService: GeoDispatchService,
     });
 
     const savedOrder = await this.orderRepository.save(order);
-    savedOrder.deliveryPinCode = this.getOrderCode(savedOrder.id);
+    savedOrder.deliveryPinCode = this.generateDeliveryPin();
     await this.orderRepository.save(savedOrder);
 
     const transaction = this.transactionRepository.create({
@@ -1755,10 +1756,10 @@ private readonly geoDispatchService: GeoDispatchService,
   }
 
   // ========================================================================
-  // 🔑 CODE DE COMMANDE (6 derniers caractères de l'ID — déterministe)
+  // 🔑 CODE PIN DE COMMANDE (6 chiffres aléatoires cryptographiques)
   // ========================================================================
-  private getOrderCode(orderId: string): string {
-    return orderId.slice(-6);
+  private generateDeliveryPin(): string {
+    return randomInt(0, 1_000_000).toString().padStart(6, '0');
   }
 
   // ========================================================================
@@ -1847,7 +1848,18 @@ private readonly geoDispatchService: GeoDispatchService,
     orderId: string,
     driverId: string,
   ): Promise<Order> {
-    const order = await this.findOne(orderId);
+    // Chargé avec addSelect('deliveryPinCode') : le PIN (colonne select:false)
+    // est nécessaire pour le transmettre au client via WebSocket.
+    const order = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.items', 'items')
+      .addSelect('order.deliveryPinCode')
+      .where('order.id = :id', { id: orderId })
+      .getOne();
+
+    if (!order) {
+      throw new NotFoundException(`La commande #${orderId} est introuvable.`);
+    }
 
     if (order.driverId && order.driverId !== driverId) {
       throw new ForbiddenException(
@@ -1898,10 +1910,11 @@ private readonly geoDispatchService: GeoDispatchService,
       this.dispatchGateway.server
         .to(`order_${orderId}`)
         .emit('deliveryPendingConfirmation', {
-          message:
-            'Le livreur a marqué votre commande comme livrée. Confirmez la réception avec votre code de commande.',
+          message: saved.deliveryPinCode
+            ? 'Le livreur a marqué votre commande comme livrée. Confirmez la réception avec votre code de commande.'
+            : 'Le livreur a marqué votre commande comme livrée. Vous pouvez confirmer la réception.',
           orderId,
-          orderCode: this.getOrderCode(orderId),
+          orderCode: saved.deliveryPinCode ?? undefined,
         });
     } catch (e) {
       this.logger.warn(`Notification WebSocket échouée: ${e?.message}`);
@@ -1927,6 +1940,7 @@ private readonly geoDispatchService: GeoDispatchService,
       const order = await queryRunner.manager
         .createQueryBuilder(Order, 'o')
         .setLock('pessimistic_write')
+        .addSelect('o.deliveryPinCode')
         .where('o.id = :orderId', { orderId })
         .getOne();
 
@@ -1944,8 +1958,15 @@ private readonly geoDispatchService: GeoDispatchService,
         );
       }
 
-      const expectedCode = this.getOrderCode(orderId);
-      if (!pinCode || pinCode !== expectedCode) {
+      // Validation contre le PIN stocké en base (jamais dérivé de l'ID).
+      // Comparaison à temps constant pour éviter les fuites par timing.
+      const expectedCode = order.deliveryPinCode;
+      const pinOk =
+        !!pinCode &&
+        !!expectedCode &&
+        pinCode.length === expectedCode.length &&
+        timingSafeEqual(Buffer.from(pinCode), Buffer.from(expectedCode));
+      if (!pinOk) {
         throw new BadRequestException('Code invalide. Veuillez réessayer.');
       }
 

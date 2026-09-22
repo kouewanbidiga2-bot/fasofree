@@ -26,7 +26,16 @@ export class WhatsAppService {
 
   async sendTextMessage(to: string, text: string): Promise<boolean> {
     if (!this.isConfigured()) {
-      this.logger.log(`[WhatsApp Dev] À: ${to} | Message: ${text.slice(0, 200)}`);
+      if (process.env.NODE_ENV === 'production') {
+        // 🔐 Prod : jamais le contenu (codes OTP / mots de passe temporaires) dans les logs.
+        this.logger.log(
+          `[WhatsApp Dev] À: ${to} | Message: (contenu masqué)`,
+        );
+      } else {
+        this.logger.log(
+          `[WhatsApp Dev] À: ${to} | Message: ${text.slice(0, 200)}`,
+        );
+      }
       return false;
     }
 

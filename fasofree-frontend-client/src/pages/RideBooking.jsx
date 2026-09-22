@@ -147,7 +147,9 @@ const RideBooking = () => {
       });
       setSuccess({
         id: response?.id,
-        orderCode: response?.id ? response.id.slice(-6) : null,
+        // #7 : le vrai PIN de livraison (facultatif) ; fallback historique pour
+        // les commandes sans PIN (pickup) qui affichent la fin de l'ID.
+        orderCode: response?.deliveryPinCode ?? (response?.id ? response.id.slice(-6) : null),
         totalAmount: response?.totalAmount ?? totalAmount,
       });
     } catch (err) {

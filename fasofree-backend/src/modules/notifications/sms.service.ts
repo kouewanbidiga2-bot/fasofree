@@ -123,9 +123,16 @@ class FallbackSmsProvider implements SmsProvider {
   private readonly logger = new Logger(FallbackSmsProvider.name);
 
   async sendSms(phoneNumber: string, message: string): Promise<boolean> {
-    this.logger.warn(
-      `[SMS Fallback] SMS non envoyé (mode dev): ${phoneNumber} - ${message}`,
-    );
+    if (process.env.NODE_ENV === 'production') {
+      // 🔐 Prod : jamais le contenu (codes OTP / mots de passe temporaires) dans les logs.
+      this.logger.warn(
+        `[SMS Fallback] SMS non envoyé (prod — canal non configuré): ${phoneNumber} (contenu masqué)`,
+      );
+    } else {
+      this.logger.warn(
+        `[SMS Fallback] SMS non envoyé (mode dev): ${phoneNumber} - ${message}`,
+      );
+    }
     return false;
   }
 }

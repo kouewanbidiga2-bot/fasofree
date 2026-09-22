@@ -255,15 +255,6 @@ export class UsersController {
     return this.usersService.deleteUser(operator, id);
   }
 
-  // 🔑 Voir le hash du mot de passe (Super Admin)
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
-  @Get(':id/password-hash')
-  @ApiOperation({ summary: 'Voir le hash bcrypt du mot de passe (SUPER_ADMIN)' })
-  async getPasswordHash(@Param('id') id: string) {
-    return this.usersService.getPasswordHash(id);
-  }
-
   // 🔑 Réinitialiser le mot de passe (Super Admin)
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)

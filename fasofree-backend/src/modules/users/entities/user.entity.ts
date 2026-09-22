@@ -121,10 +121,10 @@ export class User {
   rejectionReason?: string | null;
 
   // 🚚 CHAMPS LIVREUR / COURSIER (DISPATCH)
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   latitude?: number;
 
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   longitude?: number;
 
   @Column({ type: 'boolean', default: false })

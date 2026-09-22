@@ -5,7 +5,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { Socket } from 'socket.io';
+import { resolveJwtSecret } from '../../../config/jwt.config';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 
 interface AuthUser {
@@ -16,8 +18,15 @@ interface AuthUser {
 @Injectable()
 export class WsJwtGuard implements CanActivate {
   private readonly logger = new Logger(WsJwtGuard.name);
+  private readonly secret: string;
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    configService: ConfigService,
+  ) {
+    // Même résolution fail-fast que le signataire — jamais de secret divergent.
+    this.secret = resolveJwtSecret(configService);
+  }
 
   canActivate(context: ExecutionContext): boolean {
     const client: Socket = context.switchToWs().getClient();
@@ -37,7 +46,7 @@ export class WsJwtGuard implements CanActivate {
 
     try {
       const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET,
+        secret: this.secret,
       });
 
       // On attache l'utilisateur authentifié (format identique à JwtStrategy.validate)

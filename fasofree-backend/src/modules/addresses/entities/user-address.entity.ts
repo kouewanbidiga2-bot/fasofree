@@ -29,10 +29,10 @@ export class UserAddress {
   @Column({ type: 'text' })
   address: string;
 
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   latitude: number;
 
-  @Column({ type: 'float', nullable: true })
+  @Column({ type: 'double precision', nullable: true })
   longitude: number;
 
   @Column({ default: false })

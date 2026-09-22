@@ -1,19 +1,27 @@
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
+
+const MIN_JWT_SECRET_LENGTH = 32;
 
 /**
- * Résolution du secret JWT cohérente avec le signataire (auth.module).
+ * Résolution du secret JWT — source unique et fail-fast.
  *
- * En production JWT_SECRET est OBLIGATOIRE (validation au démarrage).
- * Si un jour il manquait, on dérive un secret STABLE depuis DATABASE_URL
- * (même logique que auth.module) pour que tous les consommateurs (HTTP +
- * WebSocket) utilisent la MÊME clé. Aucune valeur codée en dur.
+ * JWT_SECRET est OBLIGATOIRE dans TOUTES les environnements : aucun fallback
+ * dérivé (DATABASE_URL) ni valeur codée en dur. Le démarrage échoue
+ * explicitement si la clé est absente ou trop courte, plutôt que de signer
+ * des jetons avec un secret faible ou instable.
+ *
+ * Tous les consommateurs (HTTP : auth.module / jwt.strategy — WebSocket :
+ * internal-chat, chat, dispatch) passent par cette fonction afin de garantir
+ * que les jetons sont signés et vérifiés avec la MÊME clé.
  */
 export function resolveJwtSecret(configService: ConfigService): string {
   const secret = configService.get<string>('JWT_SECRET');
-  if (secret && secret.length >= 32) return secret;
-  const dbUrl = configService.get<string>('DATABASE_URL') || '';
-  return createHash('sha256')
-    .update(dbUrl + 'fasofree-jwt-fallback-2024')
-    .digest('hex');
+  if (!secret || secret.trim().length < MIN_JWT_SECRET_LENGTH) {
+    throw new Error(
+      `JWT_SECRET est obligatoire (minimum ${MIN_JWT_SECRET_LENGTH} caractères). ` +
+        "Définissez une clé aléatoire forte dans l'environnement ; " +
+        "aucun fallback n'est appliqué pour des raisons de sécurité.",
+    );
+  }
+  return secret.trim();
 }

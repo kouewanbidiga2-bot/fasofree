@@ -313,10 +313,15 @@ export class BusinessesService {
 
     // 3. Fallback : recherche partielle par nom
     if (!business) {
+      // Échappe les wildcards LIKE (% _ \) pour empêcher l'injection
+      // via un masque trop large (ex. id = "%" matche tout).
+      const escaped = id.replace(/[\\%_]/g, (m) => `\\${m}`);
       business = await this.businessRepository
         .createQueryBuilder('b')
         .leftJoinAndSelect('b.products', 'products')
-        .where('LOWER(b.name) LIKE LOWER(:name)', { name: `%${id}%` })
+        .where("LOWER(b.name) LIKE LOWER(:name) ESCAPE '\\'", {
+          name: `%${escaped}%`,
+        })
         .getOne();
     }
 

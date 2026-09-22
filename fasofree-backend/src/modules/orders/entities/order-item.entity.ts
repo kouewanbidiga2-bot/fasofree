@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
@@ -13,6 +14,7 @@ export class OrderItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index('idx_order_items_order_id')
   @Column({ type: 'uuid' })
   orderId: string;
 

@@ -12,6 +12,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { OrdersService } from './orders.service';
 import { BusinessesService } from '../businesses/businesses.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -324,8 +325,10 @@ export class OrdersController {
   // Le client confirme la réception en saisissant le Code PIN
   // ========================================================================
   @Post(':id/client-validate')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({
-    summary: 'Le client confirme la réception avec son Code PIN à 4 chiffres',
+    summary:
+      'Le client confirme la réception avec son Code PIN à 6 chiffres (max 5 essais/min)',
   })
   @ApiResponse({ status: 200, description: 'Commande complétée avec succès !' })
   @ApiResponse({ status: 400, description: 'Code PIN invalide' })

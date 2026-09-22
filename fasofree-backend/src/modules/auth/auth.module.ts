@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { randomBytes } from 'crypto';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from '../users/entities/user.entity';
@@ -15,6 +14,7 @@ import { KycModule } from '../kyc/kyc.module';
 import { UsersModule } from '../users/users.module';
 import { OtpModule } from '../otp/otp.module';
 import { VerifiedGuard } from './guards/verified.guard';
+import { resolveJwtSecret } from '../../config/jwt.config';
 
 function normalizeExpiresIn(
   raw?: string,
@@ -47,28 +47,7 @@ function normalizeExpiresIn(
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
-        let secret = configService.get<string>('JWT_SECRET');
-        const isProd = configService.get<string>('NODE_ENV') === 'production';
-
-        if (!secret || secret.length < 32) {
-          if (isProd) {
-            // En prod, générer un secret stable à partir du DATABASE_URL pour ne pas crasher
-            const dbUrl = configService.get<string>('DATABASE_URL') || '';
-            const fallback = require('crypto')
-              .createHash('sha256')
-              .update(dbUrl + 'fasofree-jwt-fallback-2024')
-              .digest('hex');
-            secret = fallback;
-            console.warn(
-              '⚠️  JWT_SECRET non défini — secret dérivé généré. Définissez JWT_SECRET pour la production.',
-            );
-          } else {
-            secret = randomBytes(48).toString('hex');
-            console.warn(
-              '⚠️ JWT_SECRET non défini — clé temporaire pour dev local',
-            );
-          }
-        }
+        const secret = resolveJwtSecret(configService);
 
         const expiresIn = normalizeExpiresIn(
           configService.get<string>('JWT_EXPIRES_IN'),

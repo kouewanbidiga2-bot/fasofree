@@ -34,11 +34,20 @@ export class OtpService {
     const expiresAt = Date.now() + OtpService.OTP_EXPIRY_SECONDS * 1000;
 
     this.store.set(key, { code, expiresAt });
-    this.logger.log(`[OTP] Code ${code} généré pour ${user.email} (exp: ${OtpService.OTP_EXPIRY_SECONDS}s)`);
-    console.log(`\n${'='.repeat(60)}`);
-    console.log(`  ⚠️  CODE OTP POUR ${user.email} : ${code}`);
-    console.log(`  ⏱️  Expire dans ${OtpService.OTP_EXPIRY_SECONDS / 60} minute(s)`);
-    console.log(`${'='.repeat(60)}\n`);
+
+    // 🔐 Jamais de code OTP en clair dans les logs en production.
+    // En dev uniquement, on affiche le code pour faciliter les tests locaux.
+    const isProd = process.env.NODE_ENV === 'production';
+    const masked = `${code.slice(0, 2)}••••${code.slice(-2)}`;
+    this.logger.log(
+      `[OTP] Code ${isProd ? masked : code} généré pour ${user.email} (exp: ${OtpService.OTP_EXPIRY_SECONDS}s)`,
+    );
+    if (!isProd) {
+      console.log(`\n${'='.repeat(60)}`);
+      console.log(`  ⚠️  CODE OTP POUR ${user.email} : ${code}`);
+      console.log(`  ⏱️  Expire dans ${OtpService.OTP_EXPIRY_SECONDS / 60} minute(s)`);
+      console.log(`${'='.repeat(60)}\n`);
+    }
 
     // Priorité 1 : email Resend via sendOtpEmail (HTML bannierte)
     let sent = false;

@@ -33,10 +33,17 @@ export class UsersService implements OnModuleInit {
    * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    const email = this.configService.get<string>('SUPER_ADMIN_EMAIL', 'kouewanbidiga2@gmail.com');
+    // Aucun email en dur : si SUPER_ADMIN_EMAIL n'est pas défini, on ignore
+    // la création pour ne pas migrer un compte existant vers une valeur vide.
+    const email = this.configService.get<string>('SUPER_ADMIN_EMAIL');
     const password = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
     const fullName = this.configService.get<string>('SUPER_ADMIN_FULLNAME', 'Master Admin');
     const phone = this.configService.get<string>('SUPER_ADMIN_PHONE', '+22661010011');
+
+    if (!email) {
+      this.logger.warn('[Bootstrap] SUPER_ADMIN_EMAIL non défini — création du compte super_admin ignorée');
+      return;
+    }
 
     if (!password) {
       this.logger.warn('[Bootstrap] SUPER_ADMIN_PASSWORD non défini — création du compte super_admin ignorée');
@@ -474,19 +481,6 @@ export class UsersService implements OnModuleInit {
     // ✅ FIX #38 : passwordPlain supprimé — le mot de passe en clair n'est jamais stocké
 
     return this.userRepository.save(user);
-  }
-
-  // ─── Hash du mot de passe (Super Admin) ───────────────────────────
-  async getPasswordHash(userId: string): Promise<{ userId: string; hash: string }> {
-    const user = await this.userRepository
-      .createQueryBuilder('user')
-      .addSelect('user.passwordHash')
-      .where('user.id = :userId', { userId })
-      .getOne();
-
-    if (!user) throw new NotFoundException(`Utilisateur ${userId} introuvable`);
-
-    return { userId, hash: (user as any).passwordHash };
   }
 
   // ─── Auto-suppression (self-service) ─────────────────────────────

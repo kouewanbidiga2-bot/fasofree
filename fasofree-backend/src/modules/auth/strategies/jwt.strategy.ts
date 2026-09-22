@@ -1,10 +1,10 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { createHash } from 'crypto';
+import { resolveJwtSecret } from '../../../config/jwt.config';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/entities/user-role.enum';
 import { Brand } from '../../brands/entities/brand.entity';
@@ -17,28 +17,6 @@ export interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  private static resolveSecret(configService: ConfigService): string {
-    let secret = configService.get<string>('JWT_SECRET');
-    if (secret && secret.length >= 32) return secret;
-
-    const isProd = configService.get<string>('NODE_ENV') === 'production';
-    const logger = new Logger('JwtStrategy');
-
-    if (isProd) {
-      const dbUrl = configService.get<string>('DATABASE_URL') || '';
-      secret = createHash('sha256')
-        .update(dbUrl + 'fasofree-jwt-fallback-2024')
-        .digest('hex');
-      logger.warn('JWT_SECRET non défini — secret dérivé de DATABASE_URL (JwtStrategy)');
-    } else {
-      secret = createHash('sha256')
-        .update('fasofree-dev-jwt-secret-please-change-in-production')
-        .digest('hex');
-      logger.warn('JWT_SECRET absent — clé déterministe dev (JwtStrategy). Définissez JWT_SECRET dans .env');
-    }
-    return secret;
-  }
-
   constructor(
     configService: ConfigService,
     @InjectRepository(User)
@@ -48,7 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
   ) {
-    const secret = JwtStrategy.resolveSecret(configService);
+    const secret = resolveJwtSecret(configService);
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
