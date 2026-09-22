@@ -8,19 +8,24 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
   Request,
+  UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request as ExpressRequest } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { ProductsService } from './products.service';
+import { PdfImportService } from './pdf-import.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { ConfirmImportDto } from './dto/import-catalog.dto';
 import { BusinessesService } from '../businesses/businesses.service';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
 @ApiTags('Products')
 @Controller('products')
@@ -28,6 +33,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly businessesService: BusinessesService,
+    private readonly pdfImportService: PdfImportService,
   ) {}
 
   // ➕ Ajouter un produit (Gérants & Admins)
@@ -103,6 +109,110 @@ export class ProductsController {
     const userId = req.user?.userId as string;
     const role = req.user?.role as string;
     return this.productsService.toggleAvailability(id, userId, role as any);
+  }
+
+  // 📄 Import catalogue depuis PDF (analyse via Gemini)
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post('import-pdf/analyze')
+  @UseInterceptors(
+    FileInterceptor('pdf', {
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+      fileFilter: (_req, file, cb) => {
+        if (file.mimetype === 'application/pdf') {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Seuls les fichiers PDF sont acceptés'), false);
+        }
+      },
+    }),
+  )
+  @ApiBearerAuth('JWT-auth')
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        pdf: { type: 'string', format: 'binary', description: 'PDF du menu (max 10 MB)' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Analyser un PDF de menu et retourner un preview du catalogue' })
+  async analyzePdf(
+    @Request() req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @UploadedFile() pdf?: Express.Multer.File,
+  ) {
+    if (!pdf) {
+      throw new BadRequestException('Fichier PDF requis');
+    }
+
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+
+    // Vérifier que le service est disponible
+    if (!this.pdfImportService.isAvailable()) {
+      throw new BadRequestException(
+        'Service d\'import PDF non configuré. Contactez l\'administrateur.',
+      );
+    }
+
+    // Analyser le PDF
+    const result = await this.pdfImportService.analyzeMenuPdf(pdf.buffer, pdf.originalname);
+
+    return {
+      success: true,
+      message: `${result.totalProducts} produits trouvés dans ${result.categories.length} catégories`,
+      data: result,
+    };
+  }
+
+  // ✅ Confirmer l'import et créer les produits
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN, UserRole.SUPER_ADMIN)
+  @Post('import-pdf/confirm')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Confirmer l\'import et créer les produits du catalogue' })
+  async confirmImport(
+    @Request() req: ExpressRequest & { user?: { userId?: string; role?: string } },
+    @Body() dto: ConfirmImportDto,
+  ) {
+    const userId = req.user?.userId as string;
+    const role = req.user?.role as string;
+
+    // Vérifier que le marchand possède bien ce business
+    await this.businessesService.assertManagedBy(dto.businessId, userId, role as any);
+
+    // Créer tous les produits
+    const created: string[] = [];
+    for (const category of dto.categories) {
+      for (const product of category.products) {
+        try {
+          await this.productsService.create(
+            {
+              name: product.name,
+              description: product.description,
+              price: product.price,
+              category: category.name,
+              type: product.type,
+              imageUrl: product.imageUrl,
+              businessId: dto.businessId,
+              isAvailable: dto.setAvailable ?? true,
+            },
+            userId,
+            role as any,
+          );
+          created.push(product.name);
+        } catch (err) {
+          // Continuer même si un produit échoue
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: `${created.length} produits créés avec succès`,
+      created,
+    };
   }
 
   // 🔍 Détail d'un produit
