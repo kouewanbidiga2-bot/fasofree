@@ -44,9 +44,14 @@ export async function apiFetch(endpoint, options = {}) {
 
     if (!response.ok) {
       if (response.status === 401) {
+        // Ne rebondir vers /auth que si c'était une session réelle (token +
+        // profil présents). Un 401 anonyme (ex. endpoint protégé appelé depuis
+        // une page publique) ne doit pas éjecter un visiteur : il doit pouvoir
+        // continuer à consulter.
+        const wasAuthenticated = !!localStorage.getItem('access_token') && !!localStorage.getItem('fasofree_user');
         localStorage.removeItem('access_token');
         localStorage.removeItem('fasofree_user');
-        if (!window.location.pathname.includes('/auth')) {
+        if (wasAuthenticated && !window.location.pathname.includes('/auth')) {
           const { toast } = await import('sonner');
           toast.error('Session expirée. Veuillez vous reconnecter.');
           window.location.href = '/auth';

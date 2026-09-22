@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import StoryViewer from './StoryViewer';
+import useAuthStore from '../../store/authStore';
 
 const StoryStrip = () => {
+  const { isAuthenticated } = useAuthStore();
   const [storyGroups, setStoryGroups] = useState([]);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // GET /stories est protégé (JWT) : ne pas le déclencher pour un invité,
+    // sinon 401 → éjection vers /auth (bloquerait la consultation libre).
+    if (!isAuthenticated) return;
     loadStories();
-  }, []);
+  }, [isAuthenticated]);
 
   const loadStories = async () => {
     try {
@@ -30,6 +35,7 @@ const StoryStrip = () => {
     setViewerOpen(true);
   };
 
+  if (!isAuthenticated) return null;
   if (loading) return null;
   if (storyGroups.length === 0) return null;
 
