@@ -12,6 +12,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { SeedService } from './seed.service';
+import { BCRYPT_ROUNDS, SEED_TEST_PASSWORD } from './seed-password';
 
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -57,8 +58,8 @@ export class SeedController {
       where: { email: 'admin@chitirchicken.bf' },
     });
     if (!admin) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('Test@12345', salt);
+      const salt = await bcrypt.genSalt(BCRYPT_ROUNDS);
+      const passwordHash = await bcrypt.hash(SEED_TEST_PASSWORD, salt);
       admin = this.userRepository.create({
         email: 'admin@chitirchicken.bf',
         passwordHash,
@@ -194,8 +195,8 @@ export class SeedController {
       where: { email: 'test.client@fasofree.bf' },
     });
     if (!client) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('Test@12345', salt);
+      const salt = await bcrypt.genSalt(BCRYPT_ROUNDS);
+      const passwordHash = await bcrypt.hash(SEED_TEST_PASSWORD, salt);
       client = this.userRepository.create({
         email: 'test.client@fasofree.bf',
         passwordHash,
@@ -218,8 +219,8 @@ export class SeedController {
       where: { email: 'test.driver@fasofree.bf' },
     });
     if (!driver) {
-      const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash('Test@12345', salt);
+      const salt = await bcrypt.genSalt(BCRYPT_ROUNDS);
+      const passwordHash = await bcrypt.hash(SEED_TEST_PASSWORD, salt);
       driver = this.userRepository.create({
         email: 'test.driver@fasofree.bf',
         passwordHash,
@@ -250,8 +251,8 @@ export class SeedController {
         where: { email: 'test.merchant@fasofree.bf' },
       });
       if (!merchantAdmin) {
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash('Test@12345', salt);
+        const salt = await bcrypt.genSalt(BCRYPT_ROUNDS);
+        const passwordHash = await bcrypt.hash(SEED_TEST_PASSWORD, salt);
         merchantAdmin = this.userRepository.create({
           email: 'test.merchant@fasofree.bf',
           passwordHash,
@@ -319,8 +320,8 @@ export class SeedController {
       success: true,
       message: 'Données de test créées avec succès',
       accounts: {
-        client: { email: 'test.client@fasofree.bf', password: 'Test@12345' },
-        driver: { email: 'test.driver@fasofree.bf', password: 'Test@12345' },
+        client: { email: 'test.client@fasofree.bf', password: SEED_TEST_PASSWORD },
+        driver: { email: 'test.driver@fasofree.bf', password: SEED_TEST_PASSWORD },
       },
     };
   }

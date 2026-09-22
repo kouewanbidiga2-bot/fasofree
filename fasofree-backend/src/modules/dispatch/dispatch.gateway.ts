@@ -25,24 +25,17 @@ import { Brand } from '../brands/entities/brand.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { resolveJwtSecret } from '../../config/jwt.config';
+import { originAllowed } from '../../config/cors.config';
 
 @WebSocketGateway({
   cors: {
+    // Politique CORS partagée HTTP/WS (config/cors.config.ts) : plus
+    // d'allow-all en développement, apex fasofree.site couvert en prod.
     origin: (origin, callback) => {
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (!origin || !isProduction) {
+      if (!origin || originAllowed(origin)) {
         callback(null, true);
       } else {
-        const allowedPatterns = [
-          /\.fasofree\.site$/,
-          /\.vercel\.app$/,
-          /\.onrender\.com$/,
-        ];
-        if (allowedPatterns.some((re) => re.test(origin))) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
@@ -94,9 +87,32 @@ export class DispatchGateway
       const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify(token, { secret });
 
-      client.data.user = payload;
       const userId = payload.sub;
       const role = payload.role;
+
+      // 🔒 Comptes désactivés/bannis : pas d'accès au tracking temps réel.
+      // Contrôle isolé : une panne DB est loggée distinctement (fail-closed).
+      try {
+        const dbUser = await this.userRepository.findOne({
+          where: { id: userId },
+          select: { id: true, isActive: true },
+        });
+        if (!dbUser || !dbUser.isActive) {
+          this.logger.warn(
+            `[WS Auth] Connexion refusée — compte inactif ou introuvable : ${userId}`,
+          );
+          client.disconnect();
+          return;
+        }
+      } catch (dbErr) {
+        this.logger.error(
+          `[WS Auth] Contrôle isActive impossible (DB) pour ${userId} : ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+        );
+        client.disconnect();
+        return;
+      }
+
+      client.data.user = payload;
 
       this.logger.log(
         `[WS Authenticated] Socket: ${client.id} | User: ${userId} | Role: ${role}`,
@@ -178,9 +194,12 @@ export class DispatchGateway
   ) {
     // 🔒 La room est réservée aux parties prenantes de la commande :
     // le PIN de livraison y est diffusé (deliveryPendingConfirmation).
-    const user = client.data?.user as { userId?: string; role?: string } | undefined;
+    const user = client.data?.user as
+      | { sub?: string; userId?: string; role?: string }
+      | undefined;
     const role = user?.role;
-    const userId = user?.userId;
+    // Le payload JWT porte l'identifiant dans `sub` (sign), pas `userId`.
+    const userId = user?.sub ?? user?.userId;
 
     if (
       role !== UserRole.SUPER_ADMIN &&

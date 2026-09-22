@@ -18,12 +18,16 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ChatService, TERMINAL_STATUSES } from './chat.service';
 import { ChatChannel } from './entities/order-chat-message.entity';
 import { OrdersService } from '../orders/orders.service';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
+import { User } from '../users/entities/user.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
+import { originAllowed } from '../../config/cors.config';
 
 type ChatSocket = Socket & { data: { user?: JwtPayload } };
 
@@ -32,21 +36,13 @@ export const chatRoom = (orderId: string, channel: ChatChannel) =>
 
 @WebSocketGateway({
   cors: {
+    // Politique CORS partagée HTTP/WS (config/cors.config.ts) : plus
+    // d'allow-all en développement, apex fasofree.site couvert en prod.
     origin: (origin, callback) => {
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (!origin || !isProduction) {
+      if (!origin || originAllowed(origin)) {
         callback(null, true);
       } else {
-        const allowedPatterns = [
-          /\.fasofree\.site$/,
-          /\.vercel\.app$/,
-          /\.onrender\.com$/,
-        ];
-        if (allowedPatterns.some((re) => re.test(origin))) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
@@ -67,6 +63,8 @@ export class ChatGateway
     private readonly configService: ConfigService,
     private readonly chatService: ChatService,
     private readonly ordersService: OrdersService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   afterInit(server: Server) {
@@ -77,7 +75,7 @@ export class ChatGateway
   /**
    * 🔒 1. Authentification Zero-Trust du WebSocket Chat
    */
-  handleConnection(client: ChatSocket) {
+  async handleConnection(client: ChatSocket) {
     try {
       const token =
         client.handshake.headers.authorization?.split(' ')[1] ||
@@ -95,7 +93,31 @@ export class ChatGateway
       const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify<JwtPayload>(token, { secret });
 
+      // 🔒 Comptes désactivés/bannis : pas d'accès au chat de commande.
+      // Contrôle isolé : une panne DB est loggée distinctement du refus
+      // (fail-closed cohérent, mais diagnostic clair en cas d'incident).
+      try {
+        const dbUser = await this.userRepository.findOne({
+          where: { id: payload.sub },
+          select: { id: true, isActive: true },
+        });
+        if (!dbUser || !dbUser.isActive) {
+          this.logger.warn(
+            `[Chat Auth] Connexion refusée — compte inactif ou introuvable : ${payload.sub}`,
+          );
+          client.disconnect();
+          return;
+        }
+      } catch (dbErr) {
+        this.logger.error(
+          `[Chat Auth] Contrôle isActive impossible (DB) pour ${payload.sub} : ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+        );
+        client.disconnect();
+        return;
+      }
+
       client.data.user = payload;
+
       this.logger.log(
         `[Chat Connected] Socket: ${client.id} | User: ${payload?.sub} (${payload?.role})`,
       );

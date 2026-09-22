@@ -4,13 +4,14 @@ import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { ChatController } from './chat.controller';
 import { OrderChatMessage } from './entities/order-chat-message.entity';
+import { User } from '../users/entities/user.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OrdersModule } from '../orders/orders.module';
 import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([OrderChatMessage]),
+    TypeOrmModule.forFeature([OrderChatMessage, User]),
     NotificationsModule,
     OrdersModule,
     BusinessesModule,

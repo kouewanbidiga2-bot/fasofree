@@ -10,6 +10,7 @@ import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
 import { UserRole } from '../users/entities/user-role.enum';
+import { escapeLikeTerm } from '../../common/utils/like-escape';
 
 @Injectable()
 export class BusinessesService {
@@ -315,7 +316,7 @@ export class BusinessesService {
     if (!business) {
       // Échappe les wildcards LIKE (% _ \) pour empêcher l'injection
       // via un masque trop large (ex. id = "%" matche tout).
-      const escaped = id.replace(/[\\%_]/g, (m) => `\\${m}`);
+      const escaped = escapeLikeTerm(id);
       business = await this.businessRepository
         .createQueryBuilder('b')
         .leftJoinAndSelect('b.products', 'products')

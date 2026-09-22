@@ -23,7 +23,14 @@ export class WaveWebhookGuard implements CanActivate {
       );
     }
 
+    // Fail-closed : refuser la requête si le secret n'est pas configuré
+    // (ne jamais signer avec une clé vide — HMAC("") accepte tout).
     const webhookSecret = this.configService.get<string>('WAVE_WEBHOOK_SECRET');
+    if (!webhookSecret) {
+      throw new UnauthorizedException(
+        'Webhook Wave non configuré (WAVE_WEBHOOK_SECRET manquant)',
+      );
+    }
 
     try {
       // Le header Wave ressemble à : "t=1620000000,v1=5257a869e7ee..."
@@ -35,9 +42,18 @@ export class WaveWebhookGuard implements CanActivate {
         throw new UnauthorizedException('Format de signature Wave invalide');
       }
 
+      // Fraîcheur : refuse les rejeux d'un webhook signé (fenêtre 5 min).
+      const tsSeconds = Number(timestamp);
+      if (
+        !Number.isFinite(tsSeconds) ||
+        Math.abs(Date.now() / 1000 - tsSeconds) > 300
+      ) {
+        throw new UnauthorizedException(
+          'Signature Wave expirée ou timestamp invalide',
+        );
+      }
+
       // Reconstitution du message à signer : timestamp.rawBody
-      const webhookSecret =
-        this.configService.get<string>('WAVE_WEBHOOK_SECRET') || '';
       const payloadToSign = `${timestamp}.${rawBody.toString()}`;
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)

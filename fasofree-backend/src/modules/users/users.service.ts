@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { randomInt } from 'crypto';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
@@ -466,13 +467,14 @@ export class UsersService implements OnModuleInit {
     // Instanciation directe pour garantir la compatibilité TypeORM
     const user = new User();
     user.email = data.email;
-    user.role = data.role || UserRole.SUPER_ADMIN;
+    user.role = data.role || UserRole.CLIENT;
 
     // Remplissage dynamique des champs requis par l'entité User
     (user as any).fullName = data.fullName || 'Super Admin';
 
     // 🔑 CORRECTION : Téléphone unique généré à la volée si non fourni
-    const randomDigits = Math.floor(10000000 + Math.random() * 90000000);
+    // (crypto.randomInt — pas de Math.random() pour éviter tout biais).
+    const randomDigits = randomInt(10_000_000, 100_000_000);
     (user as any).phone = data.phone || `+226${randomDigits}`;
 
     // Support des variantes de nommage (password vs passwordHash)

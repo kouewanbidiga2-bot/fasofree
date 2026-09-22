@@ -19,8 +19,11 @@ import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 import { Product } from '../products/entities/product.entity';
-
-const SEED_PASSWORD = 'Test@12345';
+import {
+  SEED_TEST_PASSWORD,
+  BCRYPT_ROUNDS,
+  assertSeedAllowed,
+} from './seed-password';
 
 /**
  * 🌱 Données de test FasoFree (environnement local / sandbox)
@@ -60,6 +63,7 @@ export class SeedCommand {
       'Crée la marque Chitir Chicken avec ses 3 agences à Ouagadougou',
   })
   async seedChitirChicken(): Promise<void> {
+    assertSeedAllowed('seed:chitir-chicken');
     console.log('\n🍗 ===== SEED : CHITIR CHICKEN =====');
 
     // 1. Utilisateurs
@@ -189,6 +193,7 @@ export class SeedCommand {
       'Crée les données de test FasoFree (client, livreur, marque, agences)',
   })
   async seedTestData(): Promise<void> {
+    assertSeedAllowed('seed:test-data');
     console.log('\n🌱 ===== SEED FASOFREE : DONNÉES DE TEST =====');
 
     // 1. Utilisateurs -----------------------------------------------------
@@ -309,7 +314,7 @@ export class SeedCommand {
     console.log(
       '\n===========================================================',
     );
-    console.log('   🎯 COMPTES DE TEST (mot de passe : ' + SEED_PASSWORD + ')');
+    console.log('   🎯 COMPTES DE TEST (mot de passe : ' + SEED_TEST_PASSWORD + ')');
     console.log('===========================================================');
     console.log(`👤 CLIENT   : test.client@fasofree.bf   (ID: ${client.id})`);
     console.log(`   Wallet CUSTOMER : ${clientCredit.wallet.balance} FCFA`);
@@ -348,7 +353,7 @@ export class SeedCommand {
       try {
         user = await this.usersService.create({
           email,
-          password: SEED_PASSWORD,
+          password: SEED_TEST_PASSWORD,
           role,
           fullName,
           phone,
@@ -363,10 +368,10 @@ export class SeedCommand {
             console.log(`ℹ️  Utilisateur existant (par téléphone) : ${phone} (${role})`);
             // Update password to known test password
             const bcrypt = require('bcrypt');
-            const salt = await bcrypt.genSalt(10);
-            user.passwordHash = await bcrypt.hash(SEED_PASSWORD, salt);
+            const salt = await bcrypt.genSalt(BCRYPT_ROUNDS);
+            user.passwordHash = await bcrypt.hash(SEED_TEST_PASSWORD, salt);
             await this.userRepository.save(user);
-            console.log(`🔐 Mot de passe réinitialisé à : ${SEED_PASSWORD}`);
+            console.log(`🔐 Mot de passe réinitialisé à : ${SEED_TEST_PASSWORD}`);
           } else {
             throw new Error(`Utilisateur avec téléphone ${phone} non trouvé`);
           }

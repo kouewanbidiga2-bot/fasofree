@@ -7,8 +7,7 @@ import * as bcrypt from 'bcrypt';
 
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
-
-const BCRYPT_ROUNDS = 10;
+import { BCRYPT_ROUNDS } from './seed-password';
 
 @Injectable()
 export class ResetSuperAdminCommand {
@@ -65,14 +64,6 @@ export class ResetSuperAdminCommand {
     }
 
     const saved = await this.userRepository.save(user);
-    const passwordIsValid = await bcrypt.compare(
-      masterPassword,
-      passwordHash,
-    );
-
-    if (!passwordIsValid) {
-      throw new Error('Échec de la vérification du hash bcrypt du Super Admin');
-    }
 
     this.logger.log(
       `Super Admin réinitialisé: ${saved.email}, rôle=${saved.role}, actif=${saved.isActive}, bcrypt=${BCRYPT_ROUNDS} rounds`,

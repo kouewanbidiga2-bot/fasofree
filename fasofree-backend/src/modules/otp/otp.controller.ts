@@ -1,5 +1,6 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { OtpService } from './otp.service';
 
@@ -19,6 +20,9 @@ export class OtpController {
 
   @HttpCode(HttpStatus.OK)
   @Post('verify-otp')
+  // 🛡️ Brute-force OTP : 5 essais max / 5 min par IP. Le code étant à 4-6
+  // chiffres, un limiteur dédié est indispensable en plus du throttling global.
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Vérifier le code OTP et activer le compte' })

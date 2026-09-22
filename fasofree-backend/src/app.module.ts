@@ -98,7 +98,12 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     SubscriptionsModule,
     BrandsModule,
     ReceiptsModule,
-    SeedModule,
+    // 🧪 Module de seed (comptes de test / endpoints de démo) chargé
+    // UNIQUEMENT en développement/test (allow-list) : jamais de seed en
+    // production ni dans un environnement inconnu/staging.
+    ...(process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+      ? [SeedModule]
+      : []),
     OtpModule,
     InternalChatModule,
     SettingsModule,

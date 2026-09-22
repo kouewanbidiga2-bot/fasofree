@@ -5,31 +5,49 @@ import helmet from 'helmet';
 import { writeFileSync } from 'fs';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
+import { originAllowed } from './config/cors.config';
 
 /**
  * Secrets indispensables au fonctionnement de l'API. En production, leur
  * absence empêche le démarrage (fail-fast) afin de ne JAMAIS tourner avec
  * une configuration dégradée ou des valeurs codées en dur.
  */
-const CRITICAL_KEYS = ['JWT_SECRET', 'DATABASE_URL'];
+const CRITICAL_KEYS = [
+  'JWT_SECRET',
+  'DATABASE_URL',
+  // CORS_ORIGIN est requis en prod : sans lui, le frontend fasofree.site
+  // serait bloqué par la politique CORS (fail-fast).
+  ...(process.env.NODE_ENV === 'production' ? ['CORS_ORIGIN'] : []),
+];
 
 function validateCriticalConfig(logger: Logger): void {
   const isProd = process.env.NODE_ENV === 'production';
+  const isDev =
+    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+  // Fail-closed : un environnement inconnu (staging, preview, absent sur
+  // l'hébergeur) ne doit pas basculer silencieusement en posture « dev »
+  // (seed chargé, CORS permissif, secrets non exigés).
+  if (!isProd && !isDev) {
+    logger.error(
+      `NODE_ENV invalide ou absent ('${process.env.NODE_ENV ?? ''}') : ` +
+        "attendu 'production', 'development' ou 'test'. Démarrage refusé.",
+    );
+    process.exit(1);
+  }
+
   const missing = CRITICAL_KEYS.filter(
     (k) => !process.env[k] || process.env[k]!.trim() === '',
   );
   if (missing.length === 0) return;
 
-  if (isProd) {
-    logger.error(
-      `Configuration critique manquante en production : ${missing.join(', ')}. ` +
-        'Démarrage refusé (fail-fast).',
-    );
-    process.exit(1);
-  }
-  logger.warn(
-    `Configuration critique manquante (mode dev) : ${missing.join(', ')}`,
+  // Fail-fast partout (dev ET prod) : ne jamais démarrer avec une
+  // configuration critique manquante, même localement.
+  logger.error(
+    `Configuration critique manquante (${isProd ? 'production' : 'développement'}) : ` +
+      `${missing.join(', ')}. Fixez-les dans l'environnement avant de démarrer.`,
   );
+  process.exit(1);
 }
 
 async function bootstrap() {
@@ -53,6 +71,11 @@ async function bootstrap() {
   // 2. Graceful Shutdown (Libère proprement le port 3000 lors de l'arrêt du serveur)
   app.enableShutdownHooks();
 
+  // 2bis. Derrière le proxy Render, Express voit l'IP du load-balancer :
+  // sans `trust proxy`, le Throttler partagerait UN bucket global pour
+  // tous les utilisateurs (DoS trivial + rate limiting sans effet).
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   // 3. Protection des en-têtes HTTP via Helmet
   app.use(
     helmet({
@@ -74,45 +97,14 @@ async function bootstrap() {
 
   // 4. Stratégie CORS (strictes dans TOUS les environnements)
   const isProduction = process.env.NODE_ENV === 'production';
-  const envOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',')
-        .map((o) => o.trim())
-        .filter(Boolean)
-    : [];
-
-  // Origines locales de développement (Vite / Next / CRA) — dev uniquement
-  const devOrigins = isProduction
-    ? []
-    : [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:5173',
-        'http://localhost:8080',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:8080',
-      ];
-
-  // Patterns regex autorisés en prod (*.fasofree.site, *.vercel.app, *.onrender.com)
-  const allowedRegexPatterns = [
-    /\.fasofree\.site$/,
-    /\.vercel\.app$/,
-    /\.onrender\.com$/,
-  ];
-
-  const isOriginAllowed = (origin: string) => {
-    if (envOrigins.length > 0 && envOrigins.includes(origin)) return true;
-    if (devOrigins.includes(origin)) return true;
-    return allowedRegexPatterns.some((re) => re.test(origin));
-  };
 
   app.enableCors({
     origin: (origin, callback) => {
       // Pas d'origine (curl, serveur-à-serveur, outils) → autorisé.
       // Sinon l'origine DOIT être explicitement autorisée (même en dev) :
-      // plus d'allow-all en développement.
-      if (!origin || isOriginAllowed(origin)) {
+      // plus d'allow-all en développement. La politique est partagée avec
+      // les WebSockets (voir config/cors.config.ts).
+      if (!origin || originAllowed(origin)) {
         callback(null, true);
       } else {
         // 🛡️ Origine refusée : on REJETTE réellement la requête
@@ -287,7 +279,10 @@ async function bootstrap() {
   logger.log(
     `🚀 API Base URL          : http://0.0.0.0:${port}/${globalPrefix}`,
   );
-  logger.log(`📚 Swagger Documentation : http://0.0.0.0:${port}/api/docs`);
+  // Swagger n'étant monté que hors production, on ne l'annonce pas en prod.
+  if (!isProduction) {
+    logger.log(`📚 Swagger Documentation : http://0.0.0.0:${port}/api/docs`);
+  }
   logger.log(
     `🩺 Healthcheck Endpoint  : http://0.0.0.0:${port}/${globalPrefix}/health`,
   );

@@ -101,6 +101,7 @@ export class PaymentsController {
   @ApiOperation({ summary: '[DÉPRÉCIÉ] Redirige vers POST /geniuspay/webhook' })
   @HttpCode(HttpStatus.OK)
   async handleGeniusPayWebhookDeprecated(
+    @Request() request: Request,
     @Body() payload: any,
     @Headers('x-signature') signature?: string,
     @Headers('x-timestamp') timestamp?: string,
@@ -121,7 +122,9 @@ export class PaymentsController {
     if (!sig || !ts) {
       throw new BadRequestException('Missing webhook signature');
     }
-    const rawBody = JSON.stringify(payload);
+    // Vérification sur les octets bruts reçus (cf. geniuspay.controller).
+    const rawBody =
+      (request as any).rawBody?.toString() ?? JSON.stringify(payload);
     if (!this.geniusPayService.verifyWebhookSignature(rawBody, sig, ts, webhookSecret)) {
       throw new BadRequestException('Invalid webhook signature');
     }

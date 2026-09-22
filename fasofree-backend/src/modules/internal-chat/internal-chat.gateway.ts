@@ -21,6 +21,7 @@ import {
 } from './internal-chat.service';
 import { User } from '../users/entities/user.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
+import { originAllowed } from '../../config/cors.config';
 
 type InternalSocket = Socket & { data: { user?: JwtPayload } };
 
@@ -33,21 +34,13 @@ const dmRoom = (u1: string, u2: string) => {
 
 @WebSocketGateway({
   cors: {
+    // Politique CORS partagée HTTP/WS (config/cors.config.ts) : plus
+    // d'allow-all en développement, apex fasofree.site couvert en prod.
     origin: (origin, callback) => {
-      const isProduction = process.env.NODE_ENV === 'production';
-      if (!origin || !isProduction) {
+      if (!origin || originAllowed(origin)) {
         callback(null, true);
       } else {
-        const allowedPatterns = [
-          /\.fasofree\.site$/,
-          /\.vercel\.app$/,
-          /\.onrender\.com$/,
-        ];
-        if (allowedPatterns.some((re) => re.test(origin))) {
-          callback(null, true);
-        } else {
-          callback(new Error('Not allowed by CORS'));
-        }
+        callback(new Error('Not allowed by CORS'));
       }
     },
     credentials: true,
@@ -75,7 +68,7 @@ export class InternalChatGateway
     this.logger.log('[InternalChat Gateway] Initialisé (namespace /internal-chat)');
   }
 
-  handleConnection(client: InternalSocket) {
+  async handleConnection(client: InternalSocket) {
     try {
       const token =
         client.handshake.headers.authorization?.split(' ')[1] ||
@@ -90,6 +83,28 @@ export class InternalChatGateway
 
       const secret = resolveJwtSecret(this.configService);
       const payload = this.jwtService.verify<JwtPayload>(token, { secret });
+
+      // 🔒 Comptes désactivés/bannis : pas d'accès au chat interne.
+      // Contrôle isolé : une panne DB est loggée distinctement (fail-closed).
+      try {
+        const dbUser = await this.userRepository.findOne({
+          where: { id: payload.sub },
+          select: { id: true, isActive: true },
+        });
+        if (!dbUser || !dbUser.isActive) {
+          this.logger.warn(
+            `[InternalChat Auth] Connexion refusée — compte inactif ou introuvable : ${payload.sub}`,
+          );
+          client.disconnect();
+          return;
+        }
+      } catch (dbErr) {
+        this.logger.error(
+          `[InternalChat Auth] Contrôle isActive impossible (DB) pour ${payload.sub} : ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
+        );
+        client.disconnect();
+        return;
+      }
 
       this.internalChatService.assertTeamAccess(payload.role);
       client.data.user = payload;

@@ -17,14 +17,17 @@ import {
   TransactionStatus,
 } from '../wallets/entities/wallet-transaction.entity';
 
-const SALT_ROUNDS = 10;
+import {
+  SEED_TEST_PASSWORD,
+  BCRYPT_ROUNDS,
+} from './seed-password';
 
 const SEED_MERCHANTS = [
   {
     fullName: 'Cesar Ouédraogo',
     email: 'cesar@fasofree.bf',
     phone: '+22670111111',
-    password: 'Merchant@12345',
+    password: SEED_TEST_PASSWORD,
     restaurant: {
       name: 'Chez Cesar',
       address: "Patte d'Oie, Ouagadougou",
@@ -123,7 +126,7 @@ const SEED_MERCHANTS = [
     fullName: 'Gusto Bambara',
     email: 'gusto@fasofree.bf',
     phone: '+22675654321',
-    password: 'Merchant@12345',
+    password: SEED_TEST_PASSWORD,
     restaurant: {
       name: 'Gusto',
       address: 'Zone Ouaga 2000, Ouagadougou',
@@ -205,7 +208,7 @@ const SEED_MERCHANTS = [
     fullName: 'Belchiken Traoré',
     email: 'belchiken@fasofree.bf',
     phone: '+22678876543',
-    password: 'Merchant@12345',
+    password: SEED_TEST_PASSWORD,
     restaurant: {
       name: 'BelChiken',
       address: 'Karpala, Ouagadougou',
@@ -279,7 +282,7 @@ const SEED_CLIENT = {
   fullName: 'Aminata Compaoré',
   email: 'aminata@fasofree.bf',
   phone: '+22671234567',
-  password: 'Client@12345',
+  password: SEED_TEST_PASSWORD,
 };
 
 @Injectable()
@@ -455,6 +458,11 @@ export class SeedService implements OnModuleInit {
   }
 
   async onModuleInit(): Promise<void> {
+    // 🔒 Ne JAMAIS auto-seeder en production : même si SeedModule était
+    // chargé par erreur, aucun compte de démo (mots de passe connus) ne
+    // doit être créé dans la base de prod.
+    if (process.env.NODE_ENV === 'production') return;
+
     await this.seedClientUser();
     await this.seedMerchantsAndRestaurants();
   }
@@ -468,7 +476,7 @@ export class SeedService implements OnModuleInit {
     });
     if (existing) return existing;
 
-    const passwordHash = await bcrypt.hash(data.password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
     const user = this.userRepository.create({
       fullName: data.fullName,
       email: data.email,

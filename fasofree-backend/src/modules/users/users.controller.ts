@@ -269,8 +269,8 @@ export class UsersController {
     if (!operatorId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    if (!newPassword || newPassword.length < 6) {
-      throw new BadRequestException('Le mot de passe doit faire au moins 6 caractères');
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Le mot de passe doit faire au moins 8 caractères');
     }
     const operator = await this.usersService.findById(operatorId);
     return this.usersService.adminResetPassword(operator, id, newPassword);

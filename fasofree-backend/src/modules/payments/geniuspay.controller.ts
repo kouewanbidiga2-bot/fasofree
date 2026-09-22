@@ -25,6 +25,7 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Transaction, TransactionStatus, PaymentMethod } from './entities/transaction.entity';
 import { OrdersService } from '../orders/orders.service';
+import type { Request } from 'express';
 
 @ApiTags('GeniusPay')
 @Controller('geniuspay')
@@ -200,6 +201,7 @@ export class GeniusPayController {
   @Post('webhook')
   @ApiOperation({ summary: 'Webhook GeniusPay — notifications de paiement' })
   async handleWebhook(
+    @Req() request: Request,
     @Body() payload: any,
     @Headers('x-webhook-signature') signature: string,
     @Headers('x-webhook-timestamp') timestamp: string,
@@ -220,7 +222,10 @@ export class GeniusPayController {
       this.logger.error('❌ Missing webhook signature or timestamp');
       throw new ForbiddenException('Missing signature');
     }
-    const bodyStr = JSON.stringify(payload);
+    // Vérifier la signature sur les OCTETS BRUTS reçus (rawBody), et non
+    // une re-sérialisation JSON (ordre des clés/échappements ≠ corps reçu).
+    const bodyStr =
+      (request as any).rawBody?.toString() ?? JSON.stringify(payload);
     const isValid = this.geniusPayService.verifyWebhookSignature(
       bodyStr,
       signature,

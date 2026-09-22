@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { SEED_TEST_PASSWORD, assertSeedAllowed } from './seed-password';
 
 @Injectable()
 export class GetCredentialsCommand {
@@ -19,6 +20,7 @@ export class GetCredentialsCommand {
     describe: 'Récupère tous les identifiants de test existants',
   })
   async getCredentials(): Promise<void> {
+    assertSeedAllowed('seed:get-credentials');
     console.log('\n🔑 ===== IDENTIFIANTS DE TEST FASOFREE =====\n');
 
     const users = await this.userRepository.find({
@@ -47,11 +49,16 @@ export class GetCredentialsCommand {
       const roleStr = role.padEnd(15);
       const interfaceStr = interfaceUrl.padEnd(25);
       
-      console.log(`│ ${roleStr} │ ${interfaceStr} │ ${email} │ Test@12345     │`);
+      // Affiche le mot de passe (tronqué si anormalement long via l'env).
+      const pwd =
+        SEED_TEST_PASSWORD.length > 15
+          ? `${SEED_TEST_PASSWORD.slice(0, 14)}…`
+          : SEED_TEST_PASSWORD;
+      console.log(`│ ${roleStr} │ ${interfaceStr} │ ${email} │ ${pwd.padEnd(15)}│`);
     }
 
     console.log('└──────────────────────────────────────────────────────────────────────────────┘');
     console.log(`\n📊 Total utilisateurs : ${users.length}`);
-    console.log('💡 Note : Le mot de passe par défaut est "Test@12345" pour tous les comptes de test\n');
+    console.log('💡 Note : Le mot de passe par défaut est "' + SEED_TEST_PASSWORD + '" pour tous les comptes de test\n');
   }
 }
