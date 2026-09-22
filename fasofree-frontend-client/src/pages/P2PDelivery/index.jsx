@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
+import useAuthStore from '../../store/authStore';
 import { STEPS, emptyLocation, emptyPackage } from './constants';
 import { formatBurkinaPhone } from '../../utils/phone';
 import { estimateP2PPrice } from '../../utils/p2pPricing';
@@ -11,8 +12,12 @@ import LocationStep from './LocationStep';
 import PackageStep from './PackageStep';
 import SuccessScreen from './SuccessScreen';
 
+// Brouillon de course P2P conservé entre la redirection connexion et le retour
+const P2P_DRAFT_KEY = 'fasofree_p2p_draft';
+
 const P2PDelivery = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
   const [step, setStep] = useState(1);
   const [pickup, setPickup] = useState(emptyLocation);
   const [dropoff, setDropoff] = useState(emptyLocation);
@@ -20,6 +25,23 @@ const P2PDelivery = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  // Restaure le brouillon après la redirection vers la page de connexion
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(P2P_DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft && draft.pickup?.address && draft.dropoff?.address && draft.packageInfo?.description) {
+        setPickup(draft.pickup);
+        setDropoff(draft.dropoff);
+        setPackageInfo(draft.packageInfo);
+        setStep(draft.step || 1);
+      }
+    } catch {
+      /* ignore un brouillon corrompu */
+    }
+  }, []);
 
   // Estimation client-side du prix P2P (Haversine + formule backend)
   const priceEstimate = useMemo(
@@ -134,6 +156,22 @@ const P2PDelivery = () => {
       setError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
+
+    // Brouillon conservé systématiquement : si le token expire au moment de la
+    // soumission (401 → éjection par apiFetch), la saisie est récupérée au retour.
+    try {
+      sessionStorage.setItem(P2P_DRAFT_KEY, JSON.stringify({ step, pickup, dropoff, packageInfo }));
+    } catch { /* stockage indisponible, on continue */ }
+
+    // 🛡️ Service protégé : un visiteur non connecté doit se connecter
+    // avant de pouvoir activer/confirmer sa course. Le formulaire est
+    // conservé en brouillon pour être repris après connexion.
+    if (!isAuthenticated) {
+      toast.info('Connectez-vous pour confirmer votre course.');
+      navigate('/auth', { state: { from: '/p2p-delivery' } });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await api.createOrder(buildPayload());
@@ -142,6 +180,7 @@ const P2PDelivery = () => {
       if (!response?.checkoutUrl) {
         throw new Error('URL de paiement indisponible');
       }
+      sessionStorage.removeItem(P2P_DRAFT_KEY);
       window.location.href = response.checkoutUrl;
     } catch (err) {
       setError(
@@ -159,6 +198,7 @@ const P2PDelivery = () => {
     setDropoff(emptyLocation);
     setPackageInfo(emptyPackage);
     setStep(1);
+    try { sessionStorage.removeItem(P2P_DRAFT_KEY); } catch { /* RAS */ }
   };
 
   // ─── Écran de confirmation ───────────────────────────────────────────

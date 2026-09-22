@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation, Mic, MicOff } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
 import useCartStore from '../store/cartStore';
+import useAuthStore from '../store/authStore';
 import { useVoiceOrder } from '../hooks/useVoiceOrder';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
@@ -40,6 +41,8 @@ const Restaurant = () => {
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const { addItem, getTotalItems } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
+  const location = useLocation();
 
   const menu = restaurant?.menu || [];
 
@@ -85,11 +88,13 @@ const Restaurant = () => {
   }, []);
 
   useEffect(() => {
-    // Check if this restaurant is favorited
+    // Les favoris nécessitent un compte : on ne sonde l'API que si connecté
+    // (sinon 401 → éjection vers /auth, ce qui bloquerait la consultation libre).
+    if (!isAuthenticated) return;
     api.getFavoriteIds().then((ids) => {
       if (Array.isArray(ids) && ids.includes(id)) setIsFavorited(true);
     }).catch(() => {});
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +209,11 @@ const Restaurant = () => {
   };
 
   const toggleFavorite = async () => {
+    // Les favoris sont liés au compte : un visiteur est envoyé à la connexion
+    if (!isAuthenticated) {
+      navigate('/auth', { state: { from: location.pathname + location.search } });
+      return;
+    }
     // Optimistic UI: flip instantly
     const prev = isFavorited;
     setIsFavorited(!prev);

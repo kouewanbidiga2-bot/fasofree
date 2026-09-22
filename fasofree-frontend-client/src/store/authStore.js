@@ -80,6 +80,9 @@ const useAuthStore = create((set) => ({
     disconnectRealtime();
     localStorage.removeItem('access_token');
     localStorage.removeItem('fasofree_user');
+    // Purge des brouillons locaux (ex. course P2P) : un autre compte sur le
+    // même onglet ne doit pas voir les données du compte précédent.
+    try { sessionStorage.removeItem('fasofree_p2p_draft'); } catch { /* RAS */ }
     set({ user: null, isAuthenticated: false, orders: [], receipts: [] });
   },
 

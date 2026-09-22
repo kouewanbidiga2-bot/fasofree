@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation, Link } from 'react-router-dom';
 import { Lock, Mail, Phone, KeyRound, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import useAuthStore, { getHomeRoute } from '../store/authStore';
 import { api } from '../services/api';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const resetToken = searchParams.get('token');
   const { loginWithToken } = useAuthStore();
@@ -52,8 +53,16 @@ const Auth = () => {
           isPhoneVerified: !!user.isPhoneVerified,
         });
 
+        // Retour à la page visée avant la connexion (commande, service, ...)
+        const from = location.state?.from;
+        const safeFrom = from && from.startsWith('/') && !from.startsWith('//') && from !== '/auth'
+          ? from
+          : null;
+
         const route = getHomeRoute(user.role);
-        if (route.startsWith('http')) {
+        if (safeFrom) {
+          navigate(safeFrom, { replace: true });
+        } else if (route.startsWith('http')) {
           window.location.href = route;
         } else {
           navigate(route, { replace: true });

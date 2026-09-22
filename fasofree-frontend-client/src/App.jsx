@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
@@ -35,10 +35,12 @@ import { registerFcmTokenOnLogin } from './services/pushRegistration';
 import { initFirebase, onForegroundMessage } from './services/firebase';
 
 const ProtectedRoute = ({ children }) => {
+  const location = useLocation();
   const { isAuthenticated, user } = useAuthStore();
   
   if (!isAuthenticated || !user) {
-    return <Navigate to="/auth" replace />;
+    // Mémorise la destination voulue pour y revenir après connexion
+    return <Navigate to="/auth" replace state={{ from: location.pathname + location.search }} />;
   }
 
   if (needsVerification(user) && window.location.pathname !== '/verify-account') {
