@@ -11,6 +11,7 @@ import {
   Max,
   Min,
   ValidateNested,
+  ArrayMaxSize,
 } from 'class-validator';
 
 // ─── Structure retournée par Gemini ──────────────────────────────────────────
@@ -55,6 +56,7 @@ export class ImportCategoryDto {
 
   @ApiProperty({ type: [ImportProductDto] })
   @IsArray()
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => ImportProductDto)
   products: ImportProductDto[];
@@ -67,6 +69,7 @@ export class CatalogImportResultDto {
 
   @ApiProperty({ type: [ImportCategoryDto] })
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ImportCategoryDto)
   categories: ImportCategoryDto[];
@@ -90,6 +93,7 @@ export class ConfirmImportDto {
 
   @ApiProperty({ type: [ImportCategoryDto] })
   @IsArray()
+  @ArrayMaxSize(50)
   @ValidateNested({ each: true })
   @Type(() => ImportCategoryDto)
   categories: ImportCategoryDto[];

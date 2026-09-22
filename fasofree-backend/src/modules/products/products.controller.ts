@@ -12,6 +12,7 @@ import {
   Request,
   UploadedFile,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request as ExpressRequest } from 'express';
@@ -30,6 +31,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags, ApiConsumes, ApiBody } from '@nes
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name);
+
   constructor(
     private readonly productsService: ProductsService,
     private readonly businessesService: BusinessesService,
@@ -184,6 +187,7 @@ export class ProductsController {
 
     // Créer tous les produits
     const created: string[] = [];
+    const errors: { name: string; error: string }[] = [];
     for (const category of dto.categories) {
       for (const product of category.products) {
         try {
@@ -202,16 +206,20 @@ export class ProductsController {
             role as any,
           );
           created.push(product.name);
-        } catch (err) {
-          // Continuer même si un produit échoue
+        } catch (err: any) {
+          this.logger.warn(`[PDF Import] Échec création "${product.name}": ${err.message}`);
+          errors.push({ name: product.name, error: err.message });
         }
       }
     }
 
     return {
       success: true,
-      message: `${created.length} produits créés avec succès`,
+      message: errors.length > 0
+        ? `${created.length} produits créés, ${errors.length} échoués`
+        : `${created.length} produits créés avec succès`,
       created,
+      errors: errors.length > 0 ? errors : undefined,
     };
   }
 

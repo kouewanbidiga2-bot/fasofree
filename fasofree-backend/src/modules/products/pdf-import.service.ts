@@ -54,7 +54,7 @@ export class PdfImportService {
     const result = this.parseAndValidate(geminiResponse);
 
     this.logger.log(
-      `[PDF Import] PDF "${filename}" analysé — ${result.totalProducts} produits trouvés dans ${result.categories.length} catégories`,
+      `[PDF Import] PDF "${filename.replace(/[\r\n]/g, '_').substring(0, 100)}" analysé — ${result.totalProducts} produits trouvés dans ${result.categories.length} catégories`,
     );
 
     return result;
@@ -147,7 +147,7 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, pas de texte explicatif.`;
    * Appelle l'API Gemini 1.5 Flash avec le PDF.
    */
   private async callGemini(pdfBase64: string, prompt: string): Promise<string> {
-    const url = `${this.geminiBaseUrl}/models/gemini-1.5-flash:generateContent?key=${this.geminiApiKey}`;
+    const url = `${this.geminiBaseUrl}/models/gemini-1.5-flash:generateContent`;
 
     const body = {
       contents: [
@@ -170,22 +170,45 @@ IMPORTANT: Retourne UNIQUEMENT le JSON, pas de texte explicatif.`;
       },
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': this.geminiApiKey,
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      this.logger.error(`[PDF Import] Erreur Gemini API: ${response.status} - ${errorText}`);
+      const safeError = String(errorText).substring(0, 500).replace(/[\r\n]/g, ' ');
+      this.logger.error(`[PDF Import] Erreur Gemini API: ${response.status} - ${safeError}`);
       throw new BadRequestException('Erreur lors de l\'analyse du PDF. Réessayez.');
     }
 
     const data = await response.json();
 
     // Extraire le texte de la réponse Gemini
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const candidate = data?.candidates?.[0];
+    if (!candidate) {
+      throw new BadRequestException('Gemini n\'a pas pu analyser ce PDF. Essayez avec un document plus clair.');
+    }
+    if (candidate.finishReason === 'SAFETY') {
+      throw new BadRequestException('Le contenu du PDF a été bloqué par les filtres de sécurité. Essayez avec un autre document.');
+    }
+    if (candidate.finishReason === 'MAX_TOKENS') {
+      throw new BadRequestException('Le PDF est trop volumineux pour être analysé en une fois. Essayez avec un document plus court.');
+    }
+    const text = candidate.content?.parts?.[0]?.text;
     if (!text) {
       throw new BadRequestException('Gemini n\'a pas pu analyser ce PDF. Essayez avec un document plus clair.');
     }
