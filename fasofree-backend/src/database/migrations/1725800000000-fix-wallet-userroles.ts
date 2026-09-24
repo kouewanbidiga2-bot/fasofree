@@ -4,6 +4,12 @@ export class FixWalletUserroles1725800000000 implements MigrationInterface {
   name = 'FixWalletUserroles1725800000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Guard : wallets est créée plus tard (1726100000000) sur une base neuve.
+    const tbl = await queryRunner.query(`
+      SELECT 1 FROM information_schema.tables WHERE table_name = 'wallets'
+    `);
+    if (tbl.length === 0) return;
+
     // Fix branch wallets that have userRole=DRIVER but belong to a merchant user
     // These were created when the frontend called the branch wallet endpoint
     // with business_admin role, but the role was incorrectly mapped

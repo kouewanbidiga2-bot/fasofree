@@ -219,15 +219,29 @@ export const api = {
   applyReferralCode: (code) => apiFetch('/loyalty/referral/apply', { method: 'POST', body: { code } }),
 
   // Upload (image directe) — ✅ FIX #22 : vérifier response.ok
-  uploadImage: (formData) => {
+  uploadImage: (formData, folder = 'stories') => {
     const token = localStorage.getItem('access_token');
-    return fetch(`${API_URL}/uploads/image?folder=stories`, {
+    return fetch(`${API_URL}/uploads/image?folder=${folder}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
     }).then((r) => {
       if (!r.ok) throw new Error(`Upload échoué (${r.status})`);
       return r.json();
+    });
+  },
+
+  // Avatar de profil
+  uploadAvatar: (formData) => {
+    const token = localStorage.getItem('access_token');
+    return fetch(`${API_URL}/users/me/avatar`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    }).then(async (r) => {
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.message || `Upload échoué (${r.status})`);
+      return data;
     });
   },
 

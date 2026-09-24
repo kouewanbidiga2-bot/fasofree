@@ -13,7 +13,7 @@ function getAbsoluteImageUrl(url) {
   return url;
 }
 
-export default function ImageUpload({ value, onChange, folder = 'general', className = '' }) {
+export default function ImageUpload({ value, onChange, folder = 'general', className = '', label = 'Image du produit' }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fileRef = useRef(null);
@@ -63,7 +63,7 @@ export default function ImageUpload({ value, onChange, folder = 'general', class
   return (
     <div className={className}>
       <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
-        Image du produit
+        {label}
       </label>
 
       {value && (

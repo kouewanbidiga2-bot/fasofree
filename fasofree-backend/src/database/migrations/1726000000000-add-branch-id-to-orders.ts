@@ -15,15 +15,15 @@ export class AddBranchIdToOrders1726000000000 implements MigrationInterface {
     if (!columnExists[0].exists) {
       await queryRunner.query(`
         ALTER TABLE "orders"
-        ADD COLUMN "branchId" varchar
-      `);
-
-      // Index pour les requêtes par agence
-      await queryRunner.query(`
-        CREATE INDEX IF NOT EXISTS "IDX_orders_branchId"
-        ON "orders" ("branchId")
+        ADD COLUMN "branchId" uuid
       `);
     }
+
+    // Index pour les requêtes par agence (créé même si la colonne existait déjà)
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS "IDX_orders_branchId"
+      ON "orders" ("branchId")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

@@ -17,7 +17,7 @@ export class UpdateDisputeStatusEnum1724300000000 implements MigrationInterface 
         END IF;
       END $$;
     `);
-    await queryRunner.query(`ALTER TABLE "disputes" ALTER COLUMN "status" TYPE VARCHAR(50);`);
+    await queryRunner.query(`ALTER TABLE "disputes" ALTER COLUMN "status" TYPE VARCHAR(50) USING "status"::text;`);
     await queryRunner.query(`
       UPDATE "disputes" SET "status" = 'UNDER_INVESTIGATION' WHERE "status" = 'UNDER_REVIEW';
       UPDATE "disputes" SET "status" = 'APPROVED' WHERE "status" = 'RESOLVED_REFUND';
@@ -39,7 +39,7 @@ export class UpdateDisputeStatusEnum1724300000000 implements MigrationInterface 
       UPDATE "disputes" SET "status" = 'RESOLVED_REFUND' WHERE "status" = 'APPROVED';
       UPDATE "disputes" SET "status" = 'RESOLVED_REJECTED' WHERE "status" = 'REJECTED';
     `);
-    await queryRunner.query(`ALTER TABLE "disputes" ALTER COLUMN "status" TYPE VARCHAR(50);`);
+    await queryRunner.query(`ALTER TABLE "disputes" ALTER COLUMN "status" TYPE VARCHAR(50) USING "status"::text;`);
     await queryRunner.query(`DROP INDEX IF EXISTS "idx_disputes_supportAgentId";`);
     await queryRunner.query(`ALTER TABLE "disputes" DROP COLUMN IF EXISTS "refundAmount", DROP COLUMN IF EXISTS "supportNote", DROP COLUMN IF EXISTS "supportAgentId";`);
   }

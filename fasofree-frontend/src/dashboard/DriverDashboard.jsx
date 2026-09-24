@@ -15,7 +15,7 @@ import {
   Layout, MapPin, Clock, DollarSign, Star, LogOut,
   RefreshCw, AlertCircle, CheckCircle, XCircle, Navigation,
   TrendingUp, Wallet, Phone, MessageSquare, Power, PowerOff,
-  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings,
+  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings, Camera, User,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/StatCard';
@@ -61,6 +61,45 @@ const DriverDashboard = () => {
   }
 
   const [driverStatus, setDriverStatus] = useState(DriverStatus.OFFLINE);
+
+  // Avatar
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarFileRef = useRef(null);
+
+  const handleAvatarSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      setErrors(prev => ({ ...prev, avatar: 'Formats acceptés : JPEG, PNG, WebP' }));
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, avatar: 'Photo trop lourde (max 5 Mo)' }));
+      return;
+    }
+    setAvatarUploading(true);
+    setErrors(prev => ({ ...prev, avatar: '' }));
+    try {
+      const token = localStorage.getItem('fasofree_token');
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1'}/users/me/avatar`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Échec de l\'upload');
+      setAvatarUrl(data.avatarUrl);
+      useAuthStore.getState().updateUser({ avatarUrl: data.avatarUrl });
+    } catch (err) {
+      setErrors(prev => ({ ...prev, avatar: err.message }));
+    } finally {
+      setAvatarUploading(false);
+      if (avatarFileRef.current) avatarFileRef.current.value = '';
+    }
+  };
 
   const [availableJobs, setAvailableJobs] = useState([]);
   const [currentJob, setCurrentJob] = useState(null);
@@ -624,9 +663,13 @@ const DriverDashboard = () => {
 
         <div className="p-4 border-b border-border-light">
           <div className="flex items-center gap-3">
-            <div className="avatar w-9 h-9 text-sm flex-shrink-0">
-              {(user?.fullName || 'L').charAt(0).toUpperCase()}
-            </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="avatar w-9 h-9 flex-shrink-0 object-cover rounded-full" />
+            ) : (
+              <div className="avatar w-9 h-9 text-sm flex-shrink-0">
+                {(user?.fullName || 'L').charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="min-w-0">
               <p className="text-text-primary text-xs font-semibold truncate">{user?.fullName || 'Livreur'}</p>
               <p className="text-text-tertiary text-xs truncate">{user?.phone || ''}</p>
@@ -1196,9 +1239,41 @@ const DriverDashboard = () => {
               <h1 className="text-xl font-bold text-text-primary mb-6">Paramètres du Livreur</h1>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="card p-5">
-                  <h3 className="font-bold text-text-primary mb-2">Profil</h3>
-                  <p className="text-text-secondary text-xs mb-4">Modifiez vos informations personnelles.</p>
-                  <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
+                  <h3 className="font-bold text-text-primary mb-2">Photo de profil</h3>
+                  <p className="text-text-secondary text-xs mb-4">Visible par les clients lors des livraisons.</p>
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      {avatarUrl ? (
+                        <img src={avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-background-secondary flex items-center justify-center">
+                          <User size={24} className="text-text-secondary" strokeWidth={1.5} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <input
+                        ref={avatarFileRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleAvatarSelect}
+                        className="hidden"
+                      />
+                      <button
+                        onClick={() => !avatarUploading && avatarFileRef.current?.click()}
+                        disabled={avatarUploading}
+                        className="btn-secondary w-full flex items-center justify-center gap-2 text-xs py-2 disabled:opacity-50"
+                      >
+                        {avatarUploading ? (
+                          <span className="w-3.5 h-3.5 border-2 border-text-secondary/30 border-t-text-secondary rounded-full animate-spin" />
+                        ) : (
+                          <Camera size={14} />
+                        )}
+                        {avatarUploading ? 'Upload...' : avatarUrl ? 'Changer la photo' : 'Ajouter une photo'}
+                      </button>
+                    </div>
+                  </div>
+                  {errors.avatar && <p className="text-xs text-status-error mt-2">{errors.avatar}</p>}
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Véhicule</h3>

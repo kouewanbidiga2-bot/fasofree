@@ -39,6 +39,7 @@ import { StoriesModule } from './modules/stories/stories.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
     // ⚡ Cache & Pub/Sub (Redis / Upstash)
     RedisModule,
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
 
     // 🛡️ Protection Anti-Spam / Rate Limiting (par IP)
     // Fenêtre (THROTTLE_TTL_MS) et limite (THROTTLE_LIMIT) configurables par

@@ -186,6 +186,27 @@ export class WalletController {
     );
   }
 
+  /**
+   * 🔎 Vue super admin : tous les wallets d'un utilisateur (tous rôles).
+   * GET /wallets/all/:userId — DOIT être déclarée AVANT :userRole/:userId
+   * pour que "all" ne soit pas interprété comme un userRole.
+   */
+  @Get('all/:userId')
+  @ApiOperation({
+    summary: 'Vue super admin : tous les portefeuilles d\'un utilisateur',
+  })
+  async getAllWalletsOfUser(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Param('userId') userId: string,
+  ) {
+    const user = req.user;
+    if (user?.role !== AppUserRole.SUPER_ADMIN) {
+      throw new ForbiddenException('Accès réservé aux super admins');
+    }
+    return this.walletService.getAllWalletsOfUser(userId);
+  }
+
   @Get(':userRole/:userId')
   @ApiOperation({
     summary: 'Obtenir ou creer le portefeuille d\'un utilisateur',
@@ -238,27 +259,6 @@ export class WalletController {
   }
 
   /**
-   * 🔎 Vue super admin : tous les wallets d'un utilisateur (tous rôles).
-   * GET /wallets/all/:userId — déclarée avant :userRole/:userId
-   * pour que "all" ne soit pas interprété comme un userRole.
-   */
-  @Get('all/:userId')
-  @ApiOperation({
-    summary: 'Vue super admin : tous les portefeuilles d\'un utilisateur',
-  })
-  async getAllWalletsOfUser(
-    @Request()
-    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
-    @Param('userId') userId: string,
-  ) {
-    const user = req.user;
-    if (user?.role !== AppUserRole.SUPER_ADMIN) {
-      throw new ForbiddenException('Accès réservé aux super admins');
-    }
-    return this.walletService.getAllWalletsOfUser(userId);
-  }
-
-  /**
    * 🏷️ Wallet par agence spécifique
    * GET /wallets/MERCHANT/:userId/branch/:branchId
    */
@@ -285,13 +285,24 @@ export class WalletController {
 
   // ========================================================================
   // 💰 WEBHOOK GeniusPay — cashout.completed / cashout.failed
+  // (déplacé dans WalletWebhookController — ci-dessous)
   // ========================================================================
+}
 
-  /**
-   * Webhook GeniusPay pour les événements cashout (retraits).
-   * FIX #2 : Signature HMAC obligatoire — rejet si secret ou signature absent.
-   */
-  @Post('webhook/geniuspay')
+// ============================================================================
+// Webhook GeniusPay — SANS garde JWT (authentifié par signature HMAC)
+// ============================================================================
+@ApiTags('Wallets Webhooks')
+@Controller('wallets/webhook')
+export class WalletWebhookController {
+  private readonly logger = new Logger(WalletWebhookController.name);
+
+  constructor(
+    private readonly payoutsService: PayoutsService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  @Post('geniuspay')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Webhook GeniusPay pour cashout (retraits)' })
   async handleCashoutWebhook(

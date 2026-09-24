@@ -17,7 +17,7 @@ import {
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
-  BarChart3, XCircle
+  BarChart3, XCircle, Camera, Eye
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
@@ -324,6 +324,8 @@ const BusinessAdminDashboard = () => {
     enableDineIn: false,
     hasOwnDrivers: false,
     category: 'RESTAURANT',
+    logo: '',
+    coverImage: '',
   });
 
   // États UI
@@ -346,6 +348,16 @@ const BusinessAdminDashboard = () => {
   const [chatInput, setChatInput] = useState('');
   const chatSocketRef = useRef(null);
   const loadedOnceRef = useRef(false);
+
+  // Stories
+  const [stories, setStories] = useState([]);
+  const [storiesLoading, setStoriesLoading] = useState(false);
+  const [storyModal, setStoryModal] = useState(false);
+  const [storyFile, setStoryFile] = useState(null);
+  const [storyPreview, setStoryPreview] = useState(null);
+  const [storyCaption, setStoryCaption] = useState('');
+  const [storyUploading, setStoryUploading] = useState(false);
+  const storyFileRef = useRef(null);
 
   // Assignation livreur
   const [driverModal, setDriverModal] = useState(null);
@@ -407,6 +419,8 @@ const BusinessAdminDashboard = () => {
           enableDineIn: b.enableDineIn ?? false,
           hasOwnDrivers: b.hasOwnDrivers ?? false,
           category: b.category ?? 'RESTAURANT',
+          logo: b.logo ?? '',
+          coverImage: b.coverImage ?? '',
         });
       }
     } catch {
@@ -425,11 +439,87 @@ const BusinessAdminDashboard = () => {
         enableDineIn: updatedBusiness.enableDineIn ?? false,
         hasOwnDrivers: updatedBusiness.hasOwnDrivers ?? false,
         category: updatedBusiness.category ?? 'RESTAURANT',
+        logo: updatedBusiness.logo ?? '',
+        coverImage: updatedBusiness.coverImage ?? '',
       });
     } catch (err) {
       setError('settings', err.message);
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  // ─── STORIES ─────────────────────────────────────────────────────
+  const loadStories = useCallback(async () => {
+    setStoriesLoading(true);
+    try {
+      const res = await api.get('/stories');
+      const groups = res?.data?.data ?? res?.data ?? [];
+      setStories(Array.isArray(groups) ? groups : []);
+    } catch {
+      setStories([]);
+    } finally {
+      setStoriesLoading(false);
+    }
+  }, []);
+
+  const handleStoryFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      setError('stories', 'Formats acceptés : JPEG, PNG, WebP');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('stories', 'Image trop lourde (max 5 Mo)');
+      return;
+    }
+    setError('stories', '');
+    setStoryFile(file);
+    setStoryPreview(URL.createObjectURL(file));
+  };
+
+  const handleCreateStory = async () => {
+    if (!storyFile || !businessId) return;
+    setStoryUploading(true);
+    setError('stories', '');
+    try {
+      const token = localStorage.getItem('fasofree_token');
+      const fd = new FormData();
+      fd.append('file', storyFile);
+      const upRes = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1'}/uploads/image?folder=stories`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const upData = await upRes.json();
+      if (!upRes.ok) throw new Error(upData.message || 'Échec de l\'upload');
+
+      await api.post('/stories', {
+        businessId: selectedBranchId || businessId,
+        mediaUrl: upData.url,
+        mediaType: 'IMAGE',
+        caption: storyCaption.trim() || undefined,
+      });
+
+      setStoryFile(null);
+      setStoryPreview(null);
+      setStoryCaption('');
+      setStoryModal(false);
+      loadStories();
+    } catch (err) {
+      setError('stories', err.message || 'Échec de la publication');
+    } finally {
+      setStoryUploading(false);
+    }
+  };
+
+  const handleDeleteStory = async (storyId) => {
+    try {
+      await api.delete(`/stories/${storyId}`);
+      loadStories();
+    } catch (err) {
+      setError('stories', err.message);
     }
   };
 
@@ -594,6 +684,7 @@ const BusinessAdminDashboard = () => {
     loadLowStockAlerts();
     loadWallet();
     loadSettings();
+    loadStories();
     if (brandId) {
       loadBrandAnalytics();
       loadBranchWallets();
@@ -791,6 +882,7 @@ const BusinessAdminDashboard = () => {
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => ['PENDING', 'PAID', 'IN_PREPARATION'].includes(o.status)).length },
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
+    { id: 'stories', label: 'Stories', icon: Camera },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
@@ -1329,7 +1421,86 @@ const BusinessAdminDashboard = () => {
           )}
 
           {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET MESSAGERIE (CHAT INBOX) */}
+          {/* ONGLET STORIES */}
+          {/* ──────────────────────────────────────────────────────── */}
+          {activeTab === 'stories' && (
+            <div className="animate-slide-up space-y-6">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-bold text-text-primary">Stories</h1>
+                <button
+                  onClick={() => setStoryModal(true)}
+                  className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm"
+                >
+                  <Plus size={16} />
+                  Nouvelle story
+                </button>
+              </div>
+
+              {errors.stories && (
+                <p className="text-sm text-status-error">{errors.stories}</p>
+              )}
+
+              {storiesLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} className="aspect-[9/16] bg-background-secondary rounded-xl animate-pulse" />
+                  ))}
+                </div>
+              ) : stories.length === 0 ? (
+                <div className="card p-12 text-center">
+                  <Camera size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
+                  <p className="text-text-secondary text-sm font-medium">Aucune story active</p>
+                  <p className="text-text-tertiary text-xs mt-1">Les stories durent 24 h et apparaissent sur l'accueil client.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {stories.map(group => (
+                    <div key={group.businessId}>
+                      <div className="flex items-center gap-3 mb-3">
+                        {group.businessImage ? (
+                          <img src={group.businessImage} alt="" className="w-8 h-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-accent-primary/15 flex items-center justify-center">
+                            <span className="text-accent-primary text-xs font-bold">
+                              {(group.businessName || 'FF').slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-sm font-semibold text-text-primary">{group.businessName}</p>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {(group.stories || []).map(story => (
+                          <div key={story.id} className="relative aspect-[9/16] rounded-xl overflow-hidden bg-background-secondary group">
+                            <img src={story.mediaUrl} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                            <div className="absolute top-2 left-2 flex items-center gap-1 text-white/90 text-[10px]">
+                              <Eye size={10} />
+                              <span>{story.viewsCount || 0}</span>
+                            </div>
+                            <button
+                              onClick={() => handleDeleteStory(story.id)}
+                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all"
+                              title="Supprimer"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                            {story.caption && (
+                              <p className="absolute bottom-2 left-2 right-2 text-white text-[11px] line-clamp-2">
+                                {story.caption}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────── */}
+          {/* ONGLET MESSAGERIE */}
           {/* ──────────────────────────────────────────────────────── */}
           {activeTab === 'chat-inbox' && (
             <div className="space-y-6 animate-slide-up">
@@ -1506,6 +1677,25 @@ const BusinessAdminDashboard = () => {
                 </div>
               </div>
 
+              {/* Identité visuelle : logo + couverture */}
+              <div className="card p-6">
+                <h3 className="font-bold text-text-primary mb-4">Identité visuelle</h3>
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <ImageUpload
+                    label="Logo du restaurant"
+                    folder="logos"
+                    value={businessSettings.logo}
+                    onChange={(url) => setBusinessSettings(prev => ({ ...prev, logo: url }))}
+                  />
+                  <ImageUpload
+                    label="Image de couverture"
+                    folder="covers"
+                    value={businessSettings.coverImage}
+                    onChange={(url) => setBusinessSettings(prev => ({ ...prev, coverImage: url }))}
+                  />
+                </div>
+              </div>
+
               {/* Catégorie du commerce */}
               <div className="card p-6">
                 <h3 className="font-bold text-text-primary mb-4">Catégorie du commerce</h3>
@@ -1561,6 +1751,69 @@ const BusinessAdminDashboard = () => {
           onSave={handleStockAdjustment}
           onClose={() => setStockModal(null)}
         />
+      )}
+
+      {/* Modal Création Story */}
+      {storyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-background-card rounded-xl shadow-lg w-full max-w-md overflow-hidden">
+            <div className="p-4 border-b border-border-light flex items-center justify-between">
+              <h3 className="font-bold text-text-primary">Nouvelle story</h3>
+              <button onClick={() => { setStoryModal(false); setStoryFile(null); setStoryPreview(null); setStoryCaption(''); }} className="p-1 rounded-lg hover:bg-background-secondary">
+                <XCircle size={18} className="text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div
+                className="relative aspect-[9/16] max-h-[40vh] bg-background-secondary rounded-lg overflow-hidden flex items-center justify-center cursor-pointer"
+                onClick={() => storyFileRef.current?.click()}
+              >
+                {storyPreview ? (
+                  <img src={storyPreview} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center">
+                    <Camera size={32} className="mx-auto text-text-tertiary mb-2" strokeWidth={1} />
+                    <p className="text-xs text-text-secondary">Cliquez pour ajouter une image</p>
+                    <p className="text-[10px] text-text-tertiary mt-1">JPEG, PNG, WebP — max 5 Mo</p>
+                  </div>
+                )}
+                <input
+                  ref={storyFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleStoryFileSelect}
+                  className="hidden"
+                />
+              </div>
+              <input
+                type="text"
+                placeholder="Ajouter une légende..."
+                value={storyCaption}
+                onChange={(e) => setStoryCaption(e.target.value.slice(0, 280))}
+                className="input-field"
+                maxLength={280}
+              />
+              {errors.stories && <p className="text-xs text-status-error">{errors.stories}</p>}
+              <div className="flex gap-2">
+                {storyPreview && (
+                  <button
+                    onClick={() => { setStoryFile(null); setStoryPreview(null); }}
+                    className="btn-secondary flex-1 py-2.5 text-sm"
+                  >
+                    Changer
+                  </button>
+                )}
+                <button
+                  onClick={handleCreateStory}
+                  disabled={!storyFile || storyUploading}
+                  className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50"
+                >
+                  {storyUploading ? 'Publication...' : 'Publier'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal Assignation Livreur */}

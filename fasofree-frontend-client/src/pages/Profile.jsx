@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle } from 'lucide-react';
+import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle, Camera } from 'lucide-react';
 import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
@@ -33,6 +33,11 @@ const Profile = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [favoriteItems, setFavoriteItems] = useState([]);
 
+  // Avatar
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarFileRef = useRef(null);
+
   // Mobile Money state
   const [showPaymentInfo, setShowPaymentInfo] = useState(false);
   const [paymentData, setPaymentData] = useState({
@@ -54,7 +59,8 @@ const Profile = () => {
           phone: me.phone || '',
           preferredNotificationChannel: me.preferredNotificationChannel || 'EMAIL',
         }));
-        updateUser({ name, email: me.email, phone: me.phone, id: me.id });
+        setAvatarUrl(me.avatarUrl || '');
+        updateUser({ name, email: me.email, phone: me.phone, id: me.id, avatarUrl: me.avatarUrl || '' });
         // Load Mobile Money info
         setPaymentData({
           mobileMoneyNumber: me.mobileMoneyNumber || '',
@@ -70,6 +76,33 @@ const Profile = () => {
   const handleLogout = () => {
     logout();
     navigate('/auth');
+  };
+
+  const handleAvatarSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.match(/^image\/(jpeg|png|webp)$/)) {
+      toast.error('Formats acceptés : JPEG, PNG, WebP');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Photo trop lourde (max 5 Mo)');
+      return;
+    }
+    setAvatarUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const res = await api.uploadAvatar(fd);
+      setAvatarUrl(res.avatarUrl);
+      updateUser({ avatarUrl: res.avatarUrl });
+      toast.success('Photo de profil mise à jour');
+    } catch (err) {
+      toast.error(err.message || 'Échec de l\'upload');
+    } finally {
+      setAvatarUploading(false);
+      if (avatarFileRef.current) avatarFileRef.current.value = '';
+    }
   };
 
   useEffect(() => {
@@ -160,9 +193,33 @@ const Profile = () => {
           <div className="border border-border-light p-4">
             <div className="flex items-start justify-between mb-6">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-background-secondary flex items-center justify-center">
-                  <User size={24} className="text-text-secondary" strokeWidth={1.5} />
-                </div>
+                <button
+                  type="button"
+                  onClick={() => !avatarUploading && avatarFileRef.current?.click()}
+                  className="relative w-16 h-16 bg-background-secondary flex items-center justify-center overflow-hidden group cursor-pointer"
+                  disabled={avatarUploading}
+                  title="Changer la photo de profil"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={24} className="text-text-secondary" strokeWidth={1.5} />
+                  )}
+                  <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    {avatarUploading ? (
+                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Camera size={16} className="text-white" />
+                    )}
+                  </span>
+                  <input
+                    ref={avatarFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleAvatarSelect}
+                    className="hidden"
+                  />
+                </button>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-medium text-text-primary">{formData.name}</h2>

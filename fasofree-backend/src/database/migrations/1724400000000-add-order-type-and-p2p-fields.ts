@@ -41,9 +41,16 @@ export class AddOrderTypeAndP2PFields1724400000000 implements MigrationInterface
     `);
 
     // 3. Forcer le défaut à MERCHANT (au cas où la colonne préexistait avec un autre défaut)
-    await queryRunner.query(`
-      ALTER TABLE "orders" ALTER COLUMN "orderType" SET DEFAULT 'MERCHANT';
+    // Guard : la colonne peut manquer si orders n'existe pas encore (base très ancienne).
+    const colExists = await queryRunner.query(`
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'orders' AND column_name = 'orderType'
     `);
+    if (colExists.length > 0) {
+      await queryRunner.query(`
+        ALTER TABLE "orders" ALTER COLUMN "orderType" SET DEFAULT 'MERCHANT';
+      `);
+    }
 
     // 4. Ajouter les champs P2P (JSONB, optionnels)
     await queryRunner.query(`
