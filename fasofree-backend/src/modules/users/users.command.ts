@@ -28,15 +28,15 @@ export class UsersCommand {
     password: string,
     @Option({
       name: 'role',
-      describe: 'Rôle attribué',
+      describe: 'Rôle attribué (super_admin réservé au maître/collaborateur)',
       type: 'string',
-      default: 'super_admin',
+      default: 'admin',
     })
     role: string,
   ) {
     try {
       const formattedRole = (
-        role ? role.toLowerCase() : 'super_admin'
+        role ? role.toLowerCase() : 'admin'
       ) as UserRole;
 
       const user = await this.usersService.create({

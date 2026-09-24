@@ -20,11 +20,10 @@ const MASTER_SUPER_ADMIN = {
   phone: '22677836217', // tel en base (format hérité sans +226)
 };
 
-/** Collaborateur (Franck Rayan Bado) — identité fixe dans le code (email + nom),
- *  maintenue à chaque boot par ensureCollaboratorAccount().
- *  Distinct du compte maître : le bootstrap garantit l'IDENTITÉ mais ne force
- *  ni le rôle ni l'activation — l'administrateur garde la main sur les
- *  privilèges (révocation possible, contrairement au maître protégé). */
+/** Collaborateur (Franck Rayan Bado) — 2e Super Admin PERMANENT (email + nom
+ *  fixes dans le code), maintenu à chaque boot par ensureCollaboratorAccount().
+ *  Comme le maître, il est inrétrogradable et in-supprimable (trigger BDD
+ *  EnforceSuperAdminSet) : l'ensemble des super admins est fixé à 2 comptes. */
 const COLLABORATOR_SUPER_ADMIN = {
   email: 'franckrayan226@gmail.com',
   legacyEmail: 'franckbado45@gmail.com', // ancien identifiant (adoption au boot)
@@ -134,7 +133,8 @@ export class UsersService implements OnModuleInit {
    *   email connu du collaborateur (legacyEmail) s'il survit en base.
    * - Ne crée pas de compte sans mot de passe : si le collaborateur est
    *   absent, il est signalé (l'administrateur le recrée si besoin).
-   * - Ne force ni role ni isActive (révocation possible par l'admin).
+   * - Ne force ni role ni isActive : le rôle et la permanence sont verrouillés
+   *   par le trigger BDD EnforceSuperAdminSet (inrétrogradable, in-supprimable).
    * - Ne touche jamais au compte maître ni à aucun autre compte.
    */
   private async ensureCollaboratorAccount(): Promise<void> {
@@ -245,6 +245,11 @@ export class UsersService implements OnModuleInit {
     );
   }
 
+  /** Le collaborateur — identité stable par email (franckrayan226@gmail.com). */
+  private isCollaboratorSuperAdmin(user: User): boolean {
+    return user.email === COLLABORATOR_SUPER_ADMIN.email;
+  }
+
   /**
    * Sécurité : le compte maître n'est modifiable que par lui-même ;
    * un Super Admin ne peut pas modifier un autre Super Admin.
@@ -350,6 +355,22 @@ export class UsersService implements OnModuleInit {
     ) {
       throw new ForbiddenException(
         'Vous ne pouvez pas rétrograder votre propre compte de Super Admin',
+      );
+    }
+
+    // Règle plateforme : AUCUN compte autre que le maître ou le collaborateur
+    // ne peut devenir SUPER_ADMIN. Les comptes protégés sont inrétrogradables.
+    const isProtectedTarget =
+      this.isMasterSuperAdmin(targetUser) ||
+      this.isCollaboratorSuperAdmin(targetUser);
+    if (role === UserRole.SUPER_ADMIN && !isProtectedTarget) {
+      throw new ForbiddenException(
+        'Accès refusé : seuls les comptes maître et collaborateur peuvent être Super Admin',
+      );
+    }
+    if (isProtectedTarget && role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Impossible de rétrograder un compte protégé (maître ou collaborateur)',
       );
     }
 
@@ -528,6 +549,11 @@ export class UsersService implements OnModuleInit {
           "L'email du compte maître ne peut pas être modifié",
         );
       }
+      if (this.isCollaboratorSuperAdmin(user)) {
+        throw new ForbiddenException(
+          "L'email du compte collaborateur ne peut pas être modifié",
+        );
+      }
       const existing = await this.userRepository.findOne({ where: { email: data.email } });
       if (existing) {
         throw new ConflictException(`L'adresse email ${data.email} est déjà utilisée.`);
@@ -591,6 +617,18 @@ export class UsersService implements OnModuleInit {
     });
     if (existingUser) {
       throw new ConflictException(`L'utilisateur ${data.email} existe déjà.`);
+    }
+
+    // Règle plateforme : la création ne peut attribuer SUPER_ADMIN qu'au
+    // compte maître ou au collaborateur (cohérent avec updateRole).
+    if (
+      data.role === UserRole.SUPER_ADMIN &&
+      data.email !== MASTER_SUPER_ADMIN.email &&
+      data.email !== COLLABORATOR_SUPER_ADMIN.email
+    ) {
+      throw new ForbiddenException(
+        'Accès refusé : seuls les comptes maître et collaborateur peuvent être Super Admin',
+      );
     }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);

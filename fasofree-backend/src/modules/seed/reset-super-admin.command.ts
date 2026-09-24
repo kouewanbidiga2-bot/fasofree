@@ -32,6 +32,9 @@ export class ResetSuperAdminCommand {
 
     if (!user) {
       user = this.userRepository.create({
+        // Id stable du compte maître (le trigger BDD exige id + email conformes
+        // pour toute création de super admin).
+        id: 'e22f06f8-451d-4c78-b6bb-b31ce3d85f6b',
         email: masterEmail,
         fullName: 'BIDIGA Imrane',
         phone: '22677836217',
