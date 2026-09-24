@@ -101,7 +101,26 @@ export class NotificationsService {
     const userName = user.fullName || 'Utilisateur';
     const appType = user.applicationType || 'MERCHANT';
 
-    // 1. Canal préféré
+    // 📧 EMAIL de confirmation TOUJOURS envoyé (exigence plateforme) :
+    // - Livreur  : email d'approbation garanti, quel que soit le canal préféré.
+    // - Marchand : pas de doublon — il reçoit déjà l'email de bienvenue enrichi
+    //   (avec lien vers son dashboard) dans le flux d'approbation (onboarding).
+    if (appType !== 'MERCHANT' && user.email) {
+      try {
+        await this.emailService.sendApprovalEmail(
+          user.email,
+          userName,
+          appType,
+          tempPassword,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `[Notifications] Échec email approbation vers ${user.email}: ${(err as Error).message}`,
+        );
+      }
+    }
+
+    // 1. Canal préféré pour les AUTRES médiums (SMS / WhatsApp / Push)
     switch (channel) {
       case NotificationChannel.PUSH: {
         if (user.fcmToken) {
@@ -114,10 +133,7 @@ export class NotificationsService {
         break;
       }
       case NotificationChannel.EMAIL: {
-        const email = user.email;
-        if (email) {
-          await this.emailService.sendApprovalEmail(email, userName, appType, tempPassword);
-        }
+        // Déjà couvert ci-dessus (email garanti) — rien à faire.
         break;
       }
       case NotificationChannel.WHATSAPP: {

@@ -1,8 +1,10 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { writeFileSync } from 'fs';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter';
 import { originAllowed } from './config/cors.config';
@@ -60,7 +62,7 @@ async function bootstrap() {
   validateCriticalConfig(logger);
 
   // 1. Initialisation de l'application avec Raw Body (pour Webhooks Wave/Orange)
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
     logger:
       process.env.NODE_ENV === 'production'
@@ -93,7 +95,8 @@ async function bootstrap() {
     }),
   );
 
-  // 3bis. Stockage local supprimé — tous les fichiers vont sur Cloudinary/S3
+  // 3bis. Tous les fichiers vont sur Cloudinary/S3 quand ils sont configurés ;
+  // le driver local (fallback) est servi via /uploads/* (monté en 4bis).
 
   // 4. Stratégie CORS (strictes dans TOUS les environnements)
   const isProduction = process.env.NODE_ENV === 'production';
@@ -121,6 +124,15 @@ async function bootstrap() {
       'x-signature', // Signature HMAC pour les paiements
     ],
     credentials: true,
+  });
+
+  // 4bis. Fichiers locaux servis par l'API : /uploads/<clé> (fallback du driver
+  // local quand Cloudinary/S3 ne sont pas configurés — ex. KYC en dev).
+  // Placé APRÈS helmet + CORS pour hériter des en-têtes (sécurité + fetch
+  // cross-origin éventuel). En production, Cloudinary/S3 fournit des URLs
+  // absolues et durables ; ce montage ne sert que le disque local.
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+    prefix: '/uploads/',
   });
 
   // 5. Validation Globale des DTOs (Strict & Typé)

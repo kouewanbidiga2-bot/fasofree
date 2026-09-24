@@ -30,6 +30,17 @@ const storageDriverProvider: Provider = {
       return new S3StorageProvider(configService);
     }
 
+    // Garde explicite (non bloquante) : en production, tourner sur le driver
+    // LOCAL fait perdre les fichiers à chaque redéploiement Render et les sert
+    // publiquement (pièces KYC = données sensibles). Cloudinary/S3 est requis.
+    if (configService.get<string>('NODE_ENV') === 'production') {
+      console.error(
+        '[Upload] ⚠️ PRODUCTION SANS STOCKAGE DURABLE : Cloudinary/S3 non configurés — ' +
+          'driver LOCAL actif (fichiers non durables + servis sans authentification). ' +
+          "Configurez CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET ou AWS_* dans Render.",
+      );
+    }
+
     return new LocalStorageProvider();
   },
 };
