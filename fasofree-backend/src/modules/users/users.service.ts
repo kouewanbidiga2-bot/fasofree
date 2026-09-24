@@ -20,6 +20,17 @@ const MASTER_SUPER_ADMIN = {
   phone: '22677836217', // tel en base (format hérité sans +226)
 };
 
+/** Collaborateur (Franck Rayan Bado) — identité fixe dans le code (email + nom),
+ *  maintenue à chaque boot par ensureCollaboratorAccount().
+ *  Distinct du compte maître : le bootstrap garantit l'IDENTITÉ mais ne force
+ *  ni le rôle ni l'activation — l'administrateur garde la main sur les
+ *  privilèges (révocation possible, contrairement au maître protégé). */
+const COLLABORATOR_SUPER_ADMIN = {
+  email: 'franckrayan226@gmail.com',
+  legacyEmail: 'franckbado45@gmail.com', // ancien identifiant (adoption au boot)
+  fullName: 'BADO Franck Rayan',
+};
+
 /**
  * Compte initial de la plateforme, créé uniquement s'il n'existe pas.
  */
@@ -36,6 +47,7 @@ export class UsersService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.ensureMasterSuperAdmin();
+    await this.ensureCollaboratorAccount();
   }
 
   /**
@@ -113,6 +125,61 @@ export class UsersService implements OnModuleInit {
     (created as any).passwordHash = await bcrypt.hash(password, 10);
     await this.userRepository.save(created);
     this.logger.log(`[Bootstrap] Compte SUPER_ADMIN créé : ${email}`);
+  }
+
+  /**
+   * Compte collaborateur (Franck Rayan Bado) — identité fixe dans le code
+   * (email + nom), maintenue à chaque boot.
+   * - Ne renomme JAMAIS un compte existant : il ré-adopte seulement l'ancien
+   *   email connu du collaborateur (legacyEmail) s'il survit en base.
+   * - Ne crée pas de compte sans mot de passe : si le collaborateur est
+   *   absent, il est signalé (l'administrateur le recrée si besoin).
+   * - Ne force ni role ni isActive (révocation possible par l'admin).
+   * - Ne touche jamais au compte maître ni à aucun autre compte.
+   */
+  private async ensureCollaboratorAccount(): Promise<void> {
+    const { email, legacyEmail, fullName } = COLLABORATOR_SUPER_ADMIN;
+
+    const existing = await this.userRepository.findOne({ where: { email } });
+    if (existing) {
+      if (existing.fullName !== fullName) {
+        existing.fullName = fullName;
+        await this.userRepository.save(existing);
+        this.logger.log(`[Bootstrap] Collaborateur mis à jour : ${email}`);
+      } else {
+        this.logger.log(`[Bootstrap] Collaborateur déjà conforme : ${email}`);
+      }
+      // Si l'ancien compte coexiste encore, il devient un doublon fantôme.
+      const ghost = await this.userRepository.findOne({
+        where: { email: legacyEmail },
+      });
+      if (ghost) {
+        this.logger.warn(
+          `[Bootstrap] Ancien compte collaborateur encore présent (${legacyEmail}) — doublon à supprimer manuellement.`,
+        );
+      }
+      return;
+    }
+
+    // Ancien identifiant du collaborateur (avant renommage) : on ré-adopte ce
+    // compte, sans en créer un nouveau. Le trigger maître ne s'applique pas à
+    // ce compte (email distinct).
+    const legacy = await this.userRepository.findOne({
+      where: { email: legacyEmail },
+    });
+    if (legacy) {
+      legacy.email = email;
+      legacy.fullName = fullName;
+      await this.userRepository.save(legacy);
+      this.logger.log(
+        `[Bootstrap] Collaborateur adopté (ex ${legacyEmail}) : ${email}`,
+      );
+      return;
+    }
+
+    this.logger.warn(
+      `[Bootstrap] Collaborateur introuvable (${email}) — il sera pris en charge à sa création.`,
+    );
   }
 
   // 👤 Obtenir un utilisateur par son ID
