@@ -15,7 +15,7 @@ const ROLE_LABELS = {
 
 const ROLE_ROUTES = {
   CLIENT: '/',
-  BUSINESS_ADMIN: '/merchant-dashboard',
+  BUSINESS_ADMIN: 'https://admin.fasofree.site',
   DRIVER: 'https://admin.fasofree.site/livreur',
   COURIER: 'https://admin.fasofree.site/livreur',
   SUPER_ADMIN: '/',
@@ -110,12 +110,15 @@ export default function UserMenu() {
           )}
 
           {currentRole === 'BUSINESS_ADMIN' && (
-            <button
-              onClick={() => { setOpen(false); navigate('/merchant-dashboard'); }}
+            <a
+              href="https://admin.fasofree.site"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
               className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
             >
               <Briefcase size={15} /> Espace Marchand
-            </button>
+            </a>
           )}
 
           <div className="my-1 border-t border-border-light" />

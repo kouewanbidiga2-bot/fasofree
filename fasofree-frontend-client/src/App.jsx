@@ -17,11 +17,6 @@ import Settings from './pages/Settings';
 import Disputes from './pages/Disputes';
 import NotFound from './pages/NotFound';
 import Register from './pages/Register';
-import MerchantDashboard from './pages/MerchantDashboard';
-import MerchantProducts from './pages/MerchantProducts';
-import MerchantOrders from './pages/MerchantOrders';
-import MerchantWallet from './pages/MerchantWallet';
-import MerchantSettings from './pages/MerchantSettings';
 import Auth from './pages/Auth';
 import VerifyAccount from './pages/VerifyAccount';
 import Privacy from './pages/Privacy';
@@ -101,12 +96,6 @@ function App() {
           <Route path="/disputes" element={<ProtectedRoute><Disputes /></ProtectedRoute>} />
         </Route>
 
-        {/* Merchant pages */}
-        <Route path="/merchant-dashboard" element={<ProtectedRoute><MerchantDashboard /></ProtectedRoute>} />
-        <Route path="/merchant/products" element={<ProtectedRoute><MerchantProducts /></ProtectedRoute>} />
-        <Route path="/merchant/orders" element={<ProtectedRoute><MerchantOrders /></ProtectedRoute>} />
-        <Route path="/merchant/wallet" element={<ProtectedRoute><MerchantWallet /></ProtectedRoute>} />
-        <Route path="/merchant/settings" element={<ProtectedRoute><MerchantSettings /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

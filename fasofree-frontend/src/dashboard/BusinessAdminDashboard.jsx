@@ -337,6 +337,7 @@ const BusinessAdminDashboard = () => {
   const [productTypeFilter, setProductTypeFilter] = useState('ALL');
   const [updating, setUpdating] = useState({});
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState(null);
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -429,7 +430,12 @@ const BusinessAdminDashboard = () => {
   }, [businessId]);
 
   const handleSaveSettings = async () => {
+    if (!businessId) {
+      setSettingsMsg({ type: 'error', text: 'Aucun commerce associé à votre compte. Contactez le support.' });
+      return;
+    }
     setSettingsSaving(true);
+    setSettingsMsg(null);
     try {
       await api.patch(`/businesses/${businessId}`, businessSettings);
       const updatedBusiness = (await api.get(`/businesses/${businessId}`)).data;
@@ -442,8 +448,9 @@ const BusinessAdminDashboard = () => {
         logo: updatedBusiness.logo ?? '',
         coverImage: updatedBusiness.coverImage ?? '',
       });
+      setSettingsMsg({ type: 'success', text: 'Paramètres enregistrés avec succès.' });
     } catch (err) {
-      setError('settings', err.message);
+      setSettingsMsg({ type: 'error', text: err.message || 'Échec de la sauvegarde.' });
     } finally {
       setSettingsSaving(false);
     }
@@ -1714,6 +1721,15 @@ const BusinessAdminDashboard = () => {
               </div>
 
               {/* Bouton de sauvegarde */}
+              {settingsMsg && (
+                <div className={`p-3 rounded-lg border text-sm ${
+                  settingsMsg.type === 'success'
+                    ? 'bg-status-successBg border-status-success/30 text-status-success'
+                    : 'bg-status-errorBg border-status-error/30 text-status-error'
+                }`}>
+                  {settingsMsg.text}
+                </div>
+              )}
               <button
                 onClick={handleSaveSettings}
                 disabled={settingsSaving}

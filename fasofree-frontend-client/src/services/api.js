@@ -102,7 +102,6 @@ export const api = {
     return apiFetch(`/businesses/grouped?lat=${lat}&lng=${lng}`, { method: 'GET' });
   },
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
-  updateBusiness: (businessId, data) => apiFetch(`/businesses/${businessId}`, { method: 'PATCH', body: data }),
 
   // Brands & Branches (multi-agences)
   getBrand: (brandId) => apiFetch(`/brands/${brandId}`, { method: 'GET' }),
@@ -113,26 +112,10 @@ export const api = {
   getNearestBranch: (brandId, lat, lng) =>
     apiFetch(`/brands/${brandId}/nearest-business?latitude=${lat}&longitude=${lng}`, { method: 'GET' }),
   getAllBrands: () => apiFetch('/brands', { method: 'GET' }),
-  
-  // Products
-  getBusinessProducts: (businessId) => apiFetch(`/products/business/${businessId}`, { method: 'GET' }),
-  createProduct: (data) => apiFetch('/products', { method: 'POST', body: data }),
-  updateProduct: (id, data) => apiFetch(`/products/${id}`, { method: 'PATCH', body: data }),
-  deleteProduct: (id) => apiFetch(`/products/${id}`, { method: 'DELETE' }),
-  toggleProductAvailability: (id) => apiFetch(`/products/${id}/toggle-availability`, { method: 'PATCH' }),
-  
-  // Merchant Orders
-  getBusinessOrders: (businessId) => apiFetch(`/orders/business/${businessId}`, { method: 'GET' }),
-  updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
-  
-  // Merchant Wallet
-  getMerchantWallet: (userId) => apiFetch(`/wallets/MERCHANT/${userId}`, { method: 'GET' }),
-  getWalletTransactions: (walletId, limit = 20) => apiFetch(`/wallets/${walletId}/transactions?limit=${limit}`, { method: 'GET' }),
 
-  // Retraits Mobile Money
-  previewPayoutFee: (amountFcfa) => apiFetch('/wallets/fee-preview', { method: 'POST', body: { amountFcfa } }),
-  requestWithdrawal: (data) => apiFetch('/wallets/withdrawals', { method: 'POST', body: data }),
-  
+  // Products (client-facing: view only)
+  getBusinessProducts: (businessId) => apiFetch(`/products/business/${businessId}`, { method: 'GET' }),
+
   // Orders
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
   quoteOrder: (quoteData) => apiFetch('/orders/quote', { method: 'POST', body: quoteData }),
@@ -140,6 +123,7 @@ export const api = {
   getAvailableOrders: () => apiFetch('/dispatch/available', { method: 'GET' }),
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
   getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
+  updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
   acceptOrder: (id) => apiFetch(`/orders/${id}/accept`, { method: 'POST' }),
   driverValidateDelivery: (id) => apiFetch(`/orders/${id}/driver-validate`, { method: 'POST' }),
   clientValidateWithPin: (id, pinCode) => apiFetch(`/orders/${id}/client-validate`, { method: 'POST', body: { pinCode } }),
@@ -187,7 +171,7 @@ export const api = {
   subscribeMerchant: (businessId, planCode = 'PRO', autoRenew = true) =>
     apiFetch('/subscriptions/merchant/subscribe', { method: 'POST', body: { businessId, planCode, autoRenew } }),
 
-  // Orders (updateOrderStatus est déclaré dans la section Merchant Orders)
+  // Orders (updateOrderStatus declared above)
   cancelOrder: (id, reason) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status: 'CANCELLED', reason } }),
   disputeOrder: (id, data) => apiFetch(`/disputes/orders/${id}`, { method: 'POST', body: data }),
 
