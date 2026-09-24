@@ -34,12 +34,14 @@ export class UsersService implements OnModuleInit {
    * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    // Aucun email en dur : si SUPER_ADMIN_EMAIL n'est pas défini, on ignore
-    // la création pour ne pas migrer un compte existant vers une valeur vide.
     const email = this.configService.get<string>('SUPER_ADMIN_EMAIL');
     const password = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
     const fullName = this.configService.get<string>('SUPER_ADMIN_FULLNAME', 'Master Admin');
     const phone = this.configService.get<string>('SUPER_ADMIN_PHONE', '+22661010011');
+
+    this.logger.log(
+      `[Bootstrap] SUPER_ADMIN_EMAIL=${email ? 'OK' : 'MANQUANT'} SUPER_ADMIN_PASSWORD=${password ? 'OK' : 'MANQUANT'}`,
+    );
 
     if (!email) {
       this.logger.warn('[Bootstrap] SUPER_ADMIN_EMAIL non défini — création du compte super_admin ignorée');
