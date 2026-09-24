@@ -53,7 +53,15 @@ export class OnboardingService {
       .orderBy('user.createdAt', 'DESC');
 
     if (status) {
-      query.andWhere('user.applicationStatus = :status', { status });
+      const statuses = status
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (statuses.length > 1) {
+        query.andWhere('user.applicationStatus IN (:...statuses)', { statuses });
+      } else if (statuses.length === 1) {
+        query.andWhere('user.applicationStatus = :status', { status: statuses[0] });
+      }
     }
     if (type) {
       query.andWhere('user.applicationType = :type', { type });
@@ -275,7 +283,14 @@ export class OnboardingService {
     if (!user) {
       throw new NotFoundException('Candidature introuvable');
     }
-    if (user.applicationStatus !== 'PENDING_APPROVAL') {
+    // PENDING_APPROVAL : dossier déposé, KYC en cours.
+    // KYC_APPROVED : tous les documents sont validés, le dossier attend
+    // la décision finale (Approuver / Rejeter). Sans ce statut, l'approbation
+    // échouait et le profil Business n'était jamais créé.
+    if (
+      user.applicationStatus !== 'PENDING_APPROVAL' &&
+      user.applicationStatus !== 'KYC_APPROVED'
+    ) {
       throw new BadRequestException('Cette candidature a déjà été traitée');
     }
     return user;

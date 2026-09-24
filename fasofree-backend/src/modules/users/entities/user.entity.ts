@@ -102,7 +102,7 @@ export class User {
   // 🚦 ONBOARDING MARCHANDS & LIVREURS
   // Compte candidat créé via POST /auth/apply puis examiné par l'administration.
   @Column({ type: 'varchar', length: 20, nullable: true })
-  applicationStatus?: string | null; // PENDING_APPROVAL | APPROVED | REJECTED
+  applicationStatus?: string | null; // PENDING_APPROVAL | KYC_APPROVED | APPROVED | REJECTED
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   applicationType?: string | null; // MERCHANT | DRIVER

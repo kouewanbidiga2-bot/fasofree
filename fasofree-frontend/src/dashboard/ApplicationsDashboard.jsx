@@ -27,6 +27,7 @@ const resolveFileUrl = (u) => (u && !u.startsWith('http') ? `${API_ORIGIN}${u}` 
 
 const STATUS_CONFIG = {
   PENDING_APPROVAL: { label: 'En attente', color: 'warning', dot: '#F59E0B' },
+  KYC_APPROVED: { label: 'KYC validé', color: 'info', dot: '#3B82F6' },
   APPROVED: { label: 'Approuvé', color: 'success', dot: '#22C55E' },
   REJECTED: { label: 'Rejeté', color: 'error', dot: '#EF4444' },
 };
@@ -41,7 +42,10 @@ const ApplicationsDashboard = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState(null);
-  const [filters, setFilters] = useState({ type: '', status: 'PENDING_APPROVAL' });
+  const [filters, setFilters] = useState({ type: '', status: 'PENDING_APPROVAL,KYC_APPROVED' });
+
+  // Un dossier est actionable tant qu'il n'a pas de décision finale.
+  const isActionable = (s) => s === 'PENDING_APPROVAL' || s === 'KYC_APPROVED';
   const [busy, setBusy] = useState(null);
   const [selected, setSelected] = useState(null);
   const [kycDocs, setKycDocs] = useState(null);
@@ -138,12 +142,12 @@ const ApplicationsDashboard = () => {
 
   const formatDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '—');
 
-  const pendingCount = applications.filter((a) => a.applicationStatus === 'PENDING_APPROVAL').length;
+  const pendingCount = applications.filter((a) => isActionable(a.applicationStatus)).length;
   const merchantPending = applications.filter(
-    (a) => a.applicationType === 'MERCHANT' && a.applicationStatus === 'PENDING_APPROVAL',
+    (a) => a.applicationType === 'MERCHANT' && isActionable(a.applicationStatus),
   ).length;
   const driverPending = applications.filter(
-    (a) => a.applicationType === 'DRIVER' && a.applicationStatus === 'PENDING_APPROVAL',
+    (a) => a.applicationType === 'DRIVER' && isActionable(a.applicationStatus),
   ).length;
 
   return (
@@ -199,7 +203,9 @@ const ApplicationsDashboard = () => {
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
           >
             <option value="">Tous</option>
+            <option value="PENDING_APPROVAL,KYC_APPROVED">À traiter</option>
             <option value="PENDING_APPROVAL">En attente</option>
+            <option value="KYC_APPROVED">KYC validé</option>
             <option value="APPROVED">Approuvé</option>
             <option value="REJECTED">Rejeté</option>
           </select>
@@ -296,7 +302,7 @@ const ApplicationsDashboard = () => {
                         >
                           <Eye size={14} />
                         </button>
-                        {app.applicationStatus === 'PENDING_APPROVAL' && (
+                        {isActionable(app.applicationStatus) && (
                           <>
                             <button
                               onClick={() => handleApprove(app)}
@@ -431,7 +437,7 @@ const ApplicationsDashboard = () => {
                 )}
               </div>
 
-              {selected.applicationStatus === 'PENDING_APPROVAL' && (
+              {isActionable(selected.applicationStatus) && (
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={() => handleApprove(selected)}

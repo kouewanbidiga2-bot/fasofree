@@ -9,7 +9,11 @@ export class RejectApplicationDto {
 }
 
 export class ListApplicationsQueryDto {
-  @ApiPropertyOptional({ enum: ['PENDING_APPROVAL', 'APPROVED', 'REJECTED'] })
+  @ApiPropertyOptional({
+    enum: ['PENDING_APPROVAL', 'KYC_APPROVED', 'APPROVED', 'REJECTED'],
+    description:
+      "Statut unique ou liste séparée par des virgules (ex: PENDING_APPROVAL,KYC_APPROVED)",
+  })
   @IsOptional()
   @IsString()
   status?: string;

@@ -164,7 +164,11 @@ export class KycService {
         const ownerDocs = await this.documents.find({ where: { ownerId: document.ownerId } });
         const allApproved = ownerDocs.every(d => d.status === KycStatus.APPROVED);
         if (allApproved) {
-          await this.userRepository.update(document.ownerId, { applicationStatus: 'KYC_APPROVED' });
+          // Ne jamais rétrograder un dossier déjà approuvé ou rejeté.
+          await this.userRepository.update(
+            { id: document.ownerId, applicationStatus: 'PENDING_APPROVAL' },
+            { applicationStatus: 'KYC_APPROVED' },
+          );
         }
       }
 

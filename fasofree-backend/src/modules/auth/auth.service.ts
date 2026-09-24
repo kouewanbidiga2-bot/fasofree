@@ -279,7 +279,10 @@ export class AuthService {
       throw new UnauthorizedException('Identifiants invalides');
     }
 
-    if (user.applicationStatus === 'PENDING_APPROVAL') {
+    if (
+      user.applicationStatus === 'PENDING_APPROVAL' ||
+      user.applicationStatus === 'KYC_APPROVED'
+    ) {
       throw new ForbiddenException(
         "Votre compte est en cours d'examen par FasoFree. Vous recevrez vos identifiants après validation de votre dossier.",
       );
