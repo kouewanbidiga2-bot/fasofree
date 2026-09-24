@@ -844,7 +844,8 @@ const SuperAdminDashboard = () => {
 
   const renderUserRow = (u) => {
     const isSelf = u.id === user?.id;
-    const isProtected = normRole(u) === 'super_admin' && !isSelf;
+    const isSuperAdminTarget = normRole(u) === 'super_admin';
+    const isProtected = isSuperAdminTarget;
     return (
       <tr key={u.id}>
         <td>

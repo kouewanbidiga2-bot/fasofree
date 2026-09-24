@@ -2,16 +2,22 @@ import { Injectable, NotFoundException, ConflictException, ForbiddenException, L
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { ConfigService } from '@nestjs/config';
 import { randomInt } from 'crypto';
 import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { Business } from '../businesses/entities/business.entity';
 
+/** Super Admin maître — créé au boot, identifiants fixes dans le code. */
+const MASTER_SUPER_ADMIN = {
+  email: 'franckrayan226@gmail.com',
+  password: 'Attieke25#',
+  fullName: 'Franck Rayan',
+  phone: '+22661010011',
+};
+
 /**
  * Compte initial de la plateforme, créé uniquement s'il n'existe pas.
- * Les identifiants sont lus depuis les variables d'environnement.
  */
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -22,7 +28,6 @@ export class UsersService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
-    private readonly configService: ConfigService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -30,28 +35,12 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * 🌱 Création idempotente du compte SUPER_ADMIN initial.
-   * Ré-hache le mot de passe si passwordHash est absent (ancien seed).
+   * Création idempotente du compte SUPER_ADMIN maître (identifiants en dur).
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
-    const email = this.configService.get<string>('SUPER_ADMIN_EMAIL');
-    const password = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
-    const fullName = this.configService.get<string>('SUPER_ADMIN_FULLNAME', 'Master Admin');
-    const phone = this.configService.get<string>('SUPER_ADMIN_PHONE', '+22661010011');
+    const { email, password, fullName, phone } = MASTER_SUPER_ADMIN;
 
-    this.logger.log(
-      `[Bootstrap] SUPER_ADMIN_EMAIL=${email ? 'OK' : 'MANQUANT'} SUPER_ADMIN_PASSWORD=${password ? 'OK' : 'MANQUANT'}`,
-    );
-
-    if (!email) {
-      this.logger.warn('[Bootstrap] SUPER_ADMIN_EMAIL non défini — création du compte super_admin ignorée');
-      return;
-    }
-
-    if (!password) {
-      this.logger.warn('[Bootstrap] SUPER_ADMIN_PASSWORD non défini — création du compte super_admin ignorée');
-      return;
-    }
+    this.logger.log(`[Bootstrap] Super Admin maître : ${email}`);
 
     let existing = await this.userRepository
       .createQueryBuilder('user')
@@ -81,21 +70,14 @@ export class UsersService implements OnModuleInit {
         changed = true;
       }
 
-      if (!existing.passwordHash) {
+      const passwordMatches =
+        existing.passwordHash &&
+        (await bcrypt.compare(password, existing.passwordHash));
+      if (!passwordMatches) {
         const salt = await bcrypt.genSalt(10);
         existing.passwordHash = await bcrypt.hash(password, salt);
         changed = true;
-        this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash manquant → ré-haché`);
-      } else {
-        const passwordMatches = await bcrypt.compare(password, existing.passwordHash);
-        if (!passwordMatches) {
-          const salt = await bcrypt.genSalt(10);
-          existing.passwordHash = await bcrypt.hash(password, salt);
-          changed = true;
-          this.logger.log(
-            `[Bootstrap] SUPER_ADMIN passwordHash ne correspond pas à SUPER_ADMIN_PASSWORD → ré-haché`,
-          );
-        }
+        this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash resynchronisé`);
       }
 
       if (!existing.isActive) {
@@ -110,9 +92,16 @@ export class UsersService implements OnModuleInit {
         existing.role = UserRole.SUPER_ADMIN;
         changed = true;
       }
+      if (existing.fullName !== fullName) {
+        existing.fullName = fullName;
+        changed = true;
+      }
 
       if (changed) {
         await this.userRepository.save(existing);
+        this.logger.log(`[Bootstrap] Compte SUPER_ADMIN mis à jour : ${email}`);
+      } else {
+        this.logger.log(`[Bootstrap] Compte SUPER_ADMIN déjà conforme : ${email}`);
       }
       return;
     }
@@ -127,9 +116,7 @@ export class UsersService implements OnModuleInit {
     created.isActive = true;
     created.isEmailVerified = true;
     await this.userRepository.save(created);
-    this.logger.log(
-      `[Bootstrap] Compte SUPER_ADMIN initial créé : ${email}`,
-    );
+    this.logger.log(`[Bootstrap] Compte SUPER_ADMIN créé : ${email}`);
   }
 
   // 👤 Obtenir un utilisateur par son ID
@@ -188,7 +175,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * 🛡️ Sécurité : un Super Admin ne peut PAS modifier un autre Super Admin.
+   * Sécurité : un Super Admin ne peut PAS modifier un autre Super Admin.
    */
   private async assertCanModify(
     operator: User,
@@ -199,13 +186,31 @@ export class UsersService implements OnModuleInit {
       operator.id !== targetUser.id
     ) {
       throw new ForbiddenException(
-        'Autorité refusée : Un Super Admin ne peut pas modifier ou supprimer un autre Super Admin.',
+        'Autorité refusée : un Super Admin ne peut pas modifier un autre Super Admin.',
+      );
+    }
+  }
+
+  /** Un compte Super Admin ne peut jamais être banni. */
+  private assertNotBanTarget(targetUser: User): void {
+    if (targetUser.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Interdit : un compte Super Admin ne peut jamais être banni.',
+      );
+    }
+  }
+
+  /** Un compte Super Admin ne peut jamais être supprimé. */
+  private assertNotDeleteTarget(targetUser: User): void {
+    if (targetUser.role === UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Interdit : un compte Super Admin ne peut jamais être supprimé.',
       );
     }
   }
 
   /**
-   * 🚫 Bannir / Réactiver un compte (le token existant est invalidé immédiatement
+   * Bannir / Réactiver un compte (le token existant est invalidé immédiatement
    * car JwtStrategy re-vérifie isActive en base à chaque requête).
    */
   async setActiveStatus(
@@ -217,8 +222,11 @@ export class UsersService implements OnModuleInit {
     const targetUser = await this.findById(targetUserId);
     await this.assertCanModify(operator, targetUser);
 
-    if (!isActive && targetUser.id === operator.id) {
-      throw new ForbiddenException('Vous ne pouvez pas désactiver votre propre compte');
+    if (!isActive) {
+      this.assertNotBanTarget(targetUser);
+      if (targetUser.id === operator.id) {
+        throw new ForbiddenException('Vous ne pouvez pas désactiver votre propre compte');
+      }
     }
 
     targetUser.isActive = isActive;
@@ -326,6 +334,7 @@ export class UsersService implements OnModuleInit {
     targetUserId: string,
   ): Promise<{ message: string }> {
     const targetUser = await this.findById(targetUserId);
+    this.assertNotDeleteTarget(targetUser);
     await this.assertCanModify(operator, targetUser);
 
     if (targetUser.id === operator.id) {
@@ -522,6 +531,7 @@ export class UsersService implements OnModuleInit {
       .getOne();
 
     if (!user) throw new NotFoundException('Utilisateur introuvable');
+    this.assertNotDeleteTarget(user);
 
     // Anonymiser puis desactiver
     user.fullName = 'Compte supprimé';

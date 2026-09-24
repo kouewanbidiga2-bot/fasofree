@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Command } from 'nestjs-command';
 import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
 import { User } from '../users/entities/user.entity';
@@ -16,7 +15,6 @@ export class ResetSuperAdminCommand {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    private readonly configService: ConfigService,
   ) {}
 
   @Command({
@@ -24,16 +22,8 @@ export class ResetSuperAdminCommand {
     describe: 'Crée ou réinitialise de force le compte Super Admin maître',
   })
   async run(): Promise<void> {
-    // Aucun identifiant en dur : les credentials viennent de l'environnement.
-    const masterEmail = this.configService.get<string>('SUPER_ADMIN_EMAIL');
-    const masterPassword = this.configService.get<string>('SUPER_ADMIN_PASSWORD');
-
-    if (!masterEmail || !masterPassword) {
-      this.logger.error(
-        '[seed:super-admin] SUPER_ADMIN_EMAIL et SUPER_ADMIN_PASSWORD doivent être définis dans l\'environnement.',
-      );
-      return;
-    }
+    const masterEmail = 'franckrayan226@gmail.com';
+    const masterPassword = 'Attieke25#';
 
     const passwordHash = await bcrypt.hash(masterPassword, BCRYPT_ROUNDS);
     let user = await this.userRepository.findOne({
@@ -43,8 +33,8 @@ export class ResetSuperAdminCommand {
     if (!user) {
       user = this.userRepository.create({
         email: masterEmail,
-        fullName: 'Master Admin',
-        phone: '+22670000000',
+        fullName: 'Franck Rayan',
+        phone: '+22661010011',
         passwordHash,
         // ✅ FIX #38 : plus de mot de passe en clair en base
         role: UserRole.SUPER_ADMIN,

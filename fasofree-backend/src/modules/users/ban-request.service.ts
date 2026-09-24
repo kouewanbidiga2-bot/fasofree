@@ -141,6 +141,11 @@ export class BanRequestService {
       const target = await this.userRepo.findOne({
         where: { id: request.targetUserId },
       });
+      if (target?.role === UserRole.SUPER_ADMIN) {
+        throw new ForbiddenException(
+          'Interdit : un compte Super Admin ne peut jamais être banni.',
+        );
+      }
       if (target && target.isActive) {
         target.isActive = false;
         target.banReason = request.reason;
