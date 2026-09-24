@@ -42,7 +42,7 @@ import {
   getBanRequests,
   reviewBanRequest,
 } from '../services/usersService';
-import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
+import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
@@ -1531,10 +1531,16 @@ const SuperAdminDashboard = () => {
                           <div className="flex gap-2">
                             <button
                               onClick={async () => {
+                                setKycMsg({ type: 'success', text: 'Chargement du document…' });
                                 try {
-                                  const url = await import('../services/kycService').then(m => m.getKycDocumentUrl(doc.id));
+                                  const url = await getKycDocumentUrl(doc.id);
+                                  if (!url) throw new Error('URL vide');
                                   setKycPreview({ url, doc });
-                                } catch { setKycPreview(null); }
+                                  setKycMsg(null);
+                                } catch (err) {
+                                  setKycPreview(null);
+                                  setKycMsg({ type: 'error', text: `Impossible d'ouvrir le document : ${err.message}` });
+                                }
                               }}
                               className="btn-icon text-accent-primary hover:bg-accent-primary/10"
                               title="Voir le document"
@@ -2886,7 +2892,7 @@ const SuperAdminDashboard = () => {
             <div className="p-4 border-b border-border-light flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-text-primary">
-                  {kycPreview.doc?.type === 'IDENTITY_CARD' ? "Pièce d'identité" : kycPreview.doc?.type === 'DRIVER_LICENSE' ? 'Permis de conduire' : 'Document KYC'}
+                  {kycPreview.doc?.type === 'IDENTITY_CARD' ? "Pièce d'identité" : kycPreview.doc?.type === 'DRIVER_LICENSE' ? 'Permis de conduire' : kycPreview.doc?.type === 'VEHICLE_REGISTRATION' ? 'Carte grise du véhicule' : 'Document KYC'}
                 </h3>
                 <p className="text-xs text-text-secondary">{kycPreview.doc?.ownerName || kycPreview.doc?.ownerEmail || ''}</p>
               </div>
@@ -2894,15 +2900,26 @@ const SuperAdminDashboard = () => {
                 <XCircle size={18} className="text-text-secondary" />
               </button>
             </div>
-            <div className="p-4 flex items-center justify-center bg-black/10" style={{ minHeight: '300px' }}>
+            <div className="p-4 flex flex-col items-center justify-center bg-black/10" style={{ minHeight: '300px' }}>
               {kycPreview.url ? (
                 kycPreview.doc?.mimeType?.startsWith('image/') ? (
-                  <img src={kycPreview.url} alt="Document KYC" className="max-w-full max-h-[70vh] object-contain rounded" />
+                  <img
+                    src={kycPreview.url}
+                    alt="Document KYC"
+                    className="max-w-full max-h-[70vh] object-contain rounded"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const err = document.createElement('p');
+                      err.className = 'text-status-error text-sm';
+                      err.textContent = 'Image introuvable ou URL expirée. Réessayez.';
+                      e.target.parentElement?.appendChild(err);
+                    }}
+                  />
                 ) : (
-                  <iframe src={kycPreview.url} className="w-full h-[70vh] rounded" title="Document KYC" />
+                  <iframe src={kycPreview.url} className="w-full h-[70vh] rounded bg-white" title="Document KYC" />
                 )
               ) : (
-                <p className="text-text-secondary">Chargement...</p>
+                <p className="text-text-secondary">Chargement…</p>
               )}
             </div>
             <div className="p-4 border-t border-border-light flex gap-3 justify-end">

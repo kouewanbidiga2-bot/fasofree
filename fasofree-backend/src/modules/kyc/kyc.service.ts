@@ -98,7 +98,13 @@ export class KycService {
     if (!document) throw new NotFoundException('Document KYC introuvable');
     if (!isAdmin && document.ownerId !== requesterId)
       throw new ForbiddenException('Accès refusé');
-    return { url: await this.storage.getSignedReadUrl(document.storageKey) };
+    return {
+      url: await this.storage.getSignedReadUrl(
+        document.storageKey,
+        300,
+        document.mimeType,
+      ),
+    };
   }
 
   async pending(): Promise<any[]> {

@@ -46,7 +46,7 @@ const ApplicationsDashboard = () => {
   const [selected, setSelected] = useState(null);
   const [kycDocs, setKycDocs] = useState(null);
   const [kycLoading, setKycLoading] = useState(false);
-  const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: null, title: '' });
+  const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: null, title: '', mimeType: '' });
   const [successModal, setSuccessModal] = useState({ isOpen: false, tempPassword: '' });
 
   const load = useCallback(async () => {
@@ -415,7 +415,7 @@ const ApplicationsDashboard = () => {
                         <span className="text-sm text-text-primary">{KYC_LABELS[doc.type] || doc.type}</span>
                         {doc.url ? (
                           <button
-                            onClick={() => setImageModal({ isOpen: true, imageUrl: doc.url, title: KYC_LABELS[doc.type] || doc.type })}
+                            onClick={() => setImageModal({ isOpen: true, imageUrl: doc.url, title: KYC_LABELS[doc.type] || doc.type, mimeType: doc.mimeType || '' })}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-accent-primary hover:underline"
                           >
                             <Eye size={12} /> Voir
@@ -475,17 +475,28 @@ const ApplicationsDashboard = () => {
             </div>
             <div className="p-4 flex items-center justify-center bg-background-secondary min-h-[400px]">
               {imageModal.imageUrl ? (
-                <img
-                  src={imageModal.imageUrl}
-                  alt={imageModal.title}
-                  className="max-w-full max-h-[70vh] object-contain rounded"
-                  onError={(e) => {
-                    e.target.src = '/placeholder-image.png';
-                    e.target.alt = 'Image non disponible';
-                  }}
-                />
+                imageModal.mimeType?.startsWith('image/') || (!imageModal.mimeType && !imageModal.imageUrl.endsWith('.pdf')) ? (
+                  <img
+                    src={imageModal.imageUrl}
+                    alt={imageModal.title}
+                    className="max-w-full max-h-[70vh] object-contain rounded"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const err = document.createElement('p');
+                      err.className = 'text-status-error text-sm';
+                      err.textContent = 'Image introuvable ou URL expirée. Réessayez.';
+                      e.target.parentElement?.appendChild(err);
+                    }}
+                  />
+                ) : (
+                  <iframe
+                    src={imageModal.imageUrl}
+                    className="w-full h-[70vh] rounded bg-white"
+                    title={imageModal.title}
+                  />
+                )
               ) : (
-                <p className="text-text-secondary">Image non disponible</p>
+                <p className="text-text-secondary">Document non disponible</p>
               )}
             </div>
             <div className="p-4 border-t bg-background-card">

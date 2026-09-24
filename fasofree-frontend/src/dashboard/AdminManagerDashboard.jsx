@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Layout, Shield, Users, Settings, LogOut,
   TrendingUp, Activity, AlertCircle,
-  BadgeCheck, RefreshCw, CheckCircle, XCircle, MessageSquare, Clock
+  BadgeCheck, RefreshCw, CheckCircle, XCircle, MessageSquare, Clock, Eye
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -21,7 +21,7 @@ import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getBusinesses } from '../services/subscriptionService';
 import { getUsers, getActiveConversations, getChatHistory } from '../services/usersService';
-import { getKycPending, approveKyc, rejectKyc } from '../services/kycService';
+import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
@@ -44,6 +44,7 @@ const AdminManagerDashboard = () => {
   const [kycPending, setKycPending] = useState([]);
   const [kycBusy, setKycBusy] = useState(null);
   const [kycMsg, setKycMsg] = useState(null);
+  const [kycPreview, setKycPreview] = useState(null);
 
   const [loading, setLoading] = useState({
     platform: true,
@@ -509,6 +510,24 @@ const AdminManagerDashboard = () => {
                         <td>
                           <div className="flex gap-2">
                             <button
+                              onClick={async () => {
+                                setKycMsg({ type: 'success', text: 'Chargement du document…' });
+                                try {
+                                  const url = await getKycDocumentUrl(doc.id);
+                                  if (!url) throw new Error('URL vide');
+                                  setKycPreview({ url, doc });
+                                  setKycMsg(null);
+                                } catch (err) {
+                                  setKycPreview(null);
+                                  setKycMsg({ type: 'error', text: `Impossible d'ouvrir le document : ${err.message}` });
+                                }
+                              }}
+                              className="btn-icon text-accent-primary hover:bg-accent-primary/10"
+                              title="Voir le document"
+                            >
+                              <Eye size={14} />
+                            </button>
+                            <button
                               onClick={() => handleApproveKyc(doc.id)}
                               disabled={kycBusy === doc.id}
                               className="btn-icon text-status-success hover:bg-status-successBg disabled:opacity-50"
@@ -745,6 +764,61 @@ const AdminManagerDashboard = () => {
             )}
           </div>
         )}
+
+      {/* Modal Preview KYC */}
+      {kycPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setKycPreview(null)}>
+          <div className="bg-background-card rounded-xl shadow-lg max-w-2xl w-full max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-border-light flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-text-primary">
+                  {kycPreview.doc?.type === 'IDENTITY_CARD' ? "Pièce d'identité" : kycPreview.doc?.type === 'DRIVER_LICENSE' ? 'Permis de conduire' : kycPreview.doc?.type === 'VEHICLE_REGISTRATION' ? 'Carte grise du véhicule' : 'Document KYC'}
+                </h3>
+                <p className="text-xs text-text-secondary">{kycPreview.doc?.ownerName || kycPreview.doc?.ownerEmail || ''}</p>
+              </div>
+              <button onClick={() => setKycPreview(null)} className="p-1 rounded-lg hover:bg-background-secondary">
+                <XCircle size={18} className="text-text-secondary" />
+              </button>
+            </div>
+            <div className="p-4 flex flex-col items-center justify-center bg-black/10" style={{ minHeight: '300px' }}>
+              {kycPreview.url ? (
+                kycPreview.doc?.mimeType?.startsWith('image/') ? (
+                  <img
+                    src={kycPreview.url}
+                    alt="Document KYC"
+                    className="max-w-full max-h-[70vh] object-contain rounded"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      const err = document.createElement('p');
+                      err.className = 'text-status-error text-sm';
+                      err.textContent = 'Image introuvable ou URL expirée. Réessayez.';
+                      e.target.parentElement?.appendChild(err);
+                    }}
+                  />
+                ) : (
+                  <iframe src={kycPreview.url} className="w-full h-[70vh] rounded bg-white" title="Document KYC" />
+                )
+              ) : (
+                <p className="text-text-secondary">Chargement…</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-border-light flex gap-3 justify-end">
+              <button
+                onClick={() => { handleRejectKyc(kycPreview.doc.id); setKycPreview(null); }}
+                className="btn-danger text-sm"
+              >
+                Rejeter
+              </button>
+              <button
+                onClick={() => { handleApproveKyc(kycPreview.doc.id); setKycPreview(null); }}
+                className="btn-primary text-sm"
+              >
+                Approuver
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </main>
     </div>
   );

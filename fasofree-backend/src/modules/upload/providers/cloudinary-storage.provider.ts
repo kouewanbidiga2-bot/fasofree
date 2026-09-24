@@ -14,7 +14,9 @@ import {
 } from '../interfaces/storage-driver.interface';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_PRIVATE_MIME_TYPES = [...ALLOWED_MIME_TYPES, 'application/pdf'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_PRIVATE_FILE_SIZE = 10 * 1024 * 1024; // 10 MB (KYC)
 
 @Injectable()
 export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
@@ -55,20 +57,22 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
 
   // ─── VALIDATION ─────────────────────────────────────────────────────────────
 
-  private validateFile(file: Express.Multer.File): void {
+  private validateFile(file: Express.Multer.File, isPrivate = false): void {
     if (!file) {
       throw new BadRequestException('Aucun fichier fourni');
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+    const allowed = isPrivate ? ALLOWED_PRIVATE_MIME_TYPES : ALLOWED_MIME_TYPES;
+    if (!allowed.includes(file.mimetype)) {
       throw new BadRequestException(
-        `Type de fichier non supporté: ${file.mimetype}. Formats acceptés: JPEG, PNG, WebP`,
+        `Type de fichier non supporté: ${file.mimetype}. Formats acceptés: JPEG, PNG, WebP${isPrivate ? ', PDF' : ''}`,
       );
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    const max = isPrivate ? MAX_PRIVATE_FILE_SIZE : MAX_FILE_SIZE;
+    if (file.size > max) {
       throw new BadRequestException(
-        `Fichier trop volumineux: ${(file.size / 1024 / 1024).toFixed(1)} Mo. Taille maximale: 5 Mo`,
+        `Fichier trop volumineux: ${(file.size / 1024 / 1024).toFixed(1)} Mo. Taille maximale: ${(max / 1024 / 1024).toFixed(0)} Mo`,
       );
     }
   }
@@ -83,19 +87,22 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
   ): Promise<{ secure_url: string; public_id: string }> {
     return new Promise((resolve, reject) => {
       const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-      const publicId = `${folder}/${uniqueSuffix}`;
+      // public_id est relatif au folder Cloudinary — pas de double path
+      const options: Record<string, unknown> = {
+        folder: `fasofree/${folder}`,
+        public_id: uniqueSuffix,
+        resource_type: resourceType,
+        type: accessType === 'private' ? 'private' : 'upload',
+        format: this.getFormat(file.mimetype),
+      };
+      if (resourceType === 'image') {
+        options.transformation = [
+          { quality: 'auto:good', fetch_format: 'auto' },
+        ];
+      }
 
       const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: `fasofree/${folder}`,
-          public_id: publicId,
-          resource_type: resourceType,
-          type: accessType === 'private' ? 'private' : 'upload',
-          format: this.getFormat(file.mimetype),
-          transformation: resourceType === 'image' ? [
-            { quality: 'auto:good', fetch_format: 'auto' },
-          ] : [],
-        },
+        options,
         (error, result) => {
           if (error) {
             reject(error);
@@ -154,7 +161,7 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
     file: Express.Multer.File,
     folder: string,
   ): Promise<UploadedFileResult> {
-    this.validateFile(file);
+    this.validateFile(file, true);
 
     try {
       const resourceType = file.mimetype === 'application/pdf' ? 'raw' : 'image';
@@ -178,16 +185,24 @@ export class CloudinaryStorageProvider implements IStorageDriver, OnModuleInit {
   /**
    * Génère une URL signée temporaire pour un document privé (KYC).
    * Valide 5 minutes par défaut.
+   * IMPORTANT : type doit correspondre au type d'upload ('private').
    */
-  async getSignedReadUrl(fileKey: string, expiresIn = 300): Promise<string> {
+  async getSignedReadUrl(fileKey: string, expiresIn = 300, mimeType?: string): Promise<string> {
     try {
+      // resource_type doit correspondre à l'upload : PDF → raw, sinon image
+      const isRaw =
+        mimeType === 'application/pdf' ||
+        /\.pdf$/i.test(fileKey);
+      const resourceType = isRaw ? 'raw' : 'image';
+
       const url = cloudinary.url(fileKey, {
-        type: 'authenticated',
-        resource_type: 'auto',
+        type: 'private',
+        resource_type: resourceType,
         sign_url: true,
         secure: true,
         expires_at: Math.floor(Date.now() / 1000) + expiresIn,
       });
+      this.logger.debug(`[Cloudinary] URL signée pour ${fileKey} (type=${resourceType})`);
       return url;
     } catch (error) {
       this.logger.error(`[Cloudinary] Échec URL signée (${fileKey}):`, error);

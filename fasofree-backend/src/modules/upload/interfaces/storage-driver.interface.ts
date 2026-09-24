@@ -16,7 +16,7 @@ export interface IStorageDriver {
     folder: string,
   ): Promise<UploadedFileResult>;
 
-  getSignedReadUrl(fileKey: string, expiresIn?: number): Promise<string>;
+  getSignedReadUrl(fileKey: string, expiresIn?: number, mimeType?: string): Promise<string>;
 
   deleteFile(fileKey: string): Promise<void>;
 }
