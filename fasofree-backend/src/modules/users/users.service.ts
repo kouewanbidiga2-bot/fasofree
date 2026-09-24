@@ -84,6 +84,16 @@ export class UsersService implements OnModuleInit {
         existing.passwordHash = await bcrypt.hash(password, salt);
         changed = true;
         this.logger.log(`[Bootstrap] SUPER_ADMIN passwordHash manquant → ré-haché`);
+      } else {
+        const passwordMatches = await bcrypt.compare(password, existing.passwordHash);
+        if (!passwordMatches) {
+          const salt = await bcrypt.genSalt(10);
+          existing.passwordHash = await bcrypt.hash(password, salt);
+          changed = true;
+          this.logger.log(
+            `[Bootstrap] SUPER_ADMIN passwordHash ne correspond pas à SUPER_ADMIN_PASSWORD → ré-haché`,
+          );
+        }
       }
 
       if (changed) {
