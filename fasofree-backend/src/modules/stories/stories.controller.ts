@@ -23,7 +23,20 @@ export class StoriesController {
   @ApiOperation({ summary: 'Get active stories grouped by business' })
   async getActiveStories(@Req() req: any) {
     const userId = req.user?.userId;
-    const stories = await this.storiesService.getActiveStories(userId);
+    const stories = await this.storiesService.getActiveStories(userId, {
+      role: req.user?.role,
+    });
+    return { success: true, data: stories };
+  }
+
+  @Get('mine')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({ summary: 'Get active stories for businesses I manage' })
+  async getMyStories(@Req() req: any) {
+    const stories = await this.storiesService.getActiveStories(req.user?.userId, {
+      mine: true,
+      role: req.user?.role,
+    });
     return { success: true, data: stories };
   }
 
@@ -73,7 +86,11 @@ export class StoriesController {
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Get story viewers (owner only)' })
   async getStoryViewers(@Param('id') id: string, @Req() req: any) {
-    const viewers = await this.storiesService.getStoryViewers(id, req.user.userId);
+    const viewers = await this.storiesService.getStoryViewers(
+      id,
+      req.user.userId,
+      req.user.role,
+    );
     return { success: true, data: viewers };
   }
 
@@ -81,7 +98,7 @@ export class StoriesController {
   @UseGuards(AuthGuard('jwt'))
   @ApiOperation({ summary: 'Delete a story (owner only)' })
   async deleteStory(@Param('id') id: string, @Req() req: any) {
-    await this.storiesService.deleteStory(id, req.user.userId);
+    await this.storiesService.deleteStory(id, req.user.userId, req.user.role);
     return { success: true };
   }
 }

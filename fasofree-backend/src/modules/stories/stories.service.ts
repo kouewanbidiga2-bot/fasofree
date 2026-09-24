@@ -1,6 +1,7 @@
 import { Injectable, Logger, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, In } from 'typeorm';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Story, StoryMediaType } from './entities/story.entity';
 import { StoryView } from './entities/story-view.entity';
 import { StoryLike } from './entities/story-like.entity';
@@ -70,16 +71,26 @@ export class StoriesService {
     return saved;
   }
 
-  async getActiveStories(userId?: string): Promise<any[]> {
+  async getActiveStories(userId?: string, options?: { mine?: boolean; role?: string }): Promise<any[]> {
     try {
     const now = new Date();
-    const stories = await this.storyRepository
+    const qb = this.storyRepository
       .createQueryBuilder('story')
       .leftJoinAndSelect('story.business', 'business')
       .leftJoinAndSelect('story.createdBy', 'createdBy')
-      .where('story.expiresAt > :now', { now })
-      .orderBy('story.createdAt', 'DESC')
-      .getMany();
+      .leftJoinAndSelect('business.brand', 'brand')
+      .where('story.expiresAt > :now', { now });
+
+    const mine = options?.mine === true;
+    const isSuperAdmin = options?.role === UserRole.SUPER_ADMIN;
+    if (mine && !isSuperAdmin && userId) {
+      qb.andWhere(
+        '(business.ownerId = :userId OR brand.ownerId = :userId OR story.createdById = :userId)',
+        { userId },
+      );
+    }
+
+    const stories = await qb.orderBy('story.createdAt', 'DESC').getMany();
 
     const storyIds = stories.map((s) => s.id);
 
@@ -179,6 +190,7 @@ export class StoriesService {
   async unlikeStory(storyId: string, userId: string): Promise<{ liked: boolean; likesCount: number }> {
     const story = await this.storyRepository.findOne({ where: { id: storyId } });
     if (!story) throw new NotFoundException('Story introuvable');
+    if (new Date() > story.expiresAt) throw new BadRequestException('Story expiree');
 
     const existing = await this.storyLikeRepository.findOne({
       where: { storyId, userId },
@@ -194,16 +206,31 @@ export class StoriesService {
     return { liked: false, likesCount: Math.max(0, story.likesCount - 1) };
   }
 
-  async getStoryViewers(storyId: string, ownerId: string): Promise<any[]> {
+  private async assertCanManageStory(storyId: string, userId: string, role?: string): Promise<Story> {
     const story = await this.storyRepository.findOne({
       where: { id: storyId },
     });
     if (!story) {
       throw new BadRequestException('Story not found');
     }
-    if (story.createdById !== ownerId) {
-      throw new ForbiddenException('Only the story owner can see viewers');
+    if (role === UserRole.SUPER_ADMIN || story.createdById === userId) {
+      return story;
     }
+
+    const owned = await this.businessRepository
+      .createQueryBuilder('biz')
+      .leftJoin('biz.brand', 'brand')
+      .where('biz.id = :businessId', { businessId: story.businessId })
+      .andWhere('(biz.ownerId = :userId OR brand.ownerId = :userId)', { userId })
+      .getOne();
+    if (!owned) {
+      throw new ForbiddenException('Action reservee au proprietaire de la story');
+    }
+    return story;
+  }
+
+  async getStoryViewers(storyId: string, userId: string, role?: string): Promise<any[]> {
+    await this.assertCanManageStory(storyId, userId, role);
 
     const views = await this.storyViewRepository
       .createQueryBuilder('view')
@@ -220,19 +247,12 @@ export class StoriesService {
     }));
   }
 
-  async deleteStory(storyId: string, ownerId: string): Promise<void> {
-    const story = await this.storyRepository.findOne({
-      where: { id: storyId },
-    });
-    if (!story) {
-      throw new BadRequestException('Story not found');
-    }
-    if (story.createdById !== ownerId) {
-      throw new ForbiddenException('Only the story owner can delete it');
-    }
+  async deleteStory(storyId: string, userId: string, role?: string): Promise<void> {
+    const story = await this.assertCanManageStory(storyId, userId, role);
     await this.storyRepository.remove(story);
   }
 
+  @Cron(CronExpression.EVERY_HOUR)
   async cleanupExpiredStories(): Promise<number> {
     const now = new Date();
     const expired = await this.storyRepository.find({

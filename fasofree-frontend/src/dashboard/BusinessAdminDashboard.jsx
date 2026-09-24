@@ -453,7 +453,7 @@ const BusinessAdminDashboard = () => {
   const loadStories = useCallback(async () => {
     setStoriesLoading(true);
     try {
-      const res = await api.get('/stories');
+      const res = await api.get('/stories/mine');
       const groups = res?.data?.data ?? res?.data ?? [];
       setStories(Array.isArray(groups) ? groups : []);
     } catch {
@@ -1449,8 +1449,8 @@ const BusinessAdminDashboard = () => {
               ) : stories.length === 0 ? (
                 <div className="card p-12 text-center">
                   <Camera size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
-                  <p className="text-text-secondary text-sm font-medium">Aucune story active</p>
-                  <p className="text-text-tertiary text-xs mt-1">Les stories durent 24 h et apparaissent sur l'accueil client.</p>
+                  <p className="text-text-secondary text-sm font-medium">Aucune story active sur vos agences</p>
+                  <p className="text-text-tertiary text-xs mt-1">Vos stories durent 24 h et apparaissent sur l'accueil client.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
