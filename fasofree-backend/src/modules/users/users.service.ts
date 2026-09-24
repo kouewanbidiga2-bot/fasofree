@@ -96,19 +96,35 @@ export class UsersService implements OnModuleInit {
         }
       }
 
+      if (!existing.isActive) {
+        existing.isActive = true;
+        changed = true;
+      }
+      if (!existing.isEmailVerified) {
+        existing.isEmailVerified = true;
+        changed = true;
+      }
+      if (existing.role !== UserRole.SUPER_ADMIN) {
+        existing.role = UserRole.SUPER_ADMIN;
+        changed = true;
+      }
+
       if (changed) {
         await this.userRepository.save(existing);
       }
       return;
     }
 
-    await this.create({
+    const created = await this.create({
       email,
       password,
       role: UserRole.SUPER_ADMIN,
       fullName,
       phone,
     });
+    created.isActive = true;
+    created.isEmailVerified = true;
+    await this.userRepository.save(created);
     this.logger.log(
       `[Bootstrap] Compte SUPER_ADMIN initial créé : ${email}`,
     );
