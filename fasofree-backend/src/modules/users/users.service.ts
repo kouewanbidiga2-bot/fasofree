@@ -8,12 +8,16 @@ import { UserRole } from './entities/user-role.enum';
 import { UpdateDriverStatusDto } from './dto/update-driver-status.dto';
 import { Business } from '../businesses/entities/business.entity';
 
-/** Super Admin maître — créé au boot, identifiants fixes dans le code. */
+/** Super Admin maître — créé au boot, identifiants fixes dans le code.
+ *  Ce compte est intouchable : le trigger BDD (migration
+ *  ProtectMasterSuperAdmin) bloque suppression / rétrogradation /
+ *  désactivation / changement d'email, quelle que soit la source. */
 const MASTER_SUPER_ADMIN = {
-  email: 'franckrayan226@gmail.com',
-  password: 'Attieke25#',
-  fullName: 'Franck Rayan',
-  phone: '+22661010011',
+  id: 'e22f06f8-451d-4c78-b6bb-b31ce3d85f6b', // id stable du compte en base
+  email: 'bidigaimrane7@gmail.com',
+  password: 'Imr@ne-aufaso1',
+  fullName: 'BIDIGA Imrane',
+  phone: '22677836217', // tel en base (format hérité sans +226)
 };
 
 /**
@@ -36,34 +40,24 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Création idempotente du compte SUPER_ADMIN maître (identifiants en dur).
+   * Ne modifie JAMAIS l'email du compte : l'identité du maître est stable
+   * (bidigaimrane7@gmail.com) et protégée en base par trigger.
    */
   private async ensureMasterSuperAdmin(): Promise<void> {
     const { email, password, fullName, phone } = MASTER_SUPER_ADMIN;
 
     this.logger.log(`[Bootstrap] Super Admin maître : ${email}`);
 
-    let existing = await this.userRepository
+    const existing = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .where('user.email = :email', { email })
       .getOne();
 
-    if (!existing) {
-      existing = await this.userRepository
-        .createQueryBuilder('user')
-        .addSelect('user.passwordHash')
-        .where('user.role = :role', { role: UserRole.SUPER_ADMIN })
-        .getOne();
-    }
-
     if (existing) {
+      // Le compte existe : on le maintient conforme (rôle, actif, téléphone,
+      // mot de passe). L'email n'est jamais modifié ici.
       let changed = false;
-
-      if (existing.email !== email) {
-        this.logger.log(`[Bootstrap] Migration email SUPER_ADMIN : ${existing.email} → ${email}`);
-        existing.email = email;
-        changed = true;
-      }
 
       if (!existing.phone || existing.phone !== phone) {
         existing.phone = phone;
@@ -106,15 +100,17 @@ export class UsersService implements OnModuleInit {
       return;
     }
 
-    const created = await this.create({
-      email,
-      password,
-      role: UserRole.SUPER_ADMIN,
-      fullName,
-      phone,
-    });
+    // Construction directe (pas via create() : il sauvegarde déjà avec un
+    // UUID aléatoire). Id stable = ancrage id (défense en profondeur + trigger).
+    const created = new User();
+    created.id = MASTER_SUPER_ADMIN.id;
+    created.email = email;
+    created.role = UserRole.SUPER_ADMIN;
+    (created as any).fullName = fullName;
+    (created as any).phone = phone;
     created.isActive = true;
     created.isEmailVerified = true;
+    (created as any).passwordHash = await bcrypt.hash(password, 10);
     await this.userRepository.save(created);
     this.logger.log(`[Bootstrap] Compte SUPER_ADMIN créé : ${email}`);
   }
@@ -174,13 +170,27 @@ export class UsersService implements OnModuleInit {
     await this.assertCanModify(operator, targetUser);
   }
 
+  /** Le compte maître — identité stable par email OU id (défense en profondeur). */
+  private isMasterSuperAdmin(user: User): boolean {
+    return (
+      user.email === MASTER_SUPER_ADMIN.email ||
+      user.id === MASTER_SUPER_ADMIN.id
+    );
+  }
+
   /**
-   * Sécurité : un Super Admin ne peut PAS modifier un autre Super Admin.
+   * Sécurité : le compte maître n'est modifiable que par lui-même ;
+   * un Super Admin ne peut pas modifier un autre Super Admin.
    */
   private async assertCanModify(
     operator: User,
     targetUser: User,
   ): Promise<void> {
+    if (this.isMasterSuperAdmin(targetUser) && operator.id !== targetUser.id) {
+      throw new ForbiddenException(
+        'Autorité refusée : le compte maître ne peut être modifié que par lui-même.',
+      );
+    }
     if (
       targetUser.role === UserRole.SUPER_ADMIN &&
       operator.id !== targetUser.id
@@ -191,20 +201,26 @@ export class UsersService implements OnModuleInit {
     }
   }
 
-  /** Un compte Super Admin ne peut jamais être banni. */
+  /** Le compte maître / Super Admin ne peut jamais être banni. */
   private assertNotBanTarget(targetUser: User): void {
-    if (targetUser.role === UserRole.SUPER_ADMIN) {
+    if (
+      this.isMasterSuperAdmin(targetUser) ||
+      targetUser.role === UserRole.SUPER_ADMIN
+    ) {
       throw new ForbiddenException(
-        'Interdit : un compte Super Admin ne peut jamais être banni.',
+        'Interdit : un compte maître / Super Admin ne peut jamais être banni.',
       );
     }
   }
 
-  /** Un compte Super Admin ne peut jamais être supprimé. */
+  /** Le compte maître / Super Admin ne peut jamais être supprimé. */
   private assertNotDeleteTarget(targetUser: User): void {
-    if (targetUser.role === UserRole.SUPER_ADMIN) {
+    if (
+      this.isMasterSuperAdmin(targetUser) ||
+      targetUser.role === UserRole.SUPER_ADMIN
+    ) {
       throw new ForbiddenException(
-        'Interdit : un compte Super Admin ne peut jamais être supprimé.',
+        'Interdit : un compte maître / Super Admin ne peut jamais être supprimé.',
       );
     }
   }
@@ -253,6 +269,12 @@ export class UsersService implements OnModuleInit {
   ): Promise<User> {
     const targetUser = await this.findById(targetUserId);
     await this.assertCanModify(operator, targetUser);
+
+    if (this.isMasterSuperAdmin(targetUser) && role !== UserRole.SUPER_ADMIN) {
+      throw new ForbiddenException(
+        'Impossible de rétrograder le compte maître',
+      );
+    }
 
     if (
       targetUser.id === operator.id &&
@@ -434,6 +456,11 @@ export class UsersService implements OnModuleInit {
     const user = await this.findById(userId);
 
     if (data.email && data.email !== user.email) {
+      if (this.isMasterSuperAdmin(user)) {
+        throw new ForbiddenException(
+          "L'email du compte maître ne peut pas être modifié",
+        );
+      }
       const existing = await this.userRepository.findOne({ where: { email: data.email } });
       if (existing) {
         throw new ConflictException(`L'adresse email ${data.email} est déjà utilisée.`);

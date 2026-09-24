@@ -22,8 +22,8 @@ export class ResetSuperAdminCommand {
     describe: 'Crée ou réinitialise de force le compte Super Admin maître',
   })
   async run(): Promise<void> {
-    const masterEmail = 'franckrayan226@gmail.com';
-    const masterPassword = 'Attieke25#';
+    const masterEmail = 'bidigaimrane7@gmail.com';
+    const masterPassword = 'Imr@ne-aufaso1';
 
     const passwordHash = await bcrypt.hash(masterPassword, BCRYPT_ROUNDS);
     let user = await this.userRepository.findOne({
@@ -33,8 +33,8 @@ export class ResetSuperAdminCommand {
     if (!user) {
       user = this.userRepository.create({
         email: masterEmail,
-        fullName: 'Franck Rayan',
-        phone: '+22661010011',
+        fullName: 'BIDIGA Imrane',
+        phone: '22677836217',
         passwordHash,
         // ✅ FIX #38 : plus de mot de passe en clair en base
         role: UserRole.SUPER_ADMIN,
