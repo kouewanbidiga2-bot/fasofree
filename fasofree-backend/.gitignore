@@ -1,6 +1,7 @@
 coverage/
 .env.local
 .DS_Store
+db_*_tmp.js
 node_modules/
 dist/
 .env
