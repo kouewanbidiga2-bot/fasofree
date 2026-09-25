@@ -7,11 +7,16 @@ export class WhatsAppService {
   private readonly accessToken: string;
   private readonly phoneNumberId: string;
   private readonly apiUrl: string;
+  private readonly adminUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.accessToken = this.configService.get<string>('WHATSAPP_ACCESS_TOKEN', '');
     this.phoneNumberId = this.configService.get<string>('WHATSAPP_PHONE_NUMBER_ID', '');
     this.apiUrl = `https://graph.facebook.com/v21.0/${this.phoneNumberId}/messages`;
+    this.adminUrl = (
+      this.configService.get<string>('ADMIN_URL', 'https://admin.fasofree.site') ||
+      'https://admin.fasofree.site'
+    ).replace(/\/+$/, '');
 
     if (this.accessToken && this.phoneNumberId) {
       this.logger.log('[WhatsApp] Meta Cloud API configuré');
@@ -151,8 +156,8 @@ export class WhatsAppService {
       `Félicitations ! Votre candidature de *${roleLabel}* a été *approuvée*.\n\n` +
       `📧 Email : (votre email)\n` +
       `🔑 Mot de passe temporaire : *${tempPassword}*\n\n` +
-      `Connectez-vous dès maintenant et changez votre mot de passe.\n\n` +
-      `👉 https://fasofree.site`;
+      `Connectez-vous dès maintenant sur votre espace admin et changez votre mot de passe.\n\n` +
+      `👉 ${this.adminUrl}`;
     return this.sendTextMessage(phone, text);
   }
 

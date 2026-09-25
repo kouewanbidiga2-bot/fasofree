@@ -137,6 +137,14 @@ const Register = () => {
     if (activeTab === 'driver' && !formData.vehicleType) {
       newErrors.vehicleType = 'Choisissez votre type de véhicule';
     }
+    // Pièces obligatoires : l'administration ne peut approuver la candidature
+    // sans elles, une demande incomplète ne serait donc jamais activable.
+    if (!files.identityCard) {
+      newErrors.identityCard = 'La pièce d’identité (CNI / passeport) est obligatoire';
+    }
+    if (activeTab === 'driver' && !files.driverLicense) {
+      newErrors.driverLicense = 'Le permis de conduire est obligatoire';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -578,6 +586,7 @@ const Register = () => {
                     field="identityCard"
                     label={KYC_LABELS.identityCard}
                     required
+                    error={errors.identityCard}
                     file={files.identityCard}
                     onChange={(file) => setFiles((f) => ({ ...f, identityCard: file }))}
                   />
@@ -593,12 +602,16 @@ const Register = () => {
                   <KycFilePicker
                     field="driverLicense"
                     label={KYC_LABELS.driverLicense}
+                    required
+                    error={errors.driverLicense}
                     file={files.driverLicense}
                     onChange={(file) => setFiles((f) => ({ ...f, driverLicense: file }))}
                   />
                   <KycFilePicker
                     field="identityCard"
                     label={KYC_LABELS.identityCard}
+                    required
+                    error={errors.identityCard}
                     file={files.identityCard}
                     onChange={(file) => setFiles((f) => ({ ...f, identityCard: file }))}
                   />
@@ -721,7 +734,7 @@ const Register = () => {
   );
 };
 
-const KycFilePicker = ({ label, required, file, onChange, accept = 'image/*,.pdf' }) => {
+const KycFilePicker = ({ label, required, error, file, onChange, accept = 'image/*,.pdf' }) => {
   const id = `kyc-${label.toLowerCase().replace(/[^a-z]+/g, '-')}`;
   return (
     <div>
@@ -744,6 +757,7 @@ const KycFilePicker = ({ label, required, file, onChange, accept = 'image/*,.pdf
         className="hidden"
         onChange={(e) => onChange(e.target.files?.[0] || null)}
       />
+      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>
   );
 };
