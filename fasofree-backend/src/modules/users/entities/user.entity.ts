@@ -44,8 +44,10 @@ export class User {
   @Column({ type: 'varchar', unique: true, length: 150 })
   email: string;
 
-  @Column({ type: 'varchar', unique: true, length: 20 })
-  phone: string;
+  // Nullable : un compte peut n'avoir que son email (ex. superadmin
+  // collaborateur, aucun numéro libre — l'unicité reste sur la colonne).
+  @Column({ type: 'varchar', unique: true, length: 20, nullable: true })
+  phone: string | null;
 
   // 💰 NUMÉRO MOBILE MONEY DÉDIÉ AUX PAIEMENTS (retraits / dépôts)
   // Séparé du numéro de contact (phone) pour éviter les conflits.

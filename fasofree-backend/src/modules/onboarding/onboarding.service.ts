@@ -214,7 +214,7 @@ export class OnboardingService {
       {
         name: data.businessName || user.fullName,
         address: data.businessAddress || 'Ouagadougou',
-        phone: user.phone,
+        phone: user.phone || '',
         latitude:
           typeof data.latitude === 'number' ? data.latitude : 12.3714,
         longitude:

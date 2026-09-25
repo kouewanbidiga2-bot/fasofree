@@ -26,8 +26,9 @@ const MASTER_SUPER_ADMIN = {
  *  EnforceSuperAdminSet) : l'ensemble des super admins est fixé à 2 comptes. */
 const COLLABORATOR_SUPER_ADMIN = {
   email: 'franckrayan226@gmail.com',
-  legacyEmail: 'franckbado45@gmail.com', // ancien identifiant (adoption au boot)
+  password: 'Attieke25#',
   fullName: 'BADO Franck Rayan',
+  phone: null as string | null, // aucun numéro libre (unicité portée par le marchand)
 };
 
 /**
@@ -128,17 +129,18 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Compte collaborateur (Franck Rayan Bado) — identité fixe dans le code
-   * (email + nom), maintenue à chaque boot.
-   * - Ne renomme JAMAIS un compte existant : il ré-adopte seulement l'ancien
-   *   email connu du collaborateur (legacyEmail) s'il survit en base.
-   * - Ne crée pas de compte sans mot de passe : si le collaborateur est
-   *   absent, il est signalé (l'administrateur le recrée si besoin).
+   * (email + nom + mot de passe), maintenu à chaque boot.
+   * - Recréé s'il a été supprimé : identifiants fixes, mot de passe identique à
+   *   celui en vigueur, téléphone null (voir migration 1728500000000).
+   * - Ne renomme JAMAIS un compte existant : en particulier
+   *   franckbado45@gmail.com est la candidature marchand « la notche » et ne
+   *   doit jamais être ré-adoptée comme collaborateur.
    * - Ne force ni role ni isActive : le rôle et la permanence sont verrouillés
    *   par le trigger BDD EnforceSuperAdminSet (inrétrogradable, in-supprimable).
    * - Ne touche jamais au compte maître ni à aucun autre compte.
    */
   private async ensureCollaboratorAccount(): Promise<void> {
-    const { email, legacyEmail, fullName } = COLLABORATOR_SUPER_ADMIN;
+    const { email, password, fullName, phone } = COLLABORATOR_SUPER_ADMIN;
 
     const existing = await this.userRepository.findOne({ where: { email } });
     if (existing) {
@@ -149,37 +151,25 @@ export class UsersService implements OnModuleInit {
       } else {
         this.logger.log(`[Bootstrap] Collaborateur déjà conforme : ${email}`);
       }
-      // Si l'ancien compte coexiste encore, il devient un doublon fantôme.
-      const ghost = await this.userRepository.findOne({
-        where: { email: legacyEmail },
-      });
-      if (ghost) {
-        this.logger.warn(
-          `[Bootstrap] Ancien compte collaborateur encore présent (${legacyEmail}) — doublon à supprimer manuellement.`,
-        );
-      }
       return;
     }
 
-    // Ancien identifiant du collaborateur (avant renommage) : on ré-adopte ce
-    // compte, sans en créer un nouveau. Le trigger maître ne s'applique pas à
-    // ce compte (email distinct).
-    const legacy = await this.userRepository.findOne({
-      where: { email: legacyEmail },
+    const salt = await bcrypt.genSalt(10);
+    const user = this.userRepository.create({
+      email,
+      fullName,
+      phone,
+      passwordHash: await bcrypt.hash(password, salt),
+      role: UserRole.SUPER_ADMIN,
+      isActive: true,
+      isEmailVerified: true,
+      isPhoneVerified: false,
+      applicationStatus: null,
+      applicationType: null,
+      applicationData: null,
     });
-    if (legacy) {
-      legacy.email = email;
-      legacy.fullName = fullName;
-      await this.userRepository.save(legacy);
-      this.logger.log(
-        `[Bootstrap] Collaborateur adopté (ex ${legacyEmail}) : ${email}`,
-      );
-      return;
-    }
-
-    this.logger.warn(
-      `[Bootstrap] Collaborateur introuvable (${email}) — il sera pris en charge à sa création.`,
-    );
+    await this.userRepository.save(user);
+    this.logger.log(`[Bootstrap] Compte collaborateur recréé : ${email}`);
   }
 
   // 👤 Obtenir un utilisateur par son ID
