@@ -448,7 +448,7 @@ export class UsersService implements OnModuleInit {
   /**
    * 🔑 Réinitialisation du mot de passe : générer un token de réinitialisation.
    */
-  async generatePasswordResetToken(email: string): Promise<{ token: string } | null> {
+  async generatePasswordResetToken(email: string): Promise<{ token: string; fullName: string } | null> {
     const user = await this.userRepository.findOne({ where: { email } });
     if (!user) {
       // Ne pas révéler si l'email existe ou non (sécurité)
@@ -462,7 +462,7 @@ export class UsersService implements OnModuleInit {
     (user as any).passwordResetExpires = expires;
     await this.userRepository.save(user);
 
-    return { token };
+    return { token, fullName: user.fullName || email };
   }
 
   /**

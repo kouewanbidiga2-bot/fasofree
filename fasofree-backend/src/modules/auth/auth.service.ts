@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, UnauthorizedException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -18,6 +19,7 @@ import { KycService } from '../kyc/kyc.service';
 import { KycDocumentType } from '../kyc/entities/kyc-document.entity';
 import { UsersService } from '../users/users.service';
 import { OtpService } from '../otp/otp.service';
+import { EmailService } from '../notifications/email.service';
 
 /** Champs fichiers KYC acceptés dans la candidature multipart */
 const KYC_FILE_FIELDS: Record<string, KycDocumentType> = {
@@ -43,6 +45,8 @@ export class AuthService {
     private readonly kycService: KycService,
     private readonly usersService: UsersService,
     private readonly otpService: OtpService,
+    private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) {}
 
   // 📝 1. Inscription d'un nouvel utilisateur
@@ -373,11 +377,30 @@ export class AuthService {
   // 🔑 5. Demande de réinitialisation du mot de passe
   async forgotPassword(email: string): Promise<void> {
     const result = await this.usersService.generatePasswordResetToken(email);
-    if (result) {
-      // TODO: envoyer un email avec le lien de réinitialisation
-      this.logger.log(`Token de réinitialisation généré pour ${email}`);
+    if (!result) {
+      // Ne jamais révéler si l'email existe ou non (sécurité)
+      return;
     }
-    // Ne jamais révéler si l'email existe ou non
+
+    const base = (
+      this.configService.get<string>('CLIENT_URL') || 'https://www.fasofree.site'
+    ).replace(/\/+$/, '');
+    const resetUrl = `${base}/auth?token=${result.token}`;
+
+    try {
+      const sent = await this.emailService.sendPasswordResetEmail(
+        email,
+        result.fullName,
+        resetUrl,
+      );
+      if (sent) {
+        this.logger.log(`Email de réinitialisation envoyé à ${email}`);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Échec envoi email réinitialisation pour ${email}: ${(err as Error).message}`,
+      );
+    }
   }
 
   // 🔑 6. Réinitialiser le mot de passe avec le token

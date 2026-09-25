@@ -13,6 +13,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { KycModule } from '../kyc/kyc.module';
 import { UsersModule } from '../users/users.module';
 import { OtpModule } from '../otp/otp.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { VerifiedGuard } from './guards/verified.guard';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
@@ -63,6 +64,8 @@ function normalizeExpiresIn(
     KycModule,
     UsersModule,
     OtpModule,
+    // Email (réinitialisation mot de passe, OTP, approbation)
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, VerifiedGuard],
