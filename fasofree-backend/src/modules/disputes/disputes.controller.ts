@@ -17,6 +17,7 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { ReviewDisputeDto } from './dto/review-dispute.dto';
 import { SendDisputeMessageDto } from './dto/send-dispute-message.dto';
+import { MerchantRefundDto } from './dto/merchant-refund.dto';
 import { ListDisputesQueryDto } from './dto/list-disputes-query.dto';
 import { DisputeResolution } from './entities/dispute.entity';
 import { DisputesService } from './disputes.service';
@@ -68,6 +69,16 @@ export class DisputesController {
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   list(@Query() query: ListDisputesQueryDto) {
     return this.disputes.list(query.status);
+  }
+
+  @Get('business')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN)
+  @ApiOperation({
+    summary: 'Liste des litiges des commerces du gérant (multi-agences)',
+  })
+  listForBusiness(@Request() req: AuthRequest) {
+    return this.disputes.listForBusiness(req.user.userId);
   }
 
   @Get(':id')
@@ -167,6 +178,26 @@ export class DisputesController {
     @Request() req: AuthRequest,
   ) {
     return this.disputes.rejectDispute(id, req.user.userId, dto.note);
+  }
+
+  @Post(':id/merchant-refund')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.BUSINESS_ADMIN)
+  @ApiOperation({
+    summary:
+      'Rembourser un litige de son commerce (décision du gérant, montant = total de la commande)',
+  })
+  merchantRefund(
+    @Param('id') id: string,
+    @Body() dto: MerchantRefundDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.disputes.merchantRefund(
+      id,
+      req.user.userId,
+      req.user.role,
+      dto.note,
+    );
   }
 
   @Post(':id/review')

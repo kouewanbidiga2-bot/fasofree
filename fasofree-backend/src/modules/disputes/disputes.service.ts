@@ -173,6 +173,30 @@ export class DisputesService {
     return this.enrich(disputes);
   }
 
+  /**
+   * 🏪 Litiges des commerces gérés par un gérant (multi-agences).
+   * Filtrage côté serveur par commande : le gérant ne voit QUE les litiges
+   * de ses propres commerces, jamais les autres.
+   */
+  async listForBusiness(merchantId: string): Promise<Dispute[]> {
+    const businesses = await this.businessesService.findAllByOwner(merchantId);
+    if (!businesses.length) return [];
+    const businessIds = businesses.map((b) => b.id);
+
+    // Une seule requête JOIN disputes → orders filtrée par businessId, bornée
+    // à 200 litiges (les litiges actifs d'un commerce sont peu nombreux).
+    const disputes = await this.dataSource
+      .getRepository(Dispute)
+      .createQueryBuilder('d')
+      .innerJoin(Order, 'o', 'o.id = d.orderId')
+      .where('o.businessId IN (:...businessIds)', { businessIds })
+      .orderBy('d.createdAt', 'DESC')
+      .take(200)
+      .getMany();
+
+    return this.enrich(disputes);
+  }
+
   async getForClient(id: string, clientId: string): Promise<Dispute> {
     const dispute = await this.dataSource
       .getRepository(Dispute)
@@ -620,6 +644,207 @@ export class DisputesService {
       } catch (walletError) {
         this.logger.error(
           `[Dispute Refund Error] Erreur lors du crédit du wallet: ${walletError.message}`,
+        );
+        // Ne pas échouer toute la transaction si le wallet échoue
+        // Le remboursement sera traité manuellement
+      }
+
+      return saved;
+    } catch (error) {
+      await runner.rollbackTransaction();
+      throw error;
+    } finally {
+      await runner.release();
+      if (resolvedEvent) this.events.emit(DISPUTE_RESOLVED, resolvedEvent);
+    }
+  }
+
+  /**
+   * 💸 Remboursement décidé par le gérant du commerce (seul).
+   * - Uniquement sur les commandes de SES commerces (assertManagedBy).
+   * - Uniquement si le litige est OPEN ou UNDER_INVESTIGATION : aucune décision
+   *   support/admin déjà engagée (PENDING_ADMIN_APPROVAL → conflit).
+   * - Montant borné au total de la commande (pas de sur-remboursement).
+   * - Versement marchand déjà exécuté (payout SUCCESS) → escalade au circuit
+   *   admin (PENDING_ADMIN_APPROVAL) : pas de double paiement.
+   * - Commande → REFUNDED, wallet client crédité, traçabilité conservée
+   *   (merchantRefundedBy / merchantRefundedAt / merchantNote).
+   *
+   * Économie : le client est crédité du total de la commande sans débit du
+   * wallet marchand — le coût est porté par la trésorerie plateforme (même
+   * choix que approveRefund). Décision produit assumée, documentée ici.
+   */
+  async merchantRefund(
+    id: string,
+    merchantId: string,
+    role: string,
+    note?: string,
+  ): Promise<Dispute> {
+    const runner = this.dataSource.createQueryRunner();
+    await runner.connect();
+    await runner.startTransaction();
+    let resolvedEvent: DisputeResolvedEvent | undefined;
+
+    try {
+      // Lecture sans verrou pour récupérer l'orderId, puis verrouillage
+      // ORDER → DISPUTE → TRANSACTION (aligné sur open(), évite le deadlock
+      // 40P01 entre open() et merchantRefund).
+      const disputeRef = await runner.manager.findOne(Dispute, {
+        where: { id },
+      });
+      if (!disputeRef) throw new NotFoundException('Litige introuvable');
+
+      const order = await runner.manager.findOne(Order, {
+        where: { id: disputeRef.orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!order) throw new NotFoundException('Commande associée introuvable');
+      if (!order.businessId) {
+        throw new ForbiddenException(
+          "Cette commande n'est pas liée à un commerce",
+        );
+      }
+
+      const dispute = await runner.manager.findOne(Dispute, {
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!dispute) throw new NotFoundException('Litige introuvable');
+
+      // 🔐 Le gérant ne peut rembourser que les commandes de ses commerces.
+      const normalizedRole = role.toLowerCase();
+      await this.businessesService.assertManagedBy(
+        order.businessId,
+        merchantId,
+        normalizedRole as UserRole,
+      );
+
+      if (
+        dispute.status !== DisputeStatus.OPEN &&
+        dispute.status !== DisputeStatus.UNDER_INVESTIGATION
+      ) {
+        throw new ConflictException(
+          'Ce litige a déjà reçu une décision (support ou admin)',
+        );
+      }
+
+      const transaction = await runner.manager.findOne(Transaction, {
+        where: { orderId: order.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!transaction || transaction.status !== TransactionStatus.SUCCESS) {
+        throw new BadRequestException(
+          "Aucun paiement remboursable n'est associé à cette commande",
+        );
+      }
+
+      // 🔒 Montant borné au total de la commande (pas de sur-remboursement).
+      const refundAmount = Number(order.totalAmount);
+      if (!Number.isFinite(refundAmount) || refundAmount <= 0) {
+        throw new BadRequestException(
+          'Le montant de la commande est invalide pour un remboursement',
+        );
+      }
+
+      // 🚫 Un payout en attente ou en échec est re-bloqué : empêche qu'un
+      // retry post-remboursement verse le marchand alors que le client est
+      // déjà remboursé.
+      const payout = await runner.manager.findOne(MerchantPayout, {
+        where: { orderId: order.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        payout &&
+        [
+          PayoutStatus.PENDING,
+          PayoutStatus.PROCESSING,
+          PayoutStatus.FAILED,
+        ].includes(payout.status)
+      ) {
+        payout.status = PayoutStatus.BLOCKED;
+        payout.failureReason =
+          'Bloqué : remboursement décidé par le gérant du commerce';
+        await runner.manager.save(payout);
+      }
+
+      // 💰 Versement marchand déjà exécuté : un remboursement auto-servi ferait
+      // doubler le paiement (le gérant garde le virement ET le client est
+      // crédité). La demande remonte au circuit admin pour arbitrage.
+      if (payout?.status === PayoutStatus.SUCCESS) {
+        dispute.status = DisputeStatus.PENDING_ADMIN_APPROVAL;
+        dispute.resolution = DisputeResolution.REFUND;
+        dispute.refundAmount = refundAmount;
+        dispute.merchantNote =
+          note?.trim() ||
+          'Remboursement demandé par le gérant du commerce (versement marchand déjà exécuté)';
+        const escalated = await runner.manager.save(dispute);
+        await runner.commitTransaction();
+        this.logger.log(
+          `[Dispute Merchant Refund] Litige #${id} réorienté vers le circuit admin (commerce déjà payé)`,
+        );
+        return escalated;
+      }
+
+      order.status = OrderStatus.REFUNDED;
+      await runner.manager.save(order);
+
+      transaction.status = TransactionStatus.REFUND_PENDING;
+      await runner.manager.save(transaction);
+
+      dispute.status = DisputeStatus.APPROVED;
+      dispute.resolution = DisputeResolution.REFUND;
+      dispute.refundAmount = refundAmount;
+      // La note du gérant va dans merchantNote (son canal), jamais dans
+      // adminNote (audit de l'administration).
+      dispute.merchantNote =
+        note?.trim() || 'Remboursé par le gérant du commerce';
+      dispute.merchantRefundedBy = merchantId;
+      dispute.merchantRefundedAt = new Date();
+      dispute.resolvedAt = new Date();
+      const saved = await runner.manager.save(dispute);
+
+      await runner.commitTransaction();
+
+      // Événement émis UNIQUEMENT après commit réussi.
+      resolvedEvent = {
+        disputeId: dispute.id,
+        orderId: order.id,
+        clientId: order.clientId,
+        businessId: order.businessId ?? null,
+        resolution: DisputeResolution.REFUND,
+      };
+
+      // 💳 Créditer le wallet du client (hors transaction pour éviter deadlock)
+      try {
+        const { wallet } = await this.walletService.creditWallet(
+          order.clientId,
+          WalletUserRole.CUSTOMER,
+          refundAmount,
+          TransactionReason.REFUND,
+          order.id,
+          `Remboursement marchand litige #${dispute.id.slice(-8)} - commande #${order.id.slice(-8)}`,
+        );
+        this.logger.log(
+          `[Dispute Merchant Refund] Wallet du client ${order.clientId} crédité de ${refundAmount} FCFA. Nouveau solde: ${wallet.balance}`,
+        );
+
+        // 📱 Notifier le client (dispatcher multi-canal : push + fallback)
+        const client = await this.usersService.findById(order.clientId);
+        if (client) {
+          await this.notificationsService.sendNotification(
+            client,
+            'Remboursement effectué 💰',
+            `Le commerce a remboursé votre commande : ${refundAmount.toLocaleString()} FCFA crédités sur votre compte.`,
+            {
+              orderId: order.id,
+              disputeId: dispute.id,
+              type: 'REFUND_CREDITED',
+            },
+          );
+        }
+      } catch (walletError) {
+        this.logger.error(
+          `[Dispute Merchant Refund Error] Erreur lors du crédit du wallet: ${walletError.message} (dispute #${dispute.id}, order #${order.id}, refundAmount ${refundAmount})`,
         );
         // Ne pas échouer toute la transaction si le wallet échoue
         // Le remboursement sera traité manuellement

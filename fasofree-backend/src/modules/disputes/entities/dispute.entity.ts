@@ -64,6 +64,17 @@ export class Dispute {
   @Column({ type: 'timestamp', nullable: true })
   resolvedAt: Date | null;
 
+  // Traçabilité du remboursement décidé par le gérant du commerce (Phase 2).
+  @Column({ type: 'uuid', nullable: true })
+  merchantRefundedBy: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  merchantRefundedAt: Date | null;
+
+  // Voix du marchand : distincte d'adminNote (audit de l'administration).
+  @Column({ type: 'text', nullable: true })
+  merchantNote: string | null;
+
   @CreateDateColumn()
   createdAt: Date;
 
