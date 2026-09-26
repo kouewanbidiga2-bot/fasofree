@@ -38,6 +38,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { LoyaltyModule } from './modules/loyalty/loyalty.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -112,6 +113,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     StoriesModule,
     LoyaltyModule,
     AddressesModule,
+    AssistantModule,
     CommandModule, // 👈 2. Ajouter le module Command
   ],
   controllers: [AppController],

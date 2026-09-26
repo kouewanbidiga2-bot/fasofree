@@ -238,6 +238,10 @@ export const api = {
   createAddress: (data) => apiFetch('/users/me/addresses', { method: 'POST', body: data }),
   updateAddress: (id, data) => apiFetch(`/users/me/addresses/${id}`, { method: 'PATCH', body: data }),
   deleteAddress: (id) => apiFetch(`/users/me/addresses/${id}`, { method: 'DELETE' }),
+
+  // 🤖 Assistant IA (guide de la plateforme + conseils menu)
+  askAssistant: (question, businessId) =>
+    apiFetch('/assistant/ask', { method: 'POST', body: { question, businessId } }),
 };
 
 export default api;

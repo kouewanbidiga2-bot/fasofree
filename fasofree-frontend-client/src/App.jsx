@@ -24,6 +24,7 @@ import Terms from './pages/Terms';
 import Loading from './pages/Loading';
 import SearchPage from './pages/Search';
 import Layout from './components/navigation/Layout';
+import AssistantWidget from './components/AssistantWidget';
 import useAuthStore from './store/authStore';
 import { needsVerification } from './store/authStore';
 import { registerFcmTokenOnLogin } from './services/pushRegistration';
@@ -68,6 +69,7 @@ function App() {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster position="top-center" richColors duration={4000} />
+      <AssistantWidget />
       <Routes>
         <Route path="/loading" element={<Loading />} />
         <Route path="/auth" element={<Auth />} />
