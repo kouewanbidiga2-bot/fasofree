@@ -58,6 +58,8 @@ describe('DisputesService', () => {
       {} as never,
       {} as never,
       usersService,
+      {} as never,
+      { find: jest.fn(), create: jest.fn(), save: jest.fn() } as never,
     );
 
     await service.open(order.id, order.clientId, {

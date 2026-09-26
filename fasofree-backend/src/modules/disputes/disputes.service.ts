@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DataSource } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import {
   MerchantPayout,
@@ -25,10 +25,16 @@ import {
   DisputeResolution,
   DisputeStatus,
 } from './entities/dispute.entity';
+import { DisputeMessage } from './entities/dispute-message.entity';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user-role.enum';
+import { Business } from '../businesses/entities/business.entity';
+import { BusinessesService } from '../businesses/businesses.service';
 import {
   DISPUTE_OPENED,
   DISPUTE_RESOLVED,
   DisputeOpenedEvent,
+  DisputeResolvedEvent,
 } from './events/dispute.events';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
@@ -36,6 +42,17 @@ import { TransactionReason } from '../wallets/entities/wallet-transaction.entity
 import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcrypt';
+
+const STAFF_ROLES: UserRole[] = [
+  UserRole.SUPER_ADMIN,
+  UserRole.ADMIN,
+  UserRole.SUPPORT,
+];
+
+// Valeur de rôle en base (minuscules), typée `string` pour comparer sans
+// lever @typescript-eslint/no-unsafe-enum-comparison sur des paramètres
+// typés `string` (ex. JwtPayload.role).
+const BUSINESS_ADMIN_ROLE: string = UserRole.BUSINESS_ADMIN;
 
 @Injectable()
 export class DisputesService {
@@ -47,6 +64,8 @@ export class DisputesService {
     private readonly walletService: WalletService,
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
+    private readonly businessesService: BusinessesService,
+    private readonly messageRepo: Repository<DisputeMessage>,
   ) {}
 
   async open(
@@ -142,11 +161,16 @@ export class DisputesService {
     }
   }
 
+  /**
+   * 📋 Liste des litiges (staff), enrichis de la commande, du client et du commerce.
+   * Utilisée par tout l'administration (super admin / admin / support).
+   */
   async list(status?: DisputeStatus): Promise<Dispute[]> {
-    return this.dataSource.getRepository(Dispute).find({
+    const disputes = await this.dataSource.getRepository(Dispute).find({
       where: status ? { status } : {},
       order: { createdAt: 'DESC' },
     });
+    return this.enrich(disputes);
   }
 
   async getForClient(id: string, clientId: string): Promise<Dispute> {
@@ -163,6 +187,269 @@ export class DisputesService {
     return this.dataSource.getRepository(Dispute).find({
       where: { clientId },
       order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * 🔍 Détail d'un litige pour le staff ou le gérant du commerce concerné.
+   */
+  async getForStaff(
+    id: string,
+    role: string,
+    userId: string,
+  ): Promise<Dispute> {
+    const dispute = await this.dataSource
+      .getRepository(Dispute)
+      .findOne({ where: { id } });
+    if (!dispute) throw new NotFoundException('Litige introuvable');
+    const allowed = await this.canAccess(dispute, role, userId);
+    if (!allowed)
+      throw new ForbiddenException("Vous n'avez pas accès à ce litige");
+    return (await this.enrich([dispute]))[0];
+  }
+
+  /**
+   * 🎫 Commandes livrées du client éligibles à une nouvelle réclamation
+   * (statut livré/confirmé, sans litige déjà ouvert).
+   */
+  async listEligibleOrders(clientId: string): Promise<
+    Array<{
+      id: string;
+      status: OrderStatus;
+      totalAmount: number;
+      createdAt: Date;
+      businessName: string | null;
+    }>
+  > {
+    const orders = await this.dataSource.getRepository(Order).find({
+      where: {
+        clientId,
+        status: In([
+          OrderStatus.DELIVERED,
+          OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+        ]),
+      },
+      order: { createdAt: 'DESC' },
+      take: 30,
+    });
+    if (!orders.length) return [];
+
+    const existing = await this.dataSource.getRepository(Dispute).find({
+      where: { orderId: In(orders.map((o) => o.id)) },
+      select: { orderId: true },
+    });
+    const disputedIds = new Set(existing.map((d) => d.orderId));
+    const eligible = orders.filter((o) => !disputedIds.has(o.id));
+
+    const businessIds = [
+      ...new Set(
+        eligible
+          .map((o) => o.businessId)
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+    const businesses = businessIds.length
+      ? await this.dataSource
+          .getRepository(Business)
+          .find({ where: { id: In(businessIds) } })
+      : [];
+    const businessNameById = new Map(businesses.map((b) => [b.id, b.name]));
+
+    return eligible.map((o) => ({
+      id: o.id,
+      status: o.status,
+      totalAmount: Number(o.totalAmount),
+      createdAt: o.createdAt,
+      businessName: o.businessId
+        ? (businessNameById.get(o.businessId) ?? null)
+        : null,
+    }));
+  }
+
+  /**
+   * 🔐 Accès à un litige :
+   * - toute l'administration (super admin / admin / support),
+   * - le client propriétaire,
+   * - le gérant du commerce lié à la commande (pour régler à l'amiable).
+   */
+  async canAccessDispute(
+    disputeId: string,
+    role: string,
+    userId: string,
+  ): Promise<boolean> {
+    const dispute = await this.dataSource
+      .getRepository(Dispute)
+      .findOne({ where: { id: disputeId } });
+    if (!dispute) return false;
+    return this.canAccess(dispute, role, userId);
+  }
+
+  /**
+   * 🔐 Charge un litige pour un participant (client / staff / gérant) et
+   * vérifie son accès. 404 si introuvable, 403 si non autorisé.
+   * Utilisé par le gateway WS (joinDispute / sendDisputeMessage).
+   */
+  async getForParticipant(
+    disputeId: string,
+    role: string,
+    userId: string,
+  ): Promise<Dispute> {
+    const dispute = await this.dataSource
+      .getRepository(Dispute)
+      .findOne({ where: { id: disputeId } });
+    if (!dispute) throw new NotFoundException('Litige introuvable');
+    if (!(await this.canAccess(dispute, role, userId)))
+      throw new ForbiddenException("Vous n'avez pas accès à ce litige");
+    return dispute;
+  }
+
+  private async canAccess(
+    dispute: Dispute,
+    role: string,
+    userId: string,
+  ): Promise<boolean> {
+    if (STAFF_ROLES.includes(role as UserRole)) return true;
+    if (dispute.clientId === userId) return true;
+    // Les rôles en base sont en minuscules (user-role.enum.ts) ; on normalise
+    // pour comparer sans unsafe-enum-comparison (cf. pattern chat.service).
+    const normalizedRole = role.toLowerCase();
+    if (normalizedRole === BUSINESS_ADMIN_ROLE) {
+      const order = await this.dataSource
+        .getRepository(Order)
+        .findOne({ where: { id: dispute.orderId } });
+      if (!order?.businessId) return false;
+      try {
+        await this.businessesService.assertManagedBy(
+          order.businessId,
+          userId,
+          normalizedRole as UserRole,
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 💬 Historique du chat support d'un litige (accès contrôlé).
+   */
+  async listMessages(
+    disputeId: string,
+    role: string,
+    userId: string,
+  ): Promise<DisputeMessage[]> {
+    const dispute = await this.dataSource
+      .getRepository(Dispute)
+      .findOne({ where: { id: disputeId } });
+    if (!dispute) throw new NotFoundException('Litige introuvable');
+    if (!(await this.canAccess(dispute, role, userId)))
+      throw new ForbiddenException("Vous n'avez pas accès à ce litige");
+    return this.messageRepo.find({
+      where: { disputeId },
+      order: { createdAt: 'ASC' },
+      // Garde-fou anti-croissance : plafonne l'historique servi à une fois
+      // (pagination par curseur à prévoir si un litige dépasse 200 messages).
+      take: 200,
+    });
+  }
+
+  /**
+   * ✉️ Envoyer un message dans le chat support d'un litige.
+   * L'expéditeur est identifié côté serveur (jamais fourni par le client).
+   */
+  async addMessage(
+    disputeId: string,
+    role: string,
+    userId: string,
+    message: string,
+  ): Promise<DisputeMessage> {
+    const dispute = await this.dataSource
+      .getRepository(Dispute)
+      .findOne({ where: { id: disputeId } });
+    if (!dispute) throw new NotFoundException('Litige introuvable');
+    if (!(await this.canAccess(dispute, role, userId)))
+      throw new ForbiddenException("Vous n'avez pas accès à ce litige");
+
+    const clean = message
+      .trim()
+      .replace(/<[^>]*>/g, '')
+      .slice(0, 2000);
+    if (!clean) throw new BadRequestException('Message vide');
+
+    const sender = await this.usersService.findById(userId);
+    const saved = await this.messageRepo.save(
+      this.messageRepo.create({
+        disputeId,
+        senderId: userId,
+        senderRole: role,
+        senderName: sender?.fullName?.trim() || null,
+        message: clean,
+      }),
+    );
+    return saved;
+  }
+
+  /**
+   * Enrichit une liste de litiges avec la commande, le client et le commerce
+   * associés (jointures en mémoire, volumes faibles).
+   */
+  private async enrich(disputes: Dispute[]): Promise<Dispute[]> {
+    if (!disputes.length) return disputes;
+    const orderIds = [...new Set(disputes.map((d) => d.orderId))];
+    const clientIds = [...new Set(disputes.map((d) => d.clientId))];
+
+    const [orders, clients] = await Promise.all([
+      this.dataSource
+        .getRepository(Order)
+        .find({ where: { id: In(orderIds) } }),
+      this.dataSource
+        .getRepository(User)
+        .find({ where: { id: In(clientIds) } }),
+    ]);
+    const orderById = new Map(orders.map((o) => [o.id, o]));
+    const clientById = new Map(clients.map((u) => [u.id, u]));
+
+    const businessIds = [
+      ...new Set(
+        orders
+          .map((o) => o.businessId)
+          .filter((id): id is string => id !== null),
+      ),
+    ];
+    const businesses = businessIds.length
+      ? await this.dataSource
+          .getRepository(Business)
+          .find({ where: { id: In(businessIds) } })
+      : [];
+    const businessById = new Map(businesses.map((b) => [b.id, b]));
+
+    return disputes.map((d) => {
+      const order = orderById.get(d.orderId);
+      const client = clientById.get(d.clientId);
+      const business = order ? businessById.get(order.businessId) : undefined;
+      return Object.assign(d, {
+        order: order
+          ? {
+              id: order.id,
+              status: order.status,
+              totalAmount: Number(order.totalAmount),
+              businessId: order.businessId,
+            }
+          : null,
+        client: client
+          ? {
+              id: client.id,
+              fullName: client.fullName,
+              phone: client.phone,
+              email: client.email,
+            }
+          : null,
+        business: business
+          ? { id: business.id, name: business.name, phone: business.phone }
+          : null,
+      });
     });
   }
 
@@ -238,6 +525,7 @@ export class DisputesService {
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
+    let resolvedEvent: DisputeResolvedEvent | undefined;
 
     try {
       const dispute = await runner.manager.findOne(Dispute, {
@@ -289,6 +577,17 @@ export class DisputesService {
 
       await runner.commitTransaction();
 
+      // Événement émis UNIQUEMENT si le commit a réussi (sinon une
+      // notification « litige traité » serait persistant pour un litige non
+      // résolu).
+      resolvedEvent = {
+        disputeId: dispute.id,
+        orderId: order.id,
+        clientId: order.clientId,
+        businessId: order.businessId ?? null,
+        resolution: DisputeResolution.REFUND,
+      };
+
       // 💳 Créditer le wallet du client (hors transaction pour éviter deadlock)
       try {
         const { wallet } = await this.walletService.creditWallet(
@@ -332,6 +631,7 @@ export class DisputesService {
       throw error;
     } finally {
       await runner.release();
+      if (resolvedEvent) this.events.emit(DISPUTE_RESOLVED, resolvedEvent);
     }
   }
 
@@ -346,6 +646,7 @@ export class DisputesService {
     const runner = this.dataSource.createQueryRunner();
     await runner.connect();
     await runner.startTransaction();
+    let resolvedEvent: DisputeResolvedEvent | undefined;
 
     try {
       const dispute = await runner.manager.findOne(Dispute, {
@@ -380,6 +681,15 @@ export class DisputesService {
 
       await runner.commitTransaction();
 
+      // Événement émis UNIQUEMENT après commit réussi.
+      resolvedEvent = {
+        disputeId: dispute.id,
+        orderId: order.id,
+        clientId: order.clientId,
+        businessId: order.businessId ?? null,
+        resolution: DisputeResolution.REJECT,
+      };
+
       this.logger.log(
         `[Dispute Reject] Litige #${id} rejeté par admin ${adminId} - Commande #${order.id} marquée COMPLETED`,
       );
@@ -390,6 +700,7 @@ export class DisputesService {
       throw error;
     } finally {
       await runner.release();
+      if (resolvedEvent) this.events.emit(DISPUTE_RESOLVED, resolvedEvent);
     }
   }
 

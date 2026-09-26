@@ -15,6 +15,7 @@ export enum NotificationType {
   DELIVERY = 'DELIVERY',
   PROMOTION = 'PROMOTION',
   ACCOUNT = 'ACCOUNT',
+  DISPUTE = 'DISPUTE',
   SYSTEM = 'SYSTEM',
 }
 

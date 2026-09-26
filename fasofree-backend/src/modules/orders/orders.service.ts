@@ -86,23 +86,44 @@ const CHAT_TERMINAL_STATUSES: OrderStatus[] = [
  * - IN_DELIVERY → DELIVERED_PENDING_CONFIRMATION : livreur/coursier uniquement (ou restaurant si hasOwnFleet)
  */
 export const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
-  [OrderStatus.AWAITING_PAYMENT]: [OrderStatus.PAID, OrderStatus.CANCELLED, OrderStatus.FAILED],
+  [OrderStatus.AWAITING_PAYMENT]: [
+    OrderStatus.PAID,
+    OrderStatus.CANCELLED,
+    OrderStatus.FAILED,
+  ],
   [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
     OrderStatus.READY_FOR_PICKUP,
     OrderStatus.CANCELLED,
   ],
-  [OrderStatus.READY_FOR_PICKUP]: [OrderStatus.DRIVER_ASSIGNED, OrderStatus.CANCELLED],
-  [OrderStatus.DRIVER_ASSIGNED]: [OrderStatus.IN_DELIVERY, OrderStatus.CANCELLED],
-  [OrderStatus.IN_DELIVERY]: [OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
+  [OrderStatus.READY_FOR_PICKUP]: [
+    OrderStatus.DRIVER_ASSIGNED,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.DRIVER_ASSIGNED]: [
+    OrderStatus.IN_DELIVERY,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.IN_DELIVERY]: [
+    OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    OrderStatus.CANCELLED,
+  ],
   [OrderStatus.DELIVERED_PENDING_CONFIRMATION]: [
     OrderStatus.DELIVERED,
     OrderStatus.COMPLETED,
     OrderStatus.DISPUTED,
   ],
-  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.DISPUTED, OrderStatus.REFUNDED],
-  [OrderStatus.PROCESSING]: [OrderStatus.IN_DELIVERY, OrderStatus.DELIVERED_PENDING_CONFIRMATION, OrderStatus.CANCELLED],
+  [OrderStatus.DELIVERED]: [
+    OrderStatus.COMPLETED,
+    OrderStatus.DISPUTED,
+    OrderStatus.REFUNDED,
+  ],
+  [OrderStatus.PROCESSING]: [
+    OrderStatus.IN_DELIVERY,
+    OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+    OrderStatus.CANCELLED,
+  ],
   [OrderStatus.COMPLETED]: [],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.FAILED]: [],
@@ -202,7 +223,7 @@ export class OrdersService {
     private readonly receiptsService: ReceiptsService,
     private readonly events: EventEmitter2,
     private readonly configService: ConfigService,
-private readonly geoDispatchService: GeoDispatchService,
+    private readonly geoDispatchService: GeoDispatchService,
     private readonly ridePricingService: RidePricingService,
     private readonly walletService: WalletService,
     private readonly geniusPayService: GeniusPayService,
@@ -263,7 +284,10 @@ private readonly geoDispatchService: GeoDispatchService,
    * 🛍️ 1. Création d'une commande (BROUILLON) — invisible jusqu'au paiement confirmé
    * Pour P2P_DELIVERY et RIDE, retourne { order, checkoutUrl } pour redirection GeniusPay
    */
-  async createOrder(clientId: string, dto: CreateOrderDto): Promise<Order | { order: Order; checkoutUrl: string }> {
+  async createOrder(
+    clientId: string,
+    dto: CreateOrderDto,
+  ): Promise<Order | { order: Order; checkoutUrl: string }> {
     const {
       orderType,
       fulfillmentType,
@@ -342,12 +366,13 @@ private readonly geoDispatchService: GeoDispatchService,
         clientLng,
       );
 
-      const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
+      const pricingResult =
+        this.deliveryPricingService.calculateDeliveryFee(distance);
       effectiveDeliveryFee = pricingResult.fee;
 
       this.logger.log(
         `[Pricing] Livraison calculée : ${distance.toFixed(2)} km | Tranche: ${pricingResult.tier.minKm}–${pricingResult.tier.maxKm ?? '+'}km | ` +
-        `Base: ${pricingResult.baseFee} FCFA | Nuit: ${pricingResult.isNight ? 'OUI (+500)' : 'NON'} | Total: ${effectiveDeliveryFee} FCFA`,
+          `Base: ${pricingResult.baseFee} FCFA | Nuit: ${pricingResult.isNight ? 'OUI (+500)' : 'NON'} | Total: ${effectiveDeliveryFee} FCFA`,
       );
     }
 
@@ -357,7 +382,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
     // 🔒 RECALCUL DES PRIX DEPUIS LA DB — ne jamais faire confiance aux prix frontend
     let verifiedSubtotal = 0;
-    const verifiedItems: { productId: string; productName: string; quantity: number; unitPrice: number }[] = [];
+    const verifiedItems: {
+      productId: string;
+      productName: string;
+      quantity: number;
+      unitPrice: number;
+    }[] = [];
 
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException(
@@ -460,7 +490,9 @@ private readonly geoDispatchService: GeoDispatchService,
     let savedOrder: Order;
     try {
       savedOrder = await this.orderRepository.save(order);
-      savedOrder.deliveryPinCode = isDelivery ? this.generateDeliveryPin() : null;
+      savedOrder.deliveryPinCode = isDelivery
+        ? this.generateDeliveryPin()
+        : null;
       await this.orderRepository.save(savedOrder);
 
       // Sauvegarder les articles avec les prix vérifiés depuis la DB
@@ -533,7 +565,10 @@ private readonly geoDispatchService: GeoDispatchService,
    * POST /orders : { subtotal, deliveryFee, platformFee, total }.
    * DELIVERY_FEE = max(calcul distance GPS, 800 FCFA).
    */
-  async quoteOrder(clientId: string, dto: QuoteOrderDto): Promise<PricingQuote> {
+  async quoteOrder(
+    clientId: string,
+    dto: QuoteOrderDto,
+  ): Promise<PricingQuote> {
     const subtotal = Math.max(0, Number(dto.subtotal) || 0);
     let deliveryFee: number;
 
@@ -593,8 +628,10 @@ private readonly geoDispatchService: GeoDispatchService,
           dto.deliveryLatitude,
           dto.deliveryLongitude,
         );
-        const pricingResult = this.deliveryPricingService.calculateDeliveryFee(distance);
-        deliveryFee = typeof pricingResult === 'number' ? pricingResult : pricingResult.fee;
+        const pricingResult =
+          this.deliveryPricingService.calculateDeliveryFee(distance);
+        deliveryFee =
+          typeof pricingResult === 'number' ? pricingResult : pricingResult.fee;
       } else {
         // Pas de coordonnées → tarif minimum garanti
         deliveryFee = MIN_DELIVERY_FEE;
@@ -734,13 +771,11 @@ private readonly geoDispatchService: GeoDispatchService,
       // 🚀 Dispatch aux chauffeurs
       try {
         this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-        this.dispatchService
-          .autoDispatchOrder(savedOrder.id)
-          .catch((err) => {
-            this.logger.error(
-              `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
-            );
-          });
+        this.dispatchService.autoDispatchOrder(savedOrder.id).catch((err) => {
+          this.logger.error(
+            `[Auto-Dispatch Error] Échec du dispatch Ride #${savedOrder.id}: ${err.message}`,
+          );
+        });
       } catch (error) {
         this.logger.error(
           `[WebSocket Error] Échec du dispatch Ride pour la commande #${savedOrder.id}`,
@@ -769,7 +804,8 @@ private readonly geoDispatchService: GeoDispatchService,
     clientId: string,
     dto: CreateOrderDto,
   ): Promise<{ order: Order; checkoutUrl: string }> {
-    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } = dto;
+    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
+      dto;
 
     // ─── 1. VALIDATIONS PRÉALABLES (avant création en base) ───────────────
     if (!pickupLocation || !dropoffLocation) {
@@ -793,14 +829,15 @@ private readonly geoDispatchService: GeoDispatchService,
     }
 
     // ─── 2. CALCUL DU PRIX ────────────────────────────────────────────────
-    const deliveryCalculation = this.distanceCalculatorService.calculateP2PDelivery(
-      pickupLocation.latitude,
-      pickupLocation.longitude,
-      dropoffLocation.latitude,
-      dropoffLocation.longitude,
-      packageDetails?.isFragile || false,
-      packageDetails?.weight || 0,
-    );
+    const deliveryCalculation =
+      this.distanceCalculatorService.calculateP2PDelivery(
+        pickupLocation.latitude,
+        pickupLocation.longitude,
+        dropoffLocation.latitude,
+        dropoffLocation.longitude,
+        packageDetails?.isFragile || false,
+        packageDetails?.weight || 0,
+      );
 
     const financials = await this.pricingService.calculateFinancials(
       0,
@@ -876,13 +913,19 @@ private readonly geoDispatchService: GeoDispatchService,
           user_id: clientId,
           order_type: OrderType.P2P_DELIVERY,
         },
-        successUrl: this.configService.get<string>('P2P_SUCCESS_URL') || 'https://fasofree.site/p2p/success',
-        errorUrl: this.configService.get<string>('P2P_ERROR_URL') || 'https://fasofree.site/p2p/error',
+        successUrl:
+          this.configService.get<string>('P2P_SUCCESS_URL') ||
+          'https://fasofree.site/p2p/success',
+        errorUrl:
+          this.configService.get<string>('P2P_ERROR_URL') ||
+          'https://fasofree.site/p2p/error',
       });
 
       const checkoutUrl = payment.checkout_url ?? payment.payment_url;
       if (!checkoutUrl) {
-        throw new BadRequestException("GeniusPay n'a retourné aucune URL de paiement.");
+        throw new BadRequestException(
+          "GeniusPay n'a retourné aucune URL de paiement.",
+        );
       }
 
       // Enregistrer la référence GeniusPay sur la transaction
@@ -895,7 +938,6 @@ private readonly geoDispatchService: GeoDispatchService,
       );
 
       return { order: savedOrder, checkoutUrl };
-
     } catch (payError) {
       // ╔══════════════════════════════════════════════════════════════════╗
       // ║ CLEANUP : annuler la commande + la transaction si GeniusPay     ║
@@ -931,7 +973,7 @@ private readonly geoDispatchService: GeoDispatchService,
     if (!phone) return null;
 
     // Retirer tous les espaces, tirets, points
-    let cleaned = phone.replace(/[\s\-\.]/g, '');
+    const cleaned = phone.replace(/[\s. -]/g, '');
 
     // Déjà en format international +226XXXXXXXX
     if (/^\+226\d{8}$/.test(cleaned)) return cleaned;
@@ -981,7 +1023,7 @@ private readonly geoDispatchService: GeoDispatchService,
       // 🔒 Sécurité : seules les commandes PAYÉES peuvent être acceptées
       if (order.status === OrderStatus.PENDING) {
         throw new BadRequestException(
-          'Impossible d\'accepter une commande non payée.',
+          "Impossible d'accepter une commande non payée.",
         );
       }
 
@@ -1031,10 +1073,7 @@ private readonly geoDispatchService: GeoDispatchService,
    * 🎯 Assignation manuelle d'un livreur à une commande (admin/support).
    * Délègue au DispatchService qui notifie le livreur via WebSocket.
    */
-  async assignDriverToOrder(
-    orderId: string,
-    driverId: string,
-  ): Promise<Order> {
+  async assignDriverToOrder(orderId: string, driverId: string): Promise<Order> {
     return this.dispatchService.assignDriverToOrder(orderId, driverId);
   }
 
@@ -1052,7 +1091,11 @@ private readonly geoDispatchService: GeoDispatchService,
     };
   }
 
-  async findClientOrders(clientId: string, limit?: number, offset?: number): Promise<Order[]> {
+  async findClientOrders(
+    clientId: string,
+    limit?: number,
+    offset?: number,
+  ): Promise<Order[]> {
     return await this.orderRepository.find({
       where: { clientId },
       relations: { items: true },
@@ -1062,7 +1105,12 @@ private readonly geoDispatchService: GeoDispatchService,
     });
   }
 
-  async findDriverOrders(driverId: string, statuses?: string[], limit?: number, offset?: number): Promise<Order[]> {
+  async findDriverOrders(
+    driverId: string,
+    statuses?: string[],
+    limit?: number,
+    offset?: number,
+  ): Promise<Order[]> {
     const where: any = { driverId };
     if (statuses && statuses.length > 0) {
       where.status = In(statuses as OrderStatus[]);
@@ -1076,33 +1124,37 @@ private readonly geoDispatchService: GeoDispatchService,
     });
 
     // Enrichir avec les infos client (clientName, clientPhone)
-    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    const clientIds = [
+      ...new Set(orders.map((o) => o.clientId).filter(Boolean)),
+    ];
     if (clientIds.length > 0) {
       const clients = await this.dataSource.query(
         `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
         clientIds,
       );
-      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
-      return orders.map(o => {
+      const clientMap = new Map<string, any>(
+        clients.map((c: any) => [c.id, c]),
+      );
+      return orders.map((o) => {
         const client = clientMap.get(o.clientId);
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
-        return { 
-          ...o, 
+        return {
+          ...o,
           clientName: name,
           clientPhone: phone,
           customerName: name,
           customerPhone: phone,
         };
-      }) as any;
+      });
     }
-    return orders.map(o => ({
+    return orders.map((o) => ({
       ...o,
       clientName: 'Client inconnu',
       clientPhone: 'Non disponible',
       customerName: 'Client inconnu',
       customerPhone: 'Non disponible',
-    })) as any;
+    }));
   }
 
   async findRecentForUser(userId: string, limit = 5): Promise<any[]> {
@@ -1118,7 +1170,10 @@ private readonly geoDispatchService: GeoDispatchService,
       businessId: o.businessId,
       status: o.status,
       totalAmount: o.totalAmount,
-      items: o.items?.map((i) => ({ name: i.productName, quantity: i.quantity })),
+      items: o.items?.map((i) => ({
+        name: i.productName,
+        quantity: i.quantity,
+      })),
       createdAt: o.createdAt,
     }));
   }
@@ -1132,35 +1187,38 @@ private readonly geoDispatchService: GeoDispatchService,
       .getMany();
 
     // Enrichir avec les infos client via requête séparée (é(raw joins cassés)
-    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    const clientIds = [
+      ...new Set(orders.map((o) => o.clientId).filter(Boolean)),
+    ];
     if (clientIds.length > 0) {
       const clients = await this.dataSource.query(
         `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
         clientIds,
       );
-      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
-      return orders.map(o => {
+      const clientMap = new Map<string, any>(
+        clients.map((c: any) => [c.id, c]),
+      );
+      return orders.map((o) => {
         const client = clientMap.get(o.clientId);
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
-        return { 
-          ...o, 
+        return {
+          ...o,
           clientName: name,
           clientPhone: phone,
           customerName: name,
           customerPhone: phone,
         };
-      }) as any;
+      });
     }
-    return orders.map(o => ({
+    return orders.map((o) => ({
       ...o,
       clientName: 'Client inconnu',
       clientPhone: 'Non disponible',
       customerName: 'Client inconnu',
       customerPhone: 'Non disponible',
-    })) as any;
+    }));
   }
-
 
   async findAllByBusinesses(businessIds: string[]): Promise<Order[]> {
     if (!businessIds.length) return [];
@@ -1171,33 +1229,37 @@ private readonly geoDispatchService: GeoDispatchService,
       .orderBy('o."createdAt"', 'DESC')
       .getMany();
 
-    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
+    const clientIds = [
+      ...new Set(orders.map((o) => o.clientId).filter(Boolean)),
+    ];
     if (clientIds.length > 0) {
       const clients = await this.dataSource.query(
         `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
         clientIds,
       );
-      const clientMap = new Map<string, any>(clients.map((c: any) => [c.id, c]));
-      return orders.map(o => {
+      const clientMap = new Map<string, any>(
+        clients.map((c: any) => [c.id, c]),
+      );
+      return orders.map((o) => {
         const client = clientMap.get(o.clientId);
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
-        return { 
-          ...o, 
+        return {
+          ...o,
           clientName: name,
           clientPhone: phone,
           customerName: name,
           customerPhone: phone,
         };
-      }) as any;
+      });
     }
-    return orders.map(o => ({
+    return orders.map((o) => ({
       ...o,
       clientName: 'Client inconnu',
       clientPhone: 'Non disponible',
       customerName: 'Client inconnu',
       customerPhone: 'Non disponible',
-    })) as any;
+    }));
   }
 
   /**
@@ -1219,8 +1281,9 @@ private readonly geoDispatchService: GeoDispatchService,
         const loc = await this.geoDispatchService.getDriverLocation(
           order.driverId,
         );
-        (order as Order & { driverLocation?: DriverLocation | null }).driverLocation =
-          loc;
+        (
+          order as Order & { driverLocation?: DriverLocation | null }
+        ).driverLocation = loc;
       }
     }
 
@@ -1228,7 +1291,8 @@ private readonly geoDispatchService: GeoDispatchService,
   }
 
   async findOne(id: string): Promise<Order> {
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRe.test(id)) {
       throw new NotFoundException(`La commande #${id} est introuvable.`);
     }
@@ -1250,7 +1314,12 @@ private readonly geoDispatchService: GeoDispatchService,
     role: UserRole,
   ): Promise<Order> {
     const order = await this.findOne(id);
-    if (role === UserRole.SUPER_ADMIN || order.clientId === userId)
+    // Toute l'administration (super admin / admin / support) peut consulter
+    // une commande : suivi live + chat de commande (messagerie support).
+    if (
+      [UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT].includes(role) ||
+      order.clientId === userId
+    )
       return order;
     // Livreur assigné : accès au suivi live et au chat (coursier de la course)
     if (order.driverId === userId) return order;
@@ -1296,8 +1365,7 @@ private readonly geoDispatchService: GeoDispatchService,
       );
     }
 
-    let businessLocation: { latitude: number; longitude: number } | null =
-      null;
+    let businessLocation: { latitude: number; longitude: number } | null = null;
     if (order.businessId) {
       try {
         const business = await this.businessesService.findOne(order.businessId);
@@ -1325,9 +1393,7 @@ private readonly geoDispatchService: GeoDispatchService,
     try {
       eta = this.computeEta(order, driverLocation, businessLocation);
     } catch {
-      this.logger.warn(
-        `Impossible de calculer l'ETA pour la commande ${id}`,
-      );
+      this.logger.warn(`Impossible de calculer l'ETA pour la commande ${id}`);
     }
 
     return {
@@ -1378,7 +1444,7 @@ private readonly geoDispatchService: GeoDispatchService,
           longitude: order.deliveryLocation.longitude,
         }
       : order.dropoffLocation?.latitude != null &&
-        order.dropoffLocation?.longitude != null
+          order.dropoffLocation?.longitude != null
         ? {
             latitude: order.dropoffLocation.latitude,
             longitude: order.dropoffLocation.longitude,
@@ -1544,55 +1610,55 @@ private readonly geoDispatchService: GeoDispatchService,
         where: { id: orderId },
         lock: { mode: 'pessimistic_write' },
       });
-    if (!order) {
-      this.logger.error(`Commande ${orderId} introuvable pour l'annulation.`);
-      await queryRunner.rollbackTransaction();
-      return;
-    }
-
-    // 🔒 Ne JAMAIS écraser une commande déjà payée ou en cours de livraison
-    const nonOverridableStatuses: OrderStatus[] = [
-      OrderStatus.PAID,
-      OrderStatus.IN_PREPARATION,
-      OrderStatus.READY_FOR_PICKUP,
-      OrderStatus.DRIVER_ASSIGNED,
-      OrderStatus.PROCESSING,
-      OrderStatus.IN_DELIVERY,
-      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
-      OrderStatus.DELIVERED,
-      OrderStatus.COMPLETED,
-      OrderStatus.DISPUTED,
-      OrderStatus.REFUNDED,
-    ];
-
-    if (nonOverridableStatuses.includes(order.status)) {
-      this.logger.warn(
-        `[Payment Failed] Commande ${orderId} déjà au statut ${order.status} — annulation ignorée`,
-      );
-      await queryRunner.rollbackTransaction();
-      return;
-    }
-
-    // Annulation si en attente de paiement ou déjà échoué
-    const cancellableStatuses: OrderStatus[] = [
-      OrderStatus.PENDING,
-      OrderStatus.AWAITING_PAYMENT,
-      OrderStatus.FAILED,
-    ];
-    if (cancellableStatuses.includes(order.status)) {
-      const previousStatus = order.status;
-      const result = await queryRunner.manager.update(
-        Order,
-        { id: orderId, status: In(cancellableStatuses) },
-        { status: OrderStatus.FAILED },
-      );
-      if (result.affected === 1) {
-        this.logger.log(
-          `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
-        );
+      if (!order) {
+        this.logger.error(`Commande ${orderId} introuvable pour l'annulation.`);
+        await queryRunner.rollbackTransaction();
+        return;
       }
-    }
-    await queryRunner.commitTransaction();
+
+      // 🔒 Ne JAMAIS écraser une commande déjà payée ou en cours de livraison
+      const nonOverridableStatuses: OrderStatus[] = [
+        OrderStatus.PAID,
+        OrderStatus.IN_PREPARATION,
+        OrderStatus.READY_FOR_PICKUP,
+        OrderStatus.DRIVER_ASSIGNED,
+        OrderStatus.PROCESSING,
+        OrderStatus.IN_DELIVERY,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+        OrderStatus.DELIVERED,
+        OrderStatus.COMPLETED,
+        OrderStatus.DISPUTED,
+        OrderStatus.REFUNDED,
+      ];
+
+      if (nonOverridableStatuses.includes(order.status)) {
+        this.logger.warn(
+          `[Payment Failed] Commande ${orderId} déjà au statut ${order.status} — annulation ignorée`,
+        );
+        await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      // Annulation si en attente de paiement ou déjà échoué
+      const cancellableStatuses: OrderStatus[] = [
+        OrderStatus.PENDING,
+        OrderStatus.AWAITING_PAYMENT,
+        OrderStatus.FAILED,
+      ];
+      if (cancellableStatuses.includes(order.status)) {
+        const previousStatus = order.status;
+        const result = await queryRunner.manager.update(
+          Order,
+          { id: orderId, status: In(cancellableStatuses) },
+          { status: OrderStatus.FAILED },
+        );
+        if (result.affected === 1) {
+          this.logger.log(
+            `[Payment Failed] Commande ${orderId} passée au statut FAILED (était ${previousStatus})`,
+          );
+        }
+      }
+      await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -1602,7 +1668,9 @@ private readonly geoDispatchService: GeoDispatchService,
   }
 
   async markOrderAsRefunded(orderId: string): Promise<void> {
-    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    const order = await this.orderRepository.findOne({
+      where: { id: orderId },
+    });
     if (!order || order.status === OrderStatus.REFUNDED) return;
     const previousStatus = order.status;
     order.status = OrderStatus.REFUNDED;
@@ -1639,14 +1707,22 @@ private readonly geoDispatchService: GeoDispatchService,
 
       if (role === UserRole.DRIVER || role === UserRole.COURIER) {
         if (order.driverId && order.driverId !== userId) {
-          throw new ForbiddenException('Vous n\'êtes pas le livreur assigné à cette commande');
+          throw new ForbiddenException(
+            "Vous n'êtes pas le livreur assigné à cette commande",
+          );
         }
       }
       if (role === UserRole.BUSINESS_ADMIN) {
         if (!order.businessId) {
-          throw new ForbiddenException('Cette commande n\'est pas liée à un commerce');
+          throw new ForbiddenException(
+            "Cette commande n'est pas liée à un commerce",
+          );
         }
-        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+        await this.businessesService.assertManagedBy(
+          order.businessId,
+          userId,
+          role,
+        );
       }
 
       const previousStatus = order.status;
@@ -1666,7 +1742,9 @@ private readonly geoDispatchService: GeoDispatchService,
       let hasOwnFleet = false;
       if (order.businessId) {
         try {
-          const business = await this.businessesService.findOne(order.businessId);
+          const business = await this.businessesService.findOne(
+            order.businessId,
+          );
           hasOwnFleet = business?.hasOwnDrivers === true;
         } catch {
           // fallback: pas de fleet interne
@@ -1709,8 +1787,13 @@ private readonly geoDispatchService: GeoDispatchService,
         businessId: updatedOrder.businessId,
       });
 
-      if (status === OrderStatus.DELIVERED && previousStatus !== OrderStatus.DELIVERED) {
-        updatedOrder.payoutScheduledAt = new Date(Date.now() + HOLDING_PERIOD_MS);
+      if (
+        status === OrderStatus.DELIVERED &&
+        previousStatus !== OrderStatus.DELIVERED
+      ) {
+        updatedOrder.payoutScheduledAt = new Date(
+          Date.now() + HOLDING_PERIOD_MS,
+        );
         updatedOrder.payoutReleased = false;
         await this.orderRepository.save(updatedOrder);
         this.logger.log(
@@ -1722,7 +1805,8 @@ private readonly geoDispatchService: GeoDispatchService,
       this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
 
       if (
-        (status === OrderStatus.PAID || status === OrderStatus.IN_PREPARATION) &&
+        (status === OrderStatus.PAID ||
+          status === OrderStatus.IN_PREPARATION) &&
         previousStatus !== OrderStatus.PAID &&
         previousStatus !== OrderStatus.IN_PREPARATION
       ) {
@@ -1823,8 +1907,12 @@ private readonly geoDispatchService: GeoDispatchService,
         driverId: IsNull(),
       },
     });
-    for (const ride of expiredRides.filter((r) => r.createdAt < expiredThreshold)) {
-      await this.orderRepository.update(ride.id, { status: OrderStatus.FAILED });
+    for (const ride of expiredRides.filter(
+      (r) => r.createdAt < expiredThreshold,
+    )) {
+      await this.orderRepository.update(ride.id, {
+        status: OrderStatus.FAILED,
+      });
       await this.walletService.creditWallet(
         ride.clientId,
         WalletUserRole.CUSTOMER,
@@ -2077,7 +2165,10 @@ private readonly geoDispatchService: GeoDispatchService,
   // ========================================================================
   // ✅ CONFIRMATION DE LIVRAISON (admin / marchand — sans PIN)
   // ========================================================================
-  async confirmDeliveryByAdmin(orderId: string, userId: string): Promise<Order> {
+  async confirmDeliveryByAdmin(
+    orderId: string,
+    userId: string,
+  ): Promise<Order> {
     const order = await this.findOne(orderId);
 
     if (
@@ -2118,7 +2209,10 @@ private readonly geoDispatchService: GeoDispatchService,
 
     // Déclencher le Payout automatique
     this.payoutsService.processAutomaticPayout(saved.id).catch((err) => {
-      this.logger.error(`Erreur Payout après confirmation admin #${saved.id}`, err);
+      this.logger.error(
+        `Erreur Payout après confirmation admin #${saved.id}`,
+        err,
+      );
     });
 
     try {
@@ -2149,7 +2243,11 @@ private readonly geoDispatchService: GeoDispatchService,
 
     // Stocker la position via le service geo-dispatch (Redis)
     try {
-      await this.geoDispatchService.updateDriverLocation(driverId, latitude, longitude);
+      await this.geoDispatchService.updateDriverLocation(
+        driverId,
+        latitude,
+        longitude,
+      );
     } catch {
       // Silencieux — le tracking WebSocket gère aussi les mises à jour
     }
@@ -2180,7 +2278,12 @@ private readonly geoDispatchService: GeoDispatchService,
         case OrderStatus.PAID: {
           // Client: "Paiement confirmé, en attente de préparation"
           const data = { orderId: order.id, type: 'ORDER_CONFIRMED' };
-          await this.notificationsService.sendNotification(client, 'Paiement confirmé', 'Paiement confirmé, en attente de préparation par le restaurant.', data);
+          await this.notificationsService.sendNotification(
+            client,
+            'Paiement confirmé',
+            'Paiement confirmé, en attente de préparation par le restaurant.',
+            data,
+          );
 
           // 🔒 Notification persistante en DB
           await this.notificationStore.create({
@@ -2196,7 +2299,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.IN_PREPARATION:
           // Client: "Votre commande est en préparation"
-          await this.notificationsService.sendNotification(client, 'En préparation', 'Votre commande est en cours de préparation.', { orderId: order.id, type: 'ORDER_PREPARING' });
+          await this.notificationsService.sendNotification(
+            client,
+            'En préparation',
+            'Votre commande est en cours de préparation.',
+            { orderId: order.id, type: 'ORDER_PREPARING' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2209,7 +2317,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.DRIVER_ASSIGNED: {
           // Client: "Un livreur a été assigné à votre commande"
-          await this.notificationsService.sendNotification(client, 'Livreur assigné', 'Un livreur a été assigné à votre commande. Il arrive bientôt!', { orderId: order.id, type: 'DRIVER_ASSIGNED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Livreur assigné',
+            'Un livreur a été assigné à votre commande. Il arrive bientôt!',
+            { orderId: order.id, type: 'DRIVER_ASSIGNED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2221,18 +2334,31 @@ private readonly geoDispatchService: GeoDispatchService,
 
           // 🛵 Notifier le livreur assigné (fire-and-forget)
           if (order.driverId) {
-            this.usersService.findById(order.driverId).then((driver) => {
-              if (driver) {
-                this.notificationsService.sendNotification(driver, 'Nouvelle commande assignée', `Commande #${order.id.slice(-8)} — ${order.totalAmount} FCFA. Allez récupérer!`, { orderId: order.id, type: 'DRIVER_NEW_ORDER' });
-              }
-            }).catch(() => {});
+            this.usersService
+              .findById(order.driverId)
+              .then((driver) => {
+                if (driver) {
+                  this.notificationsService.sendNotification(
+                    driver,
+                    'Nouvelle commande assignée',
+                    `Commande #${order.id.slice(-8)} — ${order.totalAmount} FCFA. Allez récupérer!`,
+                    { orderId: order.id, type: 'DRIVER_NEW_ORDER' },
+                  );
+                }
+              })
+              .catch(() => {});
           }
           break;
         }
 
         case OrderStatus.IN_DELIVERY: {
           // Client: "Le livreur est en route avec votre repas"
-          await this.notificationsService.sendNotification(client, 'Livreur en route', 'Le livreur est en route avec votre repas. Il arrivera bientôt!', { orderId: order.id, type: 'DRIVER_EN_ROUTE' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Livreur en route',
+            'Le livreur est en route avec votre repas. Il arrivera bientôt!',
+            { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2246,7 +2372,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.DELIVERED_PENDING_CONFIRMATION: {
           // Client: "Le livreur est arrivé - confirmez la réception"
-          await this.notificationsService.sendNotification(client, 'Livreur arrivé', 'Le livreur est arrivé avec votre commande. Confirmez la réception!', { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Livreur arrivé',
+            'Le livreur est arrivé avec votre commande. Confirmez la réception!',
+            { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2260,7 +2391,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.DELIVERED:
           // Client: "Le livreur est arrivé à destination"
-          await this.notificationsService.sendNotification(client, 'Livraison validée', 'Le livreur a validé la livraison. Confirmez la réception de votre commande!', { orderId: order.id, type: 'DRIVER_ARRIVED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Livraison validée',
+            'Le livreur a validé la livraison. Confirmez la réception de votre commande!',
+            { orderId: order.id, type: 'DRIVER_ARRIVED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2273,7 +2409,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.COMPLETED:
           // Client: "Commande livrée avec succès"
-          await this.notificationsService.sendNotification(client, 'Commande livrée', 'Votre commande a été livrée avec succès. Bon appétit!', { orderId: order.id, type: 'ORDER_COMPLETED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Commande livrée',
+            'Votre commande a été livrée avec succès. Bon appétit!',
+            { orderId: order.id, type: 'ORDER_COMPLETED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2286,7 +2427,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.CANCELLED:
           // Client: "Votre commande a été annulée"
-          await this.notificationsService.sendNotification(client, 'Commande annulée', 'Votre commande a été annulée. Aucun montant ne vous a été débité.', { orderId: order.id, type: 'ORDER_CANCELLED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Commande annulée',
+            'Votre commande a été annulée. Aucun montant ne vous a été débité.',
+            { orderId: order.id, type: 'ORDER_CANCELLED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2297,21 +2443,40 @@ private readonly geoDispatchService: GeoDispatchService,
 
           // 🏪 Notifier le marchand de l'annulation (fire-and-forget)
           if (order.businessId) {
-            this.businessesService.findOne(order.businessId).then((business) => {
-              if (business?.ownerId) {
-                this.usersService.findById(business.ownerId).then((merchant) => {
-                  if (merchant) {
-                    this.notificationsService.sendNotification(merchant, 'Commande annulée', `La commande #${order.id.slice(-8)} a été annulée par le client.`, { orderId: order.id, type: 'ORDER_CANCELLED_MERCHANT' });
-                  }
-                }).catch(() => {});
-              }
-            }).catch(() => {});
+            this.businessesService
+              .findOne(order.businessId)
+              .then((business) => {
+                if (business?.ownerId) {
+                  this.usersService
+                    .findById(business.ownerId)
+                    .then((merchant) => {
+                      if (merchant) {
+                        this.notificationsService.sendNotification(
+                          merchant,
+                          'Commande annulée',
+                          `La commande #${order.id.slice(-8)} a été annulée par le client.`,
+                          {
+                            orderId: order.id,
+                            type: 'ORDER_CANCELLED_MERCHANT',
+                          },
+                        );
+                      }
+                    })
+                    .catch(() => {});
+                }
+              })
+              .catch(() => {});
           }
           break;
 
         case OrderStatus.FAILED:
           // Client: "Paiement échoué"
-          await this.notificationsService.sendNotification(client, 'Paiement échoué', 'Le paiement de votre commande a échoué. Veuillez réessayer.', { orderId: order.id, type: 'PAYMENT_FAILED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Paiement échoué',
+            'Le paiement de votre commande a échoué. Veuillez réessayer.',
+            { orderId: order.id, type: 'PAYMENT_FAILED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2323,7 +2488,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.REFUNDED:
           // Client: "Votre commande a été remboursée"
-          await this.notificationsService.sendNotification(client, 'Commande remboursée', 'Votre commande a été remboursée. Le montant sera crédité sous 48h.', { orderId: order.id, type: 'ORDER_REFUNDED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Commande remboursée',
+            'Votre commande a été remboursée. Le montant sera crédité sous 48h.',
+            { orderId: order.id, type: 'ORDER_REFUNDED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2335,7 +2505,12 @@ private readonly geoDispatchService: GeoDispatchService,
 
         case OrderStatus.DISPUTED:
           // Client + Marchand: "Un litige a été ouvert"
-          await this.notificationsService.sendNotification(client, 'Litige ouvert', 'Un litige a été ouvert sur votre commande. Notre équipe va examiner le dossier.', { orderId: order.id, type: 'ORDER_DISPUTED' });
+          await this.notificationsService.sendNotification(
+            client,
+            'Litige ouvert',
+            'Un litige a été ouvert sur votre commande. Notre équipe va examiner le dossier.',
+            { orderId: order.id, type: 'ORDER_DISPUTED' },
+          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,

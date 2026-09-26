@@ -16,7 +16,9 @@ import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { ReviewDisputeDto } from './dto/review-dispute.dto';
-import { DisputeStatus, DisputeResolution } from './entities/dispute.entity';
+import { SendDisputeMessageDto } from './dto/send-dispute-message.dto';
+import { ListDisputesQueryDto } from './dto/list-disputes-query.dto';
+import { DisputeResolution } from './entities/dispute.entity';
 import { DisputesService } from './disputes.service';
 
 type AuthRequest = ExpressRequest & {
@@ -51,11 +53,59 @@ export class DisputesController {
     return this.disputes.listForClient(req.user.userId);
   }
 
+  @Get('eligible-orders')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.CLIENT)
+  @ApiOperation({
+    summary: 'Commandes livrées éligibles à une nouvelle réclamation (client)',
+  })
+  listEligibleOrders(@Request() req: AuthRequest) {
+    return this.disputes.listEligibleOrders(req.user.userId);
+  }
+
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
-  list(@Query('status') status?: DisputeStatus) {
-    return this.disputes.list(status);
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  list(@Query() query: ListDisputesQueryDto) {
+    return this.disputes.list(query.status);
+  }
+
+  @Get(':id')
+  @UseGuards(RolesGuard)
+  @Roles(
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.SUPPORT,
+    UserRole.BUSINESS_ADMIN,
+  )
+  @ApiOperation({
+    summary: "Détail d'un litige (administration / gérant du commerce)",
+  })
+  getForStaff(@Param('id') id: string, @Request() req: AuthRequest) {
+    return this.disputes.getForStaff(id, req.user.role, req.user.userId);
+  }
+
+  @Get(':id/messages')
+  @ApiOperation({ summary: "Messages du chat support d'un litige" })
+  listMessages(@Param('id') id: string, @Request() req: AuthRequest) {
+    return this.disputes.listMessages(id, req.user.role, req.user.userId);
+  }
+
+  @Post(':id/messages')
+  @ApiOperation({
+    summary: "Envoyer un message dans le chat support d'un litige",
+  })
+  sendMessage(
+    @Param('id') id: string,
+    @Body() dto: SendDisputeMessageDto,
+    @Request() req: AuthRequest,
+  ) {
+    return this.disputes.addMessage(
+      id,
+      req.user.role,
+      req.user.userId,
+      dto.message,
+    );
   }
 
   @Post(':id/assign-support')
