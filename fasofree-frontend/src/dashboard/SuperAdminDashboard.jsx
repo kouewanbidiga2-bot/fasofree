@@ -22,6 +22,7 @@ import api from '../services/api';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import BrandsManagementTab from './components/BrandsManagementTab';
 import FinancialChart from './components/BrandChart';
+import DisputesTab from './components/DisputesTab';
 import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
@@ -1583,113 +1584,9 @@ const SuperAdminDashboard = () => {
         )}
 
         {/* ──────────────────────────────────────────────────────── */}
-        {/* ONGLET LITIGES */}
+        {/* ONGLET LITIGES (composant partagé, chat support inclus) */}
         {/* ──────────────────────────────────────────────────────── */}
-        {activeTab === 'disputes' && (
-          <div className="space-y-6 animate-slide-up">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-text-primary">Litiges en attente</h2>
-              <button onClick={loadPendingValidations} className="btn-secondary gap-2">
-                <RefreshCw size={14} className={loading.pending ? 'animate-spin' : ''} />
-                Actualiser
-              </button>
-            </div>
-
-            {loading.pending ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="card p-5">
-                    <LoadingSkeleton height="h-4" className="mb-2" />
-                    <LoadingSkeleton height="h-3" width="w-2/3" />
-                  </div>
-                ))}
-              </div>
-            ) : pendingDisputes.length === 0 ? (
-              <div className="card flex flex-col items-center justify-center py-16 text-center">
-                <Shield size={48} className="text-text-tertiary mb-4" strokeWidth={1} />
-                <p className="text-text-secondary font-semibold mb-2">Aucun litige en attente</p>
-                <p className="text-text-tertiary text-sm">Tous les litiges ont été traités</p>
-              </div>
-            ) : (
-              <div className="card overflow-hidden">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Commande</th>
-                      <th>Client</th>
-                      <th>Raison</th>
-                      <th>Montant Remboursement</th>
-                      <th>Agent Support</th>
-                      <th>Date</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingDisputes.map(dispute => (
-                      <tr key={dispute.id}>
-                        <td>
-                          <p className="font-mono text-text-primary text-xs">#{dispute.orderId?.slice(-8)}</p>
-                        </td>
-                        <td>
-                          <p className="text-text-secondary text-xs">{dispute.clientId?.slice(-8)}</p>
-                        </td>
-                        <td>
-                          <p className="text-text-primary text-sm line-clamp-1 max-w-xs">{dispute.reason}</p>
-                        </td>
-                        <td>
-                          <p className="font-semibold text-accent-primary text-sm">
-                            {dispute.refundAmount?.toLocaleString() || 'N/A'} FCFA
-                          </p>
-                        </td>
-                        <td>
-                          <p className="text-text-tertiary text-xs">
-                            {dispute.supportAgentId?.slice(-8) || 'Non assigné'}
-                          </p>
-                          {dispute.supportNote && (
-                            <p className="text-text-secondary text-xs line-clamp-1">{dispute.supportNote}</p>
-                          )}
-                        </td>
-                        <td>
-                          <p className="text-text-tertiary text-xs">
-                            {dispute.createdAt ? new Date(dispute.createdAt).toLocaleDateString('fr-FR') : '—'}
-                          </p>
-                        </td>
-                        <td>
-                          <div className="flex gap-2">
-                            <button 
-                              onClick={() => handleApproveDispute(dispute.id)}
-                              disabled={processingDisputes.has(dispute.id)}
-                              className="btn-icon text-status-success hover:bg-status-successBg disabled:opacity-50" 
-                              title="Valider le remboursement"
-                            >
-                              {processingDisputes.has(dispute.id) ? (
-                                <span className="w-4 h-4 border-2 border-status-success/30 border-t-status-success rounded-full animate-spin" />
-                              ) : (
-                                <CheckCircle size={14} />
-                              )}
-                            </button>
-                            <button 
-                              onClick={() => handleRejectDispute(dispute.id)}
-                              disabled={processingDisputes.has(dispute.id)}
-                              className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-50" 
-                              title="Rejeter le litige"
-                            >
-                              {processingDisputes.has(dispute.id) ? (
-                                <span className="w-4 h-4 border-2 border-status-error/30 border-t-status-error rounded-full animate-spin" />
-                              ) : (
-                                <XCircle size={14} />
-                              )}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === 'disputes' && <DisputesTab />}
 
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET DEMANDES DE BAN */}

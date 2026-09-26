@@ -42,6 +42,7 @@ const getSocketOptions = () => {
 
 let chatSocket = null;
 let dispatchSocket = null;
+let supportSocket = null;
 
 /**
  * Crée ou retourne le socket chat singleton.
@@ -139,6 +140,50 @@ export const getDispatchSocket = () => {
 };
 
 /**
+ * Crée ou retourne le socket support (chat des litiges, namespace /support).
+ */
+export const getSupportSocket = () => {
+  if (supportSocket && supportSocket.connected) {
+    return supportSocket;
+  }
+
+  if (supportSocket && supportSocket.disconnected && !supportSocket.active) {
+    supportSocket.removeAllListeners();
+    supportSocket.disconnect();
+    supportSocket = null;
+  }
+
+  if (!supportSocket) {
+    supportSocket = io(`${getSocketBase()}/support`, {
+      ...getSocketOptions(),
+      autoConnect: false,
+    });
+
+    supportSocket.on('connect_error', (err) => {
+      console.warn('[Support Socket] Erreur connexion:', err?.message);
+      if (err?.message?.includes('Token') || err?.message?.includes('auth')) {
+        console.warn('[Support Socket] Token expiré — reset');
+        supportSocket?.disconnect();
+        supportSocket = null;
+      }
+    });
+
+    supportSocket.on('disconnect', (reason) => {
+      console.log('[Support Socket] Déconnecté:', reason);
+      if (reason === 'io server disconnect' || reason === 'auth timeout') {
+        supportSocket = null;
+      }
+    });
+
+    supportSocket.on('connect', () => {
+      console.log('[Support Socket] ✅ Connecté');
+    });
+  }
+
+  return supportSocket;
+};
+
+/**
  * Force la reconnexion de tous les sockets avec un token frais.
  * Utile après un refresh de token ou un F5.
  */
@@ -153,6 +198,11 @@ export const forceReconnectRealtime = () => {
     dispatchSocket.disconnect();
     dispatchSocket = null;
   }
+  if (supportSocket) {
+    supportSocket.removeAllListeners();
+    supportSocket.disconnect();
+    supportSocket = null;
+  }
 };
 
 export const disconnectRealtime = () => {
@@ -166,6 +216,11 @@ export const disconnectRealtime = () => {
     dispatchSocket.disconnect();
     dispatchSocket = null;
   }
+  if (supportSocket) {
+    supportSocket.removeAllListeners();
+    supportSocket.disconnect();
+    supportSocket = null;
+  }
 };
 
-export default { getChatSocket, getDispatchSocket, disconnectRealtime, forceReconnectRealtime };
+export default { getChatSocket, getDispatchSocket, getSupportSocket, disconnectRealtime, forceReconnectRealtime };

@@ -96,3 +96,35 @@ export const reviewDispute = async (disputeId, data) => {
   const response = await api.post(`/disputes/${disputeId}/review`, data);
   return response.data;
 };
+
+/**
+ * Détail d'un litige pour l'administration / le gérant du commerce
+ * (enrichi de la commande, du client et du commerce).
+ * @param {string} disputeId - ID du litige
+ * @returns {Promise<object>} Litige enrichi
+ */
+export const getDisputeDetail = async (disputeId) => {
+  const response = await api.get(`/disputes/${disputeId}`);
+  return response.data;
+};
+
+/**
+ * Messages du chat support d'un litige.
+ * @param {string} disputeId - ID du litige
+ * @returns {Promise<Array>} Messages (ordre chronologique)
+ */
+export const getDisputeMessages = async (disputeId) => {
+  const response = await api.get(`/disputes/${disputeId}/messages`);
+  return response.data;
+};
+
+/**
+ * Envoyer un message dans le chat support d'un litige.
+ * @param {string} disputeId - ID du litige
+ * @param {string} message - Contenu du message
+ * @returns {Promise<object>} Message enregistré
+ */
+export const sendDisputeMessage = async (disputeId, message) => {
+  const response = await api.post(`/disputes/${disputeId}/messages`, { message });
+  return response.data;
+};
