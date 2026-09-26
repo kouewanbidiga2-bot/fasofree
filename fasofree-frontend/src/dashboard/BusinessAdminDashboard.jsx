@@ -77,8 +77,8 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price) { setError('Nom et prix requis'); return; }
-    if (form.trackInventory && (!form.sku || form.stockQuantity < 0)) {
-      setError('SKU requis et stock doit être positif pour le suivi d\'inventaire');
+    if (form.trackInventory && form.stockQuantity < 0) {
+      setError('Le stock doit être positif pour le suivi d\'inventaire');
       return;
     }
     setLoading(true);
@@ -165,13 +165,14 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
             {form.trackInventory && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">SKU / Code-barres</label>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">SKU / Code-barres (optionnel)</label>
                   <div className="flex gap-2">
-                    <input className="input-field flex-1" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="AUTO-GEN-001" />
+                    <input className="input-field flex-1" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Généré automatiquement" />
                     <button type="button" onClick={handleGenerateSKU} disabled={generatingSKU} className="btn-secondary">
                       <Scan size={14} className={generatingSKU ? 'animate-spin' : ''} />
                     </button>
                   </div>
+                  <p className="text-[11px] text-text-tertiary mt-1">Laissez vide : la plateforme attribue le matricule automatiquement.</p>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Stock actuel</label>
