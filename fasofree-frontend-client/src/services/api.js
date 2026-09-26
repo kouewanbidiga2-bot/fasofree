@@ -163,6 +163,15 @@ export const api = {
   // Disputes
   getMyDispute: (id) => apiFetch(`/disputes/me/${id}`, { method: 'GET' }),
   getMyDisputes: () => apiFetch('/disputes/me', { method: 'GET' }),
+  getEligibleDisputeOrders: () =>
+    apiFetch('/disputes/eligible-orders', { method: 'GET' }),
+
+  // Chat support des litiges (client ↔ support / administration)
+  getDispute: (id) => apiFetch(`/disputes/${id}`, { method: 'GET' }),
+  getDisputeMessages: (id) =>
+    apiFetch(`/disputes/${id}/messages`, { method: 'GET' }),
+  sendDisputeMessage: (id, message) =>
+    apiFetch(`/disputes/${id}/messages`, { method: 'POST', body: { message } }),
 
   // Promotions
   getPromotionQuote: (data) => apiFetch(`/promotions/quote?code=${encodeURIComponent(data.code)}&amount=${data.amount || 0}`, { method: 'GET' }),

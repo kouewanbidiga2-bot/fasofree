@@ -128,7 +128,7 @@ const Profile = () => {
     { icon: MapPin, label: t('addresses'), action: () => navigate('/addresses') },
     { icon: CreditCard, label: t('paymentInfo'), action: () => setShowPaymentInfo(!showPaymentInfo) },
     { icon: Bell, label: t('notifications'), action: () => setNotifOpen(true) },
-    { icon: AlertTriangle, label: 'Reclamations', action: () => navigate('/disputes') },
+    { icon: AlertTriangle, label: t('reclamations'), action: () => navigate('/disputes') },
     { icon: Settings, label: t('settings'), action: () => navigate('/settings') },
     { icon: LogOut, label: t('logout'), action: handleLogout, variant: 'danger' },
   ];

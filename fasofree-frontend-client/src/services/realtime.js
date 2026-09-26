@@ -27,6 +27,7 @@ const getSocketOptions = () => {
 
 let chatSocket = null;
 let dispatchSocket = null;
+let supportSocket = null;
 
 /**
  * Socket du namespace /chat (messagerie ephemere des commandes).
@@ -60,6 +61,22 @@ export const getDispatchSocket = () => {
   return dispatchSocket;
 };
 
+/**
+ * Socket du namespace /support (chat support des litiges).
+ */
+export const getSupportSocket = () => {
+  if (!supportSocket) {
+    supportSocket = io(`${getSocketBase()}/support`, {
+      ...getSocketOptions(),
+      autoConnect: false,
+    });
+    supportSocket.on('connect_error', (err) => {
+      console.warn('[Support Socket] Erreur connexion:', err?.message);
+    });
+  }
+  return supportSocket;
+};
+
 export const disconnectRealtime = () => {
   if (chatSocket) {
     chatSocket.disconnect();
@@ -69,10 +86,15 @@ export const disconnectRealtime = () => {
     dispatchSocket.disconnect();
     dispatchSocket = null;
   }
+  if (supportSocket) {
+    supportSocket.disconnect();
+    supportSocket = null;
+  }
 };
 
 export default {
   getChatSocket,
   getDispatchSocket,
+  getSupportSocket,
   disconnectRealtime,
 };

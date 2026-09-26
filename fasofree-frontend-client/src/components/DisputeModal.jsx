@@ -9,23 +9,41 @@ const REASONS = [
   { value: 'Autre', label: 'Autre' },
 ];
 
-const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
+/**
+ * Modale d'ouverture d'une réclamation.
+ *
+ * - Usage depuis une commande (OrderTracking) : `orderId` fourni, pas de
+ *   sélecteur — onSubmit(reason, password).
+ * - Usage depuis la page Réclamations : `orders` (liste éligible) fournie,
+ *   sélecteur de commande affiché — onSubmit(reason, password, orderId).
+ */
+const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
   const [reasonCategory, setReasonCategory] = useState(REASONS[0].value);
   const [description, setDescription] = useState('');
   const [password, setPassword] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState(orderId || '');
   const [submitting, setSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
+  const pickerEnabled = Array.isArray(orders) && orders.length > 0;
+  const finalOrderId = pickerEnabled ? selectedOrderId : orderId;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (description.trim().length < 10 || !password.trim()) return;
+    if (pickerEnabled && !finalOrderId) return;
     setSubmitting(true);
     try {
-      await onSubmit(reasonCategory + ' — ' + description.trim(), password.trim());
+      await onSubmit(
+        reasonCategory + ' — ' + description.trim(),
+        password.trim(),
+        finalOrderId,
+      );
       setReasonCategory(REASONS[0].value);
       setDescription('');
       setPassword('');
+      setSelectedOrderId(orders?.[0]?.id || orderId || '');
     } finally {
       setSubmitting(false);
     }
@@ -44,9 +62,38 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
           </button>
         </div>
 
-        <p className="text-sm text-[#70645C] mb-4">
-          Commande #{orderId?.slice(0, 8)}
-        </p>
+        {pickerEnabled ? (
+          <div className="mb-4">
+            <label className="block text-xs text-[#70645C] mb-2">Commande concernée</label>
+            <select
+              value={selectedOrderId || ''}
+              onChange={(e) => setSelectedOrderId(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] bg-white rounded focus:outline-none focus:border-[#C1652E]"
+              required
+            >
+              <option value="" disabled>
+                Sélectionnez une commande livrée…
+              </option>
+              {orders.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.businessName || 'Commande'} #{o.id.slice(0, 8)} —{' '}
+                  {Number(o.totalAmount).toLocaleString('fr-FR')} FCFA
+                </option>
+              ))}
+            </select>
+            {orders.length === 0 && (
+              <p className="text-xs text-[#70645C] mt-1">
+                Aucune commande livrée éligible pour une réclamation.
+              </p>
+            )}
+          </div>
+        ) : (
+          orderId && (
+            <p className="text-sm text-[#70645C] mb-4">
+              Commande #{orderId.slice(0, 8)}
+            </p>
+          )
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -97,7 +144,12 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId }) => {
             </button>
             <button
               type="submit"
-              disabled={submitting || description.trim().length < 10 || !password.trim()}
+              disabled={
+                submitting ||
+                description.trim().length < 10 ||
+                !password.trim() ||
+                (pickerEnabled && !finalOrderId)
+              }
               className="flex-1 px-4 py-2.5 text-sm font-medium text-white transition disabled:opacity-50"
               style={{ backgroundColor: '#C1652E' }}
             >
