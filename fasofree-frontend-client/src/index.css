@@ -231,6 +231,11 @@
 .dark .focus\:bg-white:focus { background-color: #282828 !important; }
 .dark .focus\:border-accent-primary:focus { border-color: #C1652E !important; }
 
+/* Assistant : bordures accent conservées aussi en mode sombre
+   (sinon .dark *:not(...) les écrase en #333) */
+.dark .border-accent-primary\/25 { border-color: rgba(193, 101, 46, 0.35) !important; }
+.dark .border-accent-primary\/30 { border-color: rgba(193, 101, 46, 0.3) !important; }
+
 .dark .peer-checked\:bg-white:checked ~ * { background-color: #282828 !important; }
 .dark .peer-checked\:bg-white { background-color: #282828 !important; }
 
@@ -393,6 +398,14 @@
 
 @keyframes fasofree-spin {
   to { transform: rotate(360deg); }
+}
+
+/* Bulle « Posez une question » de l'assistant (visible ~2 s à l'ouverture) */
+@keyframes fasofree-bubble {
+  0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+  12% { opacity: 1; transform: translateY(0) scale(1); }
+  78% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-4px) scale(0.97); }
 }
 
 @keyframes cartPop {

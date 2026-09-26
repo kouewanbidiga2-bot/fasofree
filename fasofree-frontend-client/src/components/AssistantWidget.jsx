@@ -12,10 +12,33 @@ const DEFAULT_CHIPS = [
 const WELCOME =
   "Bonjour 👋 Je suis l'assistant FasoFree : je vous guide dans l'application et je peux vous conseiller des plats.\nQue puis-je faire pour vous ?";
 
+// 💬 Bulle d'ouverture : apparaît juste après la fin du SplashScreen (1300 ms),
+// visible ~2 s, une seule fois par chargement de page.
+const HINT_SHOW_DELAY = 1450;
+const BUBBLE_DURATION_MS = 2600;
+
+/** Logo « feuille » FasoFree — l'identité visuelle de l'app (cf. SplashScreen). */
+function FasoFreeMark({ className = 'h-8 w-8', color = '#B95B2B' }) {
+  return (
+    <svg viewBox="0 0 140 140" fill="none" className={className} aria-hidden="true">
+      <ellipse cx="70" cy="70" rx="44" ry="52" stroke={color} strokeWidth="4" />
+      <path d="M38 50 Q70 22 102 50" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+      <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill={color} opacity="0.9" />
+      <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill={color} opacity="0.9" />
+      <path d="M70 62 L64 84 L76 84 Z" fill={color} opacity="0.55" />
+      <path d="M56 96 Q70 104 84 96" stroke={color} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="70" cy="70" r="3" fill={color} opacity="0.3" />
+    </svg>
+  );
+}
+
 /**
  * 🤖 Widget assistant flottant (app client).
  *
- * - Bouton flottant en bas à droite (au-dessus de la BottomNav mobile).
+ * - Bouton flottant avec le logo FasoFree (le « visage » de l'app).
+ * - Bulle « Posez une question » de ~2 s à l'ouverture de l'app, pointant
+ *   l'icône (une fois par chargement de page, après le SplashScreen).
+ * - Mode mobile : panneau plein écran scrollable ; desktop : carte flottante.
  * - Détecte la page restaurant (/restaurant/:id) pour transmettre le
  *   `businessId` et obtenir des conseils basés sur le menu réel.
  * - Réponses du moteur local du backend (aucune clé API requise).
@@ -26,8 +49,10 @@ export default function AssistantWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [chips, setChips] = useState(DEFAULT_CHIPS);
+  const [hint, setHint] = useState(false);
   const location = useLocation();
   const listRef = useRef(null);
+  const inputRef = useRef(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -37,6 +62,30 @@ export default function AssistantWidget() {
     };
   }, []);
 
+  // 💬 Indication d'ouverture : apparaît après le SplashScreen, disparaît après ~2 s.
+  useEffect(() => {
+    const showTimer = setTimeout(() => {
+      if (mountedRef.current) setHint(true);
+    }, HINT_SHOW_DELAY);
+    const hideTimer = setTimeout(() => {
+      if (mountedRef.current) setHint(false);
+    }, HINT_SHOW_DELAY + BUBBLE_DURATION_MS);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+
+  // Esc ferme le chat (mobile comme desktop).
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && mountedRef.current) setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   const businessId =
     location.pathname.match(/^\/restaurant\/([^/]+)/)?.[1] || undefined;
 
@@ -44,6 +93,7 @@ export default function AssistantWidget() {
     if (open) {
       setMessages([{ role: 'bot', text: WELCOME }]);
       setChips(DEFAULT_CHIPS);
+      inputRef.current?.focus();
     }
   }, [open]);
 
@@ -79,47 +129,89 @@ export default function AssistantWidget() {
     }
   }
 
+  function openWidget() {
+    setHint(false);
+    setOpen(true);
+  }
+
   return (
     <>
-      {/* 🟠 Bouton flottant */}
-      <button
-        type="button"
-        aria-label="Ouvrir l'assistant FasoFree"
-        onClick={() => setOpen((o) => !o)}
-        className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-2xl text-white shadow-lg transition hover:scale-105 active:scale-95 md:bottom-6"
-      >
-        {open ? '✕' : '🤖'}
-      </button>
+      {/* 💬 Indication d'ouverture (~2 s) pointant l'icône */}
+      {!open && hint && (
+        <button
+          type="button"
+          onClick={openWidget}
+          className="fixed bottom-[calc(11rem+env(safe-area-inset-bottom))] right-4 z-50 w-[248px] cursor-pointer rounded-2xl border border-accent-primary/25 bg-background-primary px-4 py-3 text-left text-sm font-medium text-text-primary shadow-elevated motion-safe:animate-[fasofree-bubble_2.6s_ease-out_forwards] md:bottom-[6.5rem]"
+        >
+          <span className="mr-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary/10 align-middle text-xs">
+            💬
+          </span>
+          <span className="align-middle">Posez une question à l'assistant</span>
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-1.5 right-7 h-3 w-3 rotate-45 border-b border-r border-accent-primary/25 bg-background-primary"
+          />
+        </button>
+      )}
 
-      {/* 💬 Fenêtre de dialogue */}
+      {/* 📍 Bouton flottant = le visage de l'app (logo FasoFree) */}
+      <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6">
+        {!open && hint && (
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
+          />
+        )}
+        <button
+          type="button"
+          aria-label={
+            open ? "Fermer l'assistant FasoFree" : "Ouvrir l'assistant FasoFree"
+          }
+          onClick={() => setOpen((o) => !o)}
+          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
+        >
+          {open ? (
+            <span className="text-2xl font-bold leading-none">✕</span>
+          ) : (
+            <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
+          )}
+        </button>
+      </div>
+
+      {/* 💬 Fenêtre de dialogue : plein écran sur mobile, carte flottante sur desktop */}
       {open && (
-        <div className="fixed bottom-40 right-4 z-50 flex max-h-[70vh] w-[min(92vw,360px)] flex-col overflow-hidden rounded-2xl border border-border-light bg-background-card shadow-2xl md:bottom-24">
-          {/* En-tête */}
-          <div className="flex items-center justify-between bg-accent-primary px-4 py-3 text-white">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🤖</span>
+        <div
+          role="dialog"
+          aria-label="Assistant FasoFree"
+          className="fixed inset-0 z-[60] flex flex-col bg-background-card md:inset-auto md:bottom-24 md:right-4 md:z-50 md:h-[70vh] md:w-[360px] md:overflow-hidden md:rounded-2xl md:border md:border-border-light md:shadow-elevated"
+        >
+          {/* En-tête avec le logo */}
+          <div className="flex shrink-0 items-center justify-between bg-accent-primary px-4 py-3 text-white">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-sm">
+                <FasoFreeMark className="h-6 w-6" />
+              </span>
               <div>
                 <p className="text-sm font-bold leading-tight">Assistant FasoFree</p>
-                <p className="text-[11px] opacity-90">Conseils &amp; guide de la plateforme</p>
+                <p className="text-[11px] opacity-90">Conseils menu &amp; guide de l'app</p>
               </div>
             </div>
             <button
               type="button"
-              aria-label="Fermer"
+              aria-label="Fermer l'assistant"
               onClick={() => setOpen(false)}
-              className="text-white/80 transition hover:text-white"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
             >
               ✕
             </button>
           </div>
 
-          {/* Messages */}
+          {/* Messages — zone scrollable (min-h-0 est requis pour le scroll en flex) */}
           <div
             ref={listRef}
             role="log"
             aria-live="polite"
-            className="flex-1 space-y-3 overflow-y-auto bg-background-secondary/60 px-3 py-4"
-            style={{ minHeight: 260, maxHeight: '52vh' }}
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-background-secondary/60 px-3 py-4"
           >
             {messages.map((msg, i) =>
               msg.role === 'user' ? (
@@ -151,7 +243,7 @@ export default function AssistantWidget() {
 
           {/* Suggestions rapides */}
           {chips.length > 0 && !loading && (
-            <div className="flex flex-wrap gap-1.5 border-t border-border-light bg-background-card px-3 pt-2">
+            <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-border-light bg-background-card px-3 pt-2">
               {chips.map((chip) => (
                 <button
                   key={chip}
@@ -165,25 +257,26 @@ export default function AssistantWidget() {
             </div>
           )}
 
-          {/* Saisie */}
+          {/* Saisie — marge basse sûre (iPhone) */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               send();
             }}
-            className="flex items-center gap-2 bg-background-card p-3"
+            className="flex shrink-0 items-center gap-2 bg-background-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3"
           >
             <input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Écrivez votre question…"
               aria-label="Votre question"
-              className="flex-1 rounded-full border border-border-light bg-background-secondary px-4 py-2 text-sm text-text-primary outline-none transition focus:border-accent-primary"
+              className="min-w-0 flex-1 rounded-full border border-border-light bg-background-secondary px-4 py-2 text-sm text-text-primary outline-none transition focus:border-accent-primary"
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="rounded-full bg-accent-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-full bg-accent-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Envoyer
             </button>
