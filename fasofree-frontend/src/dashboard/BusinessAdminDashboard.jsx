@@ -33,6 +33,7 @@ import { getBusinessProducts, getLowStockAlerts, updateStock, generateSKU } from
 import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
+import CallSupportButton from '../components/CallSupportButton';
 import { ProductType, InventoryStatus } from '../types';
 import ImageUpload from '../components/ImageUpload';
 import BranchSelector from './components/BranchSelector';
@@ -1022,6 +1023,7 @@ const BusinessAdminDashboard = () => {
                       onSelectBranch={handleBranchChange}
                     />
                   )}
+                  <CallSupportButton label="Appeler le support" />
                   <button onClick={() => { loadAnalytics(); loadOrders(); loadProducts(); }} className="btn-secondary gap-2">
                     <RefreshCw size={14} /> Actualiser
                   </button>

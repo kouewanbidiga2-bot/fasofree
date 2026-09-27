@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import CallSupportButton from '../components/CallSupportButton';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -355,6 +356,9 @@ const OrderTracking = () => {
             <h1 className="text-lg font-display font-bold text-text-primary">
               Suivi de commande
             </h1>
+            <div className="ml-auto">
+              <CallSupportButton variant="outline" label="Appeler le support" />
+            </div>
           </div>
         </div>
       </header>

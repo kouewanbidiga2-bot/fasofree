@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../services/api';
+import CallSupportButton from './CallSupportButton';
+import { hasSupportPhone } from '../utils/support';
 
 const DEFAULT_CHIPS = [
   'Comment commander ?',
@@ -254,6 +256,17 @@ export default function AssistantWidget() {
                   {chip}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Hotline — masquée sans numéro configuré */}
+          {hasSupportPhone && (
+            <div className="shrink-0 border-t border-border-light bg-background-card px-3 pt-2 pb-1">
+              <CallSupportButton
+                variant="link"
+                label="Besoin de plus d'aide ? Appeler le support"
+                className="text-xs justify-center w-full"
+              />
             </div>
           )}
 

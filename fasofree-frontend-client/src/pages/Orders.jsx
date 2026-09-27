@@ -4,6 +4,7 @@ import { Package, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react
 import Loading from './Loading';
 import Footer from '../components/Footer';
 import { api } from '../services/api';
+import CallSupportButton from '../components/CallSupportButton';
 
 const STATUS_CONFIG = {
   PENDING: { label: 'En attente', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
@@ -59,7 +60,10 @@ const Orders = () => {
   return (
     <div className="min-h-screen bg-background-primary font-sans">
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-semibold text-text-primary mb-6">Mes Commandes</h1>
+        <div className="flex items-center justify-between gap-3 mb-6">
+          <h1 className="text-2xl font-semibold text-text-primary">Mes Commandes</h1>
+          <CallSupportButton variant="outline" label="Aide · Appeler" />
+        </div>
 
         <div className="flex flex-wrap gap-2 mb-6">
           {filters.map((s) => (

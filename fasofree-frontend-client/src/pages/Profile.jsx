@@ -10,6 +10,8 @@ import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { getAbsoluteImageUrl } from '../utils/images';
 import { useLanguage } from '../contexts/LanguageContext';
+import CallSupportButton from '../components/CallSupportButton';
+import { hasSupportPhone } from '../utils/support';
 
 const MOBILE_MONEY_PROVIDERS = [
   { value: 'ORANGE_MONEY', label: 'Orange Money' },
@@ -442,7 +444,20 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Mobile Money Section — appears right after the menu */}
+          {/* Support — carte + hotline, masquées sans numéro configuré */}
+          {hasSupportPhone && (
+            <div className="border border-border-light p-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-text-primary">{t('needHelpTitle')}</p>
+                <p className="text-xs text-text-secondary mt-0.5">
+                  {t('needHelpDesc')}
+                </p>
+              </div>
+              <CallSupportButton variant="solid" label={t('callSupport')} />
+            </div>
+          )}
+
+          {/* Mobile Money Section — appears after the support card */}
           {showPaymentInfo && (
             <div className="border border-border-light p-4">
               <div className="flex items-center gap-2 mb-4">

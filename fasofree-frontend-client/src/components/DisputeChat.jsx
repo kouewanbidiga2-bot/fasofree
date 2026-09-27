@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Loader2, Send } from 'lucide-react';
 import api from '../services/api';
 import { getSupportSocket } from '../services/realtime';
+import CallSupportButton from './CallSupportButton';
 
 /**
  * 💬 Chat support d'une réclamation.
@@ -99,9 +100,12 @@ const DisputeChat = ({ disputeId }) => {
 
   return (
     <div className="mt-3 pt-3 border-t border-border-light">
-      <p className="text-xs font-semibold text-text-secondary mb-2">
-        Discuter avec le support
-      </p>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-xs font-semibold text-text-secondary">
+          Discuter avec le support
+        </p>
+        <CallSupportButton variant="link" label="Appeler" className="text-xs" />
+      </div>
 
       <div
         ref={boxRef}
