@@ -7,6 +7,10 @@ import { SubscriptionsController } from './subscriptions.controller';
 import { WalletModule } from '../wallets/wallet.module';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
+// Brand requis : SubscriptionService injecte @InjectRepository(Brand) (Pass
+// Stories / stats marchand). Sans Brand dans forFeature, le boot échoue en
+// UnknownDependenciesException ("BrandRepository at index [4]").
+import { Brand } from '../brands/entities/brand.entity';
 
 @Module({
   imports: [
@@ -15,6 +19,7 @@ import { Business } from '../businesses/entities/business.entity';
       SubscriptionPlanEntity,
       User,
       Business,
+      Brand,
     ]),
     WalletModule,
   ],
