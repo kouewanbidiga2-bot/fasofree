@@ -128,3 +128,29 @@ export const sendDisputeMessage = async (disputeId, message) => {
   const response = await api.post(`/disputes/${disputeId}/messages`, { message });
   return response.data;
 };
+
+/**
+ * Liste des litiges des commerces du gérant (multi-agences).
+ * Route : GET /disputes/business (accessible BUSINESS_ADMIN uniquement).
+ * @returns {Promise<Array>} Litiges filtrés côté serveur sur les commerces du gérant
+ */
+export const getMerchantDisputes = async () => {
+  const response = await api.get('/disputes/business');
+  return response.data;
+};
+
+/**
+ * Remboursement décidé par le gérant du commerce.
+ * Route : POST /disputes/:id/merchant-refund (accessible BUSINESS_ADMIN).
+ * Montant borné au total de la commande ; si le versement marchand est déjà
+ * exécuté, le litige est escaladé vers PENDING_ADMIN_APPROVAL.
+ * @param {string} disputeId - ID du litige
+ * @param {string} note - Note facultative du gérant (merchantNote)
+ * @returns {Promise<object>} Litige mis à jour
+ */
+export const merchantRefund = async (disputeId, note) => {
+  const response = await api.post(`/disputes/${disputeId}/merchant-refund`, {
+    note,
+  });
+  return response.data;
+};

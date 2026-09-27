@@ -17,10 +17,11 @@ import {
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
-  BarChart3, XCircle, Camera, Eye
+  BarChart3, XCircle, Camera, Eye, Shield
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
+import MerchantDisputesTab from './components/MerchantDisputesTab';
 import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
 import { getMyOrders, getBusinessOrders, getBrandOrders, getAvailableDrivers, assignDriverToOrder, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
@@ -892,6 +893,7 @@ const BusinessAdminDashboard = () => {
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
     { id: 'stories', label: 'Stories', icon: Camera },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
+    { id: 'disputes', label: 'Litiges', icon: Shield },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
@@ -1600,6 +1602,11 @@ const BusinessAdminDashboard = () => {
               )}
             </div>
           )}
+
+          {/* ──────────────────────────────────────────────────────── */}
+          {/* ONGLET LITIGES (gérant) */}
+          {/* ──────────────────────────────────────────────────────── */}
+          {activeTab === 'disputes' && <MerchantDisputesTab />}
 
           {/* ──────────────────────────────────────────────────────── */}
           {/* ONGLET PARAMÈTRES */}
