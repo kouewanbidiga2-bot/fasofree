@@ -396,6 +396,18 @@ export class DisputesService {
     if (!(await this.canAccess(dispute, role, userId)))
       throw new ForbiddenException("Vous n'avez pas accès à ce litige");
 
+    // 🚫 Litige terminal : plus aucun message (cohérent avec le refus WS
+    // /support ; propre à la persistance REST qui contournerait le garde).
+    if (
+      dispute.status === DisputeStatus.APPROVED ||
+      dispute.status === DisputeStatus.REJECTED ||
+      dispute.status === DisputeStatus.CLOSED
+    ) {
+      throw new ConflictException(
+        'Ce litige est clôturé, aucun nouveau message ne peut être envoyé',
+      );
+    }
+
     const clean = message
       .trim()
       .replace(/<[^>]*>/g, '')

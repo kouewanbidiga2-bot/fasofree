@@ -254,4 +254,23 @@ describe('DisputesService — chat support & accès', () => {
     expect(eligible[0].id).toBe(deliveredOrder.id);
     expect(eligible[0].businessName).toBe('Boutique biz-1');
   });
+
+  it('addMessage refuse un message sur un litige terminal (APPROVED/REJECTED/CLOSED)', async () => {
+    const { service } = makeService({
+      users: [client],
+      orders: [order],
+      disputes: [
+        { ...dispute, id: 'd-appr', status: DisputeStatus.APPROVED },
+        { ...dispute, id: 'd-rej', status: DisputeStatus.REJECTED },
+        { ...dispute, id: 'd-clo', status: DisputeStatus.CLOSED },
+      ],
+      businesses: [business],
+    });
+
+    for (const id of ['d-appr', 'd-rej', 'd-clo']) {
+      await expect(
+        service.addMessage(id, UserRole.CLIENT, client.id, 'Bonjour'),
+      ).rejects.toMatchObject({ status: 409 });
+    }
+  });
 });
