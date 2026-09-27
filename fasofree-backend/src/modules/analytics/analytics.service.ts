@@ -1,4 +1,4 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger, Inject, Optional } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -63,7 +63,13 @@ export class AnalyticsService {
     private readonly brandRepository: Repository<Brand>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
-    @Inject(CACHE_MANAGER) private readonly cacheManager?: Cache,
+    // 🔶 Cache OPTIONNEL : CacheModule n'est enregistré que si REDIS_URL /
+    // REDIS_HOST est défini (voir analytics.module). Le `?:` TS ne suffit pas
+    // à Nest — sans @Optional(), un boot sans Redis crashe en
+    // UnknownDependenciesException (CACHE_MANAGER à l'index 6).
+    @Optional()
+    @Inject(CACHE_MANAGER)
+    private readonly cacheManager?: Cache,
   ) {}
 
   /**

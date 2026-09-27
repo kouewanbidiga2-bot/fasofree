@@ -8,6 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import {
@@ -65,6 +66,10 @@ export class DisputesService {
     private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly businessesService: BusinessesService,
+    // 🔧 @InjectRepository requis : sans décorateur, Nest cherche le token de
+    // la classe `Repository` elle-même (jamais fourni par forFeature) → boot
+    // cassé en UnknownDependenciesException ("Repository at index [6]").
+    @InjectRepository(DisputeMessage)
     private readonly messageRepo: Repository<DisputeMessage>,
   ) {}
 
