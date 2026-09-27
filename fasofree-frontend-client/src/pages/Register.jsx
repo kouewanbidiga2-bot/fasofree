@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   User,
   Mail,
@@ -100,6 +100,47 @@ const Register = () => {
   const [locating, setLocating] = useState(false);
   const [success, setSuccess] = useState(null);
 
+  // ⚖️ PACK LÉGAL : case à cocher obligatoire + versions courantes des
+  // documents (servies par le backend — la DB est la source de vérité).
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
+  const [legalVersions, setLegalVersions] = useState({});
+  const [legalLoading, setLegalLoading] = useState(true);
+
+  // Récupère la version actuelle de FR-CGU-001 et FR-PRIV-002 pour envoyer
+  // l'acceptation avec la bonne version. Repli sur la version connue du pack
+  // si le backend est injoignable au chargement (le register échouera sinon
+  // avec un message clair du backend).
+  useEffect(() => {
+    let cancelled = false;
+    const loadVersions = async () => {
+      try {
+        const docs = await api.getLegalDocuments();
+        const versions = {};
+        for (const code of ['FR-CGU-001', 'FR-PRIV-002']) {
+          const doc = Array.isArray(docs) && docs.find((d) => d.docCode === code);
+          versions[code] = doc?.version || '1.0';
+        }
+        if (!cancelled) setLegalVersions(versions);
+      } catch {
+        if (!cancelled) {
+          setLegalVersions({ 'FR-CGU-001': '1.0', 'FR-PRIV-002': '1.0' });
+        }
+      } finally {
+        if (!cancelled) setLegalLoading(false);
+      }
+    };
+    loadVersions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Liste {docCode, docVersion} des documents obligatoires acceptés.
+  const buildAcceptedDocs = () =>
+    ['FR-CGU-001', 'FR-PRIV-002']
+      .map((docCode) => ({ docCode, docVersion: legalVersions[docCode] || '1.0' }))
+      .filter((d) => Boolean(d.docVersion));
+
   const set = (field, value) => setFormData((d) => ({ ...d, [field]: value }));
 
   const validateCommon = (minPassword) => {
@@ -127,9 +168,20 @@ const Register = () => {
   };
 
   const validateForm = () => {
-    if (activeTab === 'client') return validateCommon(8);
-
     const newErrors = validateCommon(8);
+
+    // ⚖️ PACK LÉGAL : accepter CGU + confidentialité est obligatoire pour
+    // créer un compte (client comme marchand/livreur).
+    if (!acceptedLegal) {
+      newErrors.legal =
+        'Vous devez accepter les Conditions Générales d’Utilisation et la Politique de Confidentialité';
+    }
+
+    if (activeTab === 'client') {
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+    }
+
     if (activeTab === 'merchant') {
       if (!formData.businessName.trim()) newErrors.businessName = 'Le nom du commerce est requis';
       if (!formData.businessAddress.trim()) newErrors.businessAddress = 'L’adresse du commerce est requise';
@@ -178,6 +230,8 @@ const Register = () => {
       password: formData.password,
       referralCode: formData.referralCode || undefined,
       preferredNotificationChannel: formData.preferredNotificationChannel,
+      // ⚖️ PACK LÉGAL : CGU + confidentialité acceptées (versions courantes)
+      acceptedDocs: buildAcceptedDocs(),
     });
 
     if (response.access_token) {
@@ -206,6 +260,8 @@ const Register = () => {
     fd.append('password', formData.password);
     fd.append('role', activeTab === 'merchant' ? 'MERCHANT' : 'DRIVER');
     fd.append('preferredNotificationChannel', formData.preferredNotificationChannel);
+    // ⚖️ PACK LÉGAL : acceptations CGU + confidentialité (JSON stringifié).
+    fd.append('acceptedDocsJson', JSON.stringify(buildAcceptedDocs()));
     if (formData.referralCode) fd.append('referralCode', formData.referralCode);
 
     if (activeTab === 'merchant') {
@@ -670,6 +726,44 @@ const Register = () => {
                 className={inputClass('referralCode')}
               />
             </div>
+          </div>
+
+          {/* ⚖️ PACK LÉGAL — case à cocher obligatoire (CGU + confidentialité) */}
+          <div
+            className={`rounded-lg border p-4 transition-colors ${
+              errors.legal
+                ? 'border-red-300 bg-red-50'
+                : acceptedLegal
+                  ? 'border-border-medium bg-background-secondary/60'
+                  : 'border-border-light'
+            }`}
+          >
+            <label className="flex items-start gap-3 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(e) => {
+                  setAcceptedLegal(e.target.checked);
+                  if (e.target.checked) setErrors((er) => ({ ...er, legal: '' }));
+                }}
+                className="mt-0.5 w-4 h-4 shrink-0"
+                style={{ accentColor: ACCENT }}
+              />
+              <span className="text-xs text-text-secondary leading-relaxed">
+                J’ai lu et j’accepte les{' '}
+                {/* Nouvel onglet : la navigation SPA viderait le formulaire en cours */}
+                <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: ACCENT }}>
+                  Conditions Générales d’Utilisation
+                </Link>{' '}
+                et la{' '}
+                <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: ACCENT }}>
+                  Politique de Confidentialité
+                </Link>{' '}
+                de FasoFree. L’acceptation est enregistrée (version du document, date et heure).{' '}
+                {legalLoading && <span className="text-text-muted">(lecture des versions…)</span>}
+              </span>
+            </label>
+            {errors.legal && <p className="text-xs text-red-500 mt-2">{errors.legal}</p>}
           </div>
 
           {submitError && (

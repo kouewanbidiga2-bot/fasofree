@@ -1,12 +1,14 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ProtectedRoute } from './guards';
+import { ProtectedRoute, ContractGate } from './guards';
 import retryLazy from './utils/lazyWithRetry.jsx';
 
 // 1. DIRECT IMPORTS for critical components (eliminates lazy loading crashes)
 import Loading from './pages/Loading';
 import PhoneAuth from './pages/PhoneAuth';
 import Unauthorized from './pages/Unauthorized';
+import ContractSignature from './pages/ContractSignature';
+import LegalDocPage from './pages/LegalDocPage';
 
 // 2. LAZY LOADING avec retry auto (fix page noire après deploy Vercel)
 const BusinessAdminDashboard = retryLazy(() => import('./dashboard/BusinessAdminDashboard'));
@@ -30,22 +32,46 @@ function App() {
           <Route path="/register" element={<PhoneAuth />} />
           <Route path="/unauthorized" element={<Unauthorized />} />
 
-          {/* ROUTES MARCHAND / COMMERÇANT */}
+          {/* ROUTES MARCHAND / COMMERÇANT — gated par la signature de contrat */}
           <Route
             path="/designer"
             element={
               <ProtectedRoute allowedRoles={['business_admin', 'business', 'merchant', 'restaurant']}>
-                <BusinessAdminDashboard />
+                <ContractGate>
+                  <BusinessAdminDashboard />
+                </ContractGate>
               </ProtectedRoute>
             }
           />
 
-          {/* ROUTE LIVREUR */}
+          {/* ROUTE LIVREUR — gated par la signature de contrat */}
           <Route
             path="/livreur"
             element={
               <ProtectedRoute allowedRoles={['driver', 'courier', 'livreur']}>
-                <DriverDashboard />
+                <ContractGate>
+                  <DriverDashboard />
+                </ContractGate>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ⚖️ SIGNATURE DE CONTRAT (marchands & livreurs) */}
+          <Route
+            path="/contrat"
+            element={
+              <ProtectedRoute allowedRoles={['business_admin', 'business', 'merchant', 'restaurant', 'driver', 'courier', 'livreur']}>
+                <ContractSignature />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ⚖️ DOCUMENT LÉGAL (lecture seule — liens croisés du pack) */}
+          <Route
+            path="/legal/:docCode"
+            element={
+              <ProtectedRoute>
+                <LegalDocPage />
               </ProtectedRoute>
             }
           />

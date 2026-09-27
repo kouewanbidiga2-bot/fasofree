@@ -82,6 +82,10 @@ export const api = {
   deleteAccount: () => apiFetch('/users/me', { method: 'DELETE' }),
   exportData: () => apiFetch('/users/me/export', { method: 'GET' }),
 
+  // ⚖️ Documents légaux (servis par le backend — la DB est la source de vérité)
+  getLegalDocuments: () => apiFetch('/legal/documents', { method: 'GET' }),
+  getLegalDocument: (docCode) => apiFetch(`/legal/documents/${encodeURIComponent(docCode)}`, { method: 'GET' }),
+
   // OTP Verification
   sendOtp: () => apiFetch('/auth/send-otp', { method: 'POST' }),
   verifyOtp: (code) => apiFetch('/auth/verify-otp', { method: 'POST', body: { code } }),

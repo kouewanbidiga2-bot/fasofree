@@ -9,6 +9,7 @@ import {
   UseGuards,
   UploadedFiles,
   UseInterceptors,
+  Ip,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
@@ -27,8 +28,8 @@ export class AuthController {
   // 📝 Route publique : POST /auth/register
   @Post('register')
   @ApiOperation({ summary: 'Créer un compte utilisateur' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Ip() ip: string) {
+    return this.authService.register(dto, ip);
   }
 
   // 🚦 Route publique : POST /auth/apply (Candidature Marchand / Livreur avec KYC)
@@ -48,8 +49,9 @@ export class AuthController {
   async apply(
     @Body() dto: ApplyDto,
     @UploadedFiles() files?: Record<string, Express.Multer.File[]>,
+    @Ip() ip?: string,
   ) {
-    return this.authService.apply(dto, files);
+    return this.authService.apply(dto, files, ip);
   }
 
   // 🔑 Route publique : POST /auth/login (Renvoie 200 OK au lieu de 201 Created)

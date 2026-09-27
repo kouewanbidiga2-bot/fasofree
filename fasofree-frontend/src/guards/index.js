@@ -4,3 +4,4 @@
  */
 
 export { default as ProtectedRoute } from './ProtectedRoute';
+export { default as ContractGate } from './ContractGate';

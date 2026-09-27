@@ -19,8 +19,7 @@ import NotFound from './pages/NotFound';
 import Register from './pages/Register';
 import Auth from './pages/Auth';
 import VerifyAccount from './pages/VerifyAccount';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
+import LegalDocPage from './pages/LegalDocPage';
 import Loading from './pages/Loading';
 import SearchPage from './pages/Search';
 import Layout from './components/navigation/Layout';
@@ -76,8 +75,13 @@ function App() {
         <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/register" element={<Register />} />
         <Route path="/verify-account" element={<VerifyAccount />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
+        {/* ⚖️ Pages légales — contenu servi par le backend (/legal/documents) */}
+        <Route path="/terms" element={<LegalDocPage docCode="FR-CGU-001" />} />
+        <Route path="/privacy" element={<LegalDocPage docCode="FR-PRIV-002" />} />
+        <Route path="/cookies" element={<LegalDocPage docCode="FR-COOK-003" />} />
+        <Route path="/cgv" element={<LegalDocPage docCode="FR-CGV-004" />} />
+        <Route path="/remboursement" element={<LegalDocPage docCode="FR-RMB-008" />} />
+        <Route path="/legal/:docCode" element={<LegalDocPage />} />
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
         <Route path="/p2p-delivery" element={<P2PDelivery />} />
 

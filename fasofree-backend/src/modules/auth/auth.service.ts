@@ -20,6 +20,8 @@ import { KycDocumentType } from '../kyc/entities/kyc-document.entity';
 import { UsersService } from '../users/users.service';
 import { OtpService } from '../otp/otp.service';
 import { EmailService } from '../notifications/email.service';
+import { LegalService } from '../legal/legal.service';
+import { AcceptedDocDto } from '../legal/dto/legal.dto';
 
 /** Champs fichiers KYC acceptés dans la candidature multipart */
 const KYC_FILE_FIELDS: Record<string, KycDocumentType> = {
@@ -47,10 +49,17 @@ export class AuthService {
     private readonly otpService: OtpService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly legalService: LegalService,
   ) {}
 
   // 📝 1. Inscription d'un nouvel utilisateur
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, ip?: string) {
+    // ⚖️ PACK LÉGAL : l'inscription est BLOQUÉE tant que CGU + politique de
+    // confidentialité (versions courantes) ne sont pas acceptées.
+    const acceptedDocs = await this.legalService.assertOnboardingDocs(
+      dto.acceptedDocs ?? [],
+    );
+
     // Vérifier si l'email ou le téléphone existe déjà
     const existingUser = await this.userRepository.findOne({
       where: [{ email: dto.email }, { phone: dto.phone }],
@@ -84,6 +93,11 @@ export class AuthService {
 
     await this.userRepository.save(user);
 
+    // ⚖️ Enregistrement de la preuve d'acceptation (case à cocher, horodatée).
+    // Non bloquant en cas d'échec DB : la validation stricte a déjà eu lieu
+    // dans assertOnboardingDocs.
+    await this.recordOnboardingAcceptances(user.id, acceptedDocs, ip);
+
     try {
       this.events.emit(USER_REGISTERED, {
         userId: user.id,
@@ -110,7 +124,20 @@ export class AuthService {
   async apply(
     dto: ApplyDto,
     files?: Record<string, Express.Multer.File[]>,
+    ip?: string,
   ): Promise<{ message: string; applicationId: string; role: string }> {
+    // ⚖️ PACK LÉGAL : la candidature exige aussi l'acceptation des CGU +
+    // politique de confidentialité (JSON stringifié dans le multipart).
+    let acceptedDocs: AcceptedDocDto[];
+    try {
+      acceptedDocs = JSON.parse(dto.acceptedDocsJson ?? '[]') as AcceptedDocDto[];
+    } catch {
+      throw new BadRequestException(
+        'acceptedDocsJson invalide : JSON attendu de la forme [{"docCode":"FR-CGU-001","docVersion":"1.0"}, ...]',
+      );
+    }
+    acceptedDocs = await this.legalService.assertOnboardingDocs(acceptedDocs);
+
     // Validation métier des champs spécifiques au rôle
     if (dto.role === 'MERCHANT') {
       if (!dto.businessName || !dto.businessAddress) {
@@ -193,6 +220,9 @@ export class AuthService {
       existingUser.applicationData = applicationData;
       await this.userRepository.save(existingUser);
 
+      // ⚖️ Preuve d'acceptation des documents légaux (case à cocher).
+      await this.recordOnboardingAcceptances(existingUser.id, acceptedDocs, ip);
+
       // 📎 Documents KYC fournis dans la candidature
       if (files) {
         for (const [field, type] of Object.entries(KYC_FILE_FIELDS)) {
@@ -233,6 +263,9 @@ export class AuthService {
 
     await this.userRepository.save(user);
 
+    // ⚖️ Preuve d'acceptation des documents légaux (case à cocher).
+    await this.recordOnboardingAcceptances(user.id, acceptedDocs, ip);
+
     // 📎 Documents KYC fournis dans la candidature (via KycService existant)
     if (files) {
       for (const [field, type] of Object.entries(KYC_FILE_FIELDS)) {
@@ -249,6 +282,29 @@ export class AuthService {
       applicationId: user.id,
       role: dto.role,
     };
+  }
+
+  // ⚖️ Pak légal : enregistre les acceptations CGU/confidentialité d'une
+  // candidature. Non bloquant en cas d'échec DB (la validation stricte a déjà
+  // eu lieu dans assertOnboardingDocs) — on trace quand même l'erreur.
+  private async recordOnboardingAcceptances(
+    userId: string,
+    acceptedDocs: AcceptedDocDto[],
+    ip?: string,
+  ): Promise<void> {
+    try {
+      await this.legalService.recordAcceptances(
+        userId,
+        acceptedDocs,
+        'case-a-cocher',
+        'web',
+        ip,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[Auth] Échec enregistrement acceptations légales pour ${userId}: ${(err as Error).message}`,
+      );
+    }
   }
 
   // 🔑 2. Connexion (email OU téléphone)

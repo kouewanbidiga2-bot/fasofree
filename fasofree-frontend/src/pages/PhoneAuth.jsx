@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import useAuthStore from '../store/authStore';
+import { getContractStatus } from '../services/legalService';
 
 const FasoFreeLogo = ({ size = 64 }) => (
   <svg width={size} height={size} viewBox="0 0 140 140" fill="none">
@@ -119,6 +120,23 @@ const PhoneAuth = () => {
     if (!validateLogin()) return;
     try {
       const user = await login(loginEmail, loginPassword);
+      // ⚖️ PACK LÉGAL : marchand/livreur — le contrat doit être signé avant
+      // d'accéder au dashboard (blocage côté fonctionnel, le compte reste actif
+      // pour le login). On vérifie GET /legal/contracts/pending au login.
+      const role = (user?.role || '').toLowerCase().replace('-', '_');
+      const contractRoles = ['business_admin', 'driver', 'courier'];
+      if (contractRoles.includes(role)) {
+        try {
+          const status = await getContractStatus();
+          if (status?.pending) {
+            navigate('/contrat', { replace: true });
+            return;
+          }
+        } catch {
+          // Backend injoignable : redirection classique (le gating au mount
+          // du dashboard refera la vérification quand l'API sera disponible).
+        }
+      }
       redirectByRole(user);
     } catch {
     }

@@ -109,4 +109,17 @@ export class ApplyDto {
   @IsOptional()
   @IsEnum(NotificationChannel)
   preferredNotificationChannel?: NotificationChannel;
+
+  // ⚖️ PACK LÉGAL — acceptation obligatoire (multipart : JSON stringifié).
+  // Exemple : '[{"docCode":"FR-CGU-001","docVersion":"1.0"},{"docCode":"FR-PRIV-002","docVersion":"1.0"}]'
+  // Optionnel au niveau DTO : LegalService.assertOnboardingDocs rejette en 400
+  // si absent/vide/version obsolète (message clair pour l'utilisateur).
+  @ApiProperty({
+    description:
+      'Documents légaux acceptés (JSON stringifié, version courante requise) — CGU (FR-CGU-001) et confidentialité (FR-PRIV-002) minimum.',
+    example: '[{"docCode":"FR-CGU-001","docVersion":"1.0"},{"docCode":"FR-PRIV-002","docVersion":"1.0"}]',
+  })
+  @IsOptional()
+  @IsString()
+  acceptedDocsJson?: string;
 }

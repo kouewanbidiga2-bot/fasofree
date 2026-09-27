@@ -1,8 +1,18 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
 import { NotificationChannel } from '../../users/entities/user.entity';
 import { IsBurkinaPhone } from '../validators/is-burkina-phone.validator';
 import { IsDisposableEmail } from '../validators/disposable-email.validator';
+import { AcceptedDocDto } from '../../legal/dto/legal.dto';
 
 export class RegisterDto {
   @ApiProperty({ example: 'Aminata Ouédraogo' })
@@ -33,4 +43,22 @@ export class RegisterDto {
   @IsOptional()
   @IsEnum(NotificationChannel)
   preferredNotificationChannel?: NotificationChannel;
+
+  // ⚖️ PACK LÉGAL — acceptation obligatoire des documents (CGU + confidentialité)
+  // Optionnel au niveau DTO : la validation stricte (liste non vide + versions
+  // courantes obligatoires) est faite par LegalService.assertOnboardingDocs à
+  // l'appel — message d'erreur clair au lieu du 400 générique class-validator.
+  @ApiProperty({
+    description:
+      "Documents légaux acceptés (version courante requise) — obligatoire. CGU (FR-CGU-001) et politique de confidentialité (FR-PRIV-002) minimum.",
+    example: [
+      { docCode: 'FR-CGU-001', docVersion: '1.0' },
+      { docCode: 'FR-PRIV-002', docVersion: '1.0' },
+    ],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AcceptedDocDto)
+  acceptedDocs?: AcceptedDocDto[];
 }
