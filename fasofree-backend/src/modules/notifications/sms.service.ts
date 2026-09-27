@@ -104,13 +104,30 @@ class AfricasTalkingProvider implements SmsProvider {
         );
         return true;
       } else {
-        this.logger.error(
-          `[Africa's Talking] Échec envoi SMS: ${JSON.stringify(response.data)}`,
-        );
+        // 🔐 En dehors du dev, ne jamais exposer le contenu (les codes OTP transitent ici).
+        if (process.env.NODE_ENV !== 'development') {
+          this.logger.error(
+            `[Africa's Talking] Échec envoi SMS (contenu masqué, ` +
+              `clés=${Object.keys(response.data ?? {}).join(',') || 'aucune'})`,
+          );
+        } else {
+          this.logger.error(
+            `[Africa's Talking] Échec envoi SMS: ${JSON.stringify(response.data)}`,
+          );
+        }
         return false;
       }
     } catch (error) {
-      this.logger.error(`[Africa's Talking Error] ${error.message}`);
+      if (process.env.NODE_ENV !== 'development') {
+        this.logger.error(
+          `[Africa's Talking Error] (contenu masqué, ` +
+            `type=${error?.constructor?.name ?? 'inconnu'})`,
+        );
+      } else {
+        this.logger.error(
+          `[Africa's Talking Error] ${String(error?.message ?? '').slice(0, 500)}`,
+        );
+      }
       return false;
     }
   }
@@ -171,21 +188,40 @@ class TextbeeProvider implements SmsProvider {
         return true;
       }
 
-      // Échec applicatif (ex: aucun appareil TextBee connecté, échec de push vers le device)
-      const detail =
-        result?.message ||
-        result?.error ||
-        payload?.message ||
-        payload?.error ||
-        JSON.stringify(payload ?? null);
-      this.logger.error(`[TextBee] Échec envoi SMS: ${detail}`);
+      // Échec applicatif (ex: aucun appareil TextBee connecté, échec de push)
+      // 🔐 Le détail de la passerelle peut reprendre le SMS envoyé (code OTP) :
+      //    en dehors du dev, on ne loggue que la FORME de la réponse, jamais son contenu.
+      if (process.env.NODE_ENV !== 'development') {
+        this.logger.error(
+          `[TextBee] Échec envoi SMS (contenu masqué, ` +
+            `clés=${Object.keys(payload ?? {}).join(',') || 'aucune'})`,
+        );
+      } else {
+        const detail =
+          result?.message ||
+          result?.error ||
+          payload?.message ||
+          payload?.error;
+        this.logger.error(
+          `[TextBee] Échec envoi SMS: ${detail || JSON.stringify(payload ?? null)}`,
+        );
+      }
       return false;
     } catch (error) {
       // 4xx/5xx HTTP : remonter le code pour orienter le débogage (ex: 400 = device absent)
       const status = error?.response?.status ?? '';
       const body = error?.response?.data;
-      const apiError = body?.error || body?.message || error?.message;
-      this.logger.error(`[TextBee Error] ${status} ${apiError}`);
+      if (process.env.NODE_ENV !== 'development') {
+        this.logger.error(
+          `[TextBee Error] ${status} (contenu masqué, ` +
+            `clés=${Object.keys(body ?? {}).join(',') || 'aucune'})`,
+        );
+      } else {
+        const apiError = body?.error || body?.message || error?.message;
+        this.logger.error(
+          `[TextBee Error] ${status} ${String(apiError ?? '').slice(0, 500)}`,
+        );
+      }
       return false;
     }
   }
@@ -198,14 +234,15 @@ class FallbackSmsProvider implements SmsProvider {
   private readonly logger = new Logger(FallbackSmsProvider.name);
 
   async sendSms(phoneNumber: string, message: string): Promise<boolean> {
-    if (process.env.NODE_ENV === 'production') {
-      // 🔐 Prod : jamais le contenu (codes OTP / mots de passe temporaires) dans les logs.
-      this.logger.warn(
-        `[SMS Fallback] SMS non envoyé (prod — canal non configuré): ${phoneNumber} (contenu masqué)`,
-      );
-    } else {
+    if (process.env.NODE_ENV === 'development') {
       this.logger.warn(
         `[SMS Fallback] SMS non envoyé (mode dev): ${phoneNumber} - ${message}`,
+      );
+    } else {
+      // 🔐 Hors dev : jamais le contenu (codes OTP / mots de passe temporaires) dans les logs.
+      this.logger.warn(
+        `[SMS Fallback] SMS non envoyé (${process.env.NODE_ENV ?? 'NODE_ENV absent'} — ` +
+          `canal non configuré, contenu masqué): ${phoneNumber}`,
       );
     }
     return false;
