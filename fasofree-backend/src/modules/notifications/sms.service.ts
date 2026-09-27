@@ -117,6 +117,81 @@ class AfricasTalkingProvider implements SmsProvider {
 }
 
 /**
+ * 📦 Implémentation TextBee (textbee.dev) — passerelle SMS Android
+ */
+class TextbeeProvider implements SmsProvider {
+  private readonly logger = new Logger(TextbeeProvider.name);
+  private readonly apiKey: string;
+  private readonly apiUrl = 'https://api.textbee.dev/api/v1/gateway/send-sms';
+
+  constructor(configService: ConfigService) {
+    this.apiKey = configService.get<string>('TEXTBEE_API_KEY', '');
+  }
+
+  async sendSms(phoneNumber: string, message: string): Promise<boolean> {
+    if (!this.apiKey) {
+      this.logger.warn('[TextBee] Clé API non configurée - SMS non envoyé');
+      return false;
+    }
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- axios importé via require pour cohérence avec les autres providers
+      const axios = require('axios');
+      const response = await axios.post(
+        this.apiUrl,
+        {
+          recipients: [phoneNumber],
+          message,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+          },
+          timeout: 10000,
+        },
+      );
+
+      // 200 : seul `data` est garanti par l'API. Ses champs dépendent du mode de dispatch :
+      //   - file d'attente   : { data: { success: true, smsBatchId, recipientCount } }
+      //   - dispatch immédiat: { data: { successCount, failureCount } }  (sans `success`)
+      const payload = response.data;
+      const result = payload?.data;
+
+      const queuedOk = result?.success === true;
+      const immediateOk =
+        typeof result?.successCount === 'number' &&
+        result.successCount > 0 &&
+        (result.failureCount ?? 0) === 0;
+
+      if (queuedOk || immediateOk) {
+        this.logger.log(
+          `[TextBee] SMS accepté par textbee pour ${phoneNumber}`,
+        );
+        return true;
+      }
+
+      // Échec applicatif (ex: aucun appareil TextBee connecté, échec de push vers le device)
+      const detail =
+        result?.message ||
+        result?.error ||
+        payload?.message ||
+        payload?.error ||
+        JSON.stringify(payload ?? null);
+      this.logger.error(`[TextBee] Échec envoi SMS: ${detail}`);
+      return false;
+    } catch (error) {
+      // 4xx/5xx HTTP : remonter le code pour orienter le débogage (ex: 400 = device absent)
+      const status = error?.response?.status ?? '';
+      const body = error?.response?.data;
+      const apiError = body?.error || body?.message || error?.message;
+      this.logger.error(`[TextBee Error] ${status} ${apiError}`);
+      return false;
+    }
+  }
+}
+
+/**
  * 📦 Implémentation SMS fallback (logs only)
  */
 class FallbackSmsProvider implements SmsProvider {
@@ -157,6 +232,9 @@ export class SmsService {
         break;
       case 'africastalking':
         this.provider = new AfricasTalkingProvider(this.configService);
+        break;
+      case 'textbee':
+        this.provider = new TextbeeProvider(this.configService);
         break;
       default:
         this.provider = new FallbackSmsProvider();
