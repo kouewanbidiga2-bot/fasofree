@@ -30,24 +30,35 @@ export const FILTERS = [
 export const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 
-/** Libellés français des statuts de commande (évite d'afficher l'enum brut). */
+/**
+ * Libellés français des statuts de commande (évite d'afficher l'enum brut).
+ * Miroir complet de OrderStatus (order.entity.ts) : tout statut backend doit
+ * avoir sa traduction ici, sinon le téléversement retombe sur l'enum brut.
+ */
 const ORDER_STATUS_LABELS = {
-  DELIVERED: 'Livrée',
-  DISPUTED: 'Litigée',
-  REFUNDED: 'Remboursée',
-  COMPLETED: 'Terminée',
+  PENDING: 'En attente',
+  AWAITING_PAYMENT: 'En attente de paiement',
   PAID: 'Payée',
   IN_PREPARATION: 'En préparation',
-  PENDING: 'En attente',
+  READY_FOR_PICKUP: 'Prête',
+  DRIVER_ASSIGNED: 'Livreur en chemin',
+  PROCESSING: 'En livraison',
+  IN_DELIVERY: 'En livraison',
+  DELIVERED_PENDING_CONFIRMATION: 'Arrivée',
+  DELIVERED: 'Livrée',
+  COMPLETED: 'Terminée',
   CANCELLED: 'Annulée',
   FAILED: 'Échouée',
+  DISPUTED: 'Litigée',
+  REFUNDED: 'Remboursée',
 };
 
 export const orderStatusLabel = (status) =>
   ORDER_STATUS_LABELS[status] || status || '—';
 
 /** Court identifiant affichable (`#abc12345`), chaîne vide si absent
- *  (le fallback `|| '————'` reste possible chez l'appelant). */
+ *  (l'appelant peut fournir un repli, convention `|| '—'` dans les
+ *  onglets Litiges : le même tiret que les autres champs vides). */
 export const shortId = (id) =>
   id && id.length > 8 ? id.slice(-8) : id || '';
 

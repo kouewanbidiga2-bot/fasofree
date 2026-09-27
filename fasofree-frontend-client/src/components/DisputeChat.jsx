@@ -11,6 +11,7 @@ import CallSupportButton from './CallSupportButton';
  * - Réception temps réel : WS /support (events joinDispute / newDisputeMessage).
  * - Le chat est ouvert au client, au support / admin / super admin et au
  *   gérant du commerce concerné.
+ * - Litige clôturé (statut terminal OU ack WS `closed`) : lecture seule.
  */
 const ROLES_LABELS = {
   SUPPORT: 'Support FasoFree',
@@ -20,20 +21,27 @@ const ROLES_LABELS = {
   CLIENT: 'Vous',
 };
 
-const DisputeChat = ({ disputeId }) => {
+// Miroir des statuts terminaux du backend (disputes.service.ts) : le chat
+// passe en lecture seule dès que le litige est terminé, même sans l'ack WS.
+const TERMINAL_STATUSES = ['APPROVED', 'REJECTED', 'CLOSED'];
+
+const DisputeChat = ({ disputeId, status }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
+  const [closed, setClosed] = useState(false);
   const boxRef = useRef(null);
   const socket = getSupportSocket();
+  const readOnly = closed || TERMINAL_STATUSES.includes(status);
 
   // Chargement REST + inscription au salon WS au dépliage
   useEffect(() => {
     if (!disputeId) return;
     let cancelled = false;
     setLoading(true);
+    setClosed(false);
 
     api
       .getDisputeMessages(disputeId)
@@ -55,7 +63,9 @@ const DisputeChat = ({ disputeId }) => {
     };
     socket.on('newDisputeMessage', onMessage);
     socket.emit('joinDispute', { disputeId }, (res) => {
-      if (res && res.status === 'ok' && Array.isArray(res.history)) {
+      if (!res) return;
+      if (res.closed === true && !cancelled) setClosed(true);
+      if (res.status === 'ok' && Array.isArray(res.history)) {
         setMessages((prev) => {
           const ids = new Set(prev.map((m) => m.id));
           const missing = res.history.filter((m) => !ids.has(m.id));
@@ -80,7 +90,7 @@ const DisputeChat = ({ disputeId }) => {
 
   const sendMessage = async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || readOnly) return;
     setSending(true);
     setSendError(null);
     try {
@@ -156,6 +166,12 @@ const DisputeChat = ({ disputeId }) => {
         )}
       </div>
 
+      {readOnly && (
+        <p className="text-xs text-text-secondary mb-1 italic">
+          Ce litige est clôturé : le chat est en lecture seule.
+        </p>
+      )}
+
       {sendError && (
         <p className="text-xs text-red-500 mb-1">{sendError}</p>
       )}
@@ -165,12 +181,13 @@ const DisputeChat = ({ disputeId }) => {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder="Écrire au support…"
+          disabled={readOnly}
+          placeholder={readOnly ? 'Lecture seule' : 'Écrire au support…'}
           className="flex-1 px-3 py-2.5 text-sm border border-border-light focus:outline-none focus:border-accent-primary disabled:opacity-50"
         />
         <button
           onClick={sendMessage}
-          disabled={sending || !input.trim()}
+          disabled={sending || !input.trim() || readOnly}
           className="px-4 flex items-center justify-center text-white transition-opacity disabled:opacity-40"
           style={{ backgroundColor: '#C1652E' }}
         >

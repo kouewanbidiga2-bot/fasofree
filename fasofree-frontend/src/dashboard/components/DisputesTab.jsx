@@ -229,7 +229,7 @@ const DisputesTab = () => {
       <div className="card p-5 space-y-4 animate-slide-up">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="text-sm font-bold text-text-primary">Litige #{shortId(d.id) || '————'}</h4>
+            <h4 className="text-sm font-bold text-text-primary">Litige #{shortId(d.id) || '—'}</h4>
             <span className="mt-1 inline-block">
               <StatusBadge status={d.status} statusConfig={STATUS_CONFIG} />
             </span>
@@ -245,7 +245,7 @@ const DisputesTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
           <InfoItem icon={UserIcon} label="Client" value={d.client?.fullName || shortId(d.clientId) || '—'} sub={d.client?.phone} />
           <InfoItem icon={Store} label="Commerce" value={d.business?.name || '—'} sub={d.business?.phone} />
-          <InfoItem icon={Package} label="Commande" value={`#${shortId(d.order?.id) || shortId(d.orderId) || '————'}`} sub={orderStatusLabel(d.order?.status)} />
+          <InfoItem icon={Package} label="Commande" value={`#${shortId(d.order?.id) || shortId(d.orderId) || '—'}`} sub={orderStatusLabel(d.order?.status)} />
           <InfoItem icon={Clock} label="Ouvert le" value={formatDate(d.createdAt)} sub={d.status === 'APPROVED' || d.status === 'REJECTED' ? `Résolu le ${formatDate(d.resolvedAt)}` : `${d.status !== 'OPEN' ? 'Assigné : ' + (d.supportAgentId?.slice(-8) || 'non') : ''}`} />
         </div>
 
@@ -392,7 +392,7 @@ const DisputesTab = () => {
                         {d.reason || 'Litige'}
                       </p>
                       <p className="text-xs text-text-secondary">
-                        Commande #{shortId(d.order?.id) || shortId(d.orderId) || '————'} ·{' '}
+                        Commande #{shortId(d.order?.id) || shortId(d.orderId) || '—'} ·{' '}
                         {d.client?.fullName || shortId(d.clientId) || '—'} ·{' '}
                         {d.business?.name || 'Commerce'}
                       </p>

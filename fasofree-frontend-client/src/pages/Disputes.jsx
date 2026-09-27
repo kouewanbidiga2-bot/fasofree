@@ -219,8 +219,8 @@ export default function Disputes() {
                         Voir la commande
                       </button>
 
-                      {/* Chat avec le support */}
-                      <DisputeChat disputeId={d.id} />
+                      {/* Chat avec le support (lecture seule si litige clôturé) */}
+                      <DisputeChat disputeId={d.id} status={d.status} />
                     </div>
                   )}
                 </div>

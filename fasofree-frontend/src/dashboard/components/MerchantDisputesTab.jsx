@@ -216,7 +216,7 @@ const MerchantDisputesTab = () => {
           <InfoItem
             icon={Package}
             label="Commande"
-            value={`#${shortId(d.order?.id) || shortId(d.orderId) || '————'}`}
+            value={`#${shortId(d.order?.id) || shortId(d.orderId) || '—'}`}
             sub={orderStatusLabel(d.order?.status)}
           />
           <InfoItem
@@ -381,7 +381,7 @@ const MerchantDisputesTab = () => {
                         {d.reason || 'Litige'}
                       </p>
                       <p className="text-xs text-text-secondary">
-                        Commande #{shortId(d.order?.id) || shortId(d.orderId) || '————'} ·{' '}
+                        Commande #{shortId(d.order?.id) || shortId(d.orderId) || '—'} ·{' '}
                         {d.client?.fullName || shortId(d.clientId) || '—'} ·{' '}
                         {d.business?.name || 'Commerce'}
                       </p>
