@@ -255,6 +255,10 @@ export const api = {
   // 🤖 Assistant IA (guide de la plateforme + conseils menu)
   askAssistant: (question, businessId) =>
     apiFetch('/assistant/ask', { method: 'POST', body: { question, businessId } }),
+
+  // 🎙️ Commande vocale → action structurée (Gemini / fallback local)
+  voiceAction: (question, businessId) =>
+    apiFetch('/assistant/voice-action', { method: 'POST', body: { question, businessId } }),
 };
 
 export default api;

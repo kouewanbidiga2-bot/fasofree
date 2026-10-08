@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AssistantService } from './assistant.service';
 import { AskAssistantDto } from './dto/ask-assistant.dto';
+import { VoiceActionDto } from './dto/voice-action.dto';
 
 /**
  * 🤖 Assistant FasoFree — guidance de la plateforme + conseils de menu.
@@ -20,5 +21,14 @@ export class AssistantController {
   @Post('ask')
   ask(@Body() dto: AskAssistantDto) {
     return this.assistantService.ask(dto.question, dto.businessId);
+  }
+
+  /**
+   * 🎙️ Commande vocale → action structurée (Gemini), avec fallback local.
+   * Retourne { action, query, message, answer }.
+   */
+  @Post('voice-action')
+  voiceAction(@Body() dto: VoiceActionDto) {
+    return this.assistantService.voiceAction(dto.question, dto.businessId);
   }
 }

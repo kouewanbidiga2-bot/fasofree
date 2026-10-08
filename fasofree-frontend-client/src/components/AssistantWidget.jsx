@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Mic, Volume2, VolumeX } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
@@ -54,6 +54,7 @@ export default function AssistantWidget() {
   const [chips, setChips] = useState(DEFAULT_CHIPS);
   const [hint, setHint] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const mountedRef = useRef(true);
@@ -159,6 +160,63 @@ export default function AssistantWidget() {
     }
   }
 
+  // 🧠 Action à exécuter selon la commande vocale (Gemini)
+  function executeVoiceAction(action, query) {
+    switch (action) {
+      case 'open_search':
+      case 'open_restaurant':
+        navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
+        break;
+      case 'open_cart':
+        navigate('/cart');
+        break;
+      case 'open_orders':
+        navigate('/orders');
+        break;
+      case 'track_order':
+        navigate('/orders');
+        break;
+      case 'open_checkout':
+        navigate('/checkout');
+        break;
+      default:
+        break;
+    }
+  }
+
+  // 🎙️ Commande vocale : transcript → action structurée (Gemini) → exécution
+  async function handleVoiceCommand(text) {
+    setMessages((m) => [...m, { role: 'user', text }]);
+    setInput('');
+    setLoading(true);
+    try {
+      const res = await api.voiceAction(text, businessId);
+      if (!mountedRef.current) return;
+      if (res?.action && res.action !== 'none') {
+        const msg = res.message || 'Bien sûr.';
+        setMessages((m) => [...m, { role: 'bot', text: msg }]);
+        speakAnswer(msg);
+        executeVoiceAction(res.action, res.query);
+        return;
+      }
+      const answer = res?.answer || res?.message || 'Je n’ai pas compris. Pouvez-vous reformuler ?';
+      setMessages((m) => [...m, { role: 'bot', text: answer }]);
+      speakAnswer(answer);
+    } catch {
+      if (!mountedRef.current) return;
+      try {
+        const res = await api.askAssistant(text, businessId);
+        if (!mountedRef.current) return;
+        setMessages((m) => [...m, { role: 'bot', text: res.answer }]);
+        speakAnswer(res.answer);
+      } catch {
+        setMessages((m) => [...m, { role: 'bot', text: 'Oups, je n’ai pas pu traiter cette commande vocale. Réessayez 🙏' }]);
+      }
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }
+
   // 🎙️ Question posée à la voix → transcrite → API assistant → réponse lue
   const startVoiceInput = () => {
     const SR =
@@ -183,7 +241,7 @@ export default function AssistantWidget() {
       const text = event.results?.[0]?.[0]?.transcript?.trim();
       if (text) {
         lastInputWasVoice.current = true;
-        send(text);
+        handleVoiceCommand(text);
       }
     };
     recognition.onerror = () => setListening(false);

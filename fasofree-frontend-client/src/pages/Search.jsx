@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search as SearchIcon, X } from 'lucide-react';
 import RestaurantCard from '../components/RestaurantCard';
 import api from '../services/api';
@@ -33,7 +33,8 @@ const mapBusinessToRestaurant = (b) => {
 
 const SearchPage = () => {
   const navigate = useNavigate();
-  const [query, setQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(() => searchParams.get('q') || '');
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [loading, setLoading] = useState(true);
 

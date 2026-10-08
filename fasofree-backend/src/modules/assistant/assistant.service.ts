@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { Product } from '../products/entities/product.entity';
 import { Business } from '../businesses/entities/business.entity';
@@ -38,6 +39,7 @@ export class AssistantService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    private readonly configService: ConfigService,
   ) {}
 
   /** Intents évalués par ordre de priorité (le premier score max gagne). */
@@ -199,6 +201,122 @@ export class AssistantService {
     const intent = this.detectIntent(q);
     const answer = this.buildAnswer(intent, q, ctx);
     return { intent: intent.id, answer, suggestions: this.suggestionsFor(intent.id, ctx) };
+  }
+
+  /**
+   * 🎙️ Commande vocale → action structurée (Gemini).
+   * Retourne `{ action, query, message, answer }` :
+   * - action : open_search | open_restaurant | open_cart | open_orders |
+   *            track_order | open_checkout | none
+   * - query  : terme à rechercher (pour open_search/open_restaurant)
+   * - message: confirmation courte à afficher/lire
+   * - answer : message (ou texte) à lire au client
+   *
+   * Fallback : moteur local `ask()` si GEMINI_API_KEY absente ou en erreur.
+   */
+  async voiceAction(transcript: string, businessId?: string) {
+    const q = (transcript || '').trim();
+    if (!q) {
+      return { action: 'none', query: '', message: '', answer: this.fallbackHelp() };
+    }
+
+    const key = this.configService.get<string>('GEMINI_API_KEY', '');
+    if (key) {
+      try {
+        const prompt = this.buildVoiceCommandPrompt(q);
+        const raw = await this.callGeminiText(prompt);
+        const parsed = this.parseVoiceCommand(raw);
+        if (parsed) {
+          return {
+            action: parsed.action,
+            query: parsed.query ?? '',
+            message: parsed.message ?? '',
+            answer: parsed.message ?? parsed.text ?? this.fallbackHelp(),
+          };
+        }
+      } catch (err) {
+        this.logger.warn(`[Assistant] VoiceAction Gemini indisponible: ${(err as Error).message}`);
+      }
+    }
+
+    const r = await this.ask(q, businessId);
+    return { action: 'none', query: '', message: r.answer, answer: r.answer };
+  }
+
+  private buildVoiceCommandPrompt(text: string): string {
+    return `Tu es l'assistant de FasoFree (livraison de repas au Burkina Faso).
+Analyse la commande vocale de l'utilisateur et retourne UNIQUEMENT un JSON.
+
+Commande : "${text}"
+
+Format de sortie strict :
+{
+  "action": "open_search|open_restaurant|open_cart|open_orders|track_order|open_checkout|none",
+  "query": "terme de recherche si open_search ou open_restaurant, sinon vide",
+  "message": "confirmation courte en français (ex: 'Voici les restaurants', 'Voilà votre panier', 'Je ne peux pas faire ça')"
+}
+
+Règles :
+- "cherche/trouve un restaurant / fast-food/pizza/..." => open_search avec query = type.
+- "ouvre le restaurant X / cherche X (resto)" => open_restaurant avec query = nom.
+- "voir mon panier" => open_cart.
+- "mes commandes" => open_orders.
+- "mon suivi de commande" / "où est ma commande" => track_order.
+- "passer commande/payer" => open_checkout.
+- Sinon => none avec message = une réponse courte utile.
+Réponds uniquement au JSON, sans markdown.`;
+  }
+
+  private parseVoiceCommand(raw: string): { action: string; query?: string; message?: string; text?: string } | null {
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) return null;
+      const obj = JSON.parse(jsonMatch[0]);
+      if (!obj || typeof obj.action !== 'string') return null;
+      return {
+        action: String(obj.action || 'none'),
+        query: typeof obj.query === 'string' ? obj.query : '',
+        message: typeof obj.message === 'string' ? obj.message : undefined,
+        text: typeof obj.text === 'string' ? obj.text : undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  private async callGeminiText(prompt: string): Promise<string> {
+    const key = this.configService.get<string>('GEMINI_API_KEY', '');
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+    const body = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 512,
+        responseMimeType: 'application/json',
+      },
+    };
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) {
+      const t = await response.text();
+      throw new Error(`Gemini ${response.status}: ${String(t).substring(0, 200)}`);
+    }
+    const data = await response.json();
+    const candidate = data?.candidates?.[0];
+    if (!candidate) throw new Error('Gemini: réponse vide');
+    if (candidate.finishReason === 'SAFETY') throw new Error('Gemini: blocage sécurité');
+    return candidate.content?.parts?.[0]?.text || '';
   }
 
   // ─────────────────────────── Détection ───────────────────────────
