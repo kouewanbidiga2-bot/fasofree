@@ -12,6 +12,7 @@ import { OrdersModule } from '../orders/orders.module';
 import { UsersModule } from '../users/users.module';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { BrandsModule } from '../brands/brands.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { Order } from '../orders/entities/order.entity';
@@ -39,6 +40,7 @@ import { resolveJwtSecret } from '../../config/jwt.config';
     forwardRef(() => UsersModule),
     forwardRef(() => BusinessesModule),
     forwardRef(() => BrandsModule),
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

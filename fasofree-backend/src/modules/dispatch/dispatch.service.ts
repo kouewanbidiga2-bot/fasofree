@@ -18,6 +18,8 @@ import { DeliveryProviderRegistry } from './providers/delivery-provider.registry
 import { DeliveryTicket } from './providers/delivery-provider.interface';
 import { DriverScoringService } from './services/driver-scoring.service';
 import { OrdersService } from '../orders/orders.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class DispatchService {
@@ -37,6 +39,7 @@ export class DispatchService {
     private readonly driverScoringService: DriverScoringService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   /**
@@ -472,6 +475,70 @@ export class DispatchService {
     }
     order.dispatchCandidates = candidates;
     await this.orderRepository.save(order);
+
+    // 🚦 Tous les livreurs notifiés ont refusé sur CETTE course →
+    //    alerte immédiate marchand + fail-over de secours (sans attendre le cron).
+    const allRefused =
+      candidates.length > 0 && candidates.every((c) => c.refused);
+    if (allRefused) {
+      this.logger.warn(
+        `[Refus Course] La commande #${orderId} a été refusée par tous les candidats — fail-over immédiat`,
+      );
+      try {
+        this.dispatchGateway.notifyNewOrderToBusiness(order.businessId, order);
+      } catch { /* noop */ }
+      try {
+        await this.failoverToNextProvider(order);
+      } catch (err) {
+        this.logger.error(`[Refus Course] Fail-over #${orderId}: ${err.message}`);
+      }
+    }
+
+    // 📊 Méta-refus livreur : signaler S’il refuse fréquemment.
+    // Alerte une seule fois par fenêtre 24h (au croisement du seuil de 3).
+    try {
+      const refusals = await this.countRefusalsByDriverLast24h(driverId);
+      this.logger.debug(
+        `[Refus] Livreur ${driverId} : ${refusals} refus sur 24h`,
+      );
+      if (refusals === 3) {
+        this.logger.warn(
+          `[Signalisation] Livreur ${driverId} a refusé ${refusals} courses sur 24h`,
+        );
+        try {
+          await this.notificationStore.broadcastToRole(
+            'super_admin',
+            'Livreur refuse beaucoup de courses',
+            `Le livreur ${driverId} a refusé ${refusals} courses sur les 24 dernières heures. Évaluez son activité et sa disponibilité.`,
+            NotificationType.SYSTEM,
+          );
+        } catch { /* best effort */ }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[Signalisation] Comptage des refus indisponible: ${err.message}`,
+      );
+    }
+  }
+
+  /**
+   * 📊 Nombre de courses refusées par un livreur sur les dernières 24h
+   * (analyse des candidats notifiés via dispatchCandidates JSONB).
+   */
+  private async countRefusalsByDriverLast24h(driverId: string): Promise<number> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return this.orderRepository
+      .createQueryBuilder('o')
+      .where('o.createdAt >= :since', { since })
+      .andWhere(
+        `EXISTS (
+          SELECT 1 FROM jsonb_array_elements(o."dispatchCandidates") AS cand
+          WHERE cand->>'driverId' = :driverId
+            AND (cand->>'refused')::boolean IS TRUE
+        )`,
+        { driverId },
+      )
+      .getCount();
   }
 
   /**
