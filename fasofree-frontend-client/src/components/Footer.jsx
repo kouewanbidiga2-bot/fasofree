@@ -5,7 +5,7 @@ const Footer = () => {
   const navigate = useNavigate();
 
   return (
-    <footer className="mt-12 border-t border-border-light bg-background-secondary py-10 hidden md:block">
+    <footer className="mt-12 border-t border-border-light bg-background-secondary py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
@@ -39,7 +39,7 @@ const Footer = () => {
           <div>
             <h4 className="text-sm font-medium text-text-primary mb-4">Contact</h4>
             <ul className="space-y-2">
-              <li className="text-text-secondary text-sm">kouewanbidiga2@gmail.com</li>
+              <li className="text-text-secondary text-sm">fasofree2@gmail.com</li>
               <li className="text-text-secondary text-sm">+226 61 01 00 11</li>
               <li className="text-text-secondary text-sm">Ouagadougou, Burkina Faso</li>
             </ul>

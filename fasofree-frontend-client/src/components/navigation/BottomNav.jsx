@@ -44,7 +44,7 @@ const BottomNav = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background-primary border-t border-border-light safe-area-bottom md:hidden">
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center h-16 px-2 gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
           const active = isActive(tab);
           const Icon = tab.icon;
@@ -52,7 +52,7 @@ const BottomNav = () => {
             <button
               key={tab.key}
               onClick={() => handleTap(tab)}
-              className="flex flex-col items-center gap-0.5 py-1 px-3 relative"
+              className="flex flex-col items-center gap-0.5 py-1 px-3 relative flex-shrink-0"
               aria-label={tab.label}
             >
               <div className="relative">
