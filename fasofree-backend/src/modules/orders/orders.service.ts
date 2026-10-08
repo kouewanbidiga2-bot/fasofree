@@ -182,6 +182,9 @@ export interface OrderTrackingPayload {
   businessLocation: { latitude: number; longitude: number } | null;
   pickupLocation: Order['pickupLocation'] | null;
   deliveryLocation: Order['deliveryLocation'] | null;
+  // 🧭 Provider de livraison (dispatch multi-niveaux) — Phase 0/1
+  deliveryProvider: string | null;
+  deliveryProviderStatus: string | null;
   eta: {
     preparationMinutes: number;
     remainingPreparationMinutes: number;
@@ -1407,6 +1410,8 @@ export class OrdersService {
       businessLocation,
       pickupLocation: order.pickupLocation ?? null,
       deliveryLocation: order.deliveryLocation ?? null,
+      deliveryProvider: order.deliveryProvider ?? null,
+      deliveryProviderStatus: order.deliveryProviderStatus ?? null,
       eta,
     };
   }

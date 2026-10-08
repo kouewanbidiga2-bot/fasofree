@@ -144,6 +144,20 @@ const OrderTracking = () => {
   const progress = (step / 4) * 100;
   const trackingActive = tracking?.trackingActive === true;
 
+  // 🧭 Nom d'affichage du provider de livraison (dispatch multi-niveaux)
+  function providerLabel(p) {
+    switch (String(p || '').toLowerCase()) {
+      case 'agency':
+        return 'une agence partenaire';
+      case 'manual':
+        return 'notre équipe (traitement manuel)';
+      case 'internal':
+        return 'un livreur FasoFree';
+      default:
+        return p;
+    }
+  }
+
   // 1. Chargement initial du suivi (statut + trace + ETA)
   useEffect(() => {
     if (!orderId) {
@@ -393,6 +407,20 @@ const OrderTracking = () => {
                   {STATUS_LABELS[status] || status}
                 </span>
               </div>
+
+              {tracking?.deliveryProvider && (
+                <p className="mb-4 text-xs text-text-secondary">
+                  🚚 Livraison confiée à{' '}
+                  <span className="font-semibold text-text-primary">
+                    {providerLabel(tracking.deliveryProvider)}
+                  </span>
+                  {tracking.deliveryProviderStatus === 'ESCALATED' && (
+                    <span className="ml-2 font-semibold text-status-error">
+                      · escalade en cours
+                    </span>
+                  )}
+                </p>
+              )}
 
               <div className="relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-background-secondary">

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Mic, Volume2, VolumeX } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
 import { hasSupportPhone } from '../utils/support';
@@ -56,6 +57,12 @@ export default function AssistantWidget() {
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const mountedRef = useRef(true);
+  // 🎤 Mode vocal : micro pour poser la question + lecture des réponses
+  const [listening, setListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const voiceEnabledRef = useRef(true);
+  voiceEnabledRef.current = voiceEnabled;
+  const lastInputWasVoice = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -104,6 +111,21 @@ export default function AssistantWidget() {
     if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   }, [messages, loading]);
 
+  // 🗣️ Lecture vocale des réponses (réponse API → voix)
+  const speakAnswer = useCallback((text) => {
+    if (!voiceEnabledRef.current) return;
+    try {
+      if (typeof window === 'undefined' || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'fr-FR';
+      utter.rate = 0.98;
+      window.speechSynthesis.speak(utter);
+    } catch {
+      /* synthèse vocale indisponible */
+    }
+  }, []);
+
   async function send(text = input) {
     const question = (text || '').trim();
     if (!question || loading) return;
@@ -116,6 +138,12 @@ export default function AssistantWidget() {
       setMessages((m) => [...m, { role: 'bot', text: res.answer }]);
       if (Array.isArray(res.suggestions) && res.suggestions.length) {
         setChips(res.suggestions);
+      }
+      // 🎙️ Si la question vient de la voix, on lit la réponse à haute
+      // voix (sinon ça surprendrait un utilisateur qui tape au clavier).
+      if (lastInputWasVoice.current) {
+        speakAnswer(res.answer);
+        lastInputWasVoice.current = false;
       }
     } catch {
       if (!mountedRef.current) return;
@@ -130,6 +158,51 @@ export default function AssistantWidget() {
       if (mountedRef.current) setLoading(false);
     }
   }
+
+  // 🎙️ Question posée à la voix → transcrite → API assistant → réponse lue
+  const startVoiceInput = () => {
+    const SR =
+      typeof window !== 'undefined' &&
+      (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SR) {
+      setMessages((m) => [
+        ...m,
+        {
+          role: 'bot',
+          text: "Désolé, la reconnaissance vocale n'est pas supportée sur ce navigateur. 😅",
+        },
+      ]);
+      return;
+    }
+    const recognition = new SR();
+    recognition.lang = 'fr-FR';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = (event) => {
+      const text = event.results?.[0]?.[0]?.transcript?.trim();
+      if (text) {
+        lastInputWasVoice.current = true;
+        send(text);
+      }
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    try {
+      recognition.start();
+    } catch {
+      setListening(false);
+    }
+  };
+
+  // 🗑️ Couper toute lecture vocale en quittant l'app
+  useEffect(() => {
+    return () => {
+      try {
+        window.speechSynthesis?.cancel();
+      } catch {}
+    };
+  }, []);
 
   function openWidget() {
     setHint(false);
@@ -287,6 +360,31 @@ export default function AssistantWidget() {
               className="min-w-0 flex-1 rounded-full border border-border-light bg-background-secondary px-4 py-2 text-sm text-text-primary outline-none transition focus:border-accent-primary"
             />
             <button
+              type="button"
+              onClick={() => setVoiceEnabled((v) => !v)}
+              aria-label={voiceEnabled ? 'Désactiver la lecture vocale' : 'Activer la lecture vocale'}
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition ${
+                voiceEnabled
+                  ? 'bg-accent-primary/10 text-accent-primary'
+                  : 'bg-background-secondary text-text-tertiary'
+              }`}
+            >
+              {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+            <button
+              type="button"
+              onClick={startVoiceInput}
+              disabled={loading || listening}
+              aria-label={listening ? 'Écoute en cours…' : 'Poser une question à la voix'}
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition ${
+                listening
+                  ? 'animate-pulse bg-status-error/10 text-status-error'
+                  : 'bg-accent-primary/10 text-accent-primary'
+              }`}
+            >
+              <Mic size={18} />
+            </button>
+            <button
               type="submit"
               disabled={loading || !input.trim()}
               className="shrink-0 rounded-full bg-accent-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
@@ -294,6 +392,11 @@ export default function AssistantWidget() {
               Envoyer
             </button>
           </form>
+          {listening && (
+            <p className="shrink-0 px-4 pb-2 text-xs font-medium text-status-error">
+              Écoute en cours… parlez maintenant, puis attendez.
+            </p>
+          )}
         </div>
       )}
     </>

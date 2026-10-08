@@ -358,6 +358,16 @@ const LiveOrders = () => {
                         )}
                       />
                     </div>
+                    {o.deliveryProvider && (
+                      <p className="mb-1 text-[11px] text-text-tertiary">
+                        🚚 Provider : <span className="font-semibold text-text-primary">
+                          {o.deliveryProvider === 'agency' ? 'Agence partenaire' : o.deliveryProvider === 'manual' ? 'File manuelle' : o.deliveryProvider}
+                        </span>
+                        {o.deliveryProviderStatus === 'ESCALATED' && (
+                          <span className="ml-1.5 font-semibold text-status-error">⚠ escaladée</span>
+                        )}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-text-secondary">
                         {Number(o.totalAmount || 0).toLocaleString('fr-FR')} FCFA

@@ -1241,6 +1241,24 @@ const BusinessAdminDashboard = () => {
                           </div>
                         </div>
 
+                        {order.deliveryProvider && (
+                          <div className="mb-4 p-3 bg-background-secondary rounded-lg">
+                            <p className="text-xs text-text-secondary">Livraison confiée à</p>
+                            <p className="text-sm font-semibold text-text-primary">
+                              {order.deliveryProvider === 'agency'
+                                ? 'Agence partenaire'
+                                : order.deliveryProvider === 'manual'
+                                  ? 'File manuelle'
+                                  : order.deliveryProvider === 'internal'
+                                    ? 'Livreur FasoFree'
+                                    : order.deliveryProvider}
+                              {order.deliveryProviderStatus === 'ESCALATED' && (
+                                <span className="ml-2 text-status-error">· escaladée</span>
+                              )}
+                            </p>
+                          </div>
+                        )}
+
                         {/* Status Actions */}
                         {nextStatuses.length > 0 && (
                           <div className="flex gap-2">
