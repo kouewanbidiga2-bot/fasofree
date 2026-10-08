@@ -18,6 +18,7 @@ const AdminManagerDashboard = retryLazy(() => import('./dashboard/AdminManagerDa
 const SupportDashboard = retryLazy(() => import('./dashboard/SupportDashboard'));
 const LiveOrders = retryLazy(() => import('./dashboard/LiveOrders'));
 const ApplicationsDashboard = retryLazy(() => import('./dashboard/ApplicationsDashboard'));
+const AgencyDashboard = retryLazy(() => import('./dashboard/AgencyDashboard'));
 
 function App() {
   return (
@@ -102,6 +103,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['support']}>
                 <SupportDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ROUTE AGENCE — Niveau 2 du dispatch (agences partenaires) */}
+          <Route
+            path="/agences"
+            element={
+              <ProtectedRoute allowedRoles={['agency']}>
+                <AgencyDashboard />
               </ProtectedRoute>
             }
           />

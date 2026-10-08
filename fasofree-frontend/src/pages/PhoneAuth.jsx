@@ -107,6 +107,7 @@ const PhoneAuth = () => {
       'business_admin': '/designer',
       'driver': '/livreur',
       'courier': '/livreur',
+      'agency': '/agences',
       'super_admin': '/admin/super',
       'admin': '/admin/manager',
       'support': '/admin/support',

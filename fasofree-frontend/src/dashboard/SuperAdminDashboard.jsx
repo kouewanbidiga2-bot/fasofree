@@ -15,7 +15,7 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car, Eye
+  Truck, Car, Eye, Building2
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -24,6 +24,7 @@ import BrandsManagementTab from './components/BrandsManagementTab';
 import FinancialChart from './components/BrandChart';
 import DisputesTab from './components/DisputesTab';
 import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
+import { getAgencies, createAgency, updateAgency } from '../services/agencyService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
   getSubscriptionPlans,
@@ -86,6 +87,12 @@ const SuperAdminDashboard = () => {
   const [brandBreakdown, setBrandBreakdown] = useState(null);
   const [selectedBrandFilter, setSelectedBrandFilter] = useState(null);
   const [financeTab, setFinanceTab] = useState('overview'); // overview | products | flows | brands
+
+  // 🏢 Agences partenaires (Niveau 2 du dispatch)
+  const [agencies, setAgencies] = useState([]);
+  const [agenciesLoading, setAgenciesLoading] = useState(false);
+  const [agencyForm, setAgencyForm] = useState({ name: '', phone: '', email: '', zones: '', commissionPct: 10, maxConcurrentDeliveries: 0 });
+  const [agencyMsg, setAgencyMsg] = useState(null);
 
   // Platform stats
   const [platformStats, setPlatformStats] = useState({
@@ -249,6 +256,59 @@ const SuperAdminDashboard = () => {
   }, []);
 
   // Load financial statistics
+  // 🏢 Agences partenaires (Niveau 2 du dispatch)
+  const loadAgencies = useCallback(async () => {
+    setAgenciesLoading(true);
+    try {
+      const data = await getAgencies();
+      setAgencies(data || []);
+      setAgencyMsg(null);
+    } catch (err) {
+      setAgencyMsg({ type: 'error', text: err.message });
+    } finally {
+      setAgenciesLoading(false);
+    }
+  }, []);
+
+  const handleCreateAgency = async (e) => {
+    e.preventDefault();
+    try {
+      await createAgency({
+        name: agencyForm.name,
+        phone: agencyForm.phone || undefined,
+        email: agencyForm.email || undefined,
+        zones: agencyForm.zones
+          ? agencyForm.zones.split(',').map((z) => z.trim()).filter(Boolean)
+          : undefined,
+        commissionPct: Number(agencyForm.commissionPct) || 10,
+        maxConcurrentDeliveries: Number(agencyForm.maxConcurrentDeliveries) || 0,
+      });
+      setAgencyForm({ name: '', phone: '', email: '', zones: '', commissionPct: 10, maxConcurrentDeliveries: 0 });
+      setAgencyMsg({ type: 'success', text: 'Agence créée avec succès' });
+      await loadAgencies();
+    } catch (err) {
+      setAgencyMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleToggleAgency = async (agency) => {
+    try {
+      await updateAgency(agency.id, { isActive: !agency.isActive });
+      await loadAgencies();
+    } catch (err) {
+      setAgencyMsg({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleUpdateCommission = async (agency, commissionPct) => {
+    try {
+      await updateAgency(agency.id, { commissionPct: Number(commissionPct) });
+      await loadAgencies();
+    } catch (err) {
+      setAgencyMsg({ type: 'error', text: err.message });
+    }
+  };
+
   const loadFinancialStats = useCallback(async () => {
     setLoading(prev => ({ ...prev, financial: true }));
     try {
@@ -400,6 +460,13 @@ const SuperAdminDashboard = () => {
     loadSettings();
     loadConversations();
   }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
+
+  // 🏢 Charger les agences quand l'onglet est ouvert
+  useEffect(() => {
+    if (activeTab === 'agencies') {
+      loadAgencies();
+    }
+  }, [activeTab, loadAgencies]);
 
   // 📡 Dispatch socket : mise à jour temps réel des statuts de commande
   useEffect(() => {
@@ -932,6 +999,7 @@ const SuperAdminDashboard = () => {
     { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'financial', label: 'Finance', icon: DollarSign },
+    { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
     { id: 'subscriptions', label: 'Abonnements', icon: Crown },
     { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
     { id: 'settings', label: 'Paramètres', icon: Settings },
@@ -1453,6 +1521,143 @@ const SuperAdminDashboard = () => {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET AGENCES DE LIVRAISON (Niveau 2 du dispatch) */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'agencies' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">Agences de Livraison</h2>
+                <p className="text-text-secondary text-sm">
+                  Flottes partenaires qui prennent le relais quand aucun livreur interne n'est disponible.
+                </p>
+              </div>
+              <button onClick={loadAgencies} className="btn-secondary gap-2">
+                <RefreshCw size={14} className={agenciesLoading ? 'animate-spin' : ''} />
+                Actualiser
+              </button>
+            </div>
+
+            {agencyMsg && (
+              <div className={`p-3 rounded-lg border text-sm ${agencyMsg.type === 'success' ? 'bg-status-successBg border-status-success/30 text-status-success' : 'bg-status-errorBg border-status-error/30 text-status-error'}`}>
+                {agencyMsg.text}
+              </div>
+            )}
+
+            {/* ── Création ─────────────────────────────────── */}
+            <form onSubmit={handleCreateAgency} className="card p-5 space-y-4">
+              <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Nouvelle agence</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <input
+                  className="input"
+                  placeholder="Nom de l'agence *"
+                  value={agencyForm.name}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, name: e.target.value })}
+                  required
+                />
+                <input
+                  className="input"
+                  placeholder="Téléphone"
+                  value={agencyForm.phone}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, phone: e.target.value })}
+                />
+                <input
+                  className="input"
+                  placeholder="Email"
+                  type="email"
+                  value={agencyForm.email}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, email: e.target.value })}
+                />
+                <input
+                  className="input"
+                  placeholder="Zones (ex. Ouagadougou, Bobo-Dioulasso)"
+                  value={agencyForm.zones}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, zones: e.target.value })}
+                />
+                <input
+                  className="input"
+                  placeholder="Commission % (défaut 10)"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={agencyForm.commissionPct}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, commissionPct: e.target.value })}
+                />
+                <input
+                  className="input"
+                  placeholder="Capacité max (0 = illimité)"
+                  type="number"
+                  min="0"
+                  value={agencyForm.maxConcurrentDeliveries}
+                  onChange={(e) => setAgencyForm({ ...agencyForm, maxConcurrentDeliveries: e.target.value })}
+                />
+              </div>
+              <button type="submit" className="btn-primary gap-2">
+                <Plus size={14} />
+                Créer l'agence
+              </button>
+            </form>
+
+            {/* ── Liste des agences ────────────────────────── */}
+            <div className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-border-light">
+                <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                  Agences partenaires ({agencies.length})
+                </h3>
+              </div>
+              {agenciesLoading ? (
+                <div className="p-8 text-center text-text-tertiary text-sm">Chargement…</div>
+              ) : agencies.length === 0 ? (
+                <div className="p-8 text-center text-text-tertiary text-sm">
+                  Aucune agence enregistrée. Créez-en une pour activer le Niveau 2 du dispatch.
+                </div>
+              ) : (
+                <div className="divide-y divide-border-light">
+                  {agencies.map((agency) => (
+                    <div key={agency.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-text-primary">{agency.name}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${agency.isActive ? 'bg-status-successBg text-status-success' : 'bg-status-errorBg text-status-error'}`}>
+                            {agency.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-text-tertiary">
+                          {agency.phone || '—'} · {agency.email || '—'} · Zones : {(agency.zones || []).join(', ') || 'National'} · Capacité : {Number(agency.maxConcurrentDeliveries) > 0 ? agency.maxConcurrentDeliveries : 'illimitée'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <input
+                            className="input w-24 text-sm"
+                            type="number"
+                            min="0"
+                            max="100"
+                            defaultValue={agency.commissionPct}
+                            onBlur={(e) => {
+                              if (Number(e.target.value) !== Number(agency.commissionPct)) {
+                                handleUpdateCommission(agency, e.target.value);
+                              }
+                            }}
+                          />
+                          <span className="text-xs text-text-tertiary">%</span>
+                        </div>
+                        <button
+                          onClick={() => handleToggleAgency(agency)}
+                          className="btn-secondary text-xs"
+                        >
+                          {agency.isActive ? 'Désactiver' : 'Activer'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
