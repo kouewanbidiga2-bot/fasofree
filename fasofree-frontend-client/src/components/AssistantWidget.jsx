@@ -98,35 +98,6 @@ export default function AssistantWidget() {
     };
   }, []);
 
-  // Esc ferme le chat (mobile comme desktop).
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape' && mountedRef.current) {
-        setOpen(false);
-        stopSpeech();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, stopSpeech]);
-
-  const businessId =
-    location.pathname.match(/^\/restaurant\/([^/]+)/)?.[1] || undefined;
-
-  useEffect(() => {
-    if (open) {
-      setMessages([{ role: 'bot', text: WELCOME }]);
-      setChips(DEFAULT_CHIPS);
-      inputRef.current?.focus();
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, loading]);
-
   // 🗣️ Lecture vocale des réponses (réponse API → voix)
   const stopSpeech = useCallback(() => {
     try {
@@ -162,6 +133,35 @@ export default function AssistantWidget() {
       /* synthèse vocale indisponible */
     }
   }, []);
+
+  // Esc ferme le chat (mobile comme desktop).
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape' && mountedRef.current) {
+        setOpen(false);
+        stopSpeech();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, stopSpeech]);
+
+  const businessId =
+    location.pathname.match(/^\/restaurant\/([^/]+)/)?.[1] || undefined;
+
+  useEffect(() => {
+    if (open) {
+      setMessages([{ role: 'bot', text: WELCOME }]);
+      setChips(DEFAULT_CHIPS);
+      inputRef.current?.focus();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading]);
 
   async function send(text = input) {
     const question = (text || '').trim();
