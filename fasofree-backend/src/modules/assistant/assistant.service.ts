@@ -286,7 +286,14 @@ Réponds uniquement au JSON, sans markdown.`;
 
   private async callGeminiText(prompt: string): Promise<string> {
     const key = this.configService.get<string>('GEMINI_API_KEY', '');
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`;
+    const primaryModel = this.configService.get<string>(
+      'GEMINI_MODEL',
+      'gemini-3.5-flash-lite',
+    );
+    // ⚠️ gemini-1.5-flash / gemini-2.5-flash ne sont plus servis aux nouveaux
+    // usages (404 « no longer available ») → repli sur l'alias stable
+    // `gemini-flash-latest` si le modèle primaire est en erreur (404/429/503…).
+    const models = [primaryModel, 'gemini-flash-latest'];
     const body = {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
@@ -295,28 +302,46 @@ Réponds uniquement au JSON, sans markdown.`;
         responseMimeType: 'application/json',
       },
     };
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
+
+    let lastError: Error | null = null;
+    for (const model of models) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const t = await response.text();
+          lastError = new Error(
+            `Gemini ${response.status}: ${String(t).substring(0, 200)}`,
+          );
+          continue;
+        }
+        const data = await response.json();
+        const candidate = data?.candidates?.[0];
+        if (!candidate) {
+          lastError = new Error('Gemini: réponse vide');
+          continue;
+        }
+        if (candidate.finishReason === 'SAFETY') {
+          lastError = new Error('Gemini: blocage sécurité');
+          continue;
+        }
+        const text = candidate.content?.parts?.[0]?.text || '';
+        if (text.trim()) return text;
+        lastError = new Error('Gemini: réponse vide');
+      } catch (err) {
+        lastError = err as Error;
+      } finally {
+        clearTimeout(timeout);
+      }
     }
-    if (!response.ok) {
-      const t = await response.text();
-      throw new Error(`Gemini ${response.status}: ${String(t).substring(0, 200)}`);
-    }
-    const data = await response.json();
-    const candidate = data?.candidates?.[0];
-    if (!candidate) throw new Error('Gemini: réponse vide');
-    if (candidate.finishReason === 'SAFETY') throw new Error('Gemini: blocage sécurité');
-    return candidate.content?.parts?.[0]?.text || '';
+    throw lastError ?? new Error('Gemini: échec inconnu');
   }
 
   // ─────────────────────────── Détection ───────────────────────────
