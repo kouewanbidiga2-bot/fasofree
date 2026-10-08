@@ -64,6 +64,8 @@ export default function AssistantWidget() {
   const voiceEnabledRef = useRef(true);
   voiceEnabledRef.current = voiceEnabled;
   const lastInputWasVoice = useRef(false);
+  // Référence vers startVoiceInput pour les événements globaux (boutons 🎤)
+  const startVoiceRef = useRef(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -171,10 +173,8 @@ export default function AssistantWidget() {
         navigate('/cart');
         break;
       case 'open_orders':
-        navigate('/orders');
-        break;
       case 'track_order':
-        navigate('/orders');
+        navigate('/order-history');
         break;
       case 'open_checkout':
         navigate('/checkout');
@@ -253,6 +253,24 @@ export default function AssistantWidget() {
     }
   };
 
+  startVoiceRef.current = startVoiceInput;
+
+  // 🌐 Boutons 🎤 externes (barres de recherche) : ouvrent l'assistant
+  // et lancent directement l'écoute vocale.
+  useEffect(() => {
+    const openAssistant = () => setOpen(true);
+    const openAndListen = () => {
+      setOpen(true);
+      window.setTimeout(() => startVoiceRef.current?.(), 350);
+    };
+    window.addEventListener('fasofree:open-assistant', openAssistant);
+    window.addEventListener('fasofree:voice-command', openAndListen);
+    return () => {
+      window.removeEventListener('fasofree:open-assistant', openAssistant);
+      window.removeEventListener('fasofree:voice-command', openAndListen);
+    };
+  }, []);
+
   // 🗑️ Couper toute lecture vocale en quittant l'app
   useEffect(() => {
     return () => {
@@ -287,28 +305,45 @@ export default function AssistantWidget() {
         </button>
       )}
 
-      {/* 📍 Bouton flottant = le visage de l'app (logo FasoFree) */}
+      {/* 📍 Bouton flottant = l'assistant vocal (logo FasoFree + libellé + micro) */}
       <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6">
-        {!open && hint && (
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
-          />
-        )}
-        <button
-          type="button"
-          aria-label={
-            open ? "Fermer l'assistant FasoFree" : "Ouvrir l'assistant FasoFree"
-          }
-          onClick={() => setOpen((o) => !o)}
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
-        >
-          {open ? (
-            <span className="text-2xl font-bold leading-none">✕</span>
-          ) : (
-            <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
+        <div className="flex items-center gap-2">
+          {!open && (
+            <span className="whitespace-nowrap rounded-full border border-border-light bg-background-card px-3 py-1.5 text-xs font-bold text-text-primary shadow-subtle">
+              🎤 Assistant vocal
+            </span>
           )}
-        </button>
+          <div className="relative">
+            {!open && hint && (
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
+              />
+            )}
+            <button
+              type="button"
+              aria-label={
+                open ? "Fermer l'assistant" : "Ouvrir l'assistant vocal FasoFree"
+              }
+              onClick={() => setOpen((o) => !o)}
+              className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
+            >
+              {open ? (
+                <span className="text-2xl font-bold leading-none">✕</span>
+              ) : (
+                <>
+                  <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
+                  <span
+                    aria-hidden="true"
+                    className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-[#2E9B5B] text-white"
+                  >
+                    <Mic size={12} strokeWidth={2.4} />
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 💬 Fenêtre de dialogue : plein écran sur mobile, carte flottante sur desktop */}
@@ -434,13 +469,14 @@ export default function AssistantWidget() {
               onClick={startVoiceInput}
               disabled={loading || listening}
               aria-label={listening ? 'Écoute en cours…' : 'Poser une question à la voix'}
-              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition ${
+              title="Commande vocale : parlez pour rechercher, commander, suivre…"
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition ${
                 listening
-                  ? 'animate-pulse bg-status-error/10 text-status-error'
-                  : 'bg-accent-primary/10 text-accent-primary'
+                  ? 'animate-pulse bg-status-error text-white'
+                  : 'bg-[#2E9B5B] text-white shadow-subtle hover:opacity-90 active:scale-95'
               }`}
             >
-              <Mic size={18} />
+              <Mic size={19} strokeWidth={2.2} />
             </button>
             <button
               type="submit"

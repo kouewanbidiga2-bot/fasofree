@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, Package, Car, LogIn } from 'lucide-react';
+import { Search, MapPin, Bell, Package, Car, LogIn, Mic } from 'lucide-react';
 import Footer from '../components/Footer';
 import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
@@ -124,6 +124,11 @@ const Home = () => {
     setSearchQuery(query);
   }, []);
 
+  // 🎤 Ouvre l'assistant vocal en écoute directe (bouton micro des barres de recherche)
+  const requestVoiceCommand = () => {
+    window.dispatchEvent(new CustomEvent('fasofree:voice-command'));
+  };
+
   const handleCategoryChange = useCallback((category) => {
     setSelectedCategory(category);
   }, []);
@@ -168,8 +173,17 @@ const Home = () => {
                   placeholder={t('searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
+                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
                 />
+                <button
+                  type="button"
+                  aria-label="Recherche vocale"
+                  title="Recherche vocale"
+                  onClick={requestVoiceCommand}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+                >
+                  <Mic size={16} />
+                </button>
               </div>
             </div>
 
@@ -230,8 +244,17 @@ const Home = () => {
                 placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
               />
+              <button
+                type="button"
+                aria-label="Recherche vocale"
+                title="Recherche vocale"
+                onClick={requestVoiceCommand}
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+              >
+                <Mic size={16} />
+              </button>
             </div>
           </div>
 

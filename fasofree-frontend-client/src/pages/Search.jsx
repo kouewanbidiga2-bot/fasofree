@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, X } from 'lucide-react';
+import { Search as SearchIcon, X, Mic } from 'lucide-react';
 import RestaurantCard from '../components/RestaurantCard';
 import api from '../services/api';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
@@ -80,6 +80,11 @@ const getUserLocation = () => {
 
   const handleClear = () => setQuery('');
 
+  // 🎤 Ouvre l'assistant vocal en écoute directe
+  const requestVoiceCommand = () => {
+    window.dispatchEvent(new CustomEvent('fasofree:voice-command'));
+  };
+
   return (
     <div className="min-h-screen bg-background-primary">
       <div className="sticky top-0 z-20 bg-background-primary border-b border-border-light px-4 py-3">
@@ -91,8 +96,17 @@ const getUserLocation = () => {
             placeholder="Rechercher un plat, un restaurant..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-xl border border-border-light bg-background-secondary py-3 pl-10 pr-10 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent-primary transition-colors"
+            className="w-full rounded-xl border border-border-light bg-background-secondary py-3 pl-10 pr-16 text-sm text-text-primary placeholder:text-text-secondary outline-none focus:border-accent-primary transition-colors"
           />
+          <button
+            type="button"
+            aria-label="Recherche vocale"
+            title="Recherche vocale"
+            onClick={requestVoiceCommand}
+            className="absolute right-9 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+          >
+            <Mic size={16} />
+          </button>
           {query && (
             <button onClick={handleClear} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a09388]">
               <X size={16} />
