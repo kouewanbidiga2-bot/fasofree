@@ -16,13 +16,25 @@ import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Brand } from '../brands/entities/brand.entity';
+import { DeliveryAgency } from './entities/delivery-agency.entity';
+import { DriverScoringService } from './services/driver-scoring.service';
+import { DeliveryProviderRegistry } from './providers/delivery-provider.registry';
+import { InternalFleetProvider } from './providers/internal-fleet.provider';
+import { AgencyProvider } from './providers/agency.provider';
+import { ManualProvider } from './providers/manual.provider';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Global()
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([User, Business, Order, Brand]),
+    TypeOrmModule.forFeature([
+      User,
+      Business,
+      Order,
+      Brand,
+      DeliveryAgency,
+    ]),
     forwardRef(() => OrdersModule),
     forwardRef(() => UsersModule),
     forwardRef(() => BusinessesModule),
@@ -37,7 +49,24 @@ import { resolveJwtSecret } from '../../config/jwt.config';
     }),
   ],
   controllers: [DispatchController],
-  providers: [DispatchGateway, DispatchService, LocationHandler, RoomHandler],
-  exports: [DispatchGateway, DispatchService, JwtModule],
+  providers: [
+    DispatchGateway,
+    DispatchService,
+    LocationHandler,
+    RoomHandler,
+    // 🧭 Dispatch multi-niveaux (Delivery Providers / Fallback)
+    DriverScoringService,
+    DeliveryProviderRegistry,
+    InternalFleetProvider,
+    AgencyProvider,
+    ManualProvider,
+  ],
+  exports: [
+    DispatchGateway,
+    DispatchService,
+    DeliveryProviderRegistry,
+    DriverScoringService,
+    JwtModule,
+  ],
 })
 export class DispatchModule {}

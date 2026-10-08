@@ -230,6 +230,32 @@ export class DispatchGateway
     return this.roomHandler.handleJoinOrderTracking(client, dto.orderId);
   }
 
+  @SubscribeMessage(WsEvents.JOIN_AGENCY_ROOM)
+  async handleJoinAgencyRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() dto: { agencyId: string },
+  ) {
+    // 🔒 La room agence est réservée aux comptes rattachés à cette agence
+    const userId = client.data?.user?.sub ?? client.data?.user?.userId;
+    if (!userId) {
+      return { event: 'error', data: 'Utilisateur non authentifié' };
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: { id: true, agencyId: true },
+    });
+
+    if (!user || user.agencyId !== dto.agencyId) {
+      this.logger.warn(
+        `[WS Auth] Socket ${client.id} (${userId}) refusé sur la room agence ${dto.agencyId}`,
+      );
+      return { event: 'error', data: 'Accès non autorisé à cette salle' };
+    }
+
+    return this.roomHandler.handleJoinAgencyRoom(client, dto.agencyId);
+  }
+
   @SubscribeMessage(WsEvents.UPDATE_DRIVER_LOCATION)
   async handleUpdateLocation(
     @ConnectedSocket() client: Socket,
@@ -253,6 +279,17 @@ export class DispatchGateway
         message: '🔔 Nouvelle commande reçue !',
         order,
       });
+  }
+
+  /**
+   * 🏢 Notifier une agence partenaire (room `agency:<id>`).
+   * Utilisé par le provider AGENCY pour router une course en temps réel.
+   */
+  notifyAgency(agencyId: string, payload: Record<string, any>): void {
+    if (!this.server) return;
+    this.server
+      .to(`${WsRooms.AGENCY_PREFIX}${agencyId}`)
+      .emit('agency_delivery', payload);
   }
 
   dispatchOrderToDrivers(order: Order): void {

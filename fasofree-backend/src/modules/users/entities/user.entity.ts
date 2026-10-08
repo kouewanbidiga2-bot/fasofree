@@ -4,6 +4,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { UserRole } from './user-role.enum';
 
@@ -121,6 +122,13 @@ export class User {
 
   @Column({ type: 'text', nullable: true })
   rejectionReason?: string | null;
+
+  // 🏢 AGCENCE PARTENAIRE (dispatch multi-niveaux, Niveau 2)
+  // Agence de livraison à laquelle appartient ce compte (comptes AGENCY
+  // et chauffeurs rattachés à une flotte partenaire).
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  agencyId?: string | null;
 
   // 🚚 CHAMPS LIVREUR / COURSIER (DISPATCH)
   @Column({ type: 'double precision', nullable: true })

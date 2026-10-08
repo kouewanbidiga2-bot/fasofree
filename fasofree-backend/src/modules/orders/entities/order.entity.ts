@@ -284,6 +284,37 @@ export class Order {
   @Column({ type: 'timestamp', nullable: true })
   dispatchedAt: Date | null;
 
+  // --- 🧭 DISPATCH MULTI-NIVEAUX (Delivery Providers / Fallback) ---
+  // Nom du provider ayant pris en charge la course
+  // ('internal' | 'agency' | 'manual' … selon DELIVERY_PROVIDERS).
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  deliveryProvider: string | null;
+
+  // Id du provider secondaire (ex. id de l'agence routière)
+  @Column({ type: 'uuid', nullable: true })
+  @Index()
+  deliveryProviderId: string | null;
+
+  // Référence externe de suivi (ex. AGENCY-<id>-<orderId>, MANUAL-<orderId>)
+  @Column({ type: 'varchar', length: 128, nullable: true })
+  deliveryExternalRef: string | null;
+
+  // Statut provider-side : DISPATCHED | ROUTED | MANUAL_QUEUE | ESCALATED …
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  deliveryProviderStatus: string | null;
+
+  // Détails bruts du provider (commission, nom agence…) — jamais de contenu client
+  @Column({ type: 'jsonb', nullable: true })
+  deliveryProviderDetails: Record<string, any> | null;
+
+  // Dernière tentative de dispatch (fail-over / escalade SLA)
+  @Column({ type: 'timestamp', nullable: true })
+  deliveryProviderTriedAt: Date | null;
+
+  // 💶 Commission agence retenue sur les frais de livraison (FCFA)
+  @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
+  agencyCommissionXof: number | null;
+
   // --- 🎫 QR CODE (PICKUP / DINE_IN) ---
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
   qrCode: string | null;

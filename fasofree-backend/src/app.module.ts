@@ -14,6 +14,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { ProductsModule } from './modules/products/products.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { AgenciesModule } from './modules/agencies/agencies.module';
 import { HealthModule } from './modules/health/health.module'; // 👈 Import
 import { FinancialModule } from './modules/financial/financial.module';
 import { WalletModule } from './modules/wallets/wallet.module';
@@ -86,6 +87,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     OrdersModule,
     PaymentsModule,
     DispatchModule,
+    AgenciesModule, // 🏢 Niveau 2 du dispatch : agences partenaires
     AnalyticsModule,
     HealthModule, // 👈 Ajout du module Health
     FinancialModule, // 👈 Ajout du module Financial

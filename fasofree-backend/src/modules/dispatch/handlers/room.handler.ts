@@ -21,4 +21,11 @@ export class RoomHandler {
     );
     return { event: WsEvents.JOINED_ROOM, room };
   }
+
+  handleJoinAgencyRoom(client: Socket, agencyId: string) {
+    const room = `${WsRooms.AGENCY_PREFIX}${agencyId}`;
+    client.join(room);
+    this.logger.debug(`Socket ${client.id} joined agency room: ${room}`);
+    return { event: WsEvents.JOINED_ROOM, room };
+  }
 }

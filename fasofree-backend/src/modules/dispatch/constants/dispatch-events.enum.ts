@@ -2,6 +2,7 @@ export enum WsEvents {
   // Événements entrants (Client -> Serveur)
   JOIN_BUSINESS_ROOM = 'joinBusinessRoom',
   JOIN_ORDER_TRACKING = 'joinOrderTracking',
+  JOIN_AGENCY_ROOM = 'joinAgencyRoom',
   UPDATE_DRIVER_LOCATION = 'updateDriverLocation',
 
   // Événements sortants (Serveur -> Client)
@@ -20,4 +21,5 @@ export enum WsRooms {
   DRIVER_PREFIX = 'driver_',
   BUSINESS_PREFIX = 'business_',
   ORDER_PREFIX = 'order_',
+  AGENCY_PREFIX = 'agency_',
 }

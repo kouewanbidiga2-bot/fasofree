@@ -2,41 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
 import {
   Order,
   OrderStatus,
-  OrderType,
   FulfillmentType,
 } from '../orders/entities/order.entity';
 import { DispatchGateway } from './dispatch.gateway';
 import { DeliveryPricingService } from '../orders/delivery-pricing.service';
-
-/**
- * 📍 Structure pour le scoring des livreurs
- */
-interface DriverScore {
-  driverId: string;
-  driver: User;
-  distanceKm: number;
-  averageRating: number;
-  score: number;
-}
-
-/**
- * 📊 Configuration des poids de scoring
- */
-const SCORING_WEIGHTS = {
-  DISTANCE: 0.6, // 60% de la note basée sur la distance
-  RATING: 0.4, // 40% de la note basée sur la note moyenne
-  MAX_DISTANCE_KM: 10, // Distance maximale acceptable (km)
-  MIN_RATING: 3.0, // Note minimale acceptable
-};
-
-/** Distance maximale pour un livreur à vélo (au-delà, les vélos sont exclus) */
-const MAX_BICYCLE_DISTANCE_KM = 3;
+import { DeliveryProviderRegistry } from './providers/delivery-provider.registry';
+import { DeliveryTicket } from './providers/delivery-provider.interface';
+import { DriverScoringService } from './services/driver-scoring.service';
 
 @Injectable()
 export class DispatchService {
@@ -51,174 +30,10 @@ export class DispatchService {
     private readonly orderRepository: Repository<Order>,
     private readonly dispatchGateway: DispatchGateway,
     private readonly deliveryPricingService: DeliveryPricingService,
+    private readonly configService: ConfigService,
+    private readonly providerRegistry: DeliveryProviderRegistry,
+    private readonly driverScoringService: DriverScoringService,
   ) {}
-
-  /**
-   * 🧮 Formule Haversine pour calculer la distance entre deux coordonnées GPS
-   * @returns Distance en kilomètres
-   */
-  private calculateDistance(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
-  ): number {
-    const R = 6371; // Rayon de la Terre en km
-    const dLat = this.toRadians(lat2 - lat1);
-    const dLon = this.toRadians(lon2 - lon1);
-
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.toRadians(lat1)) *
-        Math.cos(this.toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  private toRadians(degrees: number): number {
-    return degrees * (Math.PI / 180);
-  }
-
-  /**
-   * 🎯 Algorithme de Scoring des livreurs
-   * Score = (Distance normalisée * 0.6) + (Rating normalisé * 0.4)
-   */
-  private calculateDriverScore(
-    distanceKm: number,
-    averageRating: number,
-  ): number {
-    // Normaliser la distance (0 = excellent, 1 = mauvais)
-    const normalizedDistance = Math.min(
-      distanceKm / SCORING_WEIGHTS.MAX_DISTANCE_KM,
-      1,
-    );
-
-    // Normaliser le rating (1 = mauvais, 0 = excellent)
-    const normalizedRating = Math.max(
-      (5 - averageRating) / (5 - SCORING_WEIGHTS.MIN_RATING),
-      0,
-    );
-
-    // Calculer le score final (plus bas = meilleur)
-    const score =
-      normalizedDistance * SCORING_WEIGHTS.DISTANCE +
-      normalizedRating * SCORING_WEIGHTS.RATING;
-
-    return score;
-  }
-
-  /**
-   * 🔍 Trouver les livreurs disponibles et les scorer
-   * @param orderType Si RIDE : les livreurs à vélo (BICYCLE) sont pénalisés
-   * (une moto/VTC est préférée pour une course de personnes).
-   */
-  private async findAndScoreDrivers(
-    originLat: number,
-    originLng: number,
-    orderType?: OrderType,
-  ): Promise<DriverScore[]> {
-    // 1. Récupérer tous les livreurs actifs et disponibles
-    const drivers = await this.userRepository.find({
-      where: {
-        role: In([UserRole.DRIVER, UserRole.COURIER]),
-        isActive: true,
-      },
-    });
-
-    if (drivers.length === 0) {
-      this.logger.warn('[Dispatch] Aucun livreur actif trouvé');
-      return [];
-    }
-
-    // 2. Calculer le score pour chaque livreur
-    const scoredDrivers: DriverScore[] = [];
-
-    for (const driver of drivers) {
-      // Vérifier si le livreur a une position GPS enregistrée
-      if (!driver.latitude || !driver.longitude) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} sans position GPS, ignoré`,
-        );
-        continue;
-      }
-
-      // Vérifier si le livreur est en ligne et disponible
-      if (!driver.isOnline || !driver.isAvailable) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} hors ligne ou non disponible`,
-        );
-        continue;
-      }
-
-      const distanceKm = this.calculateDistance(
-        originLat,
-        originLng,
-        driver.latitude,
-        driver.longitude,
-      );
-
-      // Filtrer par distance maximale
-      if (distanceKm > SCORING_WEIGHTS.MAX_DISTANCE_KM) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} trop loin (${distanceKm.toFixed(2)} km)`,
-        );
-        continue;
-      }
-
-      // 🚲 Exclure les livreurs à vélo si la distance est > 3 km
-      const vehicle = String(driver.vehicleType || '').toUpperCase();
-      if (vehicle === 'BICYCLE' && distanceKm > MAX_BICYCLE_DISTANCE_KM) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} à vélo exclu: distance ${distanceKm.toFixed(2)}km > ${MAX_BICYCLE_DISTANCE_KM}km`,
-        );
-        continue;
-      }
-
-      // Récupérer la note moyenne du livreur (via reviews service si disponible)
-      const averageRating = driver.averageRating || 4.0; // Par défaut 4.0
-
-      // Filtrer par note minimale
-      if (averageRating < SCORING_WEIGHTS.MIN_RATING) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} note trop basse (${averageRating})`,
-        );
-        continue;
-      }
-
-      const score = this.calculateDriverScore(distanceKm, averageRating);
-
-      // 🏍️ RIDE : pénalité si le livreur se déplace à vélo / à pied (préférer moto/VTC)
-      const isRide = orderType === OrderType.RIDE;
-      if (isRide && (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')) {
-        this.logger.debug(
-          `[Dispatch] Livreur ${driver.id} à vélo (${vehicle}) pénalisé pour une course RIDE`,
-        );
-      }
-
-      scoredDrivers.push({
-        driverId: driver.id,
-        driver,
-        distanceKm,
-        averageRating,
-        score: isRide &&
-          (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')
-          ? score + 0.5
-          : score,
-      });
-    }
-
-    // 3. Trier par score (le plus bas en premier)
-    scoredDrivers.sort((a, b) => a.score - b.score);
-
-    this.logger.log(
-      `[Dispatch] ${scoredDrivers.length} livreur(s) éligible(s) trouvé(s)`,
-    );
-
-    return scoredDrivers;
-  }
 
   /**
    * 🚀 Assigner automatiquement une commande au meilleur livreur
@@ -283,87 +98,161 @@ export class DispatchService {
       order.dropoffLocation?.address || business?.address || null;
 
     // 💰 Calcul des frais de livraison avec le tarif véhicule
-    const estimatedDistanceKm = business
-      ? this.calculateDistance(
-          originLatitude,
-          originLongitude,
-          order.deliveryLocation?.latitude ?? originLatitude,
-          order.deliveryLocation?.longitude ?? originLongitude,
-        )
-      : 0;
-    const resolvedVehicleType = this.deliveryPricingService.resolveVehicleType();
-    const calculatedFee = this.deliveryPricingService.calculateDeliveryFee(estimatedDistanceKm, resolvedVehicleType);
+    const ticket = this.buildTicket(order, business);
 
-    // 4. Trouver et scorer les livreurs
-    const scoredDrivers = await this.findAndScoreDrivers(
-      originLatitude,
-      originLongitude,
-      order.orderType,
-    );
+    // 🧭 ORCHESTRATEUR MULTI-NIVEAUX :
+    // essaie chaque provider dans l'ordre configuré (DELIVERY_PROVIDERS).
+    // L'échec d'un niveau n'est PAS une erreur finale → fail-over.
+    const handled = await this.dispatchThroughProviders(order, ticket);
 
-    if (scoredDrivers.length === 0) {
+    if (!handled) {
+      // ⛔ Tous les niveaux ont échoué : aucun moyen de livraison.
       this.logger.warn(
-        `[Auto-Dispatch] Aucun livreur éligible pour la commande #${orderId}`,
+        `[Auto-Dispatch] Aucun provider de livraison disponible pour la commande #${orderId}`,
       );
       // Notifier le système qu'aucun livreur n'est disponible
       this.dispatchGateway.notifyNewOrderToBusiness(order.businessId, order);
-      return;
+      await this.markEscalated(order);
     }
+  }
 
-    // 5. Stratégie d'assignation
-    // Option A: Assigner automatiquement au meilleur livreur
-    // Option B: Notifier les 3 meilleurs candidats
+  /**
+   * 🎟️ Construit le ticket standardisé transmis aux providers.
+   */
+  private buildTicket(order: Order, business: Business | null): DeliveryTicket {
+    const originLatitude = business?.latitude ?? order.pickupLocation?.latitude;
+    const originLongitude =
+      business?.longitude ?? order.pickupLocation?.longitude;
 
-    const TOP_CANDIDATES_COUNT = 3;
-    const topCandidates = scoredDrivers.slice(0, TOP_CANDIDATES_COUNT);
-
-    this.logger.log(
-      `[Auto-Dispatch] Top ${topCandidates.length} candidat(s) pour la commande #${orderId}:`,
+    const estimatedDistanceKm =
+      business && originLatitude && originLongitude
+        ? this.driverScoringService.calculateDistance(
+            originLatitude,
+            originLongitude,
+            order.deliveryLocation?.latitude ?? originLatitude,
+            order.deliveryLocation?.longitude ?? originLongitude,
+          )
+        : 0;
+    const resolvedVehicleType =
+      this.deliveryPricingService.resolveVehicleType();
+    const calculatedFee = this.deliveryPricingService.calculateDeliveryFee(
+      estimatedDistanceKm,
+      resolvedVehicleType,
     );
 
-    topCandidates.forEach((candidate, index) => {
-      this.logger.log(
-        `  #${index + 1}: ${candidate.driver.fullName} - Distance: ${candidate.distanceKm.toFixed(2)}km - Rating: ${candidate.averageRating} - Score: ${candidate.score.toFixed(3)}`,
-      );
-    });
-
-    // 6. Notifier les candidats via WebSocket
-    const driverIds = topCandidates.map((c) => c.driverId);
-
-    // Stocker les candidats notifiés pour le timeout
-    const notifiedCandidates = topCandidates.map((c) => ({
-      driverId: c.driverId,
-      score: c.score,
-      notifiedAt: new Date(),
-    }));
-
-    // Mettre à jour la commande avec les candidats notifiés
-    order.dispatchCandidates = notifiedCandidates;
-    order.dispatchedAt = new Date();
-    await this.orderRepository.save(order);
-
-    this.dispatchGateway.notifyCandidateDrivers(driverIds, {
-      type: 'NEW_ORDER_OFFER',
+    return {
       orderId: order.id,
       orderType: order.orderType,
-      businessName: business?.name || 'Course à la demande',
-      businessAddress: business?.address || order.pickupLocation?.address,
+      fulfillmentType: order.fulfillmentType,
       pickupAddress:
         order.pickupLocation?.address || business?.address || null,
-      pickupLatitude: order.pickupLocation?.latitude,
-      pickupLongitude: order.pickupLocation?.longitude,
-      deliveryAddress,
-      deliveryLatitude: order.deliveryLocation?.latitude,
-      deliveryLongitude: order.deliveryLocation?.longitude,
-      earningXOF: calculatedFee || order.deliveryFee,
-      totalAmount: order.totalAmount,
-      estimatedDistanceKm: topCandidates[0].distanceKm,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
-    });
+      // ⚠️ L'origine de scoring DOIT être business|pickup (comme
+      // l'historique), sinon le provider interne refuse les commandes
+      // marchands dont pickupLocation est null.
+      pickupLatitude:
+        business?.latitude ?? order.pickupLocation?.latitude ?? null,
+      pickupLongitude:
+        business?.longitude ?? order.pickupLocation?.longitude ?? null,
+      deliveryAddress:
+        order.dropoffLocation?.address || business?.address || null,
+      deliveryLatitude: order.deliveryLocation?.latitude ?? null,
+      deliveryLongitude: order.deliveryLocation?.longitude ?? null,
+      deliveryFeeXOF: calculatedFee?.fee ?? Number(order.deliveryFee || 0),
+      pricingResult: calculatedFee,
+      totalAmount: Number(order.totalAmount || 0),
+      businessName: business?.name || null,
+    };
+  }
 
-    this.logger.log(
-      `[Auto-Dispatch] Notification envoyée à ${driverIds.length} livreur(s) pour la commande #${orderId}`,
-    );
+  /**
+   * 🧭 Parcourt la chaîne de providers (fail-over).
+   * Retourne true dès qu'un provider prend la course en charge.
+   */
+  private async dispatchThroughProviders(
+    order: Order,
+    ticket: DeliveryTicket,
+  ): Promise<boolean> {
+    for (const provider of this.providerRegistry.getAll()) {
+      try {
+        const canHandle = await provider.canHandle(ticket);
+        if (!canHandle) {
+          this.logger.debug(
+            `[Dispatch] Provider "${provider.name}" ne peut pas traiter la commande #${ticket.orderId}`,
+          );
+          continue;
+        }
+
+        const result = await provider.createDelivery(ticket);
+        if (!result.accepted) {
+          this.logger.debug(
+            `[Dispatch] Provider "${provider.name}" a refusé la commande #${ticket.orderId} (${result.message ?? 'non acceptée'})`,
+          );
+          continue;
+        }
+
+        // Recharger la commande pour ne pas écraser les mutations
+        // du provider (candidats notifiés, etc.)
+        const fresh = await this.orderRepository.findOne({
+          where: { id: order.id },
+        });
+        if (fresh) {
+          fresh.deliveryProvider = provider.name;
+          fresh.deliveryProviderId = result.providerId ?? null;
+          fresh.deliveryExternalRef = result.externalRef ?? null;
+          fresh.deliveryProviderStatus = result.status ?? 'ROUTED';
+          fresh.deliveryProviderDetails = result.details ?? null;
+          fresh.deliveryProviderTriedAt = new Date();
+          if (
+            result.details?.agencyCommissionXof != null
+          ) {
+            fresh.agencyCommissionXof = result.details.agencyCommissionXof;
+          }
+          await this.orderRepository.save(fresh);
+        }
+
+        this.logger.log(
+          `[Dispatch] Commande #${ticket.orderId} prise en charge par le provider "${provider.name}"`,
+        );
+        return true;
+      } catch (err) {
+        // Un provider en erreur ne bloque pas les suivants
+        this.logger.error(
+          `[Dispatch] Provider "${provider.name}" en erreur sur la commande #${ticket.orderId}: ${
+            (err as Error)?.message ?? 'inconnu'
+          }`,
+        );
+        continue;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 🚨 Marque la commande comme ESCALÉE (Niveau 4 : intervention
+   * humaine) quand aucun moyen de livraison n'a pu la prendre
+   * en charge. Marquage purement indicatif (visible en supervision).
+   */
+  private async markEscalated(order: Order): Promise<void> {
+    try {
+      const fresh = await this.orderRepository.findOne({
+        where: { id: order.id },
+      });
+      if (!fresh || fresh.deliveryProviderStatus === 'ESCALATED') {
+        return;
+      }
+      fresh.deliveryProviderStatus = 'ESCALATED';
+      fresh.deliveryProviderTriedAt = new Date();
+      await this.orderRepository.save(fresh);
+      this.logger.warn(
+        `[Dispatch] Commande #${order.id} ESCALÉE — aucun moyen de livraison (intervention opérateur requise)`,
+      );
+    } catch (err) {
+      this.logger.error(
+        `[Dispatch] Impossible de marquer l'escalade pour la commande #${order.id}: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
+      );
+    }
   }
 
   /**
@@ -375,8 +264,11 @@ export class DispatchService {
     this.logger.log('[Dispatch Timeout] Vérification des timeouts de dispatch');
 
     try {
-      // Trouver les commandes en attente de livreur depuis plus de 10 minutes
-      const timeoutMs = 10 * 60 * 1000;
+      // Trouver les commandes en attente de livreur depuis plus
+      // de DISPATCH_TIMEOUT_MS (défaut : 10 minutes)
+      const timeoutMs =
+        Number(this.configService.get<number>('DISPATCH_TIMEOUT_MS')) ||
+        10 * 60 * 1000;
       const timeout = new Date(Date.now() - timeoutMs);
 
       const pendingOrders = await this.orderRepository
@@ -391,6 +283,16 @@ export class DispatchService {
           !order.dispatchCandidates ||
           order.dispatchCandidates.length === 0
         ) {
+          // 🧭 Commande sans candidats internes :
+          //  - déjà routée vers un provider externe (agence/manuel)
+          //    → on attend sa prise en charge, rien à faire ;
+          //  - sinon → fail-over : réessaie la chaîne complète
+          //    (interne → agence → manuel) puis escalade SLA.
+          const routedProvider = order.deliveryProvider;
+          if (routedProvider && routedProvider !== 'internal') {
+            continue;
+          }
+          await this.failoverToNextProvider(order);
           continue;
         }
 
@@ -422,7 +324,7 @@ export class DispatchService {
           continue;
         }
 
-        const scoredDrivers = await this.findAndScoreDrivers(
+        const scoredDrivers = await this.driverScoringService.findAndScoreDrivers(
           originLatitude,
           originLongitude,
           order.orderType,
@@ -442,6 +344,8 @@ export class DispatchService {
             order.businessId,
             order,
           );
+          // 🧭 Fail-over vers les autres niveaux + escalade SLA
+          await this.failoverToNextProvider(order);
           continue;
         }
 
@@ -468,8 +372,8 @@ export class DispatchService {
           businessAddress: business?.address || order.pickupLocation?.address,
           pickupAddress:
             order.pickupLocation?.address || business?.address || null,
-          pickupLatitude: order.pickupLocation?.latitude,
-          pickupLongitude: order.pickupLocation?.longitude,
+          pickupLatitude: originLatitude ?? null,
+          pickupLongitude: originLongitude ?? null,
           deliveryAddress:
             order.dropoffLocation?.address || business?.address,
           deliveryLatitude: order.deliveryLocation?.latitude,
@@ -487,6 +391,52 @@ export class DispatchService {
     } catch (error) {
       this.logger.error(
         `[Dispatch Timeout Error] Erreur lors de la vérification des timeouts: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * 🧭 Fail-over (cron) : reconstruit le ticket et réessaie
+   * la chaîne complète de providers. Utilisé quand le pool
+   * interne est épuisé (plus aucun candidat) — le niveau
+   * suivant (agence, manuel) prend le relais.
+   */
+  private async failoverToNextProvider(order: Order): Promise<void> {
+    try {
+      const business = order.businessId
+        ? await this.businessRepository.findOne({
+            where: { id: order.businessId },
+          })
+        : null;
+
+      const originLatitude =
+        business?.latitude ?? order.pickupLocation?.latitude;
+      const originLongitude =
+        business?.longitude ?? order.pickupLocation?.longitude;
+
+      if (!originLatitude || !originLongitude) {
+        this.logger.warn(
+          `[Dispatch Timeout] Commande #${order.id} sans coordonnées GPS de référence — fail-over ignoré`,
+        );
+        return;
+      }
+
+      const ticket = this.buildTicket(order, business);
+      const handled = await this.dispatchThroughProviders(order, ticket);
+
+      if (handled) {
+        this.logger.log(
+          `[Dispatch Timeout] Fail-over réussi pour la commande #${order.id}`,
+        );
+      } else {
+        // Rien n'a pu prendre en charge → escalade SLA (Niveau 4)
+        await this.markEscalated(order);
+      }
+    } catch (err) {
+      this.logger.error(
+        `[Dispatch Timeout Error] Fail-over impossible pour la commande #${order.id}: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
       );
     }
   }
