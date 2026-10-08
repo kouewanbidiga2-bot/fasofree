@@ -9,6 +9,7 @@ import {
   NotFoundException,
   BadRequestException,
   Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -26,6 +27,7 @@ import {
 import { Business } from '../businesses/entities/business.entity';
 import { DispatchService } from './dispatch.service';
 import { DispatchGateway } from './dispatch.gateway';
+import { OrdersService } from '../orders/orders.service';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: string };
@@ -46,6 +48,8 @@ export class DispatchController {
     private readonly userRepository: Repository<User>,
     private readonly dispatchService: DispatchService,
     private readonly dispatchGateway: DispatchGateway,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
   ) {}
 
   /**
@@ -188,6 +192,7 @@ const [clients, businesses] = await Promise.all([
         );
       }
 
+      const previousStatus = order.status;
       order.driverId = driverId;
       // READY_FOR_PICKUP → DRIVER_ASSIGNED, sinon → PROCESSING
       order.status = order.status === OrderStatus.READY_FOR_PICKUP
@@ -208,6 +213,14 @@ const [clients, businesses] = await Promise.all([
         driverId,
         businessId: order.businessId,
       });
+
+      // 📱 Notifications push / in-app (client + livreur) — transitions
+      //    DRIVER_ASSIGNED / PROCESSING
+      try {
+        await this.ordersService.sendStatusNotifications(order, previousStatus);
+      } catch (err) {
+        // Ne jamais bloquer l'acceptation pour un problème de notif
+      }
 
       return {
         success: true,

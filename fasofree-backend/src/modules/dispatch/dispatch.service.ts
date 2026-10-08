@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -16,6 +17,7 @@ import { DeliveryPricingService } from '../orders/delivery-pricing.service';
 import { DeliveryProviderRegistry } from './providers/delivery-provider.registry';
 import { DeliveryTicket } from './providers/delivery-provider.interface';
 import { DriverScoringService } from './services/driver-scoring.service';
+import { OrdersService } from '../orders/orders.service';
 
 @Injectable()
 export class DispatchService {
@@ -33,6 +35,8 @@ export class DispatchService {
     private readonly configService: ConfigService,
     private readonly providerRegistry: DeliveryProviderRegistry,
     private readonly driverScoringService: DriverScoringService,
+    @Inject(forwardRef(() => OrdersService))
+    private readonly ordersService: OrdersService,
   ) {}
 
   /**
@@ -502,11 +506,19 @@ export class DispatchService {
       throw new Error(`Livreur ${driverId} introuvable`);
     }
 
+    const previousStatus = order.status;
     order.driverId = driverId;
     order.status = OrderStatus.DRIVER_ASSIGNED;
     const updatedOrder = await this.orderRepository.save(order);
 
     await this.userRepository.update(driverId, { isAvailable: false });
+
+    // 📱 Notifications push / in-app (client + livreur)
+    try {
+      await this.ordersService.sendStatusNotifications(updatedOrder, previousStatus);
+    } catch (err) {
+      this.logger.warn(`[Manual Assign] Notifications non envoyées: ${err.message}`);
+    }
 
     // Notifier le livreur
     this.dispatchGateway.notifyCandidateDrivers([driverId], {

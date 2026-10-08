@@ -1991,8 +1991,9 @@ export class OrdersService {
       businessId: saved.businessId,
     });
 
-    // 🔔 Settlement livreur : crédit gains + Pass Journée / micro-commission
+    // 🔔 Paiements & séquestre + notifications
     this.emitOrderSettlementEvents(saved, previousStatus);
+    await this.sendStatusNotifications(saved, previousStatus);
 
     this.logger.log(
       `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente de confirmation du client.`,
@@ -2084,6 +2085,8 @@ export class OrdersService {
         saved,
         OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       );
+      // 📱 Notifier toutes les parties (push / in-app) — COMPLETED
+      await this.sendStatusNotifications(saved, OrderStatus.DELIVERED_PENDING_CONFIRMATION);
 
       this.logger.log(
         `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
@@ -2263,7 +2266,7 @@ export class OrdersService {
   // ========================================================================
   // 📱 Notifications FCM & WebSocket selon le statut de commande
   // ========================================================================
-  private async sendStatusNotifications(
+  async sendStatusNotifications(
     order: Order,
     previousStatus: OrderStatus,
   ): Promise<void> {
