@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Mic, Volume2, VolumeX } from 'lucide-react';
+import { Mic, Volume2, VolumeX, Square, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
 import { hasSupportPhone } from '../utils/support';
@@ -66,6 +66,16 @@ export default function AssistantWidget() {
   const lastInputWasVoice = useRef(false);
   // Référence vers startVoiceInput pour les événements globaux (boutons 🎤)
   const startVoiceRef = useRef(null);
+  // 🔊 Lecture vocale : état visible + arrêt contrôlable par le client
+  const [speaking, setSpeaking] = useState(false);
+  // 📐 État réduit : petit rectangle, l'app reste visible derrière
+  const [collapsed, setCollapsed] = useState(false);
+  const collapsedRef = useRef(false);
+  collapsedRef.current = collapsed;
+  const openRef = useRef(false);
+  openRef.current = open;
+  // Marqueur : une action vocale a navigué (pour réduire le panneau)
+  const voiceNavigatedRef = useRef(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -92,11 +102,14 @@ export default function AssistantWidget() {
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape' && mountedRef.current) setOpen(false);
+      if (e.key === 'Escape' && mountedRef.current) {
+        setOpen(false);
+        stopSpeech();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open]);
+  }, [open, stopSpeech]);
 
   const businessId =
     location.pathname.match(/^\/restaurant\/([^/]+)/)?.[1] || undefined;
@@ -115,14 +128,35 @@ export default function AssistantWidget() {
   }, [messages, loading]);
 
   // 🗣️ Lecture vocale des réponses (réponse API → voix)
+  const stopSpeech = useCallback(() => {
+    try {
+      window.speechSynthesis?.cancel();
+    } catch {
+      /* synthèse vocale indisponible */
+    }
+    setSpeaking(false);
+  }, []);
+
+  // Coupe les réponses trop longues pour la lecture vocale
+  const shortenForSpeech = (text) => {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= 300) return t;
+    const cut = t.slice(0, 260);
+    const last = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
+    return `${cut.slice(0, last > 120 ? last + 1 : 260)} …`;
+  };
+
   const speakAnswer = useCallback((text) => {
     if (!voiceEnabledRef.current) return;
     try {
       if (typeof window === 'undefined' || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
+      const utter = new SpeechSynthesisUtterance(shortenForSpeech(text));
       utter.lang = 'fr-FR';
       utter.rate = 0.98;
+      utter.onstart = () => setSpeaking(true);
+      utter.onend = () => setSpeaking(false);
+      utter.onerror = () => setSpeaking(false);
       window.speechSynthesis.speak(utter);
     } catch {
       /* synthèse vocale indisponible */
@@ -132,6 +166,7 @@ export default function AssistantWidget() {
   async function send(text = input) {
     const question = (text || '').trim();
     if (!question || loading) return;
+    stopSpeech();
     setMessages((m) => [...m, { role: 'user', text: question }]);
     setInput('');
     setLoading(true);
@@ -164,6 +199,7 @@ export default function AssistantWidget() {
 
   // 🧠 Action à exécuter selon la commande vocale (Gemini)
   function executeVoiceAction(action, query) {
+    if (action && action !== 'none') voiceNavigatedRef.current = true;
     switch (action) {
       case 'open_search':
       case 'open_restaurant':
@@ -219,6 +255,7 @@ export default function AssistantWidget() {
 
   // 🎙️ Question posée à la voix → transcrite → API assistant → réponse lue
   const startVoiceInput = () => {
+    stopSpeech();
     const SR =
       typeof window !== 'undefined' &&
       (window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -271,6 +308,16 @@ export default function AssistantWidget() {
     };
   }, []);
 
+  // 🧭 Une commande vocale a navigué (recherche, panier, commandes…) :
+  // on coupe la voix et on réduit le panneau pour que le client voie l'app
+  // bouger sous ses yeux.
+  useEffect(() => {
+    if (!voiceNavigatedRef.current) return;
+    voiceNavigatedRef.current = false;
+    stopSpeech();
+    if (openRef.current && !collapsedRef.current) setCollapsed(true);
+  }, [location.pathname, stopSpeech]);
+
   // 🗑️ Couper toute lecture vocale en quittant l'app
   useEffect(() => {
     return () => {
@@ -306,73 +353,151 @@ export default function AssistantWidget() {
       )}
 
       {/* 📍 Bouton flottant = l'assistant vocal (logo FasoFree + libellé + micro) */}
-      <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6">
-        <div className="flex items-center gap-2">
-          {!open && (
-            <span className="whitespace-nowrap rounded-full border border-border-light bg-background-card px-3 py-1.5 text-xs font-bold text-text-primary shadow-subtle">
-              🎤 Assistant vocal
+      {open && collapsed ? (
+        /* 📐 État réduit : petit rectangle — l'app reste visible derrière */
+        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[60] md:bottom-6">
+          <div className="flex items-center gap-1 rounded-full border border-border-light bg-background-card py-1.5 pl-2 pr-1.5 shadow-elevated">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-primary text-white">
+              <FasoFreeMark className="h-5 w-5" color="#FFFDFC" />
             </span>
-          )}
-          <div className="relative">
-            {!open && hint && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
-              />
-            )}
+            <span className="max-w-[110px] truncate text-xs font-bold text-text-primary">
+              Assistant
+            </span>
             <button
               type="button"
-              aria-label={
-                open ? "Fermer l'assistant" : "Ouvrir l'assistant vocal FasoFree"
-              }
-              onClick={() => setOpen((o) => !o)}
-              className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
+              aria-label="Agrandir l'assistant"
+              onClick={() => setCollapsed(false)}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-text-primary transition hover:bg-background-secondary"
             >
-              {open ? (
-                <span className="text-2xl font-bold leading-none">✕</span>
-              ) : (
-                <>
-                  <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
-                  <span
-                    aria-hidden="true"
-                    className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-[#2E9B5B] text-white"
-                  >
-                    <Mic size={12} strokeWidth={2.4} />
-                  </span>
-                </>
-              )}
+              <ChevronUp size={16} />
+            </button>
+            <button
+              type="button"
+              aria-label="Fermer l'assistant"
+              onClick={() => {
+                setCollapsed(false);
+                setOpen(false);
+                stopSpeech();
+              }}
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-background-secondary"
+            >
+              ✕
             </button>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6">
+          <div className="flex items-center gap-2">
+            {!open && (
+              <span className="whitespace-nowrap rounded-full border border-border-light bg-background-card px-3 py-1.5 text-xs font-bold text-text-primary shadow-subtle">
+                🎤 Assistant vocal
+              </span>
+            )}
+            <div className="relative">
+              {!open && hint && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
+                />
+              )}
+              <button
+                type="button"
+                aria-label={
+                  open ? "Fermer l'assistant" : "Ouvrir l'assistant vocal FasoFree"
+                }
+                onClick={() => {
+                  if (open) stopSpeech();
+                  setOpen((o) => !o);
+                }}
+                className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
+              >
+                {open ? (
+                  <span className="text-2xl font-bold leading-none">✕</span>
+                ) : (
+                  <>
+                    <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
+                    <span
+                      aria-hidden="true"
+                      className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-[#2E9B5B] text-white"
+                    >
+                      <Mic size={12} strokeWidth={2.4} />
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-      {/* 💬 Fenêtre de dialogue : plein écran sur mobile, carte flottante sur desktop */}
-      {open && (
+      {/* 💬 Fenêtre de dialogue : bottom-sheet compact sur mobile (l'app reste
+          visible au-dessus), carte flottante sur desktop */}
+      {open && !collapsed && (
         <div
           role="dialog"
           aria-label="Assistant FasoFree"
-          className="fixed inset-0 z-[60] flex flex-col bg-background-card md:inset-auto md:bottom-24 md:right-4 md:z-50 md:h-[70vh] md:w-[360px] md:overflow-hidden md:rounded-2xl md:border md:border-border-light md:shadow-elevated"
+          className="fixed inset-x-0 bottom-0 z-[60] flex h-[56vh] max-h-[56vh] flex-col rounded-t-3xl border border-b-0 border-border-light bg-background-card shadow-elevated md:inset-auto md:bottom-24 md:right-4 md:z-50 md:h-[70vh] md:max-h-[70vh] md:w-[360px] md:overflow-hidden md:rounded-2xl md:border md:shadow-elevated"
         >
+          {/* Poignée (mobile) */}
+          <span
+            aria-hidden="true"
+            className="mx-auto mt-2 mb-0.5 h-1 w-10 shrink-0 rounded-full bg-text-tertiary/30 md:hidden"
+          />
+
           {/* En-tête avec le logo */}
-          <div className="flex shrink-0 items-center justify-between bg-accent-primary px-4 py-3 text-white">
+          <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-accent-primary to-[#C1652E] px-4 py-3 text-white">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-sm">
                 <FasoFreeMark className="h-6 w-6" />
               </span>
               <div>
                 <p className="text-sm font-bold leading-tight">Assistant FasoFree</p>
-                <p className="text-[11px] opacity-90">Conseils menu &amp; guide de l'app</p>
+                <p className="text-[11px] opacity-90">
+                  {listening ? '🎤 Je vous écoute…' : 'Écrivez ou parlez pour commander'}
+                </p>
               </div>
             </div>
-            <button
-              type="button"
-              aria-label="Fermer l'assistant"
-              onClick={() => setOpen(false)}
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Réduire l'assistant (voir l'app)"
+                title="Réduire pour voir l'application"
+                onClick={() => setCollapsed(true)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                <ChevronDown size={18} />
+              </button>
+              <button
+                type="button"
+                aria-label="Fermer l'assistant"
+                onClick={() => {
+                  setOpen(false);
+                  stopSpeech();
+                }}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
           </div>
+
+          {/* 🔊 Lecture vocale en cours → bouton ARRÊTER */}
+          {speaking && (
+            <div className="flex shrink-0 items-center justify-between gap-2 bg-[#2E9B5B]/10 px-4 py-1.5">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#2E9B5B]">
+                <Volume2 size={13} />
+                Lecture vocale en cours…
+              </span>
+              <button
+                type="button"
+                aria-label="Arrêter la lecture vocale"
+                onClick={stopSpeech}
+                className="flex items-center gap-1 rounded-full bg-[#2E9B5B] px-2.5 py-1 text-[11px] font-bold text-white transition hover:opacity-90"
+              >
+                <Square size={10} fill="currentColor" /> Arrêter
+              </button>
+            </div>
+          )}
 
           {/* Messages — zone scrollable (min-h-0 est requis pour le scroll en flex) */}
           <div
@@ -448,7 +573,7 @@ export default function AssistantWidget() {
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Écrivez votre question…"
+              placeholder="Écrivez ou parlez…"
               aria-label="Votre question"
               className="min-w-0 flex-1 rounded-full border border-border-light bg-background-secondary px-4 py-2 text-sm text-text-primary outline-none transition focus:border-accent-primary"
             />
@@ -486,11 +611,6 @@ export default function AssistantWidget() {
               Envoyer
             </button>
           </form>
-          {listening && (
-            <p className="shrink-0 px-4 pb-2 text-xs font-medium text-status-error">
-              Écoute en cours… parlez maintenant, puis attendez.
-            </p>
-          )}
         </div>
       )}
     </>

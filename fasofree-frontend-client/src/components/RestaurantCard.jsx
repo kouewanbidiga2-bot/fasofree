@@ -10,7 +10,7 @@ const getInitials = (name) => {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 };
 
-const RestaurantCard = ({ restaurant, onClick }) => {
+const RestaurantCard = ({ restaurant, onClick, matchHint }) => {
   const [mainImageError, setMainImageError] = useState(false);
   
   let signatureImage = restaurant.signatureImage || restaurant.coverImage;
@@ -63,6 +63,11 @@ const RestaurantCard = ({ restaurant, onClick }) => {
             </span>
           )}
         </div>
+        {matchHint && (
+          <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#2E9B5B] truncate">
+            <span>🍽️</span> {matchHint}
+          </p>
+        )}
       </div>
     </article>
   );

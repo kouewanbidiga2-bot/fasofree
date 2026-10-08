@@ -173,6 +173,11 @@ const Home = () => {
                   placeholder={t('searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                      navigate(`/search?q=${encodeURIComponent(e.target.value.trim())}`);
+                    }
+                  }}
                   className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
                 />
                 <button
@@ -244,6 +249,11 @@ const Home = () => {
                 placeholder={t('searchPlaceholder')}
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    navigate(`/search?q=${encodeURIComponent(e.target.value.trim())}`);
+                  }
+                }}
                 className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
               />
               <button
