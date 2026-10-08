@@ -7,7 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * SUBSCRIPTION_FEE déjà existant — aucun autre changement de schéma requis.
  */
 export class AddStoryFee1725900000000 implements MigrationInterface {
-  name = '1725900000000-add-story-fee';
+  name = 'AddStoryFee1725900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     try {
