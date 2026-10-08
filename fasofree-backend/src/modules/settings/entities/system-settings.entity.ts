@@ -71,6 +71,12 @@ export class SystemSettings {
   @Column({ type: 'int', default: 20000 })
   payoutFreeThreshold: number;
 
+  // 🟦 Fonctionnalité Pass Stories (collaboration) — désactivée par défaut.
+  // Activez-la via le tableau SuperAdmin/Admin (Paramètres de la plateforme)
+  // pour autoriser l'abonnement « Pass Stories » des commerces.
+  @Column({ type: 'boolean', default: false })
+  storiesPassEnabled: boolean;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

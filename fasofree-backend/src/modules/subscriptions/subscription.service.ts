@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto';
 import {
   Injectable,
   Logger,
@@ -19,12 +20,14 @@ import {
   PLAN_CODE_STARTER,
   PLAN_CODE_PRO,
   PLAN_CODE_VIP,
+  PLAN_CODE_STORIES,
 } from './entities/subscription-plan.entity';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
+import { Brand } from '../brands/entities/brand.entity';
 
 export const MERCHANT_COMMISSION_RATES = {
   STARTER: 0.05, // Plan gratuit : 5% de commission
@@ -36,7 +39,23 @@ export const MIN_MERCHANT_COMMISSION_RATE = 0.015; // 1.5% minimum (taux préfé
 export const MIN_MERCHANT_PLAN_PRICE = 5000; // FCFA - prix plancher des forfaits marchands payants (0 = gratuit, ex. Starter)
 
 /** Cache dynamique rempli par SettingsService.onModuleInit() */
-export const subscriptionFeeCache = { platformFee: null as number | null };
+export const subscriptionFeeCache = { platformFee: null as number | null, storiesPassEnabled: false as boolean };
+
+/**
+ * Jeton aléatoire pour les références de transaction (suffixe de 6 caractères
+ * base-36 majuscules, format identique à l'ancien Math.random().substring(2,8)).
+ * crypto.randomInt (non prédictible, unicité renforcée) remplace Math.random()
+ * : une référence de paiement doit rester unique — tout en gardant exactement
+ * la même forme de référence générée par le flux métier.
+ */
+function randomRefToken(): string {
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let token = '';
+  for (let i = 0; i < 6; i += 1) {
+    token += alphabet[randomInt(36)];
+  }
+  return token;
+}
 
 function merchantPlanPriceError(price: number): string {
   return `Le prix minimum d'un forfait marchand payant est de ${MIN_MERCHANT_PLAN_PRICE.toLocaleString('fr-FR')} FCFA (reçu : ${price.toLocaleString('fr-FR')} FCFA). Le plan gratuit Starter reste à 0 FCFA.`;
@@ -67,6 +86,20 @@ export const DEFAULT_PLANS: Array<Partial<SubscriptionPlanEntity>> = [
     priceFcfa: 5000,
     durationDays: 30,
     commissionRate: MERCHANT_COMMISSION_RATES.BOOST_PRO,
+    freeServiceFee: false,
+    freeDelivery: false,
+    freeDeliveryMinSubtotal: 0,
+    isActive: true,
+  },
+  {
+    code: PLAN_CODE_STORIES,
+    name: 'Pass Stories',
+    subjectType: SubscriptionSubjectType.MERCHANT,
+    description:
+      'Publiez des stories illimitées pendant 30 jours (sinon 50 FCFA par story).',
+    priceFcfa: 5000,
+    durationDays: 30,
+    commissionRate: null,
     freeServiceFee: false,
     freeDelivery: false,
     freeDeliveryMinSubtotal: 0,
@@ -109,6 +142,8 @@ export class SubscriptionService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Brand)
+    private readonly brandRepository: Repository<Brand>,
     private readonly walletService: WalletService,
   ) {}
 
@@ -402,6 +437,125 @@ export class SubscriptionService implements OnModuleInit {
   // ============================================================
 
   /**
+   * 🟦 Pass Stories actif d'un commerce (plan STORIES uniquement).
+   * Indépendant des autres forfaits (Pro/commission) : un marchand peut avoir
+   * le Pass Stories ET un forfait de commission en même temps.
+   */
+  async getStoriesPass(businessId: string): Promise<Subscription | null> {
+    if (!businessId) return null;
+    const now = new Date();
+    const subs = await this.subscriptionRepository.find({
+      where: {
+        subjectType: SubscriptionSubjectType.MERCHANT,
+        subjectId: businessId,
+        plan: PLAN_CODE_STORIES,
+        isActive: true,
+      },
+      order: { createdAt: 'DESC' },
+    });
+    return (
+      subs.find((s) => !s.endDate || s.endDate >= now) ?? null
+    );
+  }
+
+  async hasActiveStoriesPass(businessId: string): Promise<boolean> {
+    return Boolean(await this.getStoriesPass(businessId));
+  }
+
+  /**
+   * 🟦 Souscription au Pass Stories marchand (5 000 FCFA / 30 jours).
+   * - Débite le portefeuille FasoFree du commerce (gains en attente).
+   * - Si un Pass Stories est déjà actif, le prolonge de 30 jours (renouvellement).
+   * - N'affecte pas les autres abonnements (commission Pro, etc.).
+   */
+  async subscribeStoriesPass(
+    businessId: string,
+    options: { operatorUserId?: string; operatorRole?: string } = {},
+  ): Promise<{ subscription: Subscription; expiresAt: Date | null }> {
+    // 🟦 Pass Stories suspendable via Paramètres plateforme (SuperAdmin/Admin).
+    if (!subscriptionFeeCache.storiesPassEnabled) {
+      throw new BadRequestException(
+        'Le Pass Stories est temporairement désactivé (fonction en pause).',
+      );
+    }
+
+    const plan = await this.getPlanByCode(PLAN_CODE_STORIES);
+    if (plan.subjectType !== SubscriptionSubjectType.MERCHANT) {
+      throw new BadRequestException(
+        "Ce forfait n'est pas destiné aux commerçants",
+      );
+    }
+    if (!plan.isActive) {
+      throw new BadRequestException(`Le forfait "${plan.code}" est désactivé`);
+    }
+
+    const business = await this.businessRepository.findOne({
+      where: { id: businessId },
+    });
+    if (!business) throw new NotFoundException('Commerce introuvable');
+
+    // 🛡️ Propriétaire du commerce, de la marque, ou Super Admin
+    let isOwner = business.ownerId === options.operatorUserId;
+    if (!isOwner && business.brandId) {
+      const brand = await this.brandRepository.findOne({
+        where: { id: business.brandId },
+      });
+      isOwner = brand?.ownerId === options.operatorUserId;
+    }
+    if (options.operatorRole !== 'super_admin' && !isOwner) {
+      throw new ForbiddenException('Vous ne pouvez pas gérer ce commerce');
+    }
+
+    const price = Number(plan.priceFcfa) || 0;
+    const reference = `SUBs-STORY-${Date.now()}-${randomRefToken()}`;
+    await this.walletService.debitWallet(
+      businessId,
+      WalletUserRole.MERCHANT,
+      price,
+      TransactionReason.SUBSCRIPTION_FEE,
+      reference,
+      `Pass Stories (${plan.durationDays} jours) - FasoFree`,
+    );
+
+    const existing = await this.getStoriesPass(businessId);
+    if (existing && existing.endDate && existing.endDate > new Date()) {
+      const newEnd = new Date(existing.endDate);
+      newEnd.setDate(newEnd.getDate() + plan.durationDays);
+      existing.isActive = true;
+      await this.subscriptionRepository.save(existing);
+      this.logger.log(
+        `[Subscriptions] Pass Stories renouvelé ${businessId} jusqu'au ${newEnd.toISOString()}`,
+      );
+      return { subscription: existing, expiresAt: newEnd };
+    }
+
+    if (existing) {
+      existing.isActive = true;
+      await this.subscriptionRepository.save(existing);
+      return { subscription: existing, expiresAt: existing.endDate };
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + Math.max(1, plan.durationDays));
+
+    const subscription = this.subscriptionRepository.create({
+      subjectType: SubscriptionSubjectType.MERCHANT,
+      subjectId: businessId,
+      plan: plan.code,
+      startDate,
+      endDate,
+      isActive: true,
+      autoRenew: true,
+    });
+    const saved = await this.subscriptionRepository.save(subscription);
+    this.logger.log(
+      `[Subscriptions] Pass Stories assigné ${businessId} (${price} FCFA débités), expire le ${endDate.toISOString()}`,
+    );
+    return { subscription: saved, expiresAt: endDate };
+  }
+
+  /**
    * Assigne (ou renouvelle) un forfait à un commerce ou un client.
    * - renew=false : remplace l'abonnement actif (les anciens passent inactifs)
    * - renew=true  : prolonge l'abonnement actif existant de la durée choisie
@@ -449,10 +603,7 @@ export class SubscriptionService implements OnModuleInit {
         );
       }
       if (Number(plan.priceFcfa) > 0) {
-        const reference = `SUB-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 8)
-          .toUpperCase()}`;
+        const reference = `SUB-${Date.now()}-${randomRefToken()}`;
         await this.walletService.debitWallet(
           params.subjectId,
           WalletUserRole.MERCHANT,
@@ -586,10 +737,7 @@ export class SubscriptionService implements OnModuleInit {
     const price = Number(plan.priceFcfa) || 0;
 
     // 💳 Débit du portefeuille FasoFree du client
-    const reference = `SUB-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase()}`;
+    const reference = `SUB-${Date.now()}-${randomRefToken()}`;
     await this.walletService.debitWallet(
       clientId,
       WalletUserRole.CUSTOMER,
@@ -681,10 +829,7 @@ export class SubscriptionService implements OnModuleInit {
     }
 
     const price = Number(plan.priceFcfa) || 0;
-    const reference = `SUB-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 8)
-      .toUpperCase()}`;
+    const reference = `SUB-${Date.now()}-${randomRefToken()}`;
     await this.walletService.debitWallet(
       businessId,
       WalletUserRole.MERCHANT,

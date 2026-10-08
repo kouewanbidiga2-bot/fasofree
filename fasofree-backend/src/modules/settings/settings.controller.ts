@@ -11,7 +11,7 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
 @ApiBearerAuth('JWT-auth')
 @Controller('admin/settings')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(UserRole.SUPER_ADMIN)
+@Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
 export class SettingsController {
   constructor(private readonly settingsService: SettingsService) {}
 

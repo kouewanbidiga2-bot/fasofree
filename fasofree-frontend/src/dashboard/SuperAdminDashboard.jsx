@@ -192,6 +192,7 @@ const SuperAdminDashboard = () => {
     maxDeliveryRadius: 15,
     enableScheduling: true,
     enableBulkOrders: true,
+    storiesPassEnabled: false,
   });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -247,6 +248,7 @@ const SuperAdminDashboard = () => {
         maxDeliveryRadius: data.maxDeliveryRadius ?? 15,
         enableScheduling: data.enableScheduling ?? true,
         enableBulkOrders: data.enableBulkOrders ?? true,
+        storiesPassEnabled: data.storiesPassEnabled ?? false,
       });
     } catch {
       // Keep defaults on error
@@ -721,6 +723,7 @@ const SuperAdminDashboard = () => {
         maxDeliveryRadius: platformSettings.maxDeliveryRadius,
         enableScheduling: platformSettings.enableScheduling,
         enableBulkOrders: platformSettings.enableBulkOrders,
+        storiesPassEnabled: platformSettings.storiesPassEnabled,
       });
       setSettingsSuccess('Paramètres enregistrés avec succès.');
       setTimeout(() => setSettingsSuccess(''), 3000);
@@ -2537,6 +2540,25 @@ const SuperAdminDashboard = () => {
                     onChange={(e) => setPlatformSettings(prev => ({ ...prev, maxDeliveryRadius: Number(e.target.value) }))}
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Fonctionnalités (Suspendues / Activables) */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-4">Fonctionnalités</h3>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="text-sm font-semibold text-text-primary">Pass Stories (5 000 FCFA / 30 j)</p>
+                  <p className="text-xs text-text-secondary">Active l'abonnement Pass Stories des commerces. Désactivé = la feature est suspendue.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPlatformSettings(prev => ({ ...prev, storiesPassEnabled: !prev.storiesPassEnabled }))}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${platformSettings.storiesPassEnabled ? 'bg-accent-primary' : 'bg-border-light'}`}
+                  aria-pressed={platformSettings.storiesPassEnabled}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${platformSettings.storiesPassEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
               </div>
             </div>
 

@@ -78,4 +78,9 @@ export class UpdateSettingsDto {
   @IsInt()
   @Min(0)
   payoutFreeThreshold?: number;
+
+  @ApiPropertyOptional({ example: false, description: 'Activer le Pass Stories (forfait 5000 FCFA/30j) — collaboration, suspendu par défaut' })
+  @IsOptional()
+  @IsBoolean()
+  storiesPassEnabled?: boolean;
 }

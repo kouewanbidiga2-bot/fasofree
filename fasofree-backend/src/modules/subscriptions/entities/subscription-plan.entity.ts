@@ -10,11 +10,13 @@ import { SubscriptionSubjectType } from './subscription.entity';
 export const PLAN_CODE_STARTER = 'STARTER';
 export const PLAN_CODE_PRO = 'PRO';
 export const PLAN_CODE_VIP = 'VIP';
+export const PLAN_CODE_STORIES = 'STORIES'; // Pass Stories marchand : 5 000 FCFA/mois, stories illimitées
 
 /**
  * 📦 Catalogue de forfaits FasoFree (géré par le Super Admin).
  * - STARTER  : gratuit, commission standard 5% (commerce)
  * - PRO      : 5 000 FCFA/mois, commission préférentielle 1.5% (commerce)
+ * - STORIES  : 5 000 FCFA/mois, stories illimitées (commerce)
  * - VIP      : 2 500 FCFA/mois, livraison + frais de service offerts (client)
  *
  * Les tarifs/commissions sont pilotables par le Super Admin via

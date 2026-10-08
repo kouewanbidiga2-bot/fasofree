@@ -49,6 +49,9 @@ export class SettingsService implements OnModuleInit {
         Subscription.subscriptionFeeCache.platformFee = settings.platformFee;
         this.logger.log(`[Settings] Cache SubscriptionService synchronisé (platformFee=${settings.platformFee})`);
       }
+
+      Subscription.subscriptionFeeCache.storiesPassEnabled = Boolean(settings.storiesPassEnabled);
+      this.logger.log(`[Settings] Pass Stories ${settings.storiesPassEnabled ? 'activé' : 'désactivé'} (storiesPassEnabled=${settings.storiesPassEnabled})`);
     } catch (err) {
       this.logger.warn(`[Settings] Échec sync caches: ${(err as Error).message}`);
     }

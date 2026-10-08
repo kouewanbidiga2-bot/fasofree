@@ -33,6 +33,7 @@ export enum TransactionReason {
   DAILY_PASS_FEE = 'DAILY_PASS_FEE',
   SERVICE_FEE = 'SERVICE_FEE',
   SUBSCRIPTION_FEE = 'SUBSCRIPTION_FEE',
+  STORY_FEE = 'STORY_FEE', // Publication de story à l'unité (50 FCFA)
 }
 
 @Entity('wallet_transactions')
