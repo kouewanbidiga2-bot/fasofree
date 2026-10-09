@@ -418,7 +418,7 @@ export default function AssistantWidget() {
                     <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
                     <span
                       aria-hidden="true"
-                      className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-[#2E9B5B] text-white"
+                      className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-gradient-to-br from-accent-primary to-[#C1652E] text-white shadow-subtle"
                     >
                       <Mic size={12} strokeWidth={2.4} />
                     </span>
@@ -483,8 +483,8 @@ export default function AssistantWidget() {
 
           {/* 🔊 Lecture vocale en cours → bouton ARRÊTER */}
           {speaking && (
-            <div className="flex shrink-0 items-center justify-between gap-2 bg-[#2E9B5B]/10 px-4 py-1.5">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#2E9B5B]">
+            <div className="flex shrink-0 items-center justify-between gap-2 bg-accent-primary/10 px-4 py-1.5">
+              <span className="flex items-center gap-1.5 text-[11px] font-bold text-accent-primary">
                 <Volume2 size={13} />
                 Lecture vocale en cours…
               </span>
@@ -492,7 +492,7 @@ export default function AssistantWidget() {
                 type="button"
                 aria-label="Arrêter la lecture vocale"
                 onClick={stopSpeech}
-                className="flex items-center gap-1 rounded-full bg-[#2E9B5B] px-2.5 py-1 text-[11px] font-bold text-white transition hover:opacity-90"
+                className="flex items-center gap-1 rounded-full bg-gradient-to-r from-accent-primary to-[#C1652E] px-2.5 py-1 text-[11px] font-bold text-white transition hover:opacity-90"
               >
                 <Square size={10} fill="currentColor" /> Arrêter
               </button>
@@ -598,7 +598,7 @@ export default function AssistantWidget() {
               className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition ${
                 listening
                   ? 'animate-pulse bg-status-error text-white'
-                  : 'bg-[#2E9B5B] text-white shadow-subtle hover:opacity-90 active:scale-95'
+                  : 'bg-gradient-to-br from-accent-primary to-[#C1652E] text-white shadow-subtle hover:opacity-90 active:scale-95'
               }`}
             >
               <Mic size={19} strokeWidth={2.2} />

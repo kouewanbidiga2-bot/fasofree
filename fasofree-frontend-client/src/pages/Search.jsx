@@ -1,55 +1,83 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, X, Mic } from 'lucide-react';
+import { Search as SearchIcon, X, Mic, Loader2 } from 'lucide-react';
 import RestaurantCard from '../components/RestaurantCard';
 import api from '../services/api';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
+import { tokenize, matchTokens } from '../utils/searchMatch';
 
 // ─────────────────────────────────────────────────────────────
 // 🔍 Recherche intelligente : index des plats construit à la volée
 // à partir des menus (/products/business/:id), mis en cache par session.
-// « burger » doit trouver les restaurants qui vendent un burger, même si
-// le nom du restaurant ne contient pas le mot.
+// « poulet » doit trouver les restaurants qui vendent un poulet, même si
+// le nom du restaurant ne contient pas le mot — et même si l'utilisateur
+// écrit « poulets » ou se trompe d'une lettre.
+// Le matching (accents, préfixe, pluriel, fautes) vit dans utils/searchMatch.
 // ─────────────────────────────────────────────────────────────
-const DISH_INDEX = new Map(); // businessId -> string[] (noms de plats bruts)
+const DISH_INDEX = new Map(); // businessId -> string[] (noms de plats bruts, pour l'affichage)
+const DISH_WORDS = new Map(); // businessId -> string[] (mots indexés, pour la comparaison)
+const INDEX_CACHE_KEY = 'fasofree_dish_index_v1';
 let dishIndexPromise = null;
 
-const normalizeText = (s) =>
-  String(s || '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+// 💾 Cache de session : la 2ᵉ visite ne relance aucune requête de menu
+function loadIndexCache() {
+  if (DISH_INDEX.size) return;
+  try {
+    const raw = sessionStorage.getItem(INDEX_CACHE_KEY);
+    if (!raw) return;
+    const obj = JSON.parse(raw);
+    for (const id of Object.keys(obj)) {
+      DISH_INDEX.set(id, obj[id].names || []);
+      DISH_WORDS.set(id, obj[id].words || []);
+    }
+  } catch {
+    /* cache illisible : on repart d zéro */
+  }
+}
+
+function saveIndexCache() {
+  try {
+    const obj = {};
+    for (const [id, names] of DISH_INDEX) {
+      obj[id] = { names, words: DISH_WORDS.get(id) || [] };
+    }
+    sessionStorage.setItem(INDEX_CACHE_KEY, JSON.stringify(obj));
+  } catch {
+    /* quota dépassé : l'index reste valable en mémoire */
+  }
+}
 
 async function buildDishIndex(restaurants) {
   if (dishIndexPromise) return dishIndexPromise;
   dishIndexPromise = (async () => {
+    loadIndexCache();
     const ids = (restaurants || []).map((r) => r.id).filter(Boolean);
-    const batchSize = 4;
-    for (let i = 0; i < ids.length; i += batchSize) {
-      const batch = ids.slice(i, i + batchSize);
-      await Promise.all(
-        batch.map(async (id) => {
-          if (DISH_INDEX.has(id)) return;
-          const names = [];
-          try {
-            const data = await api.getBusinessProducts(id);
-            const list = Array.isArray(data) ? data : data?.products || [];
-            for (const p of list) {
-              if (p?.name) names.push(p.name);
-              if (typeof p?.category === 'string' && p.category) names.push(p.category);
-              if (Array.isArray(p?.categories)) {
-                for (const c of p.categories) if (c?.name) names.push(c.name);
-              }
+    const queue = ids.filter((id) => !DISH_INDEX.has(id));
+    // 8 requêtes en parallèle : l'index se construit ~2× plus vite qu'avant
+    const workers = Array.from({ length: Math.min(8, queue.length) }, async () => {
+      while (queue.length) {
+        const id = queue.shift();
+        if (!id) continue;
+        const names = [];
+        try {
+          const data = await api.getBusinessProducts(id);
+          const list = Array.isArray(data) ? data : data?.products || [];
+          for (const p of list) {
+            if (p?.name) names.push(p.name);
+            if (typeof p?.category === 'string' && p.category) names.push(p.category);
+            if (Array.isArray(p?.categories)) {
+              for (const c of p.categories) if (c?.name) names.push(c.name);
             }
-          } catch {
-            /* business sans menu accessible : on ignore */
           }
-          DISH_INDEX.set(id, names);
-        }),
-      );
-    }
+        } catch {
+          /* business sans menu accessible : on ignore */
+        }
+        DISH_INDEX.set(id, names);
+        DISH_WORDS.set(id, Array.from(new Set(tokenize(names.join(' ')))));
+      }
+    });
+    await Promise.all(workers);
+    saveIndexCache();
   })();
   return dishIndexPromise;
 }
@@ -88,9 +116,11 @@ const SearchPage = () => {
   const [loading, setLoading] = useState(true);
   const [dishLoading, setDishLoading] = useState(false);
   const [dishReady, setDishReady] = useState(false);
+  // Incrémenté quand l'index des menus est complet → force le recalcul des résultats
+  const [dishVersion, setDishVersion] = useState(0);
 
-const getUserLocation = () => {
-      return new Promise((resolve) => {
+  const getUserLocation = () => {
+    return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ lat: 12.37, lng: -1.52 }); // Fallback Ouaga
         return;
@@ -118,37 +148,56 @@ const getUserLocation = () => {
     load();
   }, []);
 
+  // 🔍 Préchauffe l'index des menus dès l'ouverture de la page (au lieu d'attendre
+  //    2 lettres tapées) : la première recherche est déjà prête/ses résultats s'affichent.
+  useEffect(() => {
+    if (!allRestaurants.length || dishReady) return;
+    setDishLoading(true);
+    buildDishIndex(allRestaurants)
+      .catch(() => {})
+      .finally(() => {
+        setDishLoading(false);
+        setDishReady(true);
+        setDishVersion((v) => v + 1); // ← déclenche le recalcul avec les plats
+      });
+  }, [allRestaurants, dishReady]);
+
   const results = useMemo(() => {
     const q = query.trim();
     if (!q) return [];
-    const norm = normalizeText(q);
-    const tokens = norm.split(/\s+/).filter(Boolean);
+    const tokens = tokenize(q);
     if (!tokens.length) return [];
 
-    const scored = [];
-    for (const r of allRestaurants) {
-      const dishes = DISH_INDEX.get(r.id) || [];
-      const nameNorm = normalizeText(
-        `${r.name} ${r.cuisineType || ''} ${r.tagline || ''} ${r.location || ''}`,
-      );
-      const dishNorm = normalizeText(dishes.join(' '));
-
-      // Chaque mot doit apparaître dans le nom/catégorie OU dans les plats
-      const inName = tokens.every((tk) => nameNorm.includes(tk));
-      const inDish = tokens.every((tk) => dishNorm.includes(tk));
-      if (!inName && !inDish) continue;
-
-      // Plat correspondant, à afficher en hint (« Burger Classique »)
-      let matchHint = '';
-      if (inDish) {
-        const hit = dishes.find((d) =>
-          tokens.some((tk) => normalizeText(d).includes(tk)),
+    // Passe 1 : correspondance exacte (préfixe / pluriel).
+    // Passe 2 (tolérante aux fautes de frappe) seulement si la passe 1 ne
+    // trouve rien — on ne perd pas en précision quand la saisie est correcte.
+    const run = (fuzzy) => {
+      const scored = [];
+      for (const r of allRestaurants) {
+        const dishes = DISH_INDEX.get(r.id) || [];
+        const nameWords = tokenize(
+          `${r.name} ${r.cuisineType || ''} ${r.tagline || ''} ${r.location || ''}`,
         );
-        if (hit) matchHint = `« ${hit} » sur le menu`;
-      }
+        const dishWords = DISH_WORDS.get(r.id) || [];
 
-      scored.push({ restaurant: r, matchHint, inName, inDish });
-    }
+        const inName = matchTokens(tokens, nameWords, fuzzy);
+        const inDish = matchTokens(tokens, dishWords, fuzzy);
+        if (!inName && !inDish) continue;
+
+        // Plat correspondant, affiché en indice (« Poulet braisé »)
+        let matchHint = '';
+        if (inDish) {
+          const hit = dishes.find((d) => matchTokens(tokens, tokenize(d), fuzzy));
+          if (hit) matchHint = `« ${hit} » sur le menu`;
+        }
+
+        scored.push({ restaurant: r, matchHint, inName, inDish });
+      }
+      return scored;
+    };
+
+    let scored = run(false);
+    if (!scored.length) scored = run(true);
 
     // Nom/catégorie d'abord, puis matchs par plat, puis alphabétique
     scored.sort((a, b) => {
@@ -158,19 +207,7 @@ const getUserLocation = () => {
     });
 
     return scored.map((s) => ({ ...s.restaurant, matchHint: s.matchHint }));
-  }, [allRestaurants, query]);
-
-  // 🔍 Construit l'index des plats en arrière-plan dès qu'on tape (≥ 2 lettres)
-  useEffect(() => {
-    if (query.trim().length < 2 || dishReady || !allRestaurants.length) return;
-    setDishLoading(true);
-    buildDishIndex(allRestaurants)
-      .catch(() => {})
-      .finally(() => {
-        setDishLoading(false);
-        setDishReady(true);
-      });
-  }, [query, dishReady, allRestaurants]);
+  }, [allRestaurants, query, dishVersion]);
 
   const handleClear = () => setQuery('');
 
@@ -197,7 +234,7 @@ const getUserLocation = () => {
             aria-label="Recherche vocale"
             title="Recherche vocale"
             onClick={requestVoiceCommand}
-            className="absolute right-9 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+            className="absolute right-9 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-accent-primary/10 text-accent-primary transition hover:bg-accent-primary hover:text-white"
           >
             <Mic size={16} />
           </button>
@@ -215,31 +252,45 @@ const getUserLocation = () => {
             <div className="w-6 h-6 border-2 border-[#C1652E] border-t-transparent rounded-full animate-spin" />
           </div>
         ) : query.trim() ? (
-          results.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {results.map((r) => (
-                <RestaurantCard
-                  key={r.id}
-                  restaurant={r}
-                  matchHint={r.matchHint}
-                  onClick={() => navigate(`/restaurant/${r.id}`)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 text-[#70645C]">
-              <SearchIcon size={40} strokeWidth={1.2} className="mb-3 text-[#d6cfc4]" />
-              <p className="text-sm font-medium">Aucun resultat pour "{query}"</p>
-              <p className="text-xs text-[#a09388] mt-1">
-                Essayez un autre terme : « burger », « poulet », « pizza »…
-              </p>
-              {dishLoading && (
-                <p className="text-xs text-[#a09388] mt-3 animate-pulse">
-                  Recherche dans les menus des restaurants…
+          <>
+            {results.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {results.map((r) => (
+                    <RestaurantCard
+                      key={r.id}
+                      restaurant={r}
+                      matchHint={r.matchHint}
+                      onClick={() => navigate(`/restaurant/${r.id}`)}
+                    />
+                  ))}
+                </div>
+                {dishLoading && (
+                  <p className="mt-4 flex items-center justify-center gap-2 text-xs text-[#a09388]">
+                    <Loader2 size={13} className="animate-spin" />
+                    Recherche dans les menus… d'autres résultats arrivent
+                  </p>
+                )}
+              </>
+            ) : dishLoading ? (
+              // ⚠️ On n'affiche jamais « aucun résultat » pendant que les menus se chargent
+              <div className="flex flex-col items-center justify-center py-20 text-[#70645C]">
+                <Loader2 size={36} strokeWidth={1.4} className="mb-3 animate-spin text-accent-primary" />
+                <p className="text-sm font-medium">Recherche dans les menus des restaurants…</p>
+                <p className="text-xs text-[#a09388] mt-1">
+                  On regarde aussi ce que chaque restaurant propose à la carte
                 </p>
-              )}
-            </div>
-          )
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 text-[#70645C]">
+                <SearchIcon size={40} strokeWidth={1.2} className="mb-3 text-[#d6cfc4]" />
+                <p className="text-sm font-medium">Aucun resultat pour "{query}"</p>
+                <p className="text-xs text-[#a09388] mt-1">
+                  Essayez un autre terme : « burger », « poulet », « pizza »…
+                </p>
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-[#70645C]">
             <SearchIcon size={40} strokeWidth={1.2} className="mb-3 text-[#d6cfc4]" />

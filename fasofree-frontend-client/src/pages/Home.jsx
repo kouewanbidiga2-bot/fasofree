@@ -185,7 +185,7 @@ const Home = () => {
                   aria-label="Recherche vocale"
                   title="Recherche vocale"
                   onClick={requestVoiceCommand}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-accent-primary/10 text-accent-primary transition hover:bg-accent-primary hover:text-white"
                 >
                   <Mic size={16} />
                 </button>
@@ -261,7 +261,7 @@ const Home = () => {
                 aria-label="Recherche vocale"
                 title="Recherche vocale"
                 onClick={requestVoiceCommand}
-                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-[#2E9B5B]/10 text-[#2E9B5B] transition hover:bg-[#2E9B5B] hover:text-white"
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-accent-primary/10 text-accent-primary transition hover:bg-accent-primary hover:text-white"
               >
                 <Mic size={16} />
               </button>
