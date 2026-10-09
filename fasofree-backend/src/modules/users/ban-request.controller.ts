@@ -16,6 +16,7 @@ import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from './entities/user-role.enum';
 import { BanRequestStatus } from './entities/ban-request.entity';
 import { BanRequestService } from './ban-request.service';
+import { Audited } from '../audit/audited.decorator';
 import { CreateBanRequestDto } from './dto/create-ban-request.dto';
 import { ReviewBanRequestDto } from './dto/review-ban-request.dto';
 
@@ -57,6 +58,7 @@ export class BanRequestController {
   @Post(':id/review')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
+  @Audited({ action: 'ban_request.review', entityType: 'BAN_REQUEST', entityParam: 'id' })
   @ApiOperation({ summary: 'Approuver ou rejeter une demande (Super Admin)' })
   review(
     @Param('id') id: string,

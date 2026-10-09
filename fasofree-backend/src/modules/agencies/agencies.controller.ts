@@ -16,6 +16,7 @@ import { Roles } from '../../core/security/roles.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
 import { AgenciesService } from './agencies.service';
+import { Audited } from '../audit/audited.decorator';
 import { CreateAgencyDto, UpdateAgencyDto } from './dto/agency.dto';
 
 type RequestWithUser = {
@@ -48,6 +49,7 @@ export class AgenciesController {
   @Post()
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
+  @Audited({ action: 'agency.create', entityType: 'AGENCY' })
   @ApiOperation({ summary: 'Créer une agence partenaire' })
   async create(@Body() dto: CreateAgencyDto) {
     return this.agenciesService.create(dto);
@@ -56,6 +58,7 @@ export class AgenciesController {
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
+  @Audited({ action: 'agency.update', entityType: 'AGENCY', entityParam: 'id' })
   @ApiOperation({ summary: 'Mettre à jour une agence (commission, zones, actif…)' })
   async update(@Param('id') id: string, @Body() dto: UpdateAgencyDto) {
     return this.agenciesService.update(id, dto);

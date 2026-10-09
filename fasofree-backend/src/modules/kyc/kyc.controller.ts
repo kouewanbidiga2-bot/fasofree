@@ -22,6 +22,7 @@ import { UserRole } from '../users/entities/user-role.enum';
 import { ReviewKycDto } from './dto/review-kyc.dto';
 import { KycDocumentType, KycStatus } from './entities/kyc-document.entity';
 import { KycService } from './kyc.service';
+import { Audited } from '../audit/audited.decorator';
 
 type AuthRequest = ExpressRequest & {
   user: { userId: string; role: UserRole };
@@ -88,6 +89,7 @@ export class KycController {
   }
 
   @Post('admin/:id/approve')
+  @Audited({ action: 'kyc.approve', entityType: 'KYC_DOCUMENT', entityParam: 'id' })
   @ApiOperation({ summary: 'Approuver un document KYC' })
   @Roles(...ADMIN_ROLES) // 🔓 Accessible aux Super Admin, Admin et Support
   approve(@Param('id') id: string, @Request() req: AuthRequest) {
@@ -95,6 +97,7 @@ export class KycController {
   }
 
   @Post('admin/:id/reject')
+  @Audited({ action: 'kyc.reject', entityType: 'KYC_DOCUMENT', entityParam: 'id' })
   @ApiOperation({ summary: 'Rejeter un document KYC avec motif' })
   @Roles(...ADMIN_ROLES) // 🔓 Accessible aux Super Admin, Admin et Support
   reject(

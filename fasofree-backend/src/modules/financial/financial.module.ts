@@ -25,9 +25,26 @@ import { OrderPricingService } from './order-pricing.service';
 import { DriverFinancialService } from './driver-financial.service';
 import { MerchantFinancialService } from './merchant-financial.service';
 
+// 📄 Exports CSV périodiques
+import { ReportExport } from './entities/report-export.entity';
+import { Transaction } from '../payments/entities/transaction.entity';
+import { TransactionsCsvService } from './services/transactions-csv.service';
+import { ReportsCron } from './crons/reports.cron';
+
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayoutRequest, Wallet, WalletTransaction, Order, OrderItem, Business, Brand, Product]),
+    TypeOrmModule.forFeature([
+      PayoutRequest,
+      Wallet,
+      WalletTransaction,
+      Order,
+      OrderItem,
+      Business,
+      Brand,
+      Product,
+      ReportExport,
+      Transaction,
+    ]),
     WalletModule,
     PaymentsModule,
     SubscriptionsModule,
@@ -40,7 +57,9 @@ import { MerchantFinancialService } from './merchant-financial.service';
     OrderPricingService,
     DriverFinancialService,
     MerchantFinancialService,
+    TransactionsCsvService,
+    ReportsCron,
   ],
-  exports: [FinancialMonitoringService, OrderPricingService],
+  exports: [FinancialMonitoringService, OrderPricingService, TransactionsCsvService],
 })
 export class FinancialModule {}

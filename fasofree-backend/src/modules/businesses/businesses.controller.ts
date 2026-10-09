@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { BusinessesService } from './businesses.service';
+import { Audited } from '../audit/audited.decorator';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { RolesGuard } from '../../core/security/roles.guard';
@@ -165,6 +166,7 @@ export class BusinessesController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Delete(':id')
+  @Audited({ action: 'business.delete', entityType: 'BUSINESS', entityParam: 'id' })
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Supprimer un commerce (super administrateur)' })
   async remove(@Param('id') id: string) {
@@ -175,6 +177,7 @@ export class BusinessesController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Patch(':id/transfer-owner')
+  @Audited({ action: 'business.transfer_owner', entityType: 'BUSINESS', entityParam: 'id' })
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Transférer un commerce vers un autre utilisateur' })
   async transferOwner(

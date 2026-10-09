@@ -12,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request as ExpressRequest } from 'express';
 import { Roles } from '../../core/security/roles.decorator';
+import { Audited } from '../audit/audited.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { UserRole } from '../users/entities/user-role.enum';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
@@ -134,6 +135,11 @@ export class DisputesController {
   @Post(':id/submit-recommendation')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Audited({
+    action: 'dispute.recommendation.submit',
+    entityType: 'DISPUTE',
+    entityParam: 'id',
+  })
   @ApiOperation({ summary: 'Soumettre une recommandation de remboursement' })
   submitRecommendation(
     @Param('id') id: string,

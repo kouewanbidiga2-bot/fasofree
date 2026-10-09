@@ -6,6 +6,7 @@ import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
 import { SettingsService } from './settings.service';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
+import { Audited } from '../audit/audited.decorator';
 
 @ApiTags('Settings')
 @ApiBearerAuth('JWT-auth')
@@ -22,6 +23,7 @@ export class SettingsController {
   }
 
   @Patch()
+  @Audited({ action: 'settings.update', entityType: 'SYSTEM_SETTINGS' })
   @ApiOperation({ summary: 'Mettre à jour les paramètres globaux (super admin)' })
   update(@Body() dto: UpdateSettingsDto) {
     return this.settingsService.update(dto);

@@ -19,6 +19,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
+import { Audited } from '../audit/audited.decorator';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from './entities/user-role.enum';
@@ -181,6 +182,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Post()
+  @Audited({ action: 'user.create', entityType: 'USER' })
   @ApiOperation({
     summary: 'Créer un utilisateur (SUPER_ADMIN) — seul moyen de créer un ADMIN/SUPPORT',
   })
@@ -206,6 +208,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Patch(':id/status')
+  @Audited({ action: 'user.status.update', entityType: 'USER', entityParam: 'id' })
   @ApiOperation({ summary: 'Bannir ou réactiver un compte (SUPER_ADMIN)' })
   async updateStatus(
     @Param('id') id: string,
@@ -224,6 +227,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Patch(':id/role')
+  @Audited({ action: 'user.role.update', entityType: 'USER', entityParam: 'id' })
   @ApiOperation({ summary: 'Changer le rôle d’un utilisateur (SUPER_ADMIN)' })
   async updateRole(
     @Param('id') id: string,
@@ -242,6 +246,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Delete(':id')
+  @Audited({ action: 'user.delete', entityType: 'USER', entityParam: 'id' })
   @ApiOperation({ summary: 'Supprimer définitivement un utilisateur (SUPER_ADMIN)' })
   async deleteUser(
     @Param('id') id: string,
@@ -259,6 +264,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
   @Post(':id/reset-password')
+  @Audited({ action: 'user.password.reset', entityType: 'USER', entityParam: 'id' })
   @ApiOperation({ summary: 'Réinitialiser le mot de passe d\'un utilisateur (SUPER_ADMIN)' })
   async resetPassword(
     @Param('id') id: string,

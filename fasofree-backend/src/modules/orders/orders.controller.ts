@@ -35,6 +35,7 @@ import { DisputesService } from '../disputes/disputes.service';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { OrderStatus } from './entities/order.entity';
+import { FraudBlockService } from '../fraud/fraud-block.service';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: UserRole };
@@ -49,6 +50,7 @@ export class OrdersController {
     private readonly ordersService: OrdersService,
     private readonly disputesService: DisputesService,
     private readonly businessesService: BusinessesService,
+    private readonly fraudBlockService: FraudBlockService,
   ) {}
 
   // 🎛️ Tour de contrôle : toutes les commandes (SUPER_ADMIN / ADMIN / SUPPORT)
@@ -79,6 +81,11 @@ export class OrdersController {
   @ApiResponse({ status: 201, description: 'Commande créée avec succès' })
   @ApiResponse({ status: 400, description: 'Données de la commande invalides' })
   @ApiResponse({ status: 401, description: 'Utilisateur non authentifié' })
+  @ApiResponse({
+    status: 429,
+    description:
+      'Compte bloqué temporairement (activité inhabituelle : trop de commandes sur une courte période)',
+  })
   async createOrder(
     @NestRequest() req: RequestWithUser,
     @Body() dto: CreateOrderDto,
@@ -87,6 +94,10 @@ export class OrdersController {
     if (!userId) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
+    // 🚫 Anti-fraude : vérifie le blocage éventuel et le rythme des commandes
+    //    AVANT de créer quoi que ce soit. Lève une 429 si le compte est bloqué
+    //    ou s'il dépasse le seuil (fenêtre, max et durée pilotables par env).
+    await this.fraudBlockService.assertCanCreateOrder(userId);
     return this.ordersService.createOrder(userId, dto);
   }
 

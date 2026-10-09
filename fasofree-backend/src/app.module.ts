@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { getDatabaseConfig } from './config/database.config';
 import { RedisModule } from './core/redis/redis.module';
@@ -43,6 +43,9 @@ import { AssistantModule } from './modules/assistant/assistant.module';
 import { LegalModule } from './modules/legal/legal.module';
 import { CommandModule } from 'nestjs-command'; // 👈 1. Importer ceci
 import { ScheduleModule } from '@nestjs/schedule';
+import { AuditModule } from './modules/audit/audit.module';
+import { AuditInterceptor } from './modules/audit/audit.interceptor';
+import { FraudModule } from './modules/fraud/fraud.module';
 
 @Module({
   imports: [
@@ -118,7 +121,9 @@ import { ScheduleModule } from '@nestjs/schedule';
     AddressesModule,
     AssistantModule,
     LegalModule, // ⚖️ Pack légal : documents + acceptations + signature contrat
-    CommandModule, // 👈 2. Ajouter le module Command
+    CommandModule, // 👈 2. Ajouter les modules Command
+    AuditModule, // 🧾 Journal des actions d'administration
+    FraudModule, // 🚫 Blocage anti-fraude (rafales de commandes)
   ],
   controllers: [AppController],
   providers: [
@@ -126,6 +131,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    // 🧾 Intercepteur d'audit GLOBAL mais inerte sur les routes sans @Audited() :
+    //    il ne journalise que les routes explicitement annotées et ne lève jamais.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditInterceptor,
     },
   ],
 })

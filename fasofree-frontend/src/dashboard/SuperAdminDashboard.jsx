@@ -15,7 +15,7 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car, Eye, Building2
+  Truck, Car, Eye, Building2, ScrollText
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -23,6 +23,7 @@ import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components
 import BrandsManagementTab from './components/BrandsManagementTab';
 import FinancialChart from './components/BrandChart';
 import DisputesTab from './components/DisputesTab';
+import TraceabilityTab from './TraceabilityTab';
 import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
 import { getAgencies, createAgency, updateAgency } from '../services/agencyService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
@@ -1002,6 +1003,7 @@ const SuperAdminDashboard = () => {
     { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'financial', label: 'Finance', icon: DollarSign },
+    { id: 'traceability', label: 'Traçabilité', icon: ScrollText },
     { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
     { id: 'subscriptions', label: 'Abonnements', icon: Crown },
     { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
@@ -1233,6 +1235,23 @@ const SuperAdminDashboard = () => {
         )}
 
         {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'traceability' && (
+          <div className="animate-slide-up">
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">
+                  Traçabilité &amp; Traçabilité financière
+                </h2>
+                <p className="text-sm text-text-secondary">
+                  Exports CSV automatiques, journal des actions d&apos;administration et
+                  blocages anti-fraude.
+                </p>
+              </div>
+            </div>
+            <TraceabilityTab />
+          </div>
+        )}
+
         {/* ONGLET FINANCE */}
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'financial' && (

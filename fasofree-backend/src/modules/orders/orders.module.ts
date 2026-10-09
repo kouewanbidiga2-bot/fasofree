@@ -24,6 +24,7 @@ import { FinancialModule } from '../financial/financial.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 import { WalletModule } from '../wallets/wallet.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { FraudModule } from '../fraud/fraud.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
     ReceiptsModule,
     WalletModule,
     SubscriptionsModule,
+    FraudModule, // 🚫 Anti-fraude : contrôle avant création de commande
   ],
   controllers: [OrdersController],
   providers: [
