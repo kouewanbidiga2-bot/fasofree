@@ -6,6 +6,7 @@ import RestaurantCard from '../components/RestaurantCard';
 import HeroBanner from '../components/HeroBanner';
 import StoryStrip from '../components/stories/StoryStrip';
 import NotificationDropdown from '../components/NotificationDropdown';
+import UserMenu from '../components/UserMenu';
 import api from '../services/api';
 import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
@@ -217,6 +218,8 @@ const Home = () => {
                   </span>
                 )}
               </button>
+              {/* Menu profil — visible sur desktop ET mobile (uniquement connecté) */}
+              <UserMenu />
             </div>
           </div>
 
