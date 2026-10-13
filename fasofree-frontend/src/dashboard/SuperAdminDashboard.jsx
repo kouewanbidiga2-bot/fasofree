@@ -1082,6 +1082,25 @@ const SuperAdminDashboard = () => {
             <Radio size={18} strokeWidth={1.5} className="animate-pulse" />
             <span className="flex-1 text-left">Tour de contrôle (Live)</span>
           </button>
+
+          {/* ── Accès rapide aux espaces Admin & Support (Super Admin) ── */}
+          <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
+            Espaces d&apos;équipe
+          </p>
+          <button
+            onClick={() => navigate('/admin/manager')}
+            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-text-secondary hover:bg-background-secondary"
+          >
+            <Layout size={18} strokeWidth={1.5} />
+            <span className="flex-1 text-left">Espace Admin</span>
+          </button>
+          <button
+            onClick={() => navigate('/admin/support')}
+            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-text-secondary hover:bg-background-secondary"
+          >
+            <MessageSquare size={18} strokeWidth={1.5} />
+            <span className="flex-1 text-left">Espace Support</span>
+          </button>
         </nav>
 
         <div className="p-3 border-t border-border-light">

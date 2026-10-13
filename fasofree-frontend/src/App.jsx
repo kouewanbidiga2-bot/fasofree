@@ -91,7 +91,7 @@ function App() {
           <Route
             path="/admin/manager"
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
+              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'superadmin']}>
                 <AdminManagerDashboard />
               </ProtectedRoute>
             }
@@ -101,7 +101,7 @@ function App() {
           <Route
             path="/admin/support"
             element={
-              <ProtectedRoute allowedRoles={['support']}>
+              <ProtectedRoute allowedRoles={['support', 'super_admin', 'superadmin']}>
                 <SupportDashboard />
               </ProtectedRoute>
             }
