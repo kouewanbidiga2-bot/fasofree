@@ -667,9 +667,9 @@ export class UsersService implements OnModuleInit {
       qb.getCount(),
       this.userRepository
         .createQueryBuilder('u')
-        .select('u.role', 'role')
+        .select('LOWER(u.role)', 'role')
         .addSelect('COUNT(*)', 'count')
-        .groupBy('u.role')
+        .groupBy('LOWER(u.role)')
         .getRawMany<{ role: string; count: string }>(),
       this.userRepository
         .createQueryBuilder('u')
@@ -685,10 +685,10 @@ export class UsersService implements OnModuleInit {
     ]);
 
     const roleCount = (role: UserRole) =>
-      Number(byRole.find((r) => r.role === role)?.count ?? 0);
+      Number(byRole.find((r) => r.role.toLowerCase() === role.toLowerCase())?.count ?? 0);
 
     const appCount = (status: string) =>
-      Number(pendingByStatus.find((s) => s.status === status)?.count ?? 0);
+      Number(pendingByStatus.find((s) => s.status.toLowerCase() === status.toLowerCase())?.count ?? 0);
 
     return {
       totalUsers,

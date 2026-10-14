@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -8,6 +8,7 @@ import { InternalChatController } from './internal-chat.controller';
 import { InternalChatGateway } from './internal-chat.gateway';
 import { User } from '../users/entities/user.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { resolveJwtSecret } from '../../config/jwt.config';
         return { secret, signOptions: { expiresIn: expiresIn as any } };
       },
     }),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [InternalChatController],
   providers: [InternalChatService, InternalChatGateway],

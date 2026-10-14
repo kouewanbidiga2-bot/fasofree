@@ -15,7 +15,7 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car, Eye, Building2, ScrollText
+  Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -47,6 +47,7 @@ import {
   getPlatformStats,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
+import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
@@ -170,6 +171,23 @@ const SuperAdminDashboard = () => {
   const [subSuccess, setSubSuccess] = useState(null);
   const [assignBusy, setAssignBusy] = useState(false);
 
+  // Push Campaigns
+  const [pushCampaigns, setPushCampaigns] = useState([]);
+  const [pushCampaignsLoading, setPushCampaignsLoading] = useState(false);
+  const [pushCampaignsError, setPushCampaignsError] = useState(null);
+  const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
+  const [createCampaignForm, setCreateCampaignForm] = useState({
+    title: '',
+    body: '',
+    target: 'ALL',
+  });
+  const [createCampaignBusy, setCreateCampaignBusy] = useState(false);
+
+  // Affiliate Global Stats
+  const [affiliateGlobalStats, setAffiliateGlobalStats] = useState(null);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateError, setAffiliateError] = useState(null);
+
   // Platform settings
   const [platformSettings, setPlatformSettings] = useState({
     platformFee: 100,
@@ -208,6 +226,8 @@ const SuperAdminDashboard = () => {
     pending: true,
     kyc: true,
     users: true,
+    pushCampaigns: true,
+    affiliate: true,
   });
   const [errors, setErrors] = useState({});
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
@@ -435,6 +455,49 @@ const SuperAdminDashboard = () => {
     return () => clearInterval(interval);
   }, [loadUsers]);
 
+  // ─── Push Campaigns ───
+  const loadPushCampaigns = useCallback(async () => {
+    setLoad('pushCampaigns', true);
+    setPushCampaignsError(null);
+    try {
+      const data = await pushCampaignService.listCampaigns(50);
+      setPushCampaigns(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setPushCampaignsError(err.message);
+    } finally {
+      setLoad('pushCampaigns', false);
+    }
+  }, []);
+
+  const handleCreateCampaign = async (e) => {
+    e.preventDefault();
+    setCreateCampaignBusy(true);
+    try {
+      await pushCampaignService.createCampaign(createCampaignForm);
+      setShowCreateCampaignModal(false);
+      setCreateCampaignForm({ title: '', body: '', target: 'ALL' });
+      await loadPushCampaigns();
+    } catch (err) {
+      setPushCampaignsError(err.message);
+    } finally {
+      setCreateCampaignBusy(false);
+    }
+  };
+
+  // ─── Affiliate Global Stats ───
+  const loadAffiliateGlobal = useCallback(async () => {
+    setLoad('affiliate', true);
+    setAffiliateError(null);
+    try {
+      const data = await api.get('/affiliate/admin/stats').then(r => r.data);
+      setAffiliateGlobalStats(data);
+    } catch (err) {
+      setAffiliateError(err.message);
+    } finally {
+      setLoad('affiliate', false);
+    }
+  }, []);
+
   // Load ban requests
   const loadBanRequests = useCallback(async () => {
     setBanRequestsLoading(true);
@@ -470,7 +533,9 @@ const SuperAdminDashboard = () => {
     loadBanRequests();
     loadSettings();
     loadConversations();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations]);
+    loadPushCampaigns();
+    loadAffiliateGlobal();
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
 
   // 🏢 Charger les agences quand l'onglet est ouvert
   useEffect(() => {
@@ -1015,6 +1080,8 @@ const SuperAdminDashboard = () => {
     { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
     { id: 'subscriptions', label: 'Abonnements', icon: Crown },
     { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
+    { id: 'push-campaigns', label: 'Campagnes Push', icon: Megaphone },
+    { id: 'affiliate', label: 'Affiliation Globale', icon: BarChart2 },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
@@ -1707,6 +1774,203 @@ const SuperAdminDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET CAMPAGNES PUSH */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'push-campaigns' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">Campagnes Push Promotionnelles</h2>
+                <p className="text-text-secondary text-sm">
+                  Envoyez une notification ciblée à tous les utilisateurs, clients, livreurs ou commerçants.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCreateCampaignModal(true)}
+                className="btn-primary gap-2"
+              >
+                <Plus size={14} />
+                Nouvelle campagne
+              </button>
+            </div>
+
+            {pushCampaignsError && (
+              <div className="card p-4 border-border-error/20 bg-status-error/5">
+                <p className="text-status-error text-sm">{pushCampaignsError}</p>
+              </div>
+            )}
+
+            {/* ── Création ─────────────────────────────────── */}
+            <form onSubmit={handleCreateCampaign} className="card p-5 space-y-4">
+              <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Nouvelle campagne</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <input
+                  className="input"
+                  placeholder="Titre (3-200 caractères) *"
+                  value={createCampaignForm.title}
+                  onChange={(e) => setCreateCampaignForm({ ...createCampaignForm, title: e.target.value })}
+                  required
+                  maxLength={200}
+                />
+                <select
+                  className="input"
+                  value={createCampaignForm.target}
+                  onChange={(e) => setCreateCampaignForm({ ...createCampaignForm, target: e.target.value })}
+                >
+                  <option value="ALL">Tous les utilisateurs</option>
+                  <option value="CLIENT">Clients uniquement</option>
+                  <option value="DRIVER">Livreurs uniquement</option>
+                  <option value="MERCHANT">Commerçants uniquement</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary mb-2">Message *</label>
+                <textarea
+                  className="input min-h-[100px] resize-y"
+                  placeholder="Corps du message (3-1000 caractères) *"
+                  value={createCampaignForm.body}
+                  onChange={(e) => setCreateCampaignForm({ ...createCampaignForm, body: e.target.value })}
+                  required
+                  maxLength={1000}
+                />
+              </div>
+              <button type="submit" className="btn-primary gap-2" disabled={createCampaignBusy}>
+                <Megaphone size={14} />
+                {createCampaignBusy ? 'Envoi en cours…' : 'Créer et envoyer'}
+              </button>
+            </form>
+
+            {/* ── Liste des campagnes ────────────────────────── */}
+            <div className="card overflow-hidden">
+              <div className="px-5 py-3 border-b border-border-light">
+                <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                  Historique des campagnes ({pushCampaigns.length})
+                </h3>
+              </div>
+              {pushCampaignsLoading ? (
+                <div className="p-8 text-center text-text-tertiary text-sm">Chargement…</div>
+              ) : pushCampaigns.length === 0 ? (
+                <div className="p-8 text-center text-text-tertiary text-sm">
+                  Aucune campagne envoyée. Créez votre première campagne promotionnelle.
+                </div>
+              ) : (
+                <div className="divide-y divide-border-light">
+                  {pushCampaigns.map((campaign) => (
+                    <div key={campaign.id} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-text-primary truncate">{campaign.title}</p>
+                        <p className="text-xs text-text-tertiary truncate">{campaign.body}</p>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-text-tertiary">
+                          <span className="flex items-center gap-1">
+                            <Bell size={10} />
+                            Cible : {campaign.target}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Users size={10} />
+                            Destinataires : {campaign.recipientCount || 0}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock size={10} />
+                            {new Date(campaign.createdAt).toLocaleString('fr-FR')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ──────────────────────────────────────────────────────── */}
+        {/* ONGLET AFFILIATION GLOBALE */}
+        {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'affiliate' && (
+          <div className="space-y-6 animate-slide-up">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-text-primary">Affiliation Globale</h2>
+                <p className="text-text-secondary text-sm">
+                  Vue d'ensemble du programme d'affiliation marchand (clics → inscriptions → commandes).
+                </p>
+              </div>
+              <button onClick={loadAffiliateGlobal} className="btn-secondary gap-2">
+                <RefreshCw size={14} className={affiliateLoading ? 'animate-spin' : ''} />
+                Actualiser
+              </button>
+            </div>
+
+            {affiliateError && (
+              <div className="card p-4 border-border-error/20 bg-status-error/5">
+                <p className="text-status-error text-sm">{affiliateError}</p>
+              </div>
+            )}
+
+            {affiliateLoading ? (
+              <div className="card p-8 text-center">
+                <div className="w-8 h-8 border-4 border-accent-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-text-secondary text-sm">Chargement des stats d'affiliation…</p>
+              </div>
+            ) : affiliateGlobalStats ? (
+              <>
+                {/* KPIs principaux */}
+                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+                  <StatCard label="Liens créés" value={affiliateGlobalStats.totalLinks || 0} icon={Link} trend="neutral" />
+                  <StatCard label="Total Clics" value={affiliateGlobalStats.totalClicks || 0} icon={ExternalLink} trend={affiliateGlobalStats.totalClicks > 0 ? 'up' : 'neutral'} />
+                  <StatCard label="Inscriptions" value={affiliateGlobalStats.totalSignups || 0} icon={Users} trend={affiliateGlobalStats.totalSignups > 0 ? 'up' : 'neutral'} />
+                  <StatCard label="Commandes" value={affiliateGlobalStats.totalOrders || 0} icon={ShoppingBag} trend={affiliateGlobalStats.totalOrders > 0 ? 'up' : 'neutral'} />
+                  <StatCard label="Revenus totaux" value={`${(affiliateGlobalStats.totalRevenue || 0).toLocaleString()} FCFA`} icon={DollarSign} trend={affiliateGlobalStats.totalRevenue > 0 ? 'up' : 'neutral'} />
+                  <StatCard label="Taux conv. global" value={`${(affiliateGlobalStats.totalClicks > 0 ? ((affiliateGlobalStats.totalOrders / affiliateGlobalStats.totalClicks) * 100).toFixed(1) : 0)}%`} icon={BarChart2} trend="neutral" />
+                </div>
+
+                {/* Top commerces */}
+                <div className="card overflow-hidden">
+                  <div className="px-5 py-3 border-b border-border-light">
+                    <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                      Top 10 commerces par commandes
+                    </h3>
+                  </div>
+                  {affiliateGlobalStats.topBusinesses && affiliateGlobalStats.topBusinesses.length > 0 ? (
+                    <div className="divide-y divide-border-light">
+                      {affiliateGlobalStats.topBusinesses.map((biz, idx) => (
+                        <div key={biz.businessId} className="px-5 py-4 flex flex-col lg:flex-row lg:items-center gap-4">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className="w-7 h-7 rounded-full bg-accent-primary/15 flex items-center justify-center text-xs font-bold text-accent-primary">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className="text-sm font-semibold text-text-primary truncate">{biz.businessName}</p>
+                              <p className="text-xs text-text-tertiary">Code : {biz.code || '—'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-text-tertiary flex-wrap">
+                            <span><ExternalLink size={10} /> {biz.clicks || 0} clics</span>
+                            <span><Users size={10} /> {biz.signups || 0} inscrits</span>
+                            <span><ShoppingBag size={10} /> {biz.orders || 0} commandes</span>
+                            <span><DollarSign size={10} /> {biz.revenue || 0} FCFA</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-8 text-center text-text-tertiary text-sm">
+                      Aucun commerce avec liens d'affiliation pour le moment.
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="card p-12 text-center">
+                <BarChart2 size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
+                <p className="text-text-secondary text-sm font-medium">Aucune donnée d'affiliation</p>
+                <p className="text-text-tertiary text-xs mt-1">Les stats apparaîtront dès que des commerçants génèrent des liens.</p>
+              </div>
+            )}
           </div>
         )}
 

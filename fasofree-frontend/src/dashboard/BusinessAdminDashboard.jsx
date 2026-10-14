@@ -17,7 +17,7 @@ import {
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
-  BarChart3, XCircle, Camera, Eye, Shield
+  BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
@@ -33,6 +33,7 @@ import { getBusinessProducts, getLowStockAlerts, updateStock, generateSKU } from
 import api from '../services/api';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
+import { affiliateService } from '../services/affiliateService';
 import CallSupportButton from '../components/CallSupportButton';
 import { ProductType, InventoryStatus } from '../types';
 import ImageUpload from '../components/ImageUpload';
@@ -332,7 +333,7 @@ const BusinessAdminDashboard = () => {
   });
 
   // États UI
-  const [loading, setLoading] = useState({ analytics: true, orders: true, products: true, wallet: true, alerts: true });
+  const [loading, setLoading] = useState({ analytics: true, orders: true, products: true, wallet: true, alerts: true, affiliate: true });
   const [errors, setErrors] = useState({});
   const [productModal, setProductModal] = useState(null);
   const [stockModal, setStockModal] = useState(null);
@@ -341,6 +342,11 @@ const BusinessAdminDashboard = () => {
   const [updating, setUpdating] = useState({});
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState(null);
+
+  // Affiliation
+  const [affiliateData, setAffiliateData] = useState(null);
+  const [affiliateLoading, setAffiliateLoading] = useState(false);
+  const [affiliateError, setAffiliateError] = useState(null);
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -625,6 +631,23 @@ const BusinessAdminDashboard = () => {
     }
   }, [selectedBranchId, businessId]);
 
+  const loadAffiliate = useCallback(async () => {
+    if (!businessId) return;
+    setAffiliateLoading(true);
+    setAffiliateError(null);
+    try {
+      const [link, stats] = await Promise.all([
+        affiliateService.getMyLink(businessId),
+        affiliateService.getMyStats(businessId),
+      ]);
+      setAffiliateData({ link, stats });
+    } catch (err) {
+      setAffiliateError(err.message);
+    } finally {
+      setAffiliateLoading(false);
+    }
+  }, [businessId]);
+
   const loadLowStockAlerts = useCallback(async () => {
     const targetId = selectedBranchId || businessId;
     if (!targetId) return;
@@ -695,6 +718,7 @@ const BusinessAdminDashboard = () => {
     loadWallet();
     loadSettings();
     loadStories();
+    loadAffiliate();
     if (brandId) {
       loadBrandAnalytics();
       loadBranchWallets();
@@ -892,6 +916,7 @@ const BusinessAdminDashboard = () => {
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => ['PENDING', 'PAID', 'IN_PREPARATION'].includes(o.status)).length },
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
+    { id: 'affiliate', label: 'Affiliation', icon: Share2 },
     { id: 'stories', label: 'Stories', icon: Camera },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'disputes', label: 'Litiges', icon: Shield },
@@ -1451,9 +1476,160 @@ const BusinessAdminDashboard = () => {
           )}
 
           {/* ──────────────────────────────────────────────────────── */}
-          {/* ONGLET STORIES */}
+          {/* ONGLET AFFILIATION */}
           {/* ──────────────────────────────────────────────────────── */}
-          {activeTab === 'stories' && (
+          {activeTab === 'affiliate' && (
+            <div className="animate-slide-up space-y-6">
+              <div className="flex items-center justify-between">
+                <h1 className="text-xl font-bold text-text-primary">Affiliation Marchand</h1>
+                <p className="text-text-secondary text-sm">
+                  Partagez votre lien de suivi pour attirer de nouveaux clients et gagner des commissions.
+                </p>
+              </div>
+
+              {affiliateError && (
+                <div className="card p-4 border-border-error/20 bg-status-error/5">
+                  <p className="text-status-error text-sm">{affiliateError}</p>
+                </div>
+              )}
+
+              {affiliateLoading ? (
+                <div className="card p-8 text-center">
+                  <div className="w-8 h-8 border-4 border-accent-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-text-secondary text-sm">Chargement de vos stats d'affiliation…</p>
+                </div>
+              ) : affiliateData ? (
+                <>
+                  {/* Lien de suivi */}
+                  <div className="card p-5 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-accent-primary/15 flex items-center justify-center">
+                        <Share2 size={18} className="text-accent-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-text-primary">Votre lien de suivi</p>
+                        <p className="text-text-tertiary text-xs">Partagez-le sur WhatsApp, TikTok, QR Code…</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <input
+                        type="text"
+                        readOnly
+                        value={affiliateData.link?.restaurantUrl || affiliateData.link?.url || ''}
+                        className="flex-1 min-w-0 px-3 py-2.5 text-sm border border-border-light rounded-lg bg-background-secondary text-text-primary"
+                        placeholder="Lien en cours de chargement…"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(affiliateData.link?.restaurantUrl || affiliateData.link?.url || '');
+                        }}
+                        className="btn-secondary flex items-center gap-2 px-4"
+                      >
+                        <Copy size={14} />
+                        Copier
+                      </button>
+                      <button
+                        onClick={() => {
+                          const url = affiliateData.link?.restaurantUrl || affiliateData.link?.url || '';
+                          window.open(`${import.meta.env.VITE_API_URL || 'https://api.fasofree.site'}/qr?data=${encodeURIComponent(url)}`, '_blank');
+                        }}
+                        className="btn-secondary flex items-center gap-2 px-4"
+                        title="QR Code"
+                      >
+                        <QrCode size={14} />
+                      </button>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent('Découvrez ' + (user?.fullName || 'mon commerce') + ' sur FasoFree : ' + (affiliateData.link?.restaurantUrl || affiliateData.link?.url || ''))}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary flex items-center gap-2 px-4"
+                        title="Partager sur WhatsApp"
+                      >
+                        <ExternalLink size={14} />
+                        WhatsApp
+                      </a>
+                    </div>
+                    <p className="text-text-tertiary text-xs">
+                      Code affilié : <code className="font-mono text-text-primary">{affiliateData.link?.code || '—'}</code>
+                    </p>
+                  </div>
+
+                  {/* Stats du funnel */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard
+                      label="Clics"
+                      value={affiliateData.stats?.clicks || 0}
+                      icon={ExternalLink}
+                      trend="neutral"
+                    />
+                    <StatCard
+                      label="Inscriptions"
+                      value={affiliateData.stats?.signups || 0}
+                      icon={Users}
+                      trend={affiliateData.stats?.signups > 0 ? 'up' : 'neutral'}
+                    />
+                    <StatCard
+                      label="Commandes"
+                      value={affiliateData.stats?.orders || 0}
+                      icon={ShoppingBag}
+                      trend={affiliateData.stats?.orders > 0 ? 'up' : 'neutral'}
+                    />
+                    <StatCard
+                      label="Revenus"
+                      value={`${(affiliateData.stats?.revenue || 0).toLocaleString()} FCFA`}
+                      icon={TrendingUp}
+                      trend={affiliateData.stats?.revenue > 0 ? 'up' : 'neutral'}
+                    />
+                  </div>
+
+                  {/* Détail du taux de conversion */}
+                  <div className="card p-5">
+                    <h3 className="text-sm font-semibold text-text-primary mb-4">Tunnel de conversion</h3>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Clics → Inscriptions</span>
+                        <span className="text-text-primary font-medium">
+                          {affiliateData.stats?.clicks > 0
+                            ? `${((affiliateData.stats.signups / affiliateData.stats.clicks) * 100).toFixed(1)}%`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Inscriptions → Commandes</span>
+                        <span className="text-text-primary font-medium">
+                          {affiliateData.stats?.signups > 0
+                            ? `${((affiliateData.stats.orders / affiliateData.stats.signups) * 100).toFixed(1)}%`
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-text-secondary">Clics → Commandes (global)</span>
+                        <span className="text-text-primary font-medium">
+                          {affiliateData.stats?.conversionRate || 0}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="card p-12 text-center">
+                  <Share2 size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
+                  <p className="text-text-secondary text-sm font-medium">Aucune donnée d'affiliation</p>
+                  <p className="text-text-tertiary text-xs mt-1">Votre lien de suivi sera généré automatiquement.</p>
+                  <button
+                    onClick={() => { loadAffiliate(); }}
+                    className="btn-primary mt-4 flex items-center gap-2 mx-auto px-4 py-2"
+                  >
+                    <RefreshCw size={14} />
+                    Actualiser
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ──────────────────────────────────────────────────────── */}
+          {/* ONGLET STORIES */}
             <div className="animate-slide-up space-y-6">
               <div className="flex items-center justify-between">
                 <h1 className="text-xl font-bold text-text-primary">Stories</h1>

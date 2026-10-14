@@ -1,0 +1,24 @@
+# =============================================================================
+# FasoFree API — Caddy (reverse proxy + HTTPS automatique via Let's Encrypt)
+# -----------------------------------------------------------------------------
+# Emplacement serveur : /etc/caddy/Caddyfile
+#   - Remplace api.fasofree.site par ton sous-domaine réel.
+#   - L'enregistrement DNS A (api.fasofree.site -> IP_DU_VPS) DOIT exister
+#     avant le premier `systemctl reload caddy` (sinon l'obtention du
+#     certificat SSL échoue).
+#   - Le WebSocket (socket.io) est pris en charge automatiquement par
+#     reverse_proxy (pas de config spéciale).
+#   - Les erreurs HTTP 4xx/5xx ne sont pas renvoyées par Caddy (proxy pur).
+# =============================================================================
+
+api.fasofree.site {
+    encode gzip zstd
+
+    reverse_proxy 127.0.0.1:3100 {
+        # Délais prudents pour les webhooks de paiement / uploads lourds
+        transport http {
+            read_timeout 10s
+            write_timeout 30s
+        }
+    }
+}

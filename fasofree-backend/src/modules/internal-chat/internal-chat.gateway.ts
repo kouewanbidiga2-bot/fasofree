@@ -20,10 +20,14 @@ import {
   InternalChannel,
 } from './internal-chat.service';
 import { User } from '../users/entities/user.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 import { resolveJwtSecret } from '../../config/jwt.config';
 import { originAllowed } from '../../config/cors.config';
 
 type InternalSocket = Socket & { data: { user?: JwtPayload } };
+
+/** Suivi des utilisateurs en ligne par salon (room -> Set<userId>) */
+const onlineUsersByRoom = new Map<string, Set<string>>();
 
 const DM_PREFIX = 'dm:';
 const isDmChannel = (ch: string) => ch.startsWith(DM_PREFIX);
@@ -60,6 +64,7 @@ export class InternalChatGateway
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly internalChatService: InternalChatService,
+    private readonly notificationsService: NotificationsService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -119,7 +124,15 @@ export class InternalChatGateway
   }
 
   handleDisconnect(client: InternalSocket) {
-    this.logger.log(`[InternalChat Disconnected] ${client.id}`);
+    const userId = client.data.user?.sub;
+    this.logger.log(`[InternalChat Disconnected] ${client.id} (user: ${userId})`);
+    // Remove from all rooms tracking
+    for (const [roomName, roomUsers] of onlineUsersByRoom.entries()) {
+      if (roomUsers.has(userId)) {
+        roomUsers.delete(userId);
+        if (roomUsers.size === 0) onlineUsersByRoom.delete(roomName);
+      }
+    }
   }
 
   /**
@@ -140,6 +153,11 @@ export class InternalChatGateway
 
     const roomName = `internal_${channel}`;
     client.join(roomName);
+
+    // Track online user in this room
+    const roomUsers = onlineUsersByRoom.get(roomName) || new Set();
+    roomUsers.add(user.sub);
+    onlineUsersByRoom.set(roomName, roomUsers);
 
     const history = await this.internalChatService.getHistory(
       channel as InternalChannel,
@@ -183,7 +201,45 @@ export class InternalChatGateway
     const roomName = `internal_${channel}`;
     this.server.to(roomName).emit('newMessage', packet);
 
+    // 🔔 Push notification pour les membres OFFLINE du canal
+    this.notifyOfflineUsers(roomName, user.sub, channel, message.trim()).catch((err) => {
+      this.logger.warn(`[InternalChat] notifyOfflineUsers error: ${err instanceof Error ? err.message : String(err)}`);
+    });
+
     return { status: 'sent', data: packet };
+  }
+
+  /**
+   * 🔔 Envoie une push notification aux membres de l'équipe absents du salon.
+   * Ne notifie pas l'expéditeur, ni les utilisateurs déjà connectés dans la room.
+   */
+  private async notifyOfflineUsers(
+    roomName: string,
+    senderId: string,
+    channel: string,
+    message: string,
+  ): Promise<void> {
+    const onlineInRoom = onlineUsersByRoom.get(roomName) || new Set();
+    // Récupère tous les utilisateurs autorisés (team) pour ce canal
+    const teamUsers = await this.userRepository.find({
+      where: { isActive: true },
+      select: { id: true, fcmToken: true, preferredNotificationChannel: true, email: true, phone: true, fullName: true },
+    });
+
+    for (const u of teamUsers) {
+      if (u.id === senderId) continue; // pas de notification à soi-même
+      if (onlineInRoom.has(u.id)) continue; // déjà connecté → WebSocket suffit
+
+      const title = `[#${channel}] Nouveau message`;
+      const body = `${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`;
+
+      await this.notificationsService.sendNotification(
+        u as any, // cast pour accéder aux champs
+        title,
+        body,
+        { type: 'INTERNAL_CHAT', channel, room: roomName },
+      );
+    }
   }
 
   /**
@@ -214,6 +270,11 @@ export class InternalChatGateway
 
     const roomName = dmRoom(user.sub, recipientId);
     client.join(roomName);
+
+    // Track online users in DM room
+    const roomUsers = onlineUsersByRoom.get(roomName) || new Set();
+    roomUsers.add(user.sub);
+    onlineUsersByRoom.set(roomName, roomUsers);
 
     const history = await this.internalChatService.getDms(user.sub, recipientId);
 
@@ -269,6 +330,18 @@ export class InternalChatGateway
     const roomName = dmRoom(user.sub, recipientId);
     this.server.to(roomName).emit('newMessage', packet);
 
+    // 🔔 Push notification si le destinataire est OFFLINE
+    if (!onlineUsersByRoom.get(roomName)?.has(recipientId)) {
+      const title = `💬 Message direct de ${user.role}`;
+      const body = `${sanitizedMessage.slice(0, 120)}${sanitizedMessage.length > 120 ? '…' : ''}`;
+      await this.notificationsService.sendNotification(
+        recipient as any,
+        title,
+        body,
+        { type: 'INTERNAL_CHAT_DM', room: roomName },
+      ).catch((err) => this.logger.warn(`[InternalChat] DM notify error: ${err instanceof Error ? err.message : String(err)}`));
+    }
+
     return { status: 'sent', data: packet };
   }
 
@@ -281,10 +354,18 @@ export class InternalChatGateway
     @MessageBody() payload: { channel: string },
   ) {
     if (!payload?.channel) return;
+    const userId = client.data.user?.sub;
     const roomName = isDmChannel(payload.channel)
-      ? dmRoom(client.data.user?.sub || '', payload.channel.slice(3))
+      ? dmRoom(userId || '', payload.channel.slice(3))
       : `internal_${payload.channel}`;
     client.leave(roomName);
+    // Cleanup online tracking
+    const roomUsers = onlineUsersByRoom.get(roomName);
+    if (roomUsers) {
+      roomUsers.delete(userId);
+      if (roomUsers.size === 0) onlineUsersByRoom.delete(roomName);
+    }
     return { status: 'ok' };
   }
-}
+
+  }
