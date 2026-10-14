@@ -231,6 +231,7 @@ const SuperAdminDashboard = () => {
   });
   const [errors, setErrors] = useState({});
   const setError = (key, msg) => setErrors(prev => ({ ...prev, [key]: msg }));
+  const setLoad = (key, val) => setLoading(prev => ({ ...prev, [key]: val }));
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -423,11 +424,15 @@ const SuperAdminDashboard = () => {
     setLoading(prev => ({ ...prev, users: true, platform: true }));
     try {
       const [usersData, businessesData, stats] = await Promise.all([
-        getUsers(),
+        getUsers({ limit: 200 }),
         getBusinesses(),
         getPlatformStats(),
       ]);
-      const list = Array.isArray(usersData) ? usersData : [];
+      const list = Array.isArray(usersData)
+        ? usersData
+        : Array.isArray(usersData?.items)
+          ? usersData.items
+          : [];
       const merchants = Array.isArray(businessesData) ? businessesData : [];
       setUsers(list);
       setBusinesses(merchants);

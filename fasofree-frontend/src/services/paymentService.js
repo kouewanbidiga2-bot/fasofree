@@ -38,6 +38,17 @@ export const checkPaymentStatus = async (ref) => {
 };
 
 // ─── Méthodes de paiement disponibles (via GeniusPay) ──────────────────
+/**
+ * RÃ©conciliation ADMIN d'un paiement (mÃªme logique que le client,
+ * sans contrÃ´le d'appartenance). RÃ´les : SUPER_ADMIN / ADMIN / SUPPORT.
+ * @param {string} orderId
+ * @returns {Promise<{status:string, paid:boolean, reference:string|null}>}
+ */
+export const reconcilePaymentAdmin = async (orderId) => {
+  const response = await api.get(`/payments/admin/reconcile/${orderId}`);
+  return response.data;
+};
+
 export const PAYMENT_METHODS = [
   {
     id: 'orange_money',

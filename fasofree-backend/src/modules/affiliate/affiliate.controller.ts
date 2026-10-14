@@ -48,7 +48,7 @@ export class AffiliateController {
 
   /** Vue globale (Super Admin). */
   @Get('admin/stats')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Statistiques affiliation globales' })
   async getGlobalStats() {
     return this.affiliate.getGlobalStats();
@@ -56,7 +56,7 @@ export class AffiliateController {
 
   /** Résout un code vers un businessId (debug admin). */
   @Get('resolve/:code')
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Résout un code vers un businessId (debug admin)' })
   async resolve(@Param('code') code: string) {
     return { businessId: await this.affiliate.resolveCode(code) };

@@ -661,10 +661,8 @@ export class UsersService implements OnModuleInit {
     activeUsers: number;
     generatedAt: string;
   }> {
-    const qb = this.userRepository.createQueryBuilder('u');
-
     const [totalUsers, byRole, pendingByStatus, activeUsers] = await Promise.all([
-      qb.getCount(),
+      this.userRepository.createQueryBuilder('u').getCount(),
       this.userRepository
         .createQueryBuilder('u')
         .select('LOWER(u.role)', 'role')

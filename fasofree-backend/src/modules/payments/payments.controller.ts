@@ -14,6 +14,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { RolesGuard } from '../../core/security/roles.guard';
+import { Roles } from '../../core/security/roles.decorator';
+import { UserRole } from '../users/entities/user-role.enum';
 import { ConfigService } from '@nestjs/config';
 import {
   ApiTags,
@@ -76,6 +79,18 @@ export class PaymentsController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.paymentsService.reconcileOrderPayment(orderId, userId);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Get('admin/reconcile/:orderId')
+  @ApiOperation({
+    summary:
+      "Réconciliation ADMIN d'un paiement (statut réel GeniusPay, même logique que le client)",
+  })
+  async reconcileAdmin(@Param('orderId') orderId: string) {
+    return this.paymentsService.reconcileOrderPaymentAdmin(orderId);
   }
 
   @ApiBearerAuth('JWT-auth')

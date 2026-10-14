@@ -17,7 +17,8 @@ import {
   Layout, Shield, Users, Settings, LogOut,
   TrendingUp, Activity, AlertCircle,
   BadgeCheck, Radio, Ban, MessageSquare, RefreshCw,
-  CheckCircle, XCircle, Clock, ShoppingBag, Eye
+  CheckCircle, XCircle, Clock, ShoppingBag, Eye,
+  Building2, Link2, CreditCard
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -28,6 +29,10 @@ import { getBusinesses } from '../services/subscriptionService';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import InternalChat from '../components/InternalChat';
 import DisputesTab from './components/DisputesTab';
+import UsersBackofficeTab from './components/UsersBackofficeTab';
+import AgenciesTab from './components/AgenciesTab';
+import AffiliateTab from './components/AffiliateTab';
+import PaymentReconciliationTab from './components/PaymentReconciliationTab';
 
 const SupportDashboard = () => {
   const navigate = useNavigate();
@@ -304,6 +309,10 @@ const SupportDashboard = () => {
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
     { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
+    { id: 'users-backoffice', label: 'Comptes', icon: Users },
+    { id: 'agencies', label: 'Agences', icon: Building2 },
+    { id: 'affiliate', label: 'Affiliation', icon: Link2 },
+    { id: 'payments-reconcile', label: 'Paiements', icon: CreditCard },
   ];
 
   return (
@@ -758,6 +767,30 @@ const SupportDashboard = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'users-backoffice' && (
+          <div className="animate-slide-up">
+            <UsersBackofficeTab />
+          </div>
+        )}
+
+        {activeTab === 'agencies' && (
+          <div className="animate-slide-up">
+            <AgenciesTab canManage={false} />
+          </div>
+        )}
+
+        {activeTab === 'affiliate' && (
+          <div className="animate-slide-up">
+            <AffiliateTab />
+          </div>
+        )}
+
+        {activeTab === 'payments-reconcile' && (
+          <div className="animate-slide-up">
+            <PaymentReconciliationTab />
           </div>
         )}
 

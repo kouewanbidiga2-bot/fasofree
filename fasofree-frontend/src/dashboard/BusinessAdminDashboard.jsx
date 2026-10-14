@@ -1630,6 +1630,7 @@ const BusinessAdminDashboard = () => {
 
           {/* ──────────────────────────────────────────────────────── */}
           {/* ONGLET STORIES */}
+          {activeTab === 'stories' && (
             <div className="animate-slide-up space-y-6">
               <div className="flex items-center justify-between">
                 <h1 className="text-xl font-bold text-text-primary">Stories</h1>

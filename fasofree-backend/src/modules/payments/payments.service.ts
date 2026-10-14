@@ -210,6 +210,29 @@ export class PaymentsService {
       throw new BadRequestException('Cette commande ne vous appartient pas');
     }
 
+    return this.reconcilePaidState(orderId, order);
+  }
+
+  /**
+   * Réconciliation ADMIN — même logique que `reconcileOrderPayment` mais
+   * SANS contrôle d'appartenance : réservée aux rôles backoffice via le
+   * contrôleur. Ne modifie jamais la logique de la route client existante.
+   */
+  async reconcileOrderPaymentAdmin(
+    orderId: string,
+  ): Promise<{ status: string; paid: boolean; reference: string | null }> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Commande introuvable');
+    }
+
+    return this.reconcilePaidState(orderId, order);
+  }
+
+  private async reconcilePaidState(
+    orderId: string,
+    order: Order,
+  ): Promise<{ status: string; paid: boolean; reference: string | null }> {
     const alreadyPaid = [
       OrderStatus.PAID,
       OrderStatus.IN_PREPARATION,

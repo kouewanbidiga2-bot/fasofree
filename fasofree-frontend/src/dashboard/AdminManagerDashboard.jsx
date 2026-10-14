@@ -13,11 +13,17 @@ import { useNavigate } from 'react-router-dom';
 import {
   Layout, Shield, Users, Settings, LogOut,
   TrendingUp, Activity, AlertCircle,
-  BadgeCheck, RefreshCw, CheckCircle, XCircle, MessageSquare, Clock, Eye
+  BadgeCheck, RefreshCw, CheckCircle, XCircle, MessageSquare, Clock, Eye,
+  Building2, Link2, Send, CreditCard
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import DisputesTab from './components/DisputesTab';
+import UsersBackofficeTab from './components/UsersBackofficeTab';
+import AgenciesTab from './components/AgenciesTab';
+import AffiliateTab from './components/AffiliateTab';
+import PushCampaignsTab from './components/PushCampaignsTab';
+import PaymentReconciliationTab from './components/PaymentReconciliationTab';
 import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getBusinesses } from '../services/subscriptionService';
@@ -302,6 +308,11 @@ const AdminManagerDashboard = () => {
     { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
     { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
+    { id: 'users-backoffice', label: 'Comptes', icon: Users },
+    { id: 'agencies', label: 'Agences', icon: Building2 },
+    { id: 'affiliate', label: 'Affiliation', icon: Link2 },
+    { id: 'push-campaigns', label: 'Campagnes push', icon: Send },
+    { id: 'payments-reconcile', label: 'Paiements', icon: CreditCard },
   ];
 
   return (
@@ -663,6 +674,36 @@ const AdminManagerDashboard = () => {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'users-backoffice' && (
+          <div className="animate-slide-up">
+            <UsersBackofficeTab />
+          </div>
+        )}
+
+        {activeTab === 'agencies' && (
+          <div className="animate-slide-up">
+            <AgenciesTab canManage={['ADMIN', 'SUPER_ADMIN'].includes(String(user?.role || '').toUpperCase())} />
+          </div>
+        )}
+
+        {activeTab === 'affiliate' && (
+          <div className="animate-slide-up">
+            <AffiliateTab />
+          </div>
+        )}
+
+        {activeTab === 'push-campaigns' && (
+          <div className="animate-slide-up">
+            <PushCampaignsTab />
+          </div>
+        )}
+
+        {activeTab === 'payments-reconcile' && (
+          <div className="animate-slide-up">
+            <PaymentReconciliationTab />
           </div>
         )}
 
