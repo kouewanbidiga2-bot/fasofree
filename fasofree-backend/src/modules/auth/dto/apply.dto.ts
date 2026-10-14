@@ -14,10 +14,13 @@ import { NotificationChannel, VehicleCategory } from '../../users/entities/user.
 import { IsBurkinaPhone } from '../validators/is-burkina-phone.validator';
 import { IsDisposableEmail } from '../validators/disposable-email.validator';
 
-export const APPLICANT_ROLES = ['MERCHANT', 'DRIVER'] as const;
+export const APPLICANT_ROLES = ['MERCHANT', 'DRIVER', 'AGENCY'] as const;
+
+export type ApplicantRole = (typeof APPLICANT_ROLES)[number];
 
 /**
- * 🚦 Candidature publique à un compte Marchand (MERCHANT) ou Livreur (DRIVER).
+ * 🚦 Candidature publique à un compte Marchand (MERCHANT), Livreur (DRIVER)
+ * ou Entreprise de livraison (AGENCY).
  * Endpoint : POST /auth/apply (multipart/form-data).
  * Les fichiers KYC (pièce d'identité, permis, carte grise) sont envoyés
  * séparément dans les mêmes champs que les documents : identityCard,
@@ -45,7 +48,7 @@ export class ApplyDto {
 
   @ApiProperty({ enum: APPLICANT_ROLES, example: 'MERCHANT' })
   @IsIn(APPLICANT_ROLES)
-  role: 'MERCHANT' | 'DRIVER';
+  role: ApplicantRole;
 
   // ─── Profil COMMERCE (obligatoire pour MERCHANT) ────────────────────────
   @ApiPropertyOptional({ example: 'Restaurant Faso Délices' })
@@ -104,6 +107,37 @@ export class ApplyDto {
   @IsOptional()
   @IsString()
   referralCode?: string;
+
+  // ─── Profil ENTREPRISE DE LIVRAISON (AGENCY) ─────────────────────────────
+  // Une agence de livraison candidate passe par le MÊME circuit que les
+  // marchands : candidature → validation KYC → approbation par l'admin.
+  // L'entité `delivery_agencies` n'est créée qu'à l'approbation.
+
+  @ApiPropertyOptional({
+    example: 'FasoFree Logistics',
+    description: "Raison sociale de l'entreprise de livraison (AGENCY)",
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  agencyName?: string;
+
+  @ApiPropertyOptional({
+    example: '12, Avenue Kwame Nkrumah, Ouagadougou',
+    description: "Siège / adresse de l'entreprise de livraison (AGENCY)",
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(5)
+  agencyAddress?: string;
+
+  @ApiPropertyOptional({
+    example: '10',
+    description: 'Commission souhaitée sur les livraisons (%) — AGENCY',
+  })
+  @IsOptional()
+  @IsString()
+  agencyCommissionPct?: string;
 
   @ApiPropertyOptional({ enum: NotificationChannel, example: 'EMAIL', description: 'Canal de notification préféré' })
   @IsOptional()

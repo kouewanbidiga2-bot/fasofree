@@ -39,7 +39,7 @@ function validateCriticalConfig(logger: Logger): void {
   }
 
   const missing = CRITICAL_KEYS.filter(
-    (k) => !process.env[k] || process.env[k]!.trim() === '',
+    (k) => !process.env[k] || process.env[k].trim() === '',
   );
   if (missing.length === 0) return;
 
@@ -86,9 +86,13 @@ async function bootstrap() {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-          fontSrc: ["'self'", "https://fonts.gstatic.com"],
-          imgSrc: ["'self'", "data:", "https:"],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            'https://fonts.googleapis.com',
+          ],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          imgSrc: ["'self'", 'data:', 'https:'],
           connectSrc: ["'self'"],
         },
       },
@@ -151,8 +155,11 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   // 7. Versionnage et Préfixe global d'API
+  // ⚠️ `r` est EXCLU du préfixe : les liens courts d'affiliation
+  // (`https://api.fasofree.site/r/CODE`) doivent rester à la racine du
+  // domaine pour être partageables tels quels sur WhatsApp/TikTok.
   const globalPrefix = 'api/v1';
-  app.setGlobalPrefix(globalPrefix);
+  app.setGlobalPrefix(globalPrefix, { exclude: ['r'] });
 
   // 8. Documentation OpenAPI / Swagger (UX Améliorée)
   const swaggerConfig = new DocumentBuilder()
@@ -217,7 +224,8 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'Authorization',
-        description: 'Token JWT obtenu via POST /auth/login ou POST /auth/register',
+        description:
+          'Token JWT obtenu via POST /auth/login ou POST /auth/register',
         in: 'header',
       },
       'JWT-auth',
@@ -231,7 +239,10 @@ async function bootstrap() {
     .addTag('Payments', 'Paiements GeniusPay, Orange Money, Moov Money, Wave')
     .addTag('Wallets', 'Portefeuilles marchand/livreur, crédits, retraits')
     .addTag('Financial', 'Settlement marchand, commission, rapports financiers')
-    .addTag('Analytics', 'Statistiques ventes, graphiques, comparaison branches')
+    .addTag(
+      'Analytics',
+      'Statistiques ventes, graphiques, comparaison branches',
+    )
     .addTag('Reviews', 'Notes et avis clients')
     .addTag('Disputes', 'Réclamations client, résolution')
     .addTag('Chat', 'Messagerie temps réel client-livreur')
@@ -309,10 +320,16 @@ bootstrap().catch((err) => {
 // 10. Gestion des erreurs non capturées
 // ✅ FIX #16 : uncaughtException tue le process car l'état est indéfini
 process.on('uncaughtException', (error) => {
-  new Logger('Bootstrap').error('Uncaught Exception — arrêt du process:', error?.message ?? error);
+  new Logger('Bootstrap').error(
+    'Uncaught Exception — arrêt du process:',
+    error?.message ?? error,
+  );
   process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
-  new Logger('Bootstrap').error('Unhandled Rejection — arrêt du process:', (reason as any)?.message ?? reason);
+  new Logger('Bootstrap').error(
+    'Unhandled Rejection — arrêt du process:',
+    (reason as any)?.message ?? reason,
+  );
   process.exit(1);
 });

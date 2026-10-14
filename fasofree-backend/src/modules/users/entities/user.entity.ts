@@ -68,6 +68,10 @@ export class User {
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatarUrl?: string | null;
 
+  // 🔗 Lien de suivi marchand qui a amené ce client (ex. "FF-RESTO123")
+  @Column({ type: 'varchar', length: 32, nullable: true })
+  affiliateCode?: string | null;
+
   @Column({
     type: 'enum',
     enum: NotificationChannel,

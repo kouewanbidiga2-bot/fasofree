@@ -298,6 +298,43 @@ export class GeniusPayController {
       return;
     }
 
+    // 🔒 VÉRIFICATION DU STATUT RÉEL DU PAIEMENT CHEZ L'AGRÉGATEUR.
+    // Un événement `payment.success` ne suffit pas : on exige que le statut
+    // remonté soit bien `completed`. C'est ce contrôle qui empêche de
+    // marquer une commande payée alors que l'utilisateur n'a rien réglé
+    // (paiement en attente/autorisé/expiré).
+    const gatewayStatus = String(data.status ?? '').toLowerCase();
+    if (gatewayStatus && gatewayStatus !== 'completed') {
+      this.logger.error(
+        `Webhook GeniusPay: payment.success reçu mais statut agrégateur = "${gatewayStatus}" pour ${orderId} — NON traité comme payé`,
+      );
+      return;
+    }
+
+    // 🔒 La notification doit correspondre à NOTRE tentative en cours.
+    // Sinon un `payment.success` tardif d'une session GeniusPay expirée
+    // (ou d'un autre paiement portant le même order_id) validerait la
+    // commande alors que le client a payé une session devenue caduque.
+    const pendingTransaction = await this.transactionRepository.findOne({
+      where: { orderId, status: TransactionStatus.PENDING },
+    });
+    if (!pendingTransaction) {
+      this.logger.error(
+        `Webhook GeniusPay: aucune transaction PENDING pour ${orderId} — payment.success ignoré`,
+      );
+      return;
+    }
+    if (
+      pendingTransaction.paymentGatewayId &&
+      data.reference &&
+      String(data.reference) !== pendingTransaction.paymentGatewayId
+    ) {
+      this.logger.error(
+        `Webhook GeniusPay: référence incohérente pour ${orderId} — attendu ${pendingTransaction.paymentGatewayId}, reçu ${data.reference}. Ignoré (session périmée).`,
+      );
+      return;
+    }
+
     // 🔒 Vérification du montant — empêcher les falsifications
     const receivedAmount = Number(data.amount ?? payload.amount);
     const expectedAmount = Number(order.totalAmount);
@@ -314,11 +351,19 @@ export class GeniusPayController {
       return;
     }
 
-    const transactionRef = data.reference || String(data.id);
+    // La référence de la transaction reste la NOTRE (FF-PAY-...) : c'est elle
+    // qui est stockée en base. Avant ce correctif, la mise à jour ciblait
+    // `reference = <référence GeniusPay>`, qui ne correspondait à AUCUNE ligne
+    // (la colonne contient notre référence) : la transaction restait donc
+    // PENDING alors que la commande passait PAID.
+    const transactionRef = pendingTransaction.reference;
 
     await this.transactionRepository.update(
-      { reference: transactionRef },
-      { status: TransactionStatus.SUCCESS },
+      { id: pendingTransaction.id },
+      {
+        status: TransactionStatus.SUCCESS,
+        paymentGatewayId: String(data.reference ?? pendingTransaction.paymentGatewayId),
+      },
     );
 
     await this.ordersService.markAsPaidAndDispatch(orderId, transactionRef);

@@ -63,6 +63,7 @@ import { NotificationStoreService } from '../notifications/notification-store.se
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { AFFILIATE_ORDER_CREATED } from '../affiliate/affiliate.events';
 
 /**
  * 💬 Statuts terminaux : le canal de chat éphémère de la commande est archivé.
@@ -547,6 +548,23 @@ export class OrdersService {
     });
 
     await this.transactionRepository.save(transaction);
+
+    // 🔗 Alimente le tunnel d'affiliation (clics → clients → commandes).
+    // Non bloquant : un échec ici ne doit jamais faire échouer la commande.
+    // L'AffiliateService n'enregistre l'événement que si le client est
+    // réellement rattaché à ce commerce via un lien de suivi.
+    try {
+      this.events.emit(AFFILIATE_ORDER_CREATED, {
+        orderId: savedOrder.id,
+        clientId: savedOrder.clientId,
+        businessId: savedOrder.businessId,
+        amount: Number(savedOrder.totalAmount) || 0,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `[Affiliate] Émission commande impossible: ${(err as Error).message}`,
+      );
+    }
 
     if (isCash) {
       // 💵 Cash : dispatch immédiat + notification marchand/livreur
@@ -1695,6 +1713,23 @@ export class OrdersService {
     userId: string,
     role: UserRole,
   ): Promise<Order> {
+    // 🔒 SÉCURITÉ PAIEMENT : `PAID` ne doit JAMAIS pouvoir être posé par cette
+    // voie. Avant correction, cet endpoint n'avait AUCUN @Roles (seulement
+    // AuthGuard au niveau classe) et la FSM autorisait PENDING → PAID :
+    // n'importe quel utilisateur authentifié pouvait marquer une commande
+    // comme payée sans avoir payé (commandes mobiles/livraison).
+    //
+    // PAID est un état FINANCIAL : il ne peut venir que de
+    //   - OrdersService.markAsPaidAndDispatch() (webhook GeniusPay signé)
+    //   - la création d'une commande CASH (déjà payée à la création)
+    if (status === OrderStatus.PAID) {
+      throw new ForbiddenException(
+        "Le statut PAID ne peut pas être posé manuellement : il est appliqué " +
+          "automatiquement après confirmation du paiement (webhook) ou dès la " +
+          "création pour un paiement en espèces.",
+      );
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction('SERIALIZABLE');
@@ -1728,6 +1763,24 @@ export class OrdersService {
           userId,
           role,
         );
+      }
+
+      // 🔒 SÉCURITÉ : un CLIENT ne peut modifier que SES propres commandes.
+      // Ce contrôle manquait : n'importe quel client authentifié pouvait
+      // viser la commande d'un tiers (usurpation de suivi, annulation, etc.).
+      if (role === UserRole.CLIENT) {
+        if (order.clientId !== userId) {
+          throw new ForbiddenException(
+            "Cette commande ne vous appartient pas",
+          );
+        }
+        // Un client ne fait qu'annuler sa propre commande ; tout le reste
+        // relève du marchand, du livreur ou de l'administration.
+        if (status !== OrderStatus.CANCELLED) {
+          throw new ForbiddenException(
+            "Un client ne peut que mettre sa commande en attente d'annulation",
+          );
+        }
       }
 
       const previousStatus = order.status;
@@ -1809,9 +1862,11 @@ export class OrdersService {
       this.emitOrderSettlementEvents(updatedOrder, previousStatus);
       this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
 
+      // ⚠️ `PAID` n'est plus listé ici : il ne peut pas arriver via cet endpoint
+      // (verrou en tête de updateStatus). Le dispatch au passage à PAID est
+      // déclenché par markAsPaidAndDispatch() sur webhook de paiement confirmé.
       if (
-        (status === OrderStatus.PAID ||
-          status === OrderStatus.IN_PREPARATION) &&
+        status === OrderStatus.IN_PREPARATION &&
         previousStatus !== OrderStatus.PAID &&
         previousStatus !== OrderStatus.IN_PREPARATION
       ) {
@@ -2086,7 +2141,10 @@ export class OrdersService {
         OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       );
       // 📱 Notifier toutes les parties (push / in-app) — COMPLETED
-      await this.sendStatusNotifications(saved, OrderStatus.DELIVERED_PENDING_CONFIRMATION);
+      await this.sendStatusNotifications(
+        saved,
+        OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      );
 
       this.logger.log(
         `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,

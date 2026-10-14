@@ -21,7 +21,7 @@ import DisputesTab from './components/DisputesTab';
 import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getBusinesses } from '../services/subscriptionService';
-import { getUsers, getActiveConversations, getChatHistory } from '../services/usersService';
+import { getPlatformStats, getActiveConversations, getChatHistory } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
@@ -37,6 +37,8 @@ const AdminManagerDashboard = () => {
     totalClients: 0,
     totalDrivers: 0,
     activeMerchants: 0,
+    pendingMerchants: 0,
+    agencies: 0,
   });
 
   const [pendingDisputes, setPendingDisputes] = useState([]);
@@ -66,19 +68,14 @@ const AdminManagerDashboard = () => {
   const loadPlatformStats = useCallback(async () => {
     setLoading(prev => ({ ...prev, platform: true }));
     try {
-      const [usersData, businessesData] = await Promise.all([
-        getUsers(),
-        getBusinesses(),
-      ]);
-      const list = Array.isArray(usersData) ? usersData : [];
-      const merchants = Array.isArray(businessesData) ? businessesData : [];
-      const countRole = (r) =>
-        list.filter((u) => String(u.role).toLowerCase().replace('-', '_') === r).length;
+      const stats = await getPlatformStats();
       setPlatformStats({
-        totalMerchants: merchants.length,
-        totalClients: countRole('client') + countRole('customer'),
-        totalDrivers: countRole('driver') + countRole('courier'),
-        activeMerchants: merchants.filter((b) => b.isActive !== false).length,
+        totalMerchants: stats.merchants,
+        totalClients: stats.clients,
+        totalDrivers: stats.drivers,
+        activeMerchants: stats.approvedMerchants,
+        pendingMerchants: stats.pendingMerchants,
+        agencies: stats.agencies,
       });
     } catch (err) {
       // silent
@@ -86,6 +83,13 @@ const AdminManagerDashboard = () => {
       setLoading(prev => ({ ...prev, platform: false }));
     }
   }, []);
+
+  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes pour refléter
+  // les nouvelles candidatures/validations en temps réel.
+  useEffect(() => {
+    const interval = setInterval(loadPlatformStats, 30_000);
+    return () => clearInterval(interval);
+  }, [loadPlatformStats]);
 
   const loadPendingDisputes = useCallback(async () => {
     setLoading(prev => ({ ...prev, pending: true }));

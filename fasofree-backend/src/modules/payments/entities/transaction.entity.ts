@@ -36,7 +36,12 @@ export class Transaction {
 
   // 🆔 Identifiant fourni en retour par l'agrégateur de paiement (GeniusPay)
   @Column({ type: 'varchar', nullable: true })
-  paymentGatewayId: string;
+  paymentGatewayId?: string | null;
+
+  // 🔗 URL de checkout renvoyée par l'agrégateur, pour REPRENDRE la même
+  // session de paiement au lieu d'en créer une nouvelle (anti double-paiement).
+  @Column({ type: 'varchar', nullable: true })
+  gatewayCheckoutUrl?: string | null;
 
   // 💳 Mode de paiement utilisé
   @Column({

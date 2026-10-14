@@ -55,7 +55,7 @@ const Privacy = () => {
             <section>
               <h3 className="text-base font-medium text-text-primary mb-4">4. Vos droits</h3>
               <p className="text-text-secondary leading-relaxed text-sm">
-                Conformément à la réglementation de la Commission de l'Informatique et des Libertés (CIL) du Burkina Faso, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Vous pouvez exercer ce droit en nous contactant à : kouewanbidiga2@gmail.com.
+                Conformément à la réglementation de la Commission de l'Informatique et des Libertés (CIL) du Burkina Faso, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Vous pouvez exercer ce droit en nous contactant à : fasofree2@gmail.com.
               </p>
             </section>
 

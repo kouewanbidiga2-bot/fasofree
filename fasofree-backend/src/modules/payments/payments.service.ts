@@ -1,3 +1,4 @@
+import * as crypto from 'crypto';
 import {
   Injectable,
   BadRequestException,
@@ -65,7 +66,7 @@ export class PaymentsService {
       this.logger.log(`Order ${order.id} remise en AWAITING_PAYMENT pour retry`);
     }
 
-    const reference = `FF-PAY-${Date.now()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const reference = `FF-PAY-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const commissionAmount = Number(
       order.merchantCommissionAmount ?? order.platformCommission ?? 0,
     );
@@ -73,6 +74,29 @@ export class PaymentsService {
     let transaction = await this.transactionRepository.findOne({
       where: { orderId: order.id },
     });
+
+    // 🔒 ANTI DOUBLE-PAIEMENT
+    // Si une tentative est DÉJÀ en cours, on ne crée surtout pas une seconde
+    // charge GeniusPay : on renvoie la session existante pour reprendre le
+    // paiement au même endroit. Avant ce correctif, un double clic sur
+    // « Payer » créait deux paiements chez l'agrégateur, et le client pouvait
+    // être débité deux fois sur la même commande.
+    if (
+      transaction &&
+      transaction.status === TransactionStatus.PENDING &&
+      transaction.gatewayCheckoutUrl
+    ) {
+      this.logger.log(
+        `Payment idempotent for order ${order.id} — session existante ${transaction.reference} renvoyée`,
+      );
+      return {
+        reference: transaction.reference,
+        checkoutUrl: transaction.gatewayCheckoutUrl,
+        paymentUrl: transaction.gatewayCheckoutUrl,
+        status: 'pending',
+        message: 'Paiement déjà en cours',
+      };
+    }
 
     if (transaction) {
       // 🔁 Retry : remettre la transaction en PENDING si elle était FAILED
@@ -83,6 +107,9 @@ export class PaymentsService {
       transaction.paymentMethod = dto.paymentMethod;
       transaction.amount = order.totalAmount;
       transaction.commissionAmount = commissionAmount;
+      // Nouvelle tentative → nouvelle session chez l'agrégateur
+      transaction.paymentGatewayId = null;
+      transaction.gatewayCheckoutUrl = null;
       await this.transactionRepository.save(transaction);
     } else {
       transaction = this.transactionRepository.create({
@@ -136,13 +163,123 @@ export class PaymentsService {
       },
     });
 
+    const checkoutUrl = payment.checkout_url || payment.payment_url;
+
+    // 🔒 On PERSISTE la référence et l'URL de l'agrégateur. Avant ce
+    // correctif, `paymentGatewayId` restait null : les recherches de webhook
+    // par référence ne correspondaient jamais, et un second appel « Payer »
+    // créait une charge supplémentaire.
+    await this.transactionRepository.update(
+      { reference },
+      {
+        paymentGatewayId: String(payment.reference ?? payment.id),
+        gatewayCheckoutUrl: checkoutUrl ?? null,
+      },
+    );
+
     return {
       reference,
-      checkoutUrl: payment.checkout_url || payment.payment_url,
+      checkoutUrl,
       paymentUrl: payment.payment_url,
       status: payment.status,
       message: 'Paiement GeniusPay initié',
     };
+  }
+
+  /**
+   * 🔄 RÉCONCILIATION :询问 l'agrégateur l'état RÉEL d'une commande.
+   *
+   * Appelé par le client au retour de GeniusPay. On interroge l'API
+   * merchant avec la référence réellement stockée (`paymentGatewayId`) et :
+   *  - si l'agrégateur dit `completed` ET le montant correspond → on applique
+   *    la MÊME logique que le webhook (transaction SUCCESS + commande PAID) ;
+   *  - sinon on renvoie l'état réel, sans jamais annoncer « payé ».
+   *
+   * Cela rend l'affichage honnête même si un webhook a été perdu, et empêche
+   * définitivement l'interface d'afficher « payé » sans encaissement.
+   */
+  async reconcileOrderPayment(
+    orderId: string,
+    clientId: string,
+  ): Promise<{ status: string; paid: boolean; reference: string | null }> {
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Commande introuvable');
+    }
+    if (order.clientId !== clientId) {
+      throw new BadRequestException('Cette commande ne vous appartient pas');
+    }
+
+    const alreadyPaid = [
+      OrderStatus.PAID,
+      OrderStatus.IN_PREPARATION,
+      OrderStatus.READY_FOR_PICKUP,
+      OrderStatus.DRIVER_ASSIGNED,
+      OrderStatus.IN_DELIVERY,
+      OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+      OrderStatus.DELIVERED,
+      OrderStatus.COMPLETED,
+    ].includes(order.status);
+    if (alreadyPaid) {
+      return { status: order.status, paid: true, reference: order.paymentTransactionRef ?? null };
+    }
+
+    const transaction = await this.transactionRepository.findOne({
+      where: { orderId },
+    });
+    if (!transaction || !transaction.paymentGatewayId) {
+      return { status: order.status, paid: false, reference: transaction?.reference ?? null };
+    }
+    if (transaction.status === TransactionStatus.SUCCESS) {
+      return { status: order.status, paid: true, reference: transaction.reference };
+    }
+
+    // Interroge l'agrégateur — une erreur réseau ne doit pas faire mentir
+    // l'interface : on renvoie alors l'état local, jamais « payé ».
+    let gatewayStatus: string;
+    let gatewayAmount: number | undefined;
+    try {
+      const remote = await this.geniusPayService.getPayment(
+        transaction.paymentGatewayId,
+      );
+      gatewayStatus = String(remote.status ?? '').toLowerCase();
+      gatewayAmount = remote.amount === undefined ? undefined : Number(remote.amount);
+    } catch (err) {
+      this.logger.warn(
+        `[Reconcile] Impossible de joindre GeniusPay pour ${orderId}: ${(err as Error).message}`,
+      );
+      return { status: order.status, paid: false, reference: transaction.reference };
+    }
+
+    const expectedAmount = Number(order.totalAmount);
+    const amountMatches =
+      gatewayAmount === undefined ||
+      !Number.isFinite(gatewayAmount) ||
+      Math.abs(expectedAmount - gatewayAmount) <= 1;
+
+    if (gatewayStatus === 'completed' && amountMatches) {
+      await this.transactionRepository.update(
+        { id: transaction.id },
+        { status: TransactionStatus.SUCCESS },
+      );
+      await this.ordersService.markAsPaidAndDispatch(orderId, transaction.reference);
+      this.logger.log(`[Reconcile] Commande ${orderId} confirmée payée via GeniusPay`);
+      return { status: OrderStatus.PAID, paid: true, reference: transaction.reference };
+    }
+
+    if (gatewayStatus === 'failed' || gatewayStatus === 'cancelled' || gatewayStatus === 'expired') {
+      if (transaction.status === TransactionStatus.PENDING) {
+        await this.transactionRepository.update(
+          { id: transaction.id },
+          { status: TransactionStatus.FAILED },
+        );
+        await this.ordersService.markAsPaymentFailed(orderId).catch(() => undefined);
+      }
+      return { status: gatewayStatus, paid: false, reference: transaction.reference };
+    }
+
+    // pending / processing → toujours en cours, jamais « payé ».
+    return { status: order.status, paid: false, reference: transaction.reference };
   }
 
   async validatePaymentAmount(

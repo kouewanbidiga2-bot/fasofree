@@ -1,4 +1,11 @@
-import { Injectable, ConflictException, UnauthorizedException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  UnauthorizedException,
+  ForbiddenException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -84,7 +91,8 @@ export class AuthService {
       phone: dto.phone,
       passwordHash,
       role: UserRole.CLIENT,
-      preferredNotificationChannel: dto.preferredNotificationChannel || NotificationChannel.EMAIL,
+      preferredNotificationChannel:
+        dto.preferredNotificationChannel || NotificationChannel.EMAIL,
       referralCode: `${dto.fullName
         .replace(/[^A-Za-z]/g, '')
         .slice(0, 6)
@@ -102,9 +110,15 @@ export class AuthService {
       this.events.emit(USER_REGISTERED, {
         userId: user.id,
         referralCode: dto.referralCode,
+        // 🔗 Code affilié transmis par le front (cookie `aff_code` lu au
+        // montage, ou paramètre `?ref=` de l'URL). L'AffiliateService
+        // l'écoute et rattache le client au commerce correspondant.
+        affiliateCode: dto.affiliateCode ?? null,
       });
     } catch (err) {
-      this.logger.warn(`Event USER_REGISTERED emit failed: ${(err as Error).message}`);
+      this.logger.warn(
+        `Event USER_REGISTERED emit failed: ${(err as Error).message}`,
+      );
     }
 
     const tokenPayload = this.generateToken(user);
@@ -114,7 +128,9 @@ export class AuthService {
       await this.otpService.sendOtp(user.id);
       this.logger.log(`[Register] OTP envoye automatiquement a ${user.email}`);
     } catch (err) {
-      this.logger.warn(`[Register] Echec envoi OTP automatique: ${(err as Error).message}`);
+      this.logger.warn(
+        `[Register] Echec envoi OTP automatique: ${(err as Error).message}`,
+      );
     }
 
     return tokenPayload;
@@ -130,7 +146,9 @@ export class AuthService {
     // politique de confidentialité (JSON stringifié dans le multipart).
     let acceptedDocs: AcceptedDocDto[];
     try {
-      acceptedDocs = JSON.parse(dto.acceptedDocsJson ?? '[]') as AcceptedDocDto[];
+      acceptedDocs = JSON.parse(
+        dto.acceptedDocsJson ?? '[]',
+      ) as AcceptedDocDto[];
     } catch {
       throw new BadRequestException(
         'acceptedDocsJson invalide : JSON attendu de la forme [{"docCode":"FR-CGU-001","docVersion":"1.0"}, ...]',
@@ -146,13 +164,25 @@ export class AuthService {
         );
       }
     }
+    // 📦 Entreprise de livraison : raison sociale + siège obligatoires.
+    if (dto.role === 'AGENCY') {
+      if (!dto.agencyName || !dto.agencyAddress) {
+        throw new BadRequestException(
+          "La raison sociale et l'adresse de l'entreprise de livraison sont obligatoires",
+        );
+      }
+    }
 
     // 🔒 SÉCURITÉ : l'inscription publique ne crée QUE des candidats en attente.
     // Le compte est désactivé (isActive=false) jusqu'à l'approbation par
     // l'administration. Le rôle final est posé immédiatement mais le JWT est
     // inutilisable (JwtStrategy re-vérifie isActive à chaque requête).
     const targetRole =
-      dto.role === 'MERCHANT' ? UserRole.BUSINESS_ADMIN : UserRole.DRIVER;
+      dto.role === 'MERCHANT'
+        ? UserRole.BUSINESS_ADMIN
+        : dto.role === 'AGENCY'
+          ? UserRole.AGENCY
+          : UserRole.DRIVER;
 
     const applicationData: Record<string, any> = {
       role: dto.role,
@@ -163,6 +193,16 @@ export class AuthService {
       applicationData.businessAddress = dto.businessAddress;
       if (dto.businessCategory) {
         applicationData.businessCategory = dto.businessCategory;
+      }
+      if (dto.latitude !== undefined && dto.longitude !== undefined) {
+        applicationData.latitude = dto.latitude;
+        applicationData.longitude = dto.longitude;
+      }
+    } else if (dto.role === 'AGENCY') {
+      applicationData.agencyName = dto.agencyName;
+      applicationData.agencyAddress = dto.agencyAddress;
+      if (dto.agencyCommissionPct) {
+        applicationData.agencyCommissionPct = dto.agencyCommissionPct;
       }
       if (dto.latitude !== undefined && dto.longitude !== undefined) {
         applicationData.latitude = dto.latitude;
@@ -254,7 +294,8 @@ export class AuthService {
       applicationStatus: 'PENDING_APPROVAL',
       applicationType: dto.role,
       applicationData,
-      preferredNotificationChannel: dto.preferredNotificationChannel || NotificationChannel.EMAIL,
+      preferredNotificationChannel:
+        dto.preferredNotificationChannel || NotificationChannel.EMAIL,
       referralCode: `${dto.fullName
         .replace(/[^A-Za-z]/g, '')
         .slice(0, 6)
@@ -422,10 +463,12 @@ export class AuthService {
   // 💎 Client abonné FasoFree Pass VIP ? (frais de plateforme offerts)
   private async resolveIsPremium(user: User): Promise<boolean> {
     try {
-      if (!user || user.role !== 'client') return false;
+      if (!user || user.role !== UserRole.CLIENT) return false;
       return await this.subscriptionService.isVipActive(user.id);
     } catch (err) {
-      this.logger.warn(`resolveIsPremium failed for ${user?.id}: ${(err as Error).message}`);
+      this.logger.warn(
+        `resolveIsPremium failed for ${user?.id}: ${(err as Error).message}`,
+      );
       return false;
     }
   }
@@ -439,7 +482,8 @@ export class AuthService {
     }
 
     const base = (
-      this.configService.get<string>('CLIENT_URL') || 'https://www.fasofree.site'
+      this.configService.get<string>('CLIENT_URL') ||
+      'https://www.fasofree.site'
     ).replace(/\/+$/, '');
     const resetUrl = `${base}/auth?token=${result.token}`;
 
@@ -465,20 +509,34 @@ export class AuthService {
       throw new BadRequestException('Token et nouveau mot de passe requis');
     }
     if (newPassword.length < 8) {
-      throw new BadRequestException('Le mot de passe doit contenir au moins 8 caractères');
+      throw new BadRequestException(
+        'Le mot de passe doit contenir au moins 8 caractères',
+      );
     }
     return this.usersService.resetPassword(token, newPassword);
   }
 
   // 🔑 7. Changer le mot de passe (utilisateur connecté)
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     if (!currentPassword || !newPassword) {
-      throw new BadRequestException('Mot de passe actuel et nouveau mot de passe requis');
+      throw new BadRequestException(
+        'Mot de passe actuel et nouveau mot de passe requis',
+      );
     }
     if (newPassword.length < 8) {
-      throw new BadRequestException('Le nouveau mot de passe doit contenir au moins 8 caractères');
+      throw new BadRequestException(
+        'Le nouveau mot de passe doit contenir au moins 8 caractères',
+      );
     }
-    return this.usersService.changePassword(userId, currentPassword, newPassword);
+    return this.usersService.changePassword(
+      userId,
+      currentPassword,
+      newPassword,
+    );
   }
 
   // 🎟️ 4. Génération du Jeton JWT avec format frontend-compatible
@@ -558,7 +616,10 @@ export class AuthService {
 
       return result;
     } catch (err) {
-      this.logger.error(`generateToken FAILED for user ${user?.id}: ${(err as Error).message}`, (err as Error).stack);
+      this.logger.error(
+        `generateToken FAILED for user ${user?.id}: ${(err as Error).message}`,
+        (err as Error).stack,
+      );
       throw err;
     }
   }

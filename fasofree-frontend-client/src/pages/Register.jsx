@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   Store,
   Bike,
+  Truck,
   MapPin,
   Upload,
   CheckCircle2,
@@ -46,6 +47,9 @@ const TABS = [
   { id: 'client', label: 'Client', icon: User, hint: 'Commander et se faire livrer' },
   { id: 'merchant', label: 'Marchand', icon: Store, hint: 'Vendre sur la plateforme' },
   { id: 'driver', label: 'Livreur', icon: Bike, hint: 'Livrer et gagner de l’argent' },
+  // 📦 Entreprise de livraison : candidature soumise à l'admin, qui crée
+  // l'agence dans « Agences Livraison » après validation du dossier.
+  { id: 'agency', label: 'Livraison', icon: Truck, hint: 'Proposer mes services de livraison' },
 ];
 
 const KYC_FILE_TYPES = { identityCard: 'image/*,.pdf', driverLicense: 'image/*,.pdf', vehicleRegistration: 'image/*,.pdf' };
@@ -82,6 +86,9 @@ const Register = () => {
     confirmPassword: '',
     referralCode: '',
     businessName: '',
+    agencyName: '',
+    agencyAddress: '',
+    agencyCommissionPct: '10',
     businessAddress: '',
     businessCategory: 'RESTAURANT',
     latitude: '',
@@ -92,6 +99,24 @@ const Register = () => {
     driverLicenseNumber: '',
     preferredNotificationChannel: 'EMAIL',
   });
+  // 🔗 Code affilié marchand : posé par la redirection `/r/CODE` (cookie
+  // `aff_code` 30 j) OU présent dans l'URL (`?ref=CODE`). On le lit une fois
+  // au montage et on l'envoie à l'inscription pour rattacher le client au
+  // commerce qui l'a envoyé.
+  const [affiliateCode] = useState(() => {
+    if (typeof document === 'undefined') return '';
+    // Le cookie est en SameSite=Lax → lisible en JS (httpOnly: false
+    // côté API, cf. affiliate-redirect.controller.ts).
+    const cookie = document.cookie
+      .split('; ')
+      .find((c) => c.startsWith('aff_code='));
+    const fromCookie = cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+    const fromQuery = new URLSearchParams(window.location.search).get('ref');
+    const code = (fromCookie || fromQuery || '').trim().toUpperCase();
+    // Garde-fou : on n'envoie que le format produit par le backend.
+    return /^FF-[0-9A-F]{6}$/.test(code) ? code : '';
+  });
+
   const [files, setFiles] = useState(emptyFiles);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -186,6 +211,16 @@ const Register = () => {
       if (!formData.businessName.trim()) newErrors.businessName = 'Le nom du commerce est requis';
       if (!formData.businessAddress.trim()) newErrors.businessAddress = 'L’adresse du commerce est requise';
     }
+    // 📦 Entreprise de livraison : raison sociale + siège obligatoires
+    // (le backend rejette la candidature sans ces deux champs).
+    if (activeTab === 'agency') {
+      if (!formData.agencyName.trim()) newErrors.agencyName = 'La raison sociale est requise';
+      if (!formData.agencyAddress.trim()) newErrors.agencyAddress = 'L’adresse du siège est requise';
+      const pct = Number(formData.agencyCommissionPct);
+      if (formData.agencyCommissionPct !== '' && (!Number.isFinite(pct) || pct < 0 || pct > 100)) {
+        newErrors.agencyCommissionPct = 'La commission doit être entre 0 et 100 %';
+      }
+    }
     if (activeTab === 'driver' && !formData.vehicleType) {
       newErrors.vehicleType = 'Choisissez votre type de véhicule';
     }
@@ -229,6 +264,7 @@ const Register = () => {
       email: formData.email,
       password: formData.password,
       referralCode: formData.referralCode || undefined,
+      affiliateCode: affiliateCode || undefined,
       preferredNotificationChannel: formData.preferredNotificationChannel,
       // ⚖️ PACK LÉGAL : CGU + confidentialité acceptées (versions courantes)
       acceptedDocs: buildAcceptedDocs(),
@@ -258,13 +294,26 @@ const Register = () => {
     fd.append('email', formData.email);
     fd.append('phone', formData.phone);
     fd.append('password', formData.password);
-    fd.append('role', activeTab === 'merchant' ? 'MERCHANT' : 'DRIVER');
+    fd.append('role', activeTab === 'merchant' ? 'MERCHANT' : activeTab === 'agency' ? 'AGENCY' : 'DRIVER');
     fd.append('preferredNotificationChannel', formData.preferredNotificationChannel);
     // ⚖️ PACK LÉGAL : acceptations CGU + confidentialité (JSON stringifié).
     fd.append('acceptedDocsJson', JSON.stringify(buildAcceptedDocs()));
     if (formData.referralCode) fd.append('referralCode', formData.referralCode);
 
-    if (activeTab === 'merchant') {
+    if (activeTab === 'agency') {
+      // 📦 Candidature entreprise de livraison : raison sociale + siège requis.
+      fd.append('agencyName', formData.agencyName);
+      fd.append('agencyAddress', formData.agencyAddress);
+      if (formData.agencyCommissionPct) {
+        fd.append('agencyCommissionPct', String(formData.agencyCommissionPct));
+      }
+      if (formData.latitude && formData.longitude) {
+        fd.append('latitude', formData.latitude);
+        fd.append('longitude', formData.longitude);
+      }
+      if (files.identityCard) fd.append('identityCard', files.identityCard);
+      if (files.vehicleRegistration) fd.append('vehicleRegistration', files.vehicleRegistration);
+    } else if (activeTab === 'merchant') {
       fd.append('businessName', formData.businessName);
       fd.append('businessAddress', formData.businessAddress);
       fd.append('businessCategory', formData.businessCategory);
@@ -287,7 +336,8 @@ const Register = () => {
     }
 
     const response = await api.apply(fd);
-    setSuccess({ role: activeTab === 'merchant' ? 'Marchand' : 'Livreur', applicationId: response.applicationId });
+    const roleLabel = { merchant: 'Marchand', agency: 'Entreprise de livraison' }[activeTab] || 'Livreur';
+    setSuccess({ role: roleLabel, applicationId: response.applicationId });
   };
 
   const handleSubmit = async (e) => {
@@ -391,7 +441,7 @@ const Register = () => {
         </div>
 
         {/* Tabs */}
-        <div className={`grid gap-3 mb-8 ${proMode ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        <div className={`grid gap-3 mb-8 ${proMode ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -485,6 +535,62 @@ const Register = () => {
           </div>
 
           {/* ─── Champs spécifiques ─── */}
+          {activeTab === 'agency' && (
+            <>
+              <div className="rounded-lg border border-border-light p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <Truck size={16} className="text-text-secondary" strokeWidth={1.5} />
+                  <p className="text-xs font-semibold text-text-primary uppercase tracking-wide">
+                    Votre entreprise de livraison
+                  </p>
+                </div>
+                <p className="text-xs text-text-secondary">
+                  Votre demande est examinée par l’administration. Après validation, votre
+                  entreprise apparaît dans le réseau de livraison FasoFree.
+                </p>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Raison sociale</label>
+                  <input
+                    type="text"
+                    placeholder="Ex : FasoFree Logistics SARL"
+                    value={formData.agencyName}
+                    onChange={(e) => set('agencyName', e.target.value)}
+                    className={plainInputClass('agencyName')}
+                  />
+                  {errors.agencyName && <p className="text-xs text-red-500 mt-1">{errors.agencyName}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">Adresse du siège</label>
+                  <input
+                    type="text"
+                    placeholder="Quartier, avenue, repère…"
+                    value={formData.agencyAddress}
+                    onChange={(e) => set('agencyAddress', e.target.value)}
+                    className={plainInputClass('agencyAddress')}
+                  />
+                  {errors.agencyAddress && <p className="text-xs text-red-500 mt-1">{errors.agencyAddress}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs text-text-secondary mb-2">
+                    Commission souhaitée <span className="text-text-muted">(%, sur les livraisons)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={formData.agencyCommissionPct}
+                    onChange={(e) => set('agencyCommissionPct', e.target.value)}
+                    className={plainInputClass('agencyCommissionPct')}
+                  />
+                  {errors.agencyCommissionPct && (
+                    <p className="text-xs text-red-500 mt-1">{errors.agencyCommissionPct}</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
           {activeTab === 'merchant' && (
             <>
               <div className="rounded-lg border border-border-light p-4 space-y-4">

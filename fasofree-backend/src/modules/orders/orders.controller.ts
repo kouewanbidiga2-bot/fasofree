@@ -264,7 +264,18 @@ export class OrdersController {
   }
 
   // 🔄 Changer le statut d'une commande
+  // ⚠️ @Roles explicite OBLIGATOIRE : sans lui, n'importe quel utilisateur
+  // authentifié (y compris un simple client) pouvait appeler cet endpoint.
   @Patch(':id/status')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(
+    UserRole.BUSINESS_ADMIN,
+    UserRole.DRIVER,
+    UserRole.COURIER,
+    UserRole.SUPER_ADMIN,
+    UserRole.ADMIN,
+    UserRole.SUPPORT,
+  )
   @ApiOperation({ summary: "Mettre à jour le statut d'une commande" })
   @ApiResponse({ status: 200, description: 'Statut mis à jour avec succès' })
   @ApiResponse({ status: 400, description: 'Statut invalide' })

@@ -46,6 +46,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuditInterceptor } from './modules/audit/audit.interceptor';
 import { FraudModule } from './modules/fraud/fraud.module';
+import { AffiliateModule } from './modules/affiliate/affiliate.module';
+import { PushCampaignModule } from './modules/push-campaigns/push-campaign.module';
 
 @Module({
   imports: [
@@ -110,7 +112,8 @@ import { FraudModule } from './modules/fraud/fraud.module';
     // 🧪 Module de seed (comptes de test / endpoints de démo) chargé
     // UNIQUEMENT en développement/test (allow-list) : jamais de seed en
     // production ni dans un environnement inconnu/staging.
-    ...(process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test'
+    ...(process.env.NODE_ENV === 'development' ||
+    process.env.NODE_ENV === 'test'
       ? [SeedModule]
       : []),
     OtpModule,
@@ -124,6 +127,8 @@ import { FraudModule } from './modules/fraud/fraud.module';
     CommandModule, // 👈 2. Ajouter les modules Command
     AuditModule, // 🧾 Journal des actions d'administration
     FraudModule, // 🚫 Blocage anti-fraude (rafales de commandes)
+    AffiliateModule, // 🔗 Liens de suivi marchand (funnel clics → clients → commandes)
+    PushCampaignModule, // 📣 Campagnes push ciblées par rôle
   ],
   controllers: [AppController],
   providers: [

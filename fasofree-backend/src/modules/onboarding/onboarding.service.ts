@@ -19,6 +19,10 @@ import { KycDocumentType, KycStatus } from '../kyc/entities/kyc-document.entity'
 import { UserRole } from '../users/entities/user-role.enum';
 import { PromotionsService } from '../promotions/promotions.service';
 import { PromotionKind } from '../promotions/entities/promotion.entity';
+import { AgenciesService } from '../agencies/agencies.service';
+
+/** Commission par défaut d'une agence de livraison (% des frais). */
+const DEFAULT_AGENCY_COMMISSION_PCT = 10;
 
 export interface Moderator {
   userId: string;
@@ -38,6 +42,7 @@ export class OnboardingService {
     private readonly emailService: EmailService,
     private readonly kycService: KycService,
     private readonly promotionsService: PromotionsService,
+    private readonly agenciesService: AgenciesService,
   ) {}
 
   /**
@@ -121,7 +126,9 @@ export class OnboardingService {
     user.role =
       applicationType === 'MERCHANT'
         ? UserRole.BUSINESS_ADMIN
-        : UserRole.DRIVER;
+        : applicationType === 'AGENCY'
+          ? UserRole.AGENCY
+          : UserRole.DRIVER;
     user.reviewedBy = moderator.userId;
     user.reviewedAt = new Date();
 
@@ -136,6 +143,26 @@ export class OnboardingService {
       businessName = business?.name;
     } else if (applicationType === 'DRIVER') {
       await this.setupDriverProfile(user);
+    } else if (applicationType === 'AGENCY') {
+      // 📦 Entreprise de livraison : on crée l'entité `delivery_agencies`
+      // liée au compte utilisateur AGENCY. La commission est bornée à 0-100.
+      const data = user.applicationData ?? {};
+      const parsedCommission = Number(data.agencyCommissionPct);
+      const commissionPct =
+        Number.isFinite(parsedCommission) &&
+        parsedCommission >= 0 &&
+        parsedCommission <= 100
+          ? parsedCommission
+          : DEFAULT_AGENCY_COMMISSION_PCT;
+
+      await this.agenciesService.create({
+        name: data.agencyName || user.fullName,
+        phone: user.phone ?? undefined,
+        email: user.email ?? undefined,
+        commissionPct,
+        isActive: true,
+        userId: user.id,
+      });
     }
 
     await this.userRepository.save(user);

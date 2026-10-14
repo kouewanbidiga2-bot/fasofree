@@ -1,4 +1,4 @@
-import {
+  import {
   Body,
   Controller,
   Delete,
@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -168,13 +169,44 @@ export class UsersController {
     return this.usersService.exportUserData(userId);
   }
 
-  // 🛡️ Lister tous les utilisateurs (Super Admin)
+  // 📋 Lister les utilisateurs (ADMIN / SUPPORT / SUPER_ADMIN)
+  // La gestion des utilisateurs s'ouvre à l'admin et au support EN LECTURE
+  // (filtres + pagination). Les écritures sensibles (créer un compte,
+  // changer un rôle, supprimer) restent réservées au SUPER_ADMIN.
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @Get()
-  @ApiOperation({ summary: 'Lister les utilisateurs (super administrateur)' })
-  async getAllUsers() {
-    return this.usersService.findAll();
+  @ApiOperation({
+    summary: 'Lister les utilisateurs (ADMIN / SUPPORT / SUPER_ADMIN)',
+  })
+  async getAllUsers(
+    @Query('role') role?: string,
+    @Query('search') search?: string,
+    @Query('applicationStatus') applicationStatus?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.usersService.findAllForBackoffice({
+      role: role || undefined,
+      search: search || undefined,
+      applicationStatus: applicationStatus || undefined,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
+
+  // 📊 Compteurs plateforme pour les dashboards ADMIN / SUPPORT.
+  // Calculés en direct à chaque appel : c'est la source de vérité qui rend
+  // les cartes de statistiques dynamiques (une candidature se reflète
+  // immédiatement).
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Get('platform-stats')
+  @ApiOperation({
+    summary: 'Statistiques plateforme (commerçants, clients, livreurs…)',
+  })
+  async getPlatformStats() {
+    return this.usersService.getPlatformStats();
   }
 
   // 🛡️ Créer un utilisateur avec un rôle donné (réservé au Super Admin).

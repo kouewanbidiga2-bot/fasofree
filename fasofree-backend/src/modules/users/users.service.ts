@@ -594,6 +594,123 @@ export class UsersService implements OnModuleInit {
     return this.userRepository.find();
   }
 
+  /**
+   * 📋 Liste pour le back-office (ADMIN / SUPPORT / SUPER_ADMIN).
+   *
+   * `passwordHash` porte `select: false` au niveau de l'entité, il n'est donc
+   * jamais renvoyé. On ajoute en plus :
+   *  - des filtres (rôle, recherche) pour que l'admin trouve ses commerçants ;
+   *  - la pagination, car la table `users` grossit vite et l'ancien
+   *    `find()` sans tri renvoyait TOUT au navigateur.
+   */
+  async findAllForBackoffice(options?: {
+    role?: string;
+    search?: string;
+    applicationStatus?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: User[]; total: number; page: number; limit: number }> {
+    const page = Math.max(1, options?.page ?? 1);
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    const qb = this.userRepository
+      .createQueryBuilder('u')
+      .orderBy('u.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (options?.role) {
+      qb.andWhere('u.role = :role', { role: options.role });
+    }
+    if (options?.applicationStatus) {
+      qb.andWhere('u.applicationStatus = :applicationStatus', {
+        applicationStatus: options.applicationStatus,
+      });
+    }
+    if (options?.search) {
+      qb.andWhere(
+        '(LOWER(u.fullName) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.phone) LIKE :q)',
+        { q: `%${options.search.toLowerCase()}%` },
+      );
+    }
+
+    const [items, total] = await qb.getManyAndCount();
+    return { items, total, page, limit };
+  }
+
+  /**
+   * 📊 Compteurs plateforme pour les dashboards ADMIN / SUPPORT.
+   *
+   * Calculés CÔTÉ SERVEUR et à la demande (aucun cache) : c'est ce qui rend
+   * les dashboards dynamiques — ils reflects l'inscription du moment.
+   *
+   * Point clé : les candidats en attente de validation sont comptés comme
+   * commerçants même si aucun profil `Business` n'existe encore — celui-ci
+   * n'est créé qu'à l'approbation. Sans cela, une nouvelle candidature ne
+   * faisait bouger AUCUN compteur.
+   */
+  async getPlatformStats(): Promise<{
+    totalUsers: number;
+    clients: number;
+    merchants: number;
+    pendingMerchants: number;
+    approvedMerchants: number;
+    drivers: number;
+    agencies: number;
+    supportAgents: number;
+    admins: number;
+    activeUsers: number;
+    generatedAt: string;
+  }> {
+    const qb = this.userRepository.createQueryBuilder('u');
+
+    const [totalUsers, byRole, pendingByStatus, activeUsers] = await Promise.all([
+      qb.getCount(),
+      this.userRepository
+        .createQueryBuilder('u')
+        .select('u.role', 'role')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('u.role')
+        .getRawMany<{ role: string; count: string }>(),
+      this.userRepository
+        .createQueryBuilder('u')
+        .select('u.applicationStatus', 'status')
+        .addSelect('COUNT(*)', 'count')
+        .where('u.applicationStatus IS NOT NULL')
+        .groupBy('u.applicationStatus')
+        .getRawMany<{ status: string; count: string }>(),
+      this.userRepository
+        .createQueryBuilder('u')
+        .where('u.isActive = true')
+        .getCount(),
+    ]);
+
+    const roleCount = (role: UserRole) =>
+      Number(byRole.find((r) => r.role === role)?.count ?? 0);
+
+    const appCount = (status: string) =>
+      Number(pendingByStatus.find((s) => s.status === status)?.count ?? 0);
+
+    return {
+      totalUsers,
+      clients: roleCount(UserRole.CLIENT),
+      // Commerçants = comptes approuvés (role business_admin) + candidats
+      // dont le role n'a pas encore basculé (client/other avec candidature
+      // marchand en cours).
+      merchants:
+        roleCount(UserRole.BUSINESS_ADMIN) +
+        appCount('PENDING_APPROVAL') +
+        appCount('KYC_APPROVED'),
+      pendingMerchants: appCount('PENDING_APPROVAL') + appCount('KYC_APPROVED'),
+      approvedMerchants: roleCount(UserRole.BUSINESS_ADMIN),
+      drivers: roleCount(UserRole.DRIVER) + roleCount(UserRole.COURIER),
+      agencies: roleCount(UserRole.AGENCY),
+      supportAgents: roleCount(UserRole.SUPPORT),
+      admins: roleCount(UserRole.ADMIN) + roleCount(UserRole.SUPER_ADMIN),
+      activeUsers,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
   // ➕ Méthode de création isolée & typée pour la CLI et l'Auth
   async create(data: {
     email: string;

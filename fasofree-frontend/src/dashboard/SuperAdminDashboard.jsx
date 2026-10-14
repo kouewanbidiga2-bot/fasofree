@@ -44,6 +44,7 @@ import {
   deleteUser,
   getBanRequests,
   reviewBanRequest,
+  getPlatformStats,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
@@ -401,9 +402,10 @@ const SuperAdminDashboard = () => {
   const loadUsers = useCallback(async () => {
     setLoading(prev => ({ ...prev, users: true, platform: true }));
     try {
-      const [usersData, businessesData] = await Promise.all([
+      const [usersData, businessesData, stats] = await Promise.all([
         getUsers(),
         getBusinesses(),
+        getPlatformStats(),
       ]);
       const list = Array.isArray(usersData) ? usersData : [];
       const merchants = Array.isArray(businessesData) ? businessesData : [];
@@ -412,11 +414,11 @@ const SuperAdminDashboard = () => {
       const countRole = (r) =>
         list.filter((u) => String(u.role).toLowerCase().replace('-', '_') === r).length;
       setPlatformStats({
-        totalMerchants: merchants.length,
-        totalClients: countRole('client') + countRole('customer'),
-        totalDrivers: countRole('driver') + countRole('courier'),
-        activeMerchants: merchants.filter((b) => b.isActive !== false).length,
-        pendingMerchants: 0,
+        totalMerchants: stats.merchants,
+        totalClients: stats.clients,
+        totalDrivers: stats.drivers,
+        activeMerchants: stats.approvedMerchants,
+        pendingMerchants: stats.pendingMerchants,
         suspendedAccounts: list.filter((u) => u.isActive === false).length,
       });
       setUsersMsg(null);
@@ -426,6 +428,12 @@ const SuperAdminDashboard = () => {
       setLoading(prev => ({ ...prev, users: false, platform: false }));
     }
   }, []);
+
+  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes.
+  useEffect(() => {
+    const interval = setInterval(loadUsers, 30_000);
+    return () => clearInterval(interval);
+  }, [loadUsers]);
 
   // Load ban requests
   const loadBanRequests = useCallback(async () => {

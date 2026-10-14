@@ -36,11 +36,14 @@ type RequestWithUser = {
 export class AgenciesController {
   constructor(private readonly agenciesService: AgenciesService) {}
 
-  // ─── SUPER_ADMIN ───────────────────────────────────────────────
+  // ─── ADMINISTRATION (SUPER_ADMIN + ADMIN) ──────────────────────
+  // La gestion des entreprises de livraison est réservée à l'administration :
+  // le SUPPORT reste en lecture seule (il doit voir la liste pour traiter les
+  // litiges) et ne peut ni créer ni modifier une agence.
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Liste des agences partenaires' })
   async listAll() {
     return this.agenciesService.listAll();
@@ -48,16 +51,16 @@ export class AgenciesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @Audited({ action: 'agency.create', entityType: 'AGENCY' })
-  @ApiOperation({ summary: 'Créer une agence partenaire' })
+  @ApiOperation({ summary: 'Créer une entreprise de livraison (ADMIN / SUPER_ADMIN)' })
   async create(@Body() dto: CreateAgencyDto) {
     return this.agenciesService.create(dto);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
   @Audited({ action: 'agency.update', entityType: 'AGENCY', entityParam: 'id' })
   @ApiOperation({ summary: 'Mettre à jour une agence (commission, zones, actif…)' })
   async update(@Param('id') id: string, @Body() dto: UpdateAgencyDto) {

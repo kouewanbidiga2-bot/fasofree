@@ -62,6 +62,24 @@ export class PaymentsController {
 
   @ApiBearerAuth('JWT-auth')
   @UseGuards(AuthGuard('jwt'))
+  @Get('status/:orderId')
+  @ApiOperation({
+    summary:
+      "Statut RÉEL d'un paiement (interroge GeniusPay — ne renvoie jamais 'payé' sans encaissement)",
+  })
+  async getPaymentStatus(
+    @Param('orderId') orderId: string,
+    @Request() req: Request & { user?: { userId?: string } },
+  ) {
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException('Utilisateur non authentifié');
+    }
+    return this.paymentsService.reconcileOrderPayment(orderId, userId);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(AuthGuard('jwt'))
   @Post('topup')
   @ApiOperation({ summary: 'Recharger son portefeuille via GeniusPay' })
   async topup(

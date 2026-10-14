@@ -26,6 +26,11 @@ export const deleteUser = async (id) => {
 };
 
 // ─── Ban Requests ──────────────────────────────────────────────
+export const getPlatformStats = async () => {
+  const response = await api.get('/users/platform-stats');
+  return response.data;
+};
+
 export const getBanRequests = async (status) => {
   const params = status ? { status } : {};
   const response = await api.get('/ban-requests', { params });

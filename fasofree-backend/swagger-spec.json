@@ -30,7 +30,103 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Obtenir le profil de l’utilisateur connecté",
+        "summary": "Obtenir le profil de l'utilisateur connecté",
+        "tags": [
+          "Users"
+        ]
+      },
+      "patch": {
+        "operationId": "UsersController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour le profil de l'utilisateur connecté",
+        "tags": [
+          "Users"
+        ]
+      },
+      "delete": {
+        "operationId": "UsersController_selfDelete",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Supprimer son propre compte (self-service)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/me/payment-info": {
+      "patch": {
+        "operationId": "UsersController_updatePaymentInfo",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePaymentInfoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour le numéro Mobile Money et l'opérateur de paiement",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/me/avatar": {
+      "post": {
+        "operationId": "UsersController_uploadAvatar",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Uploader un avatar de profil (JPEG, PNG, WebP — max 5 Mo)",
         "tags": [
           "Users"
         ]
@@ -61,6 +157,26 @@
           }
         ],
         "summary": "Mettre à jour son statut de livreur (en ligne, position GPS, véhicule)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/me/export": {
+      "get": {
+        "operationId": "UsersController_exportData",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Exporter toutes ses données personnelles (RGPD)",
         "tags": [
           "Users"
         ]
@@ -192,6 +308,917 @@
         ]
       }
     },
+    "/api/v1/users/{id}": {
+      "delete": {
+        "operationId": "UsersController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Supprimer définitivement un utilisateur (SUPER_ADMIN)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/reset-password": {
+      "post": {
+        "operationId": "UsersController_resetPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Réinitialiser le mot de passe d'un utilisateur (SUPER_ADMIN)",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/ban-requests": {
+      "post": {
+        "operationId": "BanRequestController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBanRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Soumettre une demande de bannissement (Admin/Support)",
+        "tags": [
+          "Ban Requests"
+        ]
+      },
+      "get": {
+        "operationId": "BanRequestController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les demandes de ban (Super Admin)",
+        "tags": [
+          "Ban Requests"
+        ]
+      }
+    },
+    "/api/v1/ban-requests/pending-count": {
+      "get": {
+        "operationId": "BanRequestController_pendingCount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Nombre de demandes en attente (badge)",
+        "tags": [
+          "Ban Requests"
+        ]
+      }
+    },
+    "/api/v1/ban-requests/{id}/review": {
+      "post": {
+        "operationId": "BanRequestController_review",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewBanRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Approuver ou rejeter une demande (Super Admin)",
+        "tags": [
+          "Ban Requests"
+        ]
+      }
+    },
+    "/api/v1/users/favorites": {
+      "get": {
+        "operationId": "FavoritesController_getFavorites",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les favoris du client connecté",
+        "tags": [
+          "Favorites"
+        ]
+      }
+    },
+    "/api/v1/users/favorites/ids": {
+      "get": {
+        "operationId": "FavoritesController_getFavoritedIds",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "IDs des businesses favoris (pour l'état des cœurs)",
+        "tags": [
+          "Favorites"
+        ]
+      }
+    },
+    "/api/v1/users/favorites/{businessId}": {
+      "post": {
+        "operationId": "FavoritesController_toggleFavorite",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Favori ajouté ou retiré"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Ajouter/Retirer un favori (toggle)",
+        "tags": [
+          "Favorites"
+        ]
+      }
+    },
+    "/api/v1/uploads/image": {
+      "post": {
+        "operationId": "UploadController_uploadImage",
+        "parameters": [
+          {
+            "name": "folder",
+            "required": false,
+            "in": "query",
+            "schema": {}
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image uploadée avec succès"
+          },
+          "400": {
+            "description": "Type non supporté ou fichier trop volumineux"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Uploader une image (JPEG, PNG, WebP — max 5 Mo)",
+        "tags": [
+          "Uploads"
+        ]
+      }
+    },
+    "/api/v1/notifications/fcm-token": {
+      "post": {
+        "operationId": "NotificationsController_updateFcmToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFcmTokenDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token mis à jour"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Enregistrer le token FCM",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "operationId": "NotificationsController_getNotifications",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "unreadOnly",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Récupérer les notifications de l'utilisateur",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "patch": {
+        "operationId": "NotificationsController_markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Marquer une notification comme lue",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "patch": {
+        "operationId": "NotificationsController_markAllAsRead",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Marquer toutes les notifications comme lues",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/send": {
+      "post": {
+        "operationId": "NotificationsController_sendNotification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userIds",
+                  "title",
+                  "body"
+                ],
+                "properties": {
+                  "userIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "IDs des destinataires"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Titre de la notification"
+                  },
+                  "body": {
+                    "type": "string",
+                    "description": "Contenu de la notification"
+                  },
+                  "actionUrl": {
+                    "type": "string",
+                    "description": "Lien optionnel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Envoyer une notification à un ou plusieurs utilisateurs",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/broadcast": {
+      "post": {
+        "operationId": "NotificationsController_broadcastNotification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role",
+                  "title",
+                  "body"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "client",
+                      "driver",
+                      "courier",
+                      "business_admin",
+                      "super_admin"
+                    ],
+                    "description": "Rôle cible"
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Titre de la notification"
+                  },
+                  "body": {
+                    "type": "string",
+                    "description": "Contenu de la notification"
+                  },
+                  "actionUrl": {
+                    "type": "string",
+                    "description": "Lien optionnel"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Diffuser une notification à tous les utilisateurs d'un rôle",
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
+    "/api/v1/webhooks/whatsapp": {
+      "get": {
+        "operationId": "WhatsAppWebhookController_handleVerification",
+        "parameters": [
+          {
+            "name": "hub.mode",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.verify_token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hub.challenge",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "WhatsApp webhook verification (Meta)",
+        "tags": [
+          "Webhooks"
+        ]
+      },
+      "post": {
+        "operationId": "WhatsAppWebhookController_handleEvents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "WhatsApp webhook events (Meta)",
+        "tags": [
+          "Webhooks"
+        ]
+      }
+    },
+    "/api/v1/businesses": {
+      "post": {
+        "operationId": "BusinessesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBusinessDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Créer un commerce",
+        "tags": [
+          "Businesses"
+        ]
+      },
+      "get": {
+        "operationId": "BusinessesController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister tous les commerces (super administrateur)",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/nearby": {
+      "get": {
+        "operationId": "BusinessesController_findNearby",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lng",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "radius",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "radiusInKm",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Rechercher les commerces à proximité",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/grouped": {
+      "get": {
+        "operationId": "BusinessesController_findGrouped",
+        "parameters": [
+          {
+            "name": "lat",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lng",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Marques groupées avec leurs agences (1 carte par marque)",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/me": {
+      "get": {
+        "operationId": "BusinessesController_findMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Obtenir le(s) commerce(s) du marchand connecté",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/trending": {
+      "get": {
+        "operationId": "BusinessesController_findTrending",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Top restaurants by rating",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/{id}": {
+      "get": {
+        "operationId": "BusinessesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir un commerce et son catalogue",
+        "tags": [
+          "Businesses"
+        ]
+      },
+      "patch": {
+        "operationId": "BusinessesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBusinessDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour les paramètres d'un commerce",
+        "tags": [
+          "Businesses"
+        ]
+      },
+      "delete": {
+        "operationId": "BusinessesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Supprimer un commerce (super administrateur)",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
+    "/api/v1/businesses/{id}/transfer-owner": {
+      "patch": {
+        "operationId": "BusinessesController_transferOwner",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Transférer un commerce vers un autre utilisateur",
+        "tags": [
+          "Businesses"
+        ]
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "operationId": "AuthController_register",
@@ -282,6 +1309,56 @@
           }
         ],
         "summary": "Obtenir le profil utilisateur connecté",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Demander un lien de réinitialisation du mot de passe",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Réinitialiser le mot de passe avec le token reçu",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "operationId": "AuthController_changePassword",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changer son mot de passe (connecté)",
         "tags": [
           "Authentication"
         ]
@@ -543,6 +1620,163 @@
         ]
       }
     },
+    "/api/v1/wallets/admin/payouts/pending": {
+      "get": {
+        "operationId": "WalletController_listPendingManualPayouts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/admin/payouts/{id}/approve": {
+      "post": {
+        "operationId": "WalletController_approveManualPayout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovePayoutDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/admin/payouts/{id}/paid": {
+      "post": {
+        "operationId": "WalletController_markManualPayoutPaid",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/admin/payouts/{id}/reject": {
+      "post": {
+        "operationId": "WalletController_rejectManualPayout",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/fee-preview": {
+      "post": {
+        "operationId": "WalletController_previewFee",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Prévisualisation des frais de retrait",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/withdrawals": {
+      "post": {
+        "operationId": "WalletController_requestWithdrawal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestWithdrawalDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Demander un retrait Mobile Money (via GeniusPay)",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/brand/{brandId}": {
+      "get": {
+        "operationId": "WalletController_getBrandWallets",
+        "parameters": [
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Wallets agrégés d'une marque (toutes les agences)",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
     "/api/v1/wallets/{walletId}/transactions": {
       "get": {
         "operationId": "WalletController_getTransactions",
@@ -570,6 +1804,30 @@
           }
         },
         "summary": "Historique des transactions d'un portefeuille",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/all/{userId}": {
+      "get": {
+        "operationId": "WalletController_getAllWalletsOfUser",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Vue super admin : tous les portefeuilles d'un utilisateur",
         "tags": [
           "Wallets"
         ]
@@ -607,6 +1865,118 @@
         ]
       }
     },
+    "/api/v1/wallets/{userRole}/{userId}/branch/{branchId}": {
+      "get": {
+        "operationId": "WalletController_getWalletByBranch",
+        "parameters": [
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "userRole",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "branchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Wallet d'une agence spécifique",
+        "tags": [
+          "Wallets"
+        ]
+      }
+    },
+    "/api/v1/wallets/webhook/geniuspay": {
+      "post": {
+        "operationId": "WalletWebhookController_handleCashoutWebhook",
+        "parameters": [
+          {
+            "name": "x-geniuspay-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Webhook GeniusPay pour cashout (retraits)",
+        "tags": [
+          "Wallets Webhooks"
+        ]
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "operationId": "SettingsController_get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Récupérer les paramètres globaux de la plateforme",
+        "tags": [
+          "Settings"
+        ]
+      },
+      "patch": {
+        "operationId": "SettingsController_update",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour les paramètres globaux (super admin)",
+        "tags": [
+          "Settings"
+        ]
+      }
+    },
     "/api/v1/kyc/documents/{type}": {
       "post": {
         "operationId": "KycController_submit",
@@ -630,6 +2000,7 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Soumettre un document KYC (pièce d'identité, justificatif)",
         "tags": [
           "KYC"
         ]
@@ -649,6 +2020,7 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Consulter le statut KYC de l'utilisateur connecté",
         "tags": [
           "KYC"
         ]
@@ -677,6 +2049,7 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Obtenir l'URL signée d'un document KYC",
         "tags": [
           "KYC"
         ]
@@ -696,6 +2069,7 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Lister les documents KYC en attente de validation",
         "tags": [
           "KYC"
         ]
@@ -724,6 +2098,7 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Approuver un document KYC",
         "tags": [
           "KYC"
         ]
@@ -762,85 +2137,15 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Rejeter un document KYC avec motif",
         "tags": [
           "KYC"
         ]
       }
     },
-    "/api/v1/uploads/image": {
+    "/api/v1/auth/send-otp": {
       "post": {
-        "operationId": "UploadController_uploadImage",
-        "parameters": [
-          {
-            "name": "folder",
-            "required": false,
-            "in": "query",
-            "schema": {}
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Image uploadée"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Uploader une image",
-        "tags": [
-          "Uploads"
-        ]
-      }
-    },
-    "/api/v1/businesses": {
-      "post": {
-        "operationId": "BusinessesController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateBusinessDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Créer un commerce",
-        "tags": [
-          "Businesses"
-        ]
-      },
-      "get": {
-        "operationId": "BusinessesController_findAll",
+        "operationId": "OtpController_sendOtp",
         "parameters": [],
         "responses": {
           "200": {
@@ -849,66 +2154,76 @@
         },
         "security": [
           {
-            "JWT-auth": []
+            "bearer": []
           }
         ],
-        "summary": "Lister tous les commerces (super administrateur)",
+        "summary": "Envoyer un code OTP de vérification",
         "tags": [
-          "Businesses"
+          "OTP Verification"
         ]
       }
     },
-    "/api/v1/businesses/nearby": {
-      "get": {
-        "operationId": "BusinessesController_findNearby",
-        "parameters": [
-          {
-            "name": "latitude",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "example": 12.3714,
-              "type": "number"
-            }
-          },
-          {
-            "name": "longitude",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "example": -1.5197,
-              "type": "number"
-            }
-          },
-          {
-            "name": "radiusInKm",
-            "required": false,
-            "in": "query",
-            "description": "Rayon de recherche, en kilomètres",
-            "schema": {
-              "default": 5,
-              "example": 5,
-              "type": "number"
-            }
-          }
-        ],
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "operationId": "OtpController_verifyOtp",
+        "parameters": [],
         "responses": {
           "200": {
             "description": ""
           }
         },
-        "summary": "Rechercher les commerces à proximité",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Vérifier le code OTP et activer le compte",
         "tags": [
-          "Businesses"
+          "OTP Verification"
         ]
       }
     },
-    "/api/v1/businesses/{id}": {
+    "/api/v1/auth/check-verification": {
+      "post": {
+        "operationId": "OtpController_checkVerification",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Vérifier si le compte est vérifié",
+        "tags": [
+          "OTP Verification"
+        ]
+      }
+    },
+    "/api/v1/legal/documents": {
       "get": {
-        "operationId": "BusinessesController_findOne",
+        "operationId": "LegalController_listDocuments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Lister les documents légaux (métadonnées, sans contenu)",
+        "tags": [
+          "Legal"
+        ]
+      }
+    },
+    "/api/v1/legal/documents/{docCode}": {
+      "get": {
+        "operationId": "LegalController_getDocument",
         "parameters": [
           {
-            "name": "id",
+            "name": "docCode",
             "required": true,
             "in": "path",
             "schema": {
@@ -921,29 +2236,112 @@
             "description": ""
           }
         },
-        "summary": "Obtenir un commerce et son catalogue",
+        "summary": "Obtenir un document légal complet (contenu Markdown)",
         "tags": [
-          "Businesses"
+          "Legal"
         ]
-      },
-      "patch": {
-        "operationId": "BusinessesController_update",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+      }
+    },
+    "/api/v1/legal/acceptances": {
+      "post": {
+        "operationId": "LegalController_recordAcceptance",
+        "parameters": [],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateBusinessDto"
+                "$ref": "#/components/schemas/RecordAcceptanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Enregistrer l'acceptation d'un document (case à cocher)",
+        "tags": [
+          "Legal"
+        ]
+      }
+    },
+    "/api/v1/legal/acceptances/me": {
+      "get": {
+        "operationId": "LegalController_myAcceptances",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Historique d'acceptations du compte connecté",
+        "tags": [
+          "Legal"
+        ]
+      }
+    },
+    "/api/v1/legal/contracts/pending": {
+      "get": {
+        "operationId": "LegalController_pendingContract",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Contrat en attente de signature pour le compte connecté (marchand/livreur)",
+        "tags": [
+          "Legal"
+        ]
+      }
+    },
+    "/api/v1/legal/contracts/send-otp": {
+      "post": {
+        "operationId": "LegalController_sendContractOtp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Envoyer le code OTP de signature du contrat",
+        "tags": [
+          "Legal"
+        ]
+      }
+    },
+    "/api/v1/legal/contracts/sign": {
+      "post": {
+        "operationId": "LegalController_signContract",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignContractDto"
               }
             }
           }
@@ -955,12 +2353,12 @@
         },
         "security": [
           {
-            "JWT-auth": []
+            "bearer": []
           }
         ],
-        "summary": "Mettre à jour les paramètres d'un commerce",
+        "summary": "Vérifier le code OTP et signer le contrat",
         "tags": [
-          "Businesses"
+          "Legal"
         ]
       }
     },
@@ -1005,6 +2403,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "category",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -1013,6 +2419,35 @@
           }
         },
         "summary": "Lister les produits d’un commerce",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/business/{businessId}/low-stock": {
+      "get": {
+        "operationId": "ProductsController_findLowStock",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Produits dont le stock est sous le seuil d’alerte",
         "tags": [
           "Products"
         ]
@@ -1052,6 +2487,28 @@
           }
         ],
         "summary": "Modifier un produit",
+        "tags": [
+          "Products"
+        ]
+      },
+      "get": {
+        "operationId": "ProductsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Obtenir le détail d'un produit par son ID",
         "tags": [
           "Products"
         ]
@@ -1113,6 +2570,131 @@
         ]
       }
     },
+    "/api/v1/products/import-pdf/analyze": {
+      "post": {
+        "operationId": "ProductsController_analyzePdf",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "pdf",
+                  "businessId"
+                ],
+                "properties": {
+                  "pdf": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "PDF du menu (max 10 MB)"
+                  },
+                  "businessId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "description": "ID du business"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Analyser un PDF de menu et retourner un preview du catalogue",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/import-pdf/confirm": {
+      "post": {
+        "operationId": "ProductsController_confirmImport",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmImportDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Confirmer l'import et créer les produits du catalogue",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/{id}/stock": {
+      "post": {
+        "operationId": "ProductsController_updateStock",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour le stock d'un produit",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
+    "/api/v1/products/generate-sku": {
+      "post": {
+        "operationId": "ProductsController_generateSku",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Générer un SKU automatiquement pour un produit",
+        "tags": [
+          "Products"
+        ]
+      }
+    },
     "/api/v1/orders": {
       "get": {
         "operationId": "OrdersController_findAllForAdmin",
@@ -1163,6 +2745,9 @@
           },
           "401": {
             "description": "Utilisateur non authentifié"
+          },
+          "429": {
+            "description": "Compte bloqué temporairement (activité inhabituelle : trop de commandes sur une courte période)"
           }
         },
         "security": [
@@ -1215,7 +2800,32 @@
     "/api/v1/orders/my-orders": {
       "get": {
         "operationId": "OrdersController_getMyOrders",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "offset",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Liste des commandes récupérée"
@@ -1229,7 +2839,99 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Lister les commandes du client connecté",
+        "summary": "Lister les commandes du client ou livreur connecté",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/my-recent": {
+      "get": {
+        "operationId": "OrdersController_getMyRecentOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Recent orders for personalization",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/business/{businessId}": {
+      "get": {
+        "operationId": "OrdersController_getBusinessOrders",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Commandes du commerce"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les commandes d'un commerce (marchand)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/brand": {
+      "post": {
+        "operationId": "OrdersController_getBrandOrders",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          },
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Commandes de toutes les branches d'une marque",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/available-drivers": {
+      "get": {
+        "operationId": "OrdersController_getAvailableDrivers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Liste des livreurs"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Liste des livreurs/coursiers actifs",
         "tags": [
           "Orders"
         ]
@@ -1367,14 +3069,8 @@
           }
         ],
         "responses": {
-          "201": {
-            "description": "Course acceptée — le GPS du livreur est diffusé au client"
-          },
-          "400": {
-            "description": "Statut incompatible avec une acceptation"
-          },
-          "403": {
-            "description": "Non autorisé (rôle DRIVER/COURIER requis) ou course déjà acceptée"
+          "410": {
+            "description": "Route dépréciée"
           }
         },
         "security": [
@@ -1382,7 +3078,7 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Le livreur/coursier accepte une course (assignation driverId + statut PROCESSING)",
+        "summary": "[DÉPRÉCIÉ] Utiliser POST /dispatch/accept/:orderId à la place.",
         "tags": [
           "Orders"
         ]
@@ -1469,7 +3165,100 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Le client confirme la réception avec son Code PIN à 4 chiffres",
+        "summary": "Le client confirme la réception avec son Code PIN à 6 chiffres (max 5 essais/min)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/confirm-delivery": {
+      "post": {
+        "operationId": "OrdersController_confirmDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Commande confirmée avec succès"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Confirmer la livraison d'une commande (admin/marchand, sans PIN)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/driver-location": {
+      "post": {
+        "operationId": "OrdersController_updateDriverLocation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Position mise à jour"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Enregistrer la position GPS du livreur pour une commande",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/assign": {
+      "post": {
+        "operationId": "OrdersController_assignDriver",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Livreur assigné avec succès"
+          },
+          "403": {
+            "description": "Rôle non autorisé"
+          },
+          "404": {
+            "description": "Commande ou livreur introuvable"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Assigner manuellement un livreur à une commande",
         "tags": [
           "Orders"
         ]
@@ -1520,6 +3309,84 @@
         ]
       }
     },
+    "/api/v1/dispatch/available": {
+      "get": {
+        "operationId": "DispatchController_getAvailableOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Courses disponibles (READY_FOR_PICKUP)",
+        "tags": [
+          "Dispatch"
+        ]
+      }
+    },
+    "/api/v1/dispatch/accept/{orderId}": {
+      "post": {
+        "operationId": "DispatchController_acceptOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Accepter une course disponible",
+        "tags": [
+          "Dispatch"
+        ]
+      }
+    },
+    "/api/v1/dispatch/refuse/{orderId}": {
+      "post": {
+        "operationId": "DispatchController_refuseOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Refuser une course disponible",
+        "tags": [
+          "Dispatch"
+        ]
+      }
+    },
     "/api/v1/analytics/business/{businessId}": {
       "get": {
         "operationId": "AnalyticsController_getBusinessOverview",
@@ -1543,7 +3410,65 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Obtenir les indicateurs d’un commerce",
+        "summary": "Obtenir les indicateurs d'un commerce",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/brand/{brandId}": {
+      "get": {
+        "operationId": "AnalyticsController_getBrandOverview",
+        "parameters": [
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Analytics agrégés d'une marque (toutes les agences)",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/api/v1/analytics/brand/{brandId}/compare": {
+      "get": {
+        "operationId": "AnalyticsController_compareBranches",
+        "parameters": [
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Comparaison des agences d'une marque",
         "tags": [
           "Analytics"
         ]
@@ -1573,7 +3498,7 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Initier un paiement pour une commande",
+        "summary": "Initier un paiement pour une commande via GeniusPay",
         "tags": [
           "Payments"
         ]
@@ -1603,28 +3528,83 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Recharger son portefeuille (Mock ou Mobile Money)",
+        "summary": "Recharger son portefeuille via GeniusPay",
         "tags": [
           "Payments"
         ]
       }
     },
-    "/api/v1/payments/mock/pay-order": {
+    "/api/v1/payments/webhook/geniuspay": {
       "post": {
-        "operationId": "PaymentsController_mockPayOrder",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PayOrderDto"
-              }
+        "operationId": "PaymentsController_handleGeniusPayWebhookDeprecated",
+        "parameters": [
+          {
+            "name": "x-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-timestamp",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
             }
           }
-        },
+        ],
         "responses": {
-          "201": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "[DÉPRÉCIÉ] Redirige vers POST /geniuspay/webhook",
+        "tags": [
+          "Payments"
+        ]
+      }
+    },
+    "/api/v1/payments/geniuspay/status/{ref}": {
+      "get": {
+        "operationId": "PaymentsController_checkGeniusPayStatus",
+        "parameters": [
+          {
+            "name": "ref",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": ""
           }
         },
@@ -1633,21 +3613,20 @@
             "JWT-auth": []
           }
         ],
-        "summary": "[Mock] Payer une commande et déclencher la livraison",
+        "summary": "Vérifier le statut d'un paiement GeniusPay",
         "tags": [
           "Payments"
         ]
       }
     },
-    "/api/v1/payments/webhook/wave": {
-      "post": {
-        "operationId": "PaymentsController_handleWaveWebhook",
+    "/api/v1/payments/geniuspay/providers": {
+      "get": {
+        "operationId": "PaymentsController_listProviders",
         "parameters": [
           {
-            "name": "x-wave-signature",
-            "in": "header",
-            "description": "Signature HMAC fournie par Wave",
+            "name": "x-country",
             "required": true,
+            "in": "header",
             "schema": {
               "type": "string"
             }
@@ -1658,21 +3637,40 @@
             "description": ""
           }
         },
-        "summary": "Recevoir la confirmation de paiement Wave",
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les méthodes de paiement GeniusPay",
         "tags": [
           "Payments"
         ]
       }
     },
-    "/api/v1/payments/webhook/ligdicash": {
+    "/api/v1/geniuspay/pay": {
       "post": {
-        "operationId": "PaymentsController_handleLigdicashWebhook",
+        "operationId": "GeniusPayController_createPayment",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Initier un paiement GeniusPay",
+        "tags": [
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/payment/{reference}": {
+      "get": {
+        "operationId": "GeniusPayController_getPayment",
         "parameters": [
           {
-            "name": "x-ligdicash-token",
+            "name": "reference",
             "required": true,
-            "in": "header",
-            "description": "Jeton de vérification LigdiCash",
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -1683,9 +3681,117 @@
             "description": ""
           }
         },
-        "summary": "Recevoir la confirmation de paiement LigdiCash",
+        "summary": "Vérifier le statut d'un paiement GeniusPay",
         "tags": [
-          "Payments"
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/balance": {
+      "get": {
+        "operationId": "GeniusPayController_getBalance",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Consulter le solde GeniusPay",
+        "tags": [
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/account": {
+      "get": {
+        "operationId": "GeniusPayController_getAccount",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Informations du compte GeniusPay",
+        "tags": [
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/providers": {
+      "get": {
+        "operationId": "GeniusPayController_getProviders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Fournisseurs MMO disponibles",
+        "tags": [
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/payments": {
+      "get": {
+        "operationId": "GeniusPayController_listPayments",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Lister les paiements GeniusPay",
+        "tags": [
+          "GeniusPay"
+        ]
+      }
+    },
+    "/api/v1/geniuspay/webhook": {
+      "post": {
+        "operationId": "GeniusPayController_handleWebhook",
+        "parameters": [
+          {
+            "name": "x-webhook-signature",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-timestamp",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-event",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "x-webhook-environment",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Webhook GeniusPay — notifications de paiement",
+        "tags": [
+          "GeniusPay"
         ]
       }
     },
@@ -1698,84 +3804,305 @@
             "description": ""
           }
         },
-        "summary": "Obtenir le résumé financier global",
+        "summary": "Résumé financier global (GeniusPay + passifs)",
         "tags": [
           "Financial"
         ]
       }
     },
-    "/api/v1/payments/ligdicash/payin": {
-      "post": {
-        "operationId": "LigdiCashController_initiatePayin",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePayinDto"
-              }
+    "/api/v1/financial/overview": {
+      "get": {
+        "operationId": "FinancialController_getOverview",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Créer une demande de paiement LigdiCash",
-        "tags": [
-          "LigdiCash"
-        ]
-      }
-    },
-    "/api/v1/payments/ligdicash/topup": {
-      "post": {
-        "operationId": "LigdiCashController_initiateTopup",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TopupDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "summary": "Recharger son portefeuille FasoFree (Mobile Money ou Mock)",
-        "tags": [
-          "LigdiCash"
-        ]
-      }
-    },
-    "/api/v1/payments/ligdicash/webhook": {
-      "post": {
-        "operationId": "LigdiCashController_handleWebhook",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LigdiCashWebhookDto"
-              }
-            }
-          }
-        },
+        ],
         "responses": {
           "200": {
             "description": ""
           }
         },
-        "summary": "Recevoir le callback LigdiCash",
+        "summary": "Données financières par jour (7d, 30d, 90d)",
         "tags": [
-          "LigdiCash"
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/products": {
+      "get": {
+        "operationId": "FinancialController_getProductAnalytics",
+        "parameters": [
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Analytics produits (achats, livré/sur place, top/worst)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/money-flows": {
+      "get": {
+        "operationId": "FinancialController_getMoneyFlows",
+        "parameters": [
+          {
+            "name": "brandId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Tous les flux d'argent (entrées, sorties, reversals)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/brands": {
+      "get": {
+        "operationId": "FinancialController_getBrandBreakdown",
+        "parameters": [
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Ventilation par marque et agence",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/business/{businessId}": {
+      "get": {
+        "operationId": "FinancialController_getBusinessFinance",
+        "parameters": [
+          {
+            "name": "businessId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "period",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Finances complètes d'un business (BusinessAdmin)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/exports": {
+      "get": {
+        "operationId": "FinancialController_listExports",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Historique des exports CSV de transactions (SUPER_ADMIN)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/exports/{id}": {
+      "get": {
+        "operationId": "FinancialController_downloadExport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Télécharger un export CSV (SUPER_ADMIN)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/financial/exports/generate": {
+      "post": {
+        "operationId": "FinancialController_generateExport",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Générer un export CSV immédiatement (SUPER_ADMIN, planifie manuellement)",
+        "tags": [
+          "Financial"
+        ]
+      }
+    },
+    "/api/v1/receipts": {
+      "get": {
+        "operationId": "ReceiptsController_myReceipts",
+        "parameters": [
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "TOPUP",
+                "ORDER_PAYMENT",
+                "DELIVERY_FEE",
+                "PAYOUT"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Max 50 (défaut)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mes reçus (client, marchand ou livreur)",
+        "tags": [
+          "Receipts"
+        ]
+      }
+    },
+    "/api/v1/receipts/{id}": {
+      "get": {
+        "operationId": "ReceiptsController_receiptById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Détail d’un reçu (vérifie l’appartenance)",
+        "tags": [
+          "Receipts"
         ]
       }
     },
@@ -1846,14 +4173,111 @@
         ]
       }
     },
+    "/api/v1/disputes/me": {
+      "get": {
+        "operationId": "DisputesController_listMine",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister tous mes litiges (client)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/eligible-orders": {
+      "get": {
+        "operationId": "DisputesController_listEligibleOrders",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Commandes livrées éligibles à une nouvelle réclamation (client)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
     "/api/v1/disputes": {
       "get": {
         "operationId": "DisputesController_list",
         "parameters": [
           {
             "name": "status",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Filtre par statut de litige (optionnel).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "OPEN",
+                "UNDER_INVESTIGATION",
+                "PENDING_ADMIN_APPROVAL",
+                "APPROVED",
+                "REJECTED",
+                "CLOSED"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/business": {
+      "get": {
+        "operationId": "DisputesController_listForBusiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Liste des litiges des commerces du gérant (multi-agences)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}": {
+      "get": {
+        "operationId": "DisputesController_getForStaff",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
             "schema": {
               "type": "string"
             }
@@ -1869,6 +4293,73 @@
             "JWT-auth": []
           }
         ],
+        "summary": "Détail d'un litige (administration / gérant du commerce)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
+    "/api/v1/disputes/{id}/messages": {
+      "get": {
+        "operationId": "DisputesController_listMessages",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Messages du chat support d'un litige",
+        "tags": [
+          "Disputes"
+        ]
+      },
+      "post": {
+        "operationId": "DisputesController_sendMessage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendDisputeMessageDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Envoyer un message dans le chat support d'un litige",
         "tags": [
           "Disputes"
         ]
@@ -1990,6 +4481,45 @@
         ]
       }
     },
+    "/api/v1/disputes/{id}/merchant-refund": {
+      "post": {
+        "operationId": "DisputesController_merchantRefund",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MerchantRefundDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Rembourser un litige de son commerce (décision du gérant, montant = total de la commande)",
+        "tags": [
+          "Disputes"
+        ]
+      }
+    },
     "/api/v1/disputes/{id}/review": {
       "post": {
         "operationId": "DisputesController_review",
@@ -2026,643 +4556,6 @@
         "summary": "Réviser un litige (déprécié - utiliser approve/reject)",
         "tags": [
           "Disputes"
-        ]
-      }
-    },
-    "/api/v1/notifications/fcm-token": {
-      "post": {
-        "operationId": "NotificationsController_updateFcmToken",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateFcmTokenDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Token mis à jour"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Enregistrer le token FCM",
-        "tags": [
-          "Notifications"
-        ]
-      }
-    },
-    "/api/v1/promotions/quote": {
-      "get": {
-        "operationId": "PromotionsController_quote",
-        "parameters": [
-          {
-            "name": "code",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "amount",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Promotions"
-        ]
-      }
-    },
-    "/api/v1/promotions": {
-      "post": {
-        "operationId": "PromotionsController_create",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePromotionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "tags": [
-          "Promotions"
-        ]
-      }
-    },
-    "/api/v1/receipts": {
-      "get": {
-        "operationId": "ReceiptsController_myReceipts",
-        "parameters": [
-          {
-            "name": "type",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "enum": [
-                "TOPUP",
-                "ORDER_PAYMENT",
-                "DELIVERY_FEE",
-                "PAYOUT"
-              ],
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Max 50 (défaut)",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Mes reçus (client, marchand ou livreur)",
-        "tags": [
-          "Receipts"
-        ]
-      }
-    },
-    "/api/v1/receipts/{id}": {
-      "get": {
-        "operationId": "ReceiptsController_receiptById",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Détail d’un reçu (vérifie l’appartenance)",
-        "tags": [
-          "Receipts"
-        ]
-      }
-    },
-    "/api/v1/health": {
-      "get": {
-        "operationId": "HealthController_check",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "The Health Check is successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "ok"
-                    },
-                    "info": {
-                      "type": "object",
-                      "example": {
-                        "database": {
-                          "status": "up"
-                        }
-                      },
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      },
-                      "nullable": true
-                    },
-                    "error": {
-                      "type": "object",
-                      "example": {},
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      },
-                      "nullable": true
-                    },
-                    "details": {
-                      "type": "object",
-                      "example": {
-                        "database": {
-                          "status": "up"
-                        }
-                      },
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "The Health Check is not successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "status": {
-                      "type": "string",
-                      "example": "error"
-                    },
-                    "info": {
-                      "type": "object",
-                      "example": {
-                        "database": {
-                          "status": "up"
-                        }
-                      },
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      },
-                      "nullable": true
-                    },
-                    "error": {
-                      "type": "object",
-                      "example": {
-                        "redis": {
-                          "status": "down",
-                          "message": "Could not connect"
-                        }
-                      },
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      },
-                      "nullable": true
-                    },
-                    "details": {
-                      "type": "object",
-                      "example": {
-                        "database": {
-                          "status": "up"
-                        },
-                        "redis": {
-                          "status": "down",
-                          "message": "Could not connect"
-                        }
-                      },
-                      "additionalProperties": {
-                        "type": "object",
-                        "required": [
-                          "status"
-                        ],
-                        "properties": {
-                          "status": {
-                            "type": "string"
-                          }
-                        },
-                        "additionalProperties": true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "summary": "Vérifie l'état de santé de l'API et de la base de données",
-        "tags": [
-          "Health"
-        ]
-      }
-    },
-    "/api/v1/reviews": {
-      "post": {
-        "operationId": "ReviewsController_createReview",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReviewDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Avis créé avec succès"
-          },
-          "400": {
-            "description": "Avis déjà existant ou données invalides"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Laisser un avis et une note (avec pourboire optionnel)",
-        "tags": [
-          "Reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/target/{targetId}": {
-      "get": {
-        "operationId": "ReviewsController_getReviewsForTarget",
-        "parameters": [
-          {
-            "name": "targetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Liste des avis"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Obtenir les avis d'un livreur, coursier ou commerce",
-        "tags": [
-          "Reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/target/{targetId}/average": {
-      "get": {
-        "operationId": "ReviewsController_getAverageRating",
-        "parameters": [
-          {
-            "name": "targetId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Note moyenne et nombre d'avis"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Obtenir la note moyenne d'un livreur, coursier ou commerce",
-        "tags": [
-          "Reviews"
-        ]
-      }
-    },
-    "/api/v1/reviews/order/{orderId}": {
-      "get": {
-        "operationId": "ReviewsController_getReviewsForOrder",
-        "parameters": [
-          {
-            "name": "orderId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Liste des avis pour cette commande"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Obtenir les avis d'une commande spécifique",
-        "tags": [
-          "Reviews"
-        ]
-      }
-    },
-    "/api/v1/chat/{orderId}": {
-      "get": {
-        "operationId": "ChatController_getChatHistory",
-        "parameters": [
-          {
-            "name": "orderId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "channel",
-            "required": true,
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Historique récupéré"
-          },
-          "401": {
-            "description": "Utilisateur non authentifié"
-          },
-          "403": {
-            "description": "Non participant au canal"
-          },
-          "404": {
-            "description": "Commande introuvable"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Historique du chat éphémère d'une commande (canal merchant|driver)",
-        "tags": [
-          "Chat"
-        ]
-      }
-    },
-    "/api/v1/tracking/calculate-fee": {
-      "post": {
-        "operationId": "TrackingController_calculateFee",
-        "parameters": [],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CalculateDistanceDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Calcul réussi"
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Calculer les frais de livraison",
-        "tags": [
-          "Tracking"
-        ]
-      }
-    },
-    "/api/v1/users/applications": {
-      "get": {
-        "operationId": "OnboardingController_list",
-        "parameters": [
-          {
-            "name": "status",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "PENDING_APPROVAL",
-                "APPROVED",
-                "REJECTED"
-              ]
-            }
-          },
-          {
-            "name": "type",
-            "required": false,
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "MERCHANT",
-                "DRIVER"
-              ]
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Lister les candidatures marchands & livreurs (statut, type, recherche)",
-        "tags": [
-          "Onboarding"
-        ]
-      }
-    },
-    "/api/v1/users/applications/{id}/approve": {
-      "post": {
-        "operationId": "OnboardingController_approve",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Approuver une candidature : active le compte, crée le profil Business/Livreur + portefeuille, envoie les identifiants",
-        "tags": [
-          "Onboarding"
-        ]
-      }
-    },
-    "/api/v1/users/applications/{id}/reject": {
-      "post": {
-        "operationId": "OnboardingController_reject",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RejectApplicationDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "JWT-auth": []
-          }
-        ],
-        "summary": "Rejeter une candidature avec motif",
-        "tags": [
-          "Onboarding"
         ]
       }
     },
@@ -2836,19 +4729,2128 @@
           "Brands"
         ]
       }
+    },
+    "/api/v1/brands/{id}/branches": {
+      "get": {
+        "operationId": "BrandsController_findBranches",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "latitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "longitude",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Lister les agences d'une marque avec distance optionnelle",
+        "tags": [
+          "Brands"
+        ]
+      }
+    },
+    "/api/v1/promotions/quote": {
+      "get": {
+        "operationId": "PromotionsController_quote",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "amount",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Simuler l'application d'un code promo sur un montant",
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/api/v1/promotions": {
+      "post": {
+        "operationId": "PromotionsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromotionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Créer un nouveau code promo (super admin uniquement)",
+        "tags": [
+          "Promotions"
+        ]
+      }
+    },
+    "/api/v1/fraud/blocks": {
+      "get": {
+        "operationId": "FraudController_listBlocks",
+        "parameters": [
+          {
+            "name": "includeExpired",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Blocages anti-fraude (actifs + historique)",
+        "tags": [
+          "AntiFraude"
+        ]
+      }
+    },
+    "/api/v1/fraud/blocks/{id}/lift": {
+      "post": {
+        "operationId": "FraudController_lift",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Lever manuellement un blocage (SUPER_ADMIN)",
+        "tags": [
+          "AntiFraude"
+        ]
+      }
+    },
+    "/api/v1/audit/logs": {
+      "get": {
+        "operationId": "AuditController_listLogs",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entityType",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "actorId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Journal des actions d'administration (SUPER_ADMIN)",
+        "tags": [
+          "Audit"
+        ]
+      }
+    },
+    "/api/v1/audit/actions": {
+      "get": {
+        "operationId": "AuditController_listActions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liste des actions journalisées (filtres UI)",
+        "tags": [
+          "Audit"
+        ]
+      }
+    },
+    "/api/v1/agencies": {
+      "get": {
+        "operationId": "AgenciesController_listAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Liste des agences partenaires",
+        "tags": [
+          "Agencies"
+        ]
+      },
+      "post": {
+        "operationId": "AgenciesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAgencyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Créer une agence partenaire",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/agencies/{id}": {
+      "patch": {
+        "operationId": "AgenciesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAgencyDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Mettre à jour une agence (commission, zones, actif…)",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/agencies/me": {
+      "get": {
+        "operationId": "AgenciesController_getMyAgency",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Profil de mon agence",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/agencies/deliveries": {
+      "get": {
+        "operationId": "AgenciesController_getDeliveries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Courses routées vers mon agence",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/agencies/drivers": {
+      "get": {
+        "operationId": "AgenciesController_getDrivers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Chauffeurs rattachés à mon agence",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/agencies/deliveries/{orderId}/assign": {
+      "post": {
+        "operationId": "AgenciesController_assignDelivery",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Assigner une course à un de mes chauffeurs",
+        "tags": [
+          "Agencies"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "HealthController_checkAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Health check global (liveness + database)",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/live": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness : l'instance est vivante (sans dépendance à la DB)",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "operationId": "HealthController_check",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "The Health Check is successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {},
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The Health Check is not successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "error"
+                    },
+                    "info": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "error": {
+                      "type": "object",
+                      "example": {
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      },
+                      "nullable": true
+                    },
+                    "details": {
+                      "type": "object",
+                      "example": {
+                        "database": {
+                          "status": "up"
+                        },
+                        "redis": {
+                          "status": "down",
+                          "message": "Could not connect"
+                        }
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "required": [
+                          "status"
+                        ],
+                        "properties": {
+                          "status": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness : l'API est prête à servir (vérifie la base de données)",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/reviews": {
+      "post": {
+        "operationId": "ReviewsController_createReview",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Avis créé avec succès"
+          },
+          "400": {
+            "description": "Avis déjà existant ou données invalides"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Laisser un avis et une note (avec pourboire optionnel)",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/target/{targetId}": {
+      "get": {
+        "operationId": "ReviewsController_getReviewsForTarget",
+        "parameters": [
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des avis"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Obtenir les avis d'un livreur, coursier ou commerce",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/target/{targetId}/average": {
+      "get": {
+        "operationId": "ReviewsController_getAverageRating",
+        "parameters": [
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Note moyenne et nombre d'avis"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Obtenir la note moyenne d'un livreur, coursier ou commerce",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/api/v1/reviews/order/{orderId}": {
+      "get": {
+        "operationId": "ReviewsController_getReviewsForOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des avis pour cette commande"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Obtenir les avis d'une commande spécifique",
+        "tags": [
+          "Reviews"
+        ]
+      }
+    },
+    "/api/v1/chat": {
+      "get": {
+        "operationId": "ChatController_getActiveConversations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Liste des conversations actives (Admin/Support/Merchant)",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/api/v1/chat/{orderId}": {
+      "get": {
+        "operationId": "ChatController_getChatHistory",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historique récupéré"
+          },
+          "401": {
+            "description": "Utilisateur non authentifié"
+          },
+          "403": {
+            "description": "Non participant au canal"
+          },
+          "404": {
+            "description": "Commande introuvable"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Historique du chat éphémère d'une commande (canal merchant|driver)",
+        "tags": [
+          "Chat"
+        ]
+      }
+    },
+    "/api/v1/tracking/calculate-fee": {
+      "post": {
+        "operationId": "TrackingController_calculateFee",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateDistanceDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calcul réussi"
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Calculer les frais de livraison",
+        "tags": [
+          "Tracking"
+        ]
+      }
+    },
+    "/api/v1/users/applications": {
+      "get": {
+        "operationId": "OnboardingController_list",
+        "parameters": [
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "description": "Statut unique ou liste séparée par des virgules (ex: PENDING_APPROVAL,KYC_APPROVED)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_APPROVAL",
+                "KYC_APPROVED",
+                "APPROVED",
+                "REJECTED"
+              ]
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "MERCHANT",
+                "DRIVER"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister les candidatures marchands & livreurs (statut, type, recherche)",
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/v1/users/applications/{id}/approve": {
+      "post": {
+        "operationId": "OnboardingController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Approuver une candidature : active le compte, crée le profil Business/Livreur + portefeuille, envoie les identifiants",
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/v1/users/applications/{id}/reject": {
+      "post": {
+        "operationId": "OnboardingController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectApplicationDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Rejeter une candidature avec motif",
+        "tags": [
+          "Onboarding"
+        ]
+      }
+    },
+    "/api/v1/seed/chitir-chicken": {
+      "post": {
+        "operationId": "SeedController_seedChitirChicken",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Seed Chitir Chicken (brand + 3 branches + 10 products)",
+        "tags": [
+          "Seed"
+        ]
+      }
+    },
+    "/api/v1/seed/test-data": {
+      "post": {
+        "operationId": "SeedController_seedTestData",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Seed test data (client, driver, Faso Délices brand + products)",
+        "tags": [
+          "Seed"
+        ]
+      }
+    },
+    "/api/v1/seed/fix-orphan-wallet-credits": {
+      "post": {
+        "operationId": "SeedController_fixOrphanWalletCredits",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Backfill : déplacer les crédits orphelins vers le vrai wallet marchand (ownerId)",
+        "tags": [
+          "Seed"
+        ]
+      }
+    },
+    "/api/v1/seed/fix-wallet-userroles": {
+      "post": {
+        "operationId": "SeedController_fixWalletUserRoles",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Corriger les userRole=DRIVER des branch wallets vers MERCHANT",
+        "tags": [
+          "Seed"
+        ]
+      }
+    },
+    "/api/v1/internal-chat/history/{channel}": {
+      "get": {
+        "operationId": "InternalChatController_getHistory",
+        "parameters": [
+          {
+            "name": "channel",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Historique d'un canal interne (general, operations, support, finance)",
+        "tags": [
+          "Internal Chat"
+        ]
+      }
+    },
+    "/api/v1/internal-chat/dm/{recipientId}": {
+      "get": {
+        "operationId": "InternalChatController_getDms",
+        "parameters": [
+          {
+            "name": "recipientId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Historique DM avec un membre",
+        "tags": [
+          "Internal Chat"
+        ]
+      }
+    },
+    "/api/v1/internal-chat/dm-partners": {
+      "get": {
+        "operationId": "InternalChatController_getDmPartners",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Partenaires DM récents",
+        "tags": [
+          "Internal Chat"
+        ]
+      }
+    },
+    "/api/v1/stories": {
+      "get": {
+        "operationId": "StoriesController_getActiveStories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get active stories grouped by business",
+        "tags": [
+          "Stories"
+        ]
+      },
+      "post": {
+        "operationId": "StoriesController_createStory",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Create a story (merchant only)",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/stories/mine": {
+      "get": {
+        "operationId": "StoriesController_getMyStories",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get active stories for businesses I manage",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/stories/{id}/view": {
+      "post": {
+        "operationId": "StoriesController_viewStory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Mark a story as viewed",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/stories/{id}/like": {
+      "post": {
+        "operationId": "StoriesController_likeStory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Like a story",
+        "tags": [
+          "Stories"
+        ]
+      },
+      "delete": {
+        "operationId": "StoriesController_unlikeStory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Unlike a story",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/stories/{id}/viewers": {
+      "get": {
+        "operationId": "StoriesController_getStoryViewers",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get story viewers (owner only)",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/stories/{id}": {
+      "delete": {
+        "operationId": "StoriesController_deleteStory",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Delete a story (owner only)",
+        "tags": [
+          "Stories"
+        ]
+      }
+    },
+    "/api/v1/loyalty/me": {
+      "get": {
+        "operationId": "LoyaltyController_getBalance",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get loyalty points balance",
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/me/history": {
+      "get": {
+        "operationId": "LoyaltyController_getHistory",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get loyalty points history",
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/referral/code": {
+      "get": {
+        "operationId": "LoyaltyController_getReferralCode",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get or generate referral code",
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/referral/stats": {
+      "get": {
+        "operationId": "LoyaltyController_getReferralStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Get referral statistics",
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/loyalty/referral/apply": {
+      "post": {
+        "operationId": "LoyaltyController_applyReferralCode",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Apply a referral code",
+        "tags": [
+          "Loyalty"
+        ]
+      }
+    },
+    "/api/v1/users/me/addresses": {
+      "get": {
+        "operationId": "AddressesController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lister mes adresses de livraison",
+        "tags": [
+          "Addresses"
+        ]
+      },
+      "post": {
+        "operationId": "AddressesController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAddressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Ajouter une adresse de livraison",
+        "tags": [
+          "Addresses"
+        ]
+      }
+    },
+    "/api/v1/users/me/addresses/{id}": {
+      "patch": {
+        "operationId": "AddressesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAddressDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Modifier une adresse de livraison",
+        "tags": [
+          "Addresses"
+        ]
+      },
+      "delete": {
+        "operationId": "AddressesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Supprimer une adresse de livraison",
+        "tags": [
+          "Addresses"
+        ]
+      }
+    },
+    "/api/v1/assistant": {
+      "get": {
+        "operationId": "AssistantController_meta",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistant"
+        ]
+      }
+    },
+    "/api/v1/assistant/ask": {
+      "post": {
+        "operationId": "AssistantController_ask",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskAssistantDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistant"
+        ]
+      }
+    },
+    "/api/v1/assistant/voice-action": {
+      "post": {
+        "operationId": "AssistantController_voiceAction",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceActionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Assistant"
+        ]
+      }
+    },
+    "/api/v1/affiliate/business/{id}/link": {
+      "get": {
+        "operationId": "AffiliateController_getLink",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Lien de suivi marchand (créé si absent)",
+        "tags": [
+          "Affiliation"
+        ]
+      }
+    },
+    "/api/v1/affiliate/business/{id}/stats": {
+      "get": {
+        "operationId": "AffiliateController_getStats",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Statistiques de suivi (clics → clients → commandes)",
+        "tags": [
+          "Affiliation"
+        ]
+      }
+    },
+    "/api/v1/affiliate/admin/stats": {
+      "get": {
+        "operationId": "AffiliateController_getGlobalStats",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Statistiques affiliation globales",
+        "tags": [
+          "Affiliation"
+        ]
+      }
+    },
+    "/api/v1/affiliate/resolve/{code}": {
+      "get": {
+        "operationId": "AffiliateController_resolve",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Résout un code vers un businessId (debug admin)",
+        "tags": [
+          "Affiliation"
+        ]
+      }
+    },
+    "/api/v1/r/{code}": {
+      "get": {
+        "operationId": "AffiliateRedirectController_redirect",
+        "parameters": [
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "AffiliateRedirect"
+        ]
+      }
+    },
+    "/api/v1/admin/push-campaigns": {
+      "post": {
+        "operationId": "PushCampaignController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePushCampaignDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Créer et envoyer une campagne push (SUPER_ADMIN / ADMIN)",
+        "tags": [
+          "Campagnes push"
+        ]
+      },
+      "get": {
+        "operationId": "PushCampaignController_list",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Historique des campagnes push",
+        "tags": [
+          "Campagnes push"
+        ]
+      }
     }
   },
   "info": {
     "title": "FasoFree API",
-    "description": "Spécification OpenAPI officielle du backend FasoFree - Marketplace & Livraison à Ouagadougou",
+    "description": "## FasoFree — API Backend Marketplace & Livraison Burkina Faso\n\nPlateforme complète de **livraison de repas**, **courses FasoRide**, et **envoi de colis FasoColis** à Ouagadougou.\n\n### Modules principaux\n| Module | Description |\n|--------|-------------|\n| **Authentication** | Inscription, connexion, OTP, rôles (CLIENT, BUSINESS_ADMIN, DRIVER, SUPER_ADMIN) |\n| **Businesses** | Gestion des commerces, branches multi-agences, statut ouvert/fermé |\n| **Products** | Catalogue produits par commerce, gestion stock, disponibilité |\n| **Orders** | Création, suivi FSM (PENDING → PROCESSING → IN_DELIVERY → DELIVERED), annulation |\n| **Dispatch** | Attribution automatique livreur, cascade, timeout 10 min, refus |\n| **Payments** | GeniusPay (Orange Money, Moov Money, Wave), webhooks, escrow |\n| **Wallets** | Portefeuille marchand/agence, crédits automatiques, retraits Mobile Money |\n| **Financial** | Settlement marchand, commission plateforme, rapports financiers |\n| **Analytics** | Statistiques par agence/marque, graphiques de ventes, comparaison branches |\n| **Driver** | Dashboard livreur, statut disponibilité, assignation, validation OTP |\n| **Reviews** | Notes et avis clients, modération |\n| **Disputes** | Réclamations client, résolution admin |\n| **Chat** | Messagerie client-livreur en temps réel (Socket.IO) |\n| **Subscriptions** | Forfaits marchands, KYC obligatoire avant approbation |\n| **Notifications** | Push FCM, email (Resend), WhatsApp Cloud API |\n| **Stories** | Stories éphémères restaurants (likes, vues) |\n| **Loyalty** | Points de fidélité, programme de récompenses |\n| **Promotions** | Codes promo, réductions |\n\n### Rôles et permissions\n| Rôle | Accès |\n|------|-------|\n| `SUPER_ADMIN` | Tous les endpoints, gestion utilisateurs, finances globales |\n| `BUSINESS_ADMIN` | Ses propres commerces/branches, commandes, analytics, wallet |\n| `DRIVER` | Commandes assignées, statut disponibilité, wallet retrait |\n| `CLIENT` | Passer commandes, réclamations, profil, adresses, fidélité |\n\n### Authentification\nTous les endpoints protégés nécessitent un token JWT dans le header `Authorization: Bearer <token>`.\nLe token contient `sub` (userId), `role`, et `brandId` (pour les marchands multi-agences).\n\n### Déploiement\n- **Backend** : Render (https://api.fasofree.site)\n- **Frontend Client** : Vercel (https://fasofree.site)\n- **Frontend Admin** : Vercel (https://admin.fasofree.site)\n- **Base de données** : PostgreSQL (Neon)\n- **Cache** : Redis (optionnel)\n- **Stockage fichiers** : Cloudinary",
     "version": "1.0.0",
-    "contact": {}
+    "contact": {
+      "name": "FasoFree",
+      "url": "https://fasofree.site",
+      "email": "contact@fasofree.site"
+    },
+    "license": {
+      "name": "Proprietary",
+      "url": "https://fasofree.site/cgu"
+    }
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Inscription, connexion, OTP, rôles utilisateur"
+    },
+    {
+      "name": "Users",
+      "description": "Gestion des comptes utilisateurs, profil, adresses"
+    },
+    {
+      "name": "Businesses",
+      "description": "Commerces, branches multi-agences, ownership"
+    },
+    {
+      "name": "Products",
+      "description": "Catalogue produits, stock, disponibilité"
+    },
+    {
+      "name": "Orders",
+      "description": "Commandes clients, suivi FSM, historique"
+    },
+    {
+      "name": "Dispatch",
+      "description": "Attribution livreur, cascade, timeout, refus"
+    },
+    {
+      "name": "Payments",
+      "description": "Paiements GeniusPay, Orange Money, Moov Money, Wave"
+    },
+    {
+      "name": "Wallets",
+      "description": "Portefeuilles marchand/livreur, crédits, retraits"
+    },
+    {
+      "name": "Financial",
+      "description": "Settlement marchand, commission, rapports financiers"
+    },
+    {
+      "name": "Analytics",
+      "description": "Statistiques ventes, graphiques, comparaison branches"
+    },
+    {
+      "name": "Reviews",
+      "description": "Notes et avis clients"
+    },
+    {
+      "name": "Disputes",
+      "description": "Réclamations client, résolution"
+    },
+    {
+      "name": "Chat",
+      "description": "Messagerie temps réel client-livreur"
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Forfaits marchands, abonnements"
+    },
+    {
+      "name": "Notifications",
+      "description": "Push, email, WhatsApp"
+    },
+    {
+      "name": "Stories",
+      "description": "Stories éphémères restaurants"
+    },
+    {
+      "name": "Loyalty",
+      "description": "Points de fidélité"
+    },
+    {
+      "name": "Promotions",
+      "description": "Codes promo, réductions"
+    },
+    {
+      "name": "Settings",
+      "description": "Configuration agence, tarification"
+    },
+    {
+      "name": "Tracking",
+      "description": "Suivi en temps réel des livraisons"
+    },
+    {
+      "name": "Addresses",
+      "description": "Adresses de livraison client"
+    },
+    {
+      "name": "Favorites",
+      "description": "Restaurants favoris client"
+    },
+    {
+      "name": "Uploads",
+      "description": "Upload fichiers vers Cloudinary"
+    },
+    {
+      "name": "Health",
+      "description": "Healthcheck, statut système"
+    },
+    {
+      "name": "Seed",
+      "description": "Données de test, re-seeding"
+    },
+    {
+      "name": "Ban Requests",
+      "description": "Demandes de bannissement"
+    },
+    {
+      "name": "Internal Chat",
+      "description": "Chat équipe admin"
+    },
+    {
+      "name": "OTP Verification",
+      "description": "Vérification OTP par email"
+    },
+    {
+      "name": "KYC",
+      "description": "Vérification identité marchands/livreurs"
+    },
+    {
+      "name": "Onboarding",
+      "description": "Candidature marchand/livreur"
+    },
+    {
+      "name": "GeniusPay",
+      "description": "Intégration paiement GeniusPay"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Webhooks paiement, WhatsApp"
+    }
+  ],
   "servers": [
     {
       "url": "/api/v1",
       "description": "Serveur courant"
+    },
+    {
+      "url": "/",
+      "description": "Base URL (sans préfixe)"
     }
   ],
   "components": {
@@ -2858,11 +6860,55 @@
         "bearerFormat": "JWT",
         "type": "http",
         "name": "Authorization",
-        "description": "Saisissez votre token JWT",
+        "description": "Token JWT obtenu via POST /auth/login ou POST /auth/register",
         "in": "header"
       }
     },
     "schemas": {
+      "UpdateProfileDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "preferredNotificationChannel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "WHATSAPP",
+              "SMS",
+              "PUSH"
+            ],
+            "description": "Canal de notification préféré"
+          }
+        }
+      },
+      "UpdatePaymentInfoDto": {
+        "type": "object",
+        "properties": {
+          "mobileMoneyNumber": {
+            "type": "string",
+            "description": "Numero Mobile Money pour les paiements/retraits",
+            "example": "+22670123456"
+          },
+          "mobileMoneyProvider": {
+            "type": "string",
+            "enum": [
+              "WAVE",
+              "ORANGE_MONEY",
+              "MOOV_MONEY",
+              "TELECEL_MONEY"
+            ],
+            "description": "Operateur Mobile Money"
+          }
+        }
+      },
       "UpdateDriverStatusDto": {
         "type": "object",
         "properties": {
@@ -2888,8 +6934,8 @@
           },
           "vehicleType": {
             "type": "string",
-            "description": "Type de véhicule : MOTO, SCOOTER, VTC, BICYCLE, FOOT",
-            "example": "MOTO"
+            "description": "Type de véhicule : BICYCLE, MOTORCYCLE, CAR",
+            "example": "MOTORCYCLE"
           }
         }
       },
@@ -2921,6 +6967,7 @@
               "courier",
               "driver",
               "business_admin",
+              "agency",
               "support",
               "admin",
               "super_admin"
@@ -2958,6 +7005,7 @@
               "courier",
               "driver",
               "business_admin",
+              "agency",
               "support",
               "admin",
               "super_admin"
@@ -2968,6 +7016,178 @@
         "required": [
           "role"
         ]
+      },
+      "CreateBanRequestDto": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "description": "ID de l'utilisateur à bannir"
+          },
+          "reason": {
+            "type": "string",
+            "example": "Comportement abusif répété envers les livreurs",
+            "description": "Raison détaillée de la demande de bannissement"
+          }
+        },
+        "required": [
+          "targetUserId",
+          "reason"
+        ]
+      },
+      "ReviewBanRequestDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ],
+            "example": "APPROVED"
+          },
+          "note": {
+            "type": "string",
+            "example": "Demande approuvée — motifs confirmés"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "UpdateFcmTokenDto": {
+        "type": "object",
+        "properties": {
+          "fcmToken": {
+            "type": "string",
+            "description": "Jeton FCM unique généré par l'application mobile",
+            "example": "f7a8b9c0_d1e2f3...:APA91bH..."
+          }
+        },
+        "required": [
+          "fcmToken"
+        ]
+      },
+      "CreateBusinessDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Restaurant Faso Délices"
+          },
+          "address": {
+            "type": "string",
+            "example": "1200, Ouagadougou"
+          },
+          "phone": {
+            "type": "string",
+            "example": "+22670000001"
+          },
+          "latitude": {
+            "type": "number",
+            "example": 12.3714
+          },
+          "longitude": {
+            "type": "number",
+            "example": -1.5197
+          },
+          "brandId": {
+            "type": "string",
+            "description": "Marque (Brand) à laquelle rattacher cette agence"
+          }
+        },
+        "required": [
+          "name",
+          "address",
+          "phone",
+          "latitude",
+          "longitude"
+        ]
+      },
+      "UpdateBusinessDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Nom du commerce"
+          },
+          "address": {
+            "type": "string",
+            "description": "Adresse"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Téléphone"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "RESTAURANT",
+              "SUPERMARKET",
+              "PHARMACY",
+              "RETAIL",
+              "BAKERY",
+              "SERVICES"
+            ],
+            "description": "Catégorie du commerce"
+          },
+          "enableDelivery": {
+            "type": "boolean",
+            "description": "Activer la livraison"
+          },
+          "enablePickup": {
+            "type": "boolean",
+            "description": "Activer Click & Collect"
+          },
+          "enableDineIn": {
+            "type": "boolean",
+            "description": "Activer consommation sur place"
+          },
+          "hasOwnDrivers": {
+            "type": "boolean",
+            "description": "Utiliser ses propres livreurs"
+          },
+          "isOpen": {
+            "type": "boolean",
+            "description": "Statut d'ouverture"
+          },
+          "latitude": {
+            "type": "number",
+            "description": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "description": "Longitude"
+          },
+          "brandId": {
+            "type": "string",
+            "description": "Marque (Brand) de rattachement"
+          },
+          "logo": {
+            "type": "string",
+            "description": "URL du logo du commerce"
+          },
+          "coverImage": {
+            "type": "string",
+            "description": "URL de l'image de couverture"
+          },
+          "mobileMoneyNumber": {
+            "type": "string",
+            "description": "Numero Mobile Money pour les retraits"
+          },
+          "mobileMoneyProvider": {
+            "type": "string",
+            "enum": [
+              "WAVE",
+              "ORANGE_MONEY",
+              "MOOV_MONEY",
+              "TELECEL_MONEY"
+            ],
+            "description": "Operateur Mobile Money"
+          }
+        }
       },
       "RegisterDto": {
         "type": "object",
@@ -2993,13 +7213,46 @@
           "referralCode": {
             "type": "string",
             "example": "AMINATA-7F3A"
+          },
+          "affiliateCode": {
+            "type": "string",
+            "example": "FF-9A3F1C",
+            "description": "Code de suivi marchand lu depuis le cookie `aff_code`"
+          },
+          "preferredNotificationChannel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "WHATSAPP",
+              "SMS",
+              "PUSH"
+            ],
+            "example": "EMAIL"
+          },
+          "acceptedDocs": {
+            "description": "Documents légaux acceptés (version courante requise) — obligatoire. CGU (FR-CGU-001) et politique de confidentialité (FR-PRIV-002) minimum.",
+            "example": [
+              {
+                "docCode": "FR-CGU-001",
+                "docVersion": "1.0"
+              },
+              {
+                "docCode": "FR-PRIV-002",
+                "docVersion": "1.0"
+              }
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "fullName",
           "email",
           "phone",
-          "password"
+          "password",
+          "acceptedDocs"
         ]
       },
       "ApplyDto": {
@@ -3065,9 +7318,40 @@
             "type": "string",
             "example": "BF123456"
           },
+          "hasAirConditioning": {
+            "type": "boolean",
+            "example": true,
+            "description": "Véhicule climatisé (pour FasoFree Ride)"
+          },
+          "vehicleCategory": {
+            "type": "string",
+            "enum": [
+              "BERLINE",
+              "SUV",
+              "PREMIUM"
+            ],
+            "example": "BERLINE",
+            "description": "Catégorie du véhicule (BERLINE / SUV / PREMIUM)"
+          },
           "referralCode": {
             "type": "string",
             "example": "AMINATA-7F3A"
+          },
+          "preferredNotificationChannel": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "WHATSAPP",
+              "SMS",
+              "PUSH"
+            ],
+            "example": "EMAIL",
+            "description": "Canal de notification préféré"
+          },
+          "acceptedDocsJson": {
+            "type": "string",
+            "description": "Documents légaux acceptés (JSON stringifié, version courante requise) — CGU (FR-CGU-001) et confidentialité (FR-PRIV-002) minimum.",
+            "example": "[{\"docCode\":\"FR-CGU-001\",\"docVersion\":\"1.0\"},{\"docCode\":\"FR-PRIV-002\",\"docVersion\":\"1.0\"}]"
           }
         },
         "required": [
@@ -3075,7 +7359,8 @@
           "email",
           "phone",
           "password",
-          "role"
+          "role",
+          "acceptedDocsJson"
         ]
       },
       "LoginDto": {
@@ -3084,7 +7369,7 @@
           "email": {
             "type": "string",
             "example": "client@fasofree.bf",
-            "format": "email"
+            "description": "Email ou numéro de téléphone"
           },
           "password": {
             "type": "string",
@@ -3314,6 +7599,141 @@
           "businessId"
         ]
       },
+      "ApprovePayoutDto": {
+        "type": "object",
+        "properties": {
+          "phoneNumber": {
+            "type": "string",
+            "example": "+22670000000",
+            "description": "Numéro Mobile Money où effectuer le transfert manuel"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ORANGE_MONEY",
+              "MOOV_MONEY",
+              "WAVE"
+            ],
+            "example": "ORANGE_MONEY",
+            "description": "Opérateur Mobile Money utilisé pour le transfert"
+          }
+        },
+        "required": [
+          "phoneNumber"
+        ]
+      },
+      "RequestWithdrawalDto": {
+        "type": "object",
+        "properties": {
+          "amountFcfa": {
+            "type": "number",
+            "example": 5000,
+            "description": "Montant à retirer en FCFA (Minimum 1000 FCFA)"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ORANGE_MONEY",
+              "MOOV_MONEY",
+              "WAVE"
+            ],
+            "example": "ORANGE_MONEY",
+            "description": "Opérateur Mobile Money de réception (virement exécuté via GeniusPay)"
+          },
+          "phoneNumber": {
+            "type": "string",
+            "example": "+22670000000",
+            "description": "Numéro Mobile Money de réception"
+          },
+          "branchId": {
+            "type": "string",
+            "description": "ID de l'agence (wallet par agence). Si omis, débite le wallet global."
+          }
+        },
+        "required": [
+          "amountFcfa",
+          "provider",
+          "phoneNumber"
+        ]
+      },
+      "DeliveryTierDto": {
+        "type": "object",
+        "properties": {
+          "minKm": {
+            "type": "number",
+            "example": 0
+          },
+          "maxKm": {
+            "type": "object",
+            "example": 15,
+            "description": "null pour le dernier palier (illimite)"
+          },
+          "price": {
+            "type": "number",
+            "example": 1750,
+            "description": "Prix fixe du palier en FCFA"
+          },
+          "label": {
+            "type": "string",
+            "example": "0-15 km"
+          }
+        }
+      },
+      "UpdateSettingsDto": {
+        "type": "object",
+        "properties": {
+          "platformFee": {
+            "type": "number",
+            "example": 100,
+            "description": "Frais de plateforme (FCFA)"
+          },
+          "deliveryPricing": {
+            "type": "object",
+            "description": "Tarifs livraison par véhicule (legacy, obsolète)"
+          },
+          "deliveryTiers": {
+            "description": "Tranches tarifaires livraison (paliers de distance)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeliveryTierDto"
+            }
+          },
+          "fasoRidePricing": {
+            "type": "object",
+            "description": "Tarifs FasoFree Ride par confort (JSON)"
+          },
+          "enableScheduling": {
+            "type": "boolean"
+          },
+          "enableBulkOrders": {
+            "type": "boolean"
+          },
+          "maxDeliveryRadius": {
+            "type": "number",
+            "example": 15
+          },
+          "isPayoutFeeActive": {
+            "type": "boolean",
+            "example": false,
+            "description": "Activer les frais de retrait"
+          },
+          "payoutFeePercentage": {
+            "type": "number",
+            "example": 1.5,
+            "description": "Pourcentage de frais de retrait (0-100)"
+          },
+          "payoutFreeThreshold": {
+            "type": "number",
+            "example": 20000,
+            "description": "Seuil en dessous duquel les frais sont gratuits (FCFA)"
+          },
+          "storiesPassEnabled": {
+            "type": "boolean",
+            "example": false,
+            "description": "Activer le Pass Stories (forfait 5000 FCFA/30j) — collaboration, suspendu par défaut"
+          }
+        }
+      },
       "ReviewKycDto": {
         "type": "object",
         "properties": {
@@ -3323,102 +7743,47 @@
           }
         }
       },
-      "CreateBusinessDto": {
+      "RecordAcceptanceDto": {
         "type": "object",
         "properties": {
-          "name": {
+          "docCode": {
             "type": "string",
-            "example": "Restaurant Faso Délices"
+            "example": "FR-CGU-001"
           },
-          "address": {
+          "docVersion": {
             "type": "string",
-            "example": "1200, Ouagadougou"
+            "example": "1.0"
           },
-          "phone": {
+          "mechanism": {
             "type": "string",
-            "example": "+22670000001"
+            "enum": [
+              "case-a-cocher"
+            ],
+            "example": "case-a-cocher"
           },
-          "latitude": {
-            "type": "number",
-            "example": 12.3714
-          },
-          "longitude": {
-            "type": "number",
-            "example": -1.5197
-          },
-          "brandId": {
+          "source": {
             "type": "string",
-            "description": "Marque (Brand) à laquelle rattacher cette agence"
+            "example": "web",
+            "description": "Contexte : web, mobile, dashboard…"
           }
         },
         "required": [
-          "name",
-          "address",
-          "phone",
-          "latitude",
-          "longitude"
+          "docCode",
+          "docVersion"
         ]
       },
-      "UpdateBusinessDto": {
+      "SignContractDto": {
         "type": "object",
         "properties": {
-          "name": {
+          "code": {
             "type": "string",
-            "description": "Nom du commerce"
-          },
-          "address": {
-            "type": "string",
-            "description": "Adresse"
-          },
-          "phone": {
-            "type": "string",
-            "description": "Téléphone"
-          },
-          "category": {
-            "type": "string",
-            "enum": [
-              "RESTAURANT",
-              "SUPERMARKET",
-              "PHARMACY",
-              "RETAIL",
-              "BAKERY",
-              "SERVICES"
-            ],
-            "description": "Catégorie du commerce"
-          },
-          "enableDelivery": {
-            "type": "boolean",
-            "description": "Activer la livraison"
-          },
-          "enablePickup": {
-            "type": "boolean",
-            "description": "Activer Click & Collect"
-          },
-          "enableDineIn": {
-            "type": "boolean",
-            "description": "Activer consommation sur place"
-          },
-          "hasOwnDrivers": {
-            "type": "boolean",
-            "description": "Utiliser ses propres livreurs"
-          },
-          "isOpen": {
-            "type": "boolean",
-            "description": "Statut d'ouverture"
-          },
-          "latitude": {
-            "type": "number",
-            "description": "Latitude"
-          },
-          "longitude": {
-            "type": "number",
-            "description": "Longitude"
-          },
-          "brandId": {
-            "type": "string",
-            "description": "Marque (Brand) de rattachement"
+            "example": "123456",
+            "description": "Code OTP à 6 chiffres reçu par email/SMS"
           }
-        }
+        },
+        "required": [
+          "code"
+        ]
       },
       "CreateProductDto": {
         "type": "object",
@@ -3445,10 +7810,36 @@
             "type": "string",
             "example": "Plats"
           },
+          "type": {
+            "type": "string",
+            "example": "plat",
+            "description": "Type de produit (plat, boisson, dessert...)"
+          },
+          "sku": {
+            "type": "string",
+            "example": "PLT-001",
+            "description": "Référence SKU unique"
+          },
           "isAvailable": {
             "type": "boolean",
             "example": true,
             "default": true
+          },
+          "trackInventory": {
+            "type": "boolean",
+            "example": true,
+            "default": true,
+            "description": "Activer la gestion du stock"
+          },
+          "stockQuantity": {
+            "type": "number",
+            "example": 50,
+            "default": 0
+          },
+          "minStockAlert": {
+            "type": "number",
+            "example": 10,
+            "description": "Seuil d'alerte stock bas"
           },
           "businessId": {
             "type": "string",
@@ -3486,11 +7877,136 @@
             "type": "string",
             "example": "Plats"
           },
+          "type": {
+            "type": "string",
+            "example": "plat"
+          },
+          "sku": {
+            "type": "string",
+            "example": "PLT-001"
+          },
           "isAvailable": {
             "type": "boolean",
             "example": true
+          },
+          "trackInventory": {
+            "type": "boolean",
+            "example": true
+          },
+          "stockQuantity": {
+            "type": "number",
+            "example": 50
+          },
+          "minStockAlert": {
+            "type": "number",
+            "example": 10
           }
         }
+      },
+      "ImportProductDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Tiep djené"
+          },
+          "description": {
+            "type": "string",
+            "example": "Riz brun avec sauce gombo"
+          },
+          "price": {
+            "type": "number",
+            "example": 1500
+          },
+          "category": {
+            "type": "string",
+            "example": "Plats principaux"
+          },
+          "type": {
+            "type": "string",
+            "example": "plat"
+          },
+          "imageUrl": {
+            "type": "string",
+            "example": "https://cdn.example.com/tiep.jpg"
+          }
+        },
+        "required": [
+          "name",
+          "price"
+        ]
+      },
+      "ImportCategoryDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Plats principaux"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportProductDto"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "products"
+        ]
+      },
+      "ConfirmImportDto": {
+        "type": "object",
+        "properties": {
+          "businessId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImportCategoryDto"
+            }
+          },
+          "setAvailable": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "businessId",
+          "categories"
+        ]
+      },
+      "OrderItemDto": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "description": "Identifiant du produit"
+          },
+          "productName": {
+            "type": "string",
+            "description": "Nom du produit (pour le reçu)"
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Quantité commandée",
+            "example": 2,
+            "minimum": 1
+          },
+          "unitPrice": {
+            "type": "number",
+            "description": "Prix unitaire en FCFA",
+            "example": 2500
+          }
+        },
+        "required": [
+          "productId",
+          "productName",
+          "quantity",
+          "unitPrice"
+        ]
       },
       "P2PLocationDto": {
         "type": "object",
@@ -3587,15 +8103,21 @@
         "properties": {
           "businessId": {
             "type": "string",
-            "description": "Identifiant UUID unique de la boutique / du commerce (optionnel pour P2P)",
-            "format": "uuid",
+            "description": "Identifiant du commerce (optionnel pour P2P)",
             "example": "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
           },
           "totalAmount": {
             "type": "number",
-            "description": "Montant total de la commande en FCFA (XOF)",
+            "description": "Montant total de la commande en FCFA (XOF). Optionnel pour P2P_DELIVERY et RIDE (recalculé backend).",
             "example": 5000,
             "minimum": 0
+          },
+          "items": {
+            "description": "Articles de la commande (pour les commandes MERCHANT)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItemDto"
+            }
           },
           "deliveryLatitude": {
             "type": "number",
@@ -3606,6 +8128,10 @@
             "type": "number",
             "description": "Coordonnée GPS Longitude de livraison à Ouagadougou",
             "example": -1.5197
+          },
+          "landmark": {
+            "type": "string",
+            "description": "Repere local pour la livraison (ex: a cote de la pharmacie X)"
           },
           "orderType": {
             "type": "string",
@@ -3670,10 +8196,29 @@
                 "$ref": "#/components/schemas/PackageDetailsDto"
               }
             ]
+          },
+          "rideOption": {
+            "type": "string",
+            "description": "Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)",
+            "enum": [
+              "ECONOMY",
+              "COMFORT",
+              "PREMIUM"
+            ]
+          },
+          "paymentMethod": {
+            "type": "string",
+            "description": "Mode de paiement: cash, orange_money, moov_money, wave. Si cash, la commande est marquée PAID immédiatement.",
+            "example": "cash",
+            "enum": [
+              "cash",
+              "orange_money",
+              "moov_money",
+              "wave"
+            ]
           }
         },
         "required": [
-          "totalAmount",
           "orderType"
         ]
       },
@@ -3695,8 +8240,7 @@
           },
           "businessId": {
             "type": "string",
-            "description": "Identifiant UUID de la boutique (optionnel si businessLatitude/businessLongitude fournis, inutile pour P2P)",
-            "format": "uuid"
+            "description": "Identifiant du boutique (optionnel si businessLatitude/businessLongitude fournis)"
           },
           "deliveryLatitude": {
             "type": "number",
@@ -3739,6 +8283,15 @@
                 "$ref": "#/components/schemas/P2PLocationDto"
               }
             ]
+          },
+          "rideOption": {
+            "type": "string",
+            "description": "Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)",
+            "enum": [
+              "ECONOMY",
+              "COMFORT",
+              "PREMIUM"
+            ]
           }
         },
         "required": [
@@ -3753,9 +8306,13 @@
             "description": "Nouveau statut à appliquer à la commande",
             "enum": [
               "PENDING",
+              "AWAITING_PAYMENT",
               "PAID",
               "IN_PREPARATION",
+              "READY_FOR_PICKUP",
+              "DRIVER_ASSIGNED",
               "PROCESSING",
+              "IN_DELIVERY",
               "DELIVERED_PENDING_CONFIRMATION",
               "DELIVERED",
               "COMPLETED",
@@ -3786,10 +8343,10 @@
         "properties": {
           "pinCode": {
             "type": "string",
-            "description": "Code PIN à 4 chiffres fourni au client lors de la création de la commande",
-            "example": "4829",
-            "minLength": 4,
-            "maxLength": 4
+            "description": "Code PIN à 6 chiffres reçu avec la commande (envoyé au client à la création et à la livraison)",
+            "example": "482913",
+            "minLength": 6,
+            "maxLength": 6
           }
         },
         "required": [
@@ -3803,10 +8360,16 @@
             "type": "string",
             "description": "Raison du litige",
             "example": "Commande non reçue malgré la confirmation du livreur"
+          },
+          "password": {
+            "type": "string",
+            "description": "Mot de passe actuel pour confirmer la soumission du litige",
+            "example": "MonMotDePasse123"
           }
         },
         "required": [
-          "reason"
+          "reason",
+          "password"
         ]
       },
       "InitiatePaymentDto": {
@@ -3821,9 +8384,12 @@
             "enum": [
               "orange_money",
               "moov_money",
+              "telecel_money",
+              "wave",
               "card",
               "cash"
-            ]
+            ],
+            "description": "Mode de paiement (normalisé en minuscules)"
           },
           "phoneNumber": {
             "type": "string",
@@ -3859,105 +8425,17 @@
           "customerEmail"
         ]
       },
-      "PayOrderDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "string",
-            "example": "a1b2c3d4-0000-4000-8000-000000000001",
-            "description": "ID de la commande à payer (simulation)"
-          }
-        },
-        "required": [
-          "orderId"
-        ]
-      },
-      "CreatePayinDto": {
-        "type": "object",
-        "properties": {
-          "orderId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "amount": {
-            "type": "number",
-            "example": 5000,
-            "minimum": 100
-          },
-          "customerName": {
-            "type": "string",
-            "example": "Aminata Ouédraogo"
-          },
-          "customerEmail": {
-            "type": "string",
-            "example": "aminata@fasofree.bf",
-            "format": "email"
-          }
-        },
-        "required": [
-          "orderId",
-          "amount",
-          "customerName",
-          "customerEmail"
-        ]
-      },
-      "LigdiCashCustomData": {
-        "type": "object",
-        "properties": {}
-      },
-      "LigdiCashWebhookDto": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "response_code": {
-            "type": "string",
-            "example": "00"
-          },
-          "response_text": {
-            "type": "string"
-          },
-          "custom_data": {
-            "example": {
-              "orderId": "uuid"
-            },
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/LigdiCashCustomData"
-              }
-            ]
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "completed",
-              "failed",
-              "pending"
-            ]
-          },
-          "operator_id": {
-            "type": "string"
-          },
-          "transaction_id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "token",
-          "response_code",
-          "response_text",
-          "custom_data",
-          "status",
-          "transaction_id"
-        ]
-      },
       "CreateDisputeDto": {
         "type": "object",
         "properties": {
           "reason": {
             "type": "string",
             "example": "Commande non reçue malgré la confirmation du livreur."
+          },
+          "password": {
+            "type": "string",
+            "example": "MonMotDePasse123",
+            "description": "Mot de passe actuel pour confirmer la soumission du litige."
           },
           "attachments": {
             "description": "Clés S3 déjà téléversées via le module Upload.",
@@ -3968,8 +8446,17 @@
           }
         },
         "required": [
-          "reason"
+          "reason",
+          "password"
         ]
+      },
+      "SendDisputeMessageDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "MerchantRefundDto": {
+        "type": "object",
+        "properties": {}
       },
       "ReviewDisputeDto": {
         "type": "object",
@@ -3994,20 +8481,58 @@
           "resolution"
         ]
       },
-      "UpdateFcmTokenDto": {
+      "CreateBrandDto": {
         "type": "object",
         "properties": {
-          "fcmToken": {
+          "name": {
             "type": "string",
-            "description": "Jeton FCM unique généré par l'application mobile",
-            "example": "f7a8b9c0_d1e2f3...:APA91bH..."
+            "example": "Faso Délices"
+          },
+          "description": {
+            "type": "string",
+            "example": "Restaurants & livraison à Ouagadougou"
+          },
+          "logoUrl": {
+            "type": "string",
+            "example": "https://cdn.fasofree.com/logos/logo.png"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Propriétaire de la marque (optionnel, défaut : créateur)"
           }
         },
         "required": [
-          "fcmToken"
+          "name"
         ]
       },
+      "UpdateBrandDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "Faso Délices"
+          },
+          "description": {
+            "type": "string"
+          },
+          "logoUrl": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string",
+            "description": "Propriétaire de la marque"
+          }
+        }
+      },
       "CreatePromotionDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "CreateAgencyDto": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateAgencyDto": {
         "type": "object",
         "properties": {}
       },
@@ -4100,48 +8625,116 @@
           "reason"
         ]
       },
-      "CreateBrandDto": {
+      "CreateAddressDto": {
         "type": "object",
         "properties": {
-          "name": {
+          "label": {
             "type": "string",
-            "example": "Faso Délices"
+            "example": "Domicile"
           },
-          "description": {
+          "address": {
             "type": "string",
-            "example": "Restaurants & livraison à Ouagadougou"
+            "example": "Ouaga 2000, Zone 4, Lot 12"
           },
-          "logoUrl": {
-            "type": "string",
-            "example": "https://cdn.fasofree.com/logos/logo.png"
+          "latitude": {
+            "type": "number",
+            "example": 12.3714
           },
-          "ownerId": {
-            "type": "string",
-            "description": "Propriétaire de la marque (optionnel, défaut : créateur)"
+          "longitude": {
+            "type": "number",
+            "example": -1.5197
+          },
+          "isDefault": {
+            "type": "boolean",
+            "example": false
           }
         },
         "required": [
-          "name"
+          "label",
+          "address"
         ]
       },
-      "UpdateBrandDto": {
+      "UpdateAddressDto": {
         "type": "object",
         "properties": {
-          "name": {
-            "type": "string",
-            "example": "Faso Délices"
-          },
-          "description": {
+          "label": {
             "type": "string"
           },
-          "logoUrl": {
+          "address": {
             "type": "string"
           },
-          "ownerId": {
-            "type": "string",
-            "description": "Propriétaire de la marque"
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          },
+          "isDefault": {
+            "type": "boolean"
           }
         }
+      },
+      "AskAssistantDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "example": "Quel plat me conseilles-tu ?",
+            "description": "Question posée à l'assistant"
+          },
+          "businessId": {
+            "type": "string",
+            "example": "3d1f6d8e-62c0-4c7a-9f88-2d0b0c8a91e4",
+            "description": "ID du restaurant actuellement affiché — permet des conseils sur son menu réel"
+          }
+        },
+        "required": [
+          "question"
+        ]
+      },
+      "VoiceActionDto": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "description": "Texte transcrit de la voix de l’utilisateur"
+          },
+          "businessId": {
+            "type": "string",
+            "description": "Contexte restaurant courant (optionnel)"
+          }
+        },
+        "required": [
+          "question"
+        ]
+      },
+      "CreatePushCampaignDto": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "example": "Livraison offerte ce week-end"
+          },
+          "body": {
+            "type": "string",
+            "example": "Profitez de la livraison offerte jusqu’à dimanche."
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "ALL",
+              "CLIENT",
+              "DRIVER",
+              "MERCHANT"
+            ],
+            "default": "ALL"
+          }
+        },
+        "required": [
+          "title",
+          "body",
+          "target"
+        ]
       }
     }
   }

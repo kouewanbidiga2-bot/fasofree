@@ -22,7 +22,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getPendingDisputes } from '../services/financialService';
-import { getUsers, getBanRequests, reviewBanRequest } from '../services/usersService';
+import { getPlatformStats, getBanRequests, reviewBanRequest } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import { getBusinesses } from '../services/subscriptionService';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
@@ -41,6 +41,8 @@ const SupportDashboard = () => {
     totalClients: 0,
     totalDrivers: 0,
     activeMerchants: 0,
+    pendingMerchants: 0,
+    agencies: 0,
   });
 
   // Pending disputes (badge de l'onglet)
@@ -81,19 +83,14 @@ const SupportDashboard = () => {
   const loadPlatformStats = useCallback(async () => {
     setLoading(prev => ({ ...prev, platform: true }));
     try {
-      const [usersData, businessesData] = await Promise.all([
-        getUsers(),
-        getBusinesses(),
-      ]);
-      const list = Array.isArray(usersData) ? usersData : [];
-      const merchants = Array.isArray(businessesData) ? businessesData : [];
-      const countRole = (r) =>
-        list.filter((u) => String(u.role).toLowerCase().replace('-', '_') === r).length;
+      const stats = await getPlatformStats();
       setPlatformStats({
-        totalMerchants: merchants.length,
-        totalClients: countRole('client') + countRole('customer'),
-        totalDrivers: countRole('driver') + countRole('courier'),
-        activeMerchants: merchants.filter((b) => b.isActive !== false).length,
+        totalMerchants: stats.merchants,
+        totalClients: stats.clients,
+        totalDrivers: stats.drivers,
+        activeMerchants: stats.approvedMerchants,
+        pendingMerchants: stats.pendingMerchants,
+        agencies: stats.agencies,
       });
     } catch (err) {
       // Silent fail
@@ -101,6 +98,13 @@ const SupportDashboard = () => {
       setLoading(prev => ({ ...prev, platform: false }));
     }
   }, []);
+
+  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes pour refléter
+  // les nouvelles candidatures/validations en temps réel.
+  useEffect(() => {
+    const interval = setInterval(loadPlatformStats, 30_000);
+    return () => clearInterval(interval);
+  }, [loadPlatformStats]);
 
   const loadPendingDisputes = useCallback(async () => {
     setLoading(prev => ({ ...prev, pending: true }));
