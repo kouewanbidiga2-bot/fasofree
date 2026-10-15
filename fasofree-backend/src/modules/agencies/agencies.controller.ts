@@ -49,18 +49,20 @@ export class AgenciesController {
     return this.agenciesService.listAll();
   }
 
+  // ✍️ Création ouverte à ADMIN et SUPPORT : le support crée au quotidien les
+// agences de livraison partenaires, il ne doit pas dépendre d'un admin.
   @Post()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @Audited({ action: 'agency.create', entityType: 'AGENCY' })
-  @ApiOperation({ summary: 'Créer une entreprise de livraison (ADMIN / SUPER_ADMIN)' })
+  @ApiOperation({ summary: 'Créer une entreprise de livraison (ADMIN / SUPPORT / SUPER_ADMIN)' })
   async create(@Body() dto: CreateAgencyDto) {
     return this.agenciesService.create(dto);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
   @Audited({ action: 'agency.update', entityType: 'AGENCY', entityParam: 'id' })
   @ApiOperation({ summary: 'Mettre à jour une agence (commission, zones, actif…)' })
   async update(@Param('id') id: string, @Body() dto: UpdateAgencyDto) {

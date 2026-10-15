@@ -1064,7 +1064,7 @@ const SupportDashboard = () => {
 
         {activeTab === 'agencies' && (
           <div className="animate-slide-up">
-            <AgenciesTab canManage={false} />
+            <AgenciesTab canManage />
           </div>
         )}
 

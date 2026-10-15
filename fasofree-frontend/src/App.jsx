@@ -9,6 +9,7 @@ import PhoneAuth from './pages/PhoneAuth';
 import Unauthorized from './pages/Unauthorized';
 import ContractSignature from './pages/ContractSignature';
 import LegalDocPage from './pages/LegalDocPage';
+import PushRegistration from './components/PushRegistration';
 
 // 2. LAZY LOADING avec retry auto (fix page noire après deploy Vercel)
 const BusinessAdminDashboard = retryLazy(() => import('./dashboard/BusinessAdminDashboard'));
@@ -23,6 +24,8 @@ const AgencyDashboard = retryLazy(() => import('./dashboard/AgencyDashboard'));
 function App() {
   return (
     <Router>
+      {/* Inerte au lancement : le push n'est actif que si VITE_PUSH_ENABLED=true. */}
+      <PushRegistration />
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* ROUTE PAR DÉFAUT */}
