@@ -661,32 +661,44 @@ export class UsersService implements OnModuleInit {
     supportAgents: number;
     admins: number;
     activeUsers: number;
+    bannedUsers: number;
+    onlineUsers: number;
     generatedAt: string;
   }> {
-    const [totalUsers, byRole, pendingByStatus, activeUsers] = await Promise.all([
-      this.userRepository.createQueryBuilder('u').getCount(),
-      // ⚠️ `role` est un ENUM PostgreSQL ("users_role_enum") : `LOWER(u.role)`
-      // lève `function lower(users_role_enum) does not exist`. Il faut donc
-      // caster explicitement en texte AVANT de comparer en minuscules — sinon
-      // tout l'endpoint part en 500 et les compteurs du dashboard restent à 0.
-      this.userRepository
-        .createQueryBuilder('u')
-        .select('LOWER(CAST(u.role AS text))', 'role')
-        .addSelect('COUNT(*)', 'count')
-        .groupBy('LOWER(CAST(u.role AS text))')
-        .getRawMany<{ role: string; count: string }>(),
-      this.userRepository
-        .createQueryBuilder('u')
-        .select('u.applicationStatus', 'status')
-        .addSelect('COUNT(*)', 'count')
-        .where('u.applicationStatus IS NOT NULL')
-        .groupBy('u.applicationStatus')
-        .getRawMany<{ status: string; count: string }>(),
-      this.userRepository
-        .createQueryBuilder('u')
-        .where('u.isActive = true')
-        .getCount(),
-    ]);
+    const [totalUsers, byRole, pendingByStatus, activeUsers, bannedUsers, onlineUsers] =
+      await Promise.all([
+        this.userRepository.createQueryBuilder('u').getCount(),
+        // ⚠️ `role` est un ENUM PostgreSQL ("users_role_enum") : `LOWER(u.role)`
+        // lève `function lower(users_role_enum) does not exist`. Il faut donc
+        // caster explicitement en texte AVANT de comparer en minuscules — sinon
+        // tout l'endpoint part en 500 et les compteurs du dashboard restent à 0.
+        this.userRepository
+          .createQueryBuilder('u')
+          .select('LOWER(CAST(u.role AS text))', 'role')
+          .addSelect('COUNT(*)', 'count')
+          .groupBy('LOWER(CAST(u.role AS text))')
+          .getRawMany<{ role: string; count: string }>(),
+        this.userRepository
+          .createQueryBuilder('u')
+          .select('u.applicationStatus', 'status')
+          .addSelect('COUNT(*)', 'count')
+          .where('u.applicationStatus IS NOT NULL')
+          .groupBy('u.applicationStatus')
+          .getRawMany<{ status: string; count: string }>(),
+        this.userRepository
+          .createQueryBuilder('u')
+          .where('u.isActive = true')
+          .getCount(),
+        this.userRepository
+          .createQueryBuilder('u')
+          .where('(u.isActive = false OR u.bannedAt IS NOT NULL)')
+          .getCount(),
+        this.userRepository
+          .createQueryBuilder('u')
+          .where('u.isActive = true')
+          .andWhere('u.isOnline = true')
+          .getCount(),
+      ]);
 
     const roleCount = (role: UserRole) =>
       Number(byRole.find((r) => r.role.toLowerCase() === role.toLowerCase())?.count ?? 0);
@@ -711,6 +723,8 @@ export class UsersService implements OnModuleInit {
       supportAgents: roleCount(UserRole.SUPPORT),
       admins: roleCount(UserRole.ADMIN) + roleCount(UserRole.SUPER_ADMIN),
       activeUsers,
+      bannedUsers,
+      onlineUsers,
       generatedAt: new Date().toISOString(),
     };
   }

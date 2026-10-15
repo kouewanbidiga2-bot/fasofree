@@ -105,6 +105,9 @@ const SuperAdminDashboard = () => {
     activeMerchants: 0,
     pendingMerchants: 0,
     suspendedAccounts: 0,
+    bannedUsers: 0,
+    onlineUsers: 0,
+    totalUsers: 0,
   });
 
   // Pending validations
@@ -427,11 +430,14 @@ const SuperAdminDashboard = () => {
       const stats = await getPlatformStats();
       setPlatformStats(prev => ({
         ...prev,
-        totalMerchants: stats.merchants,
-        totalClients: stats.clients,
-        totalDrivers: stats.drivers,
-        activeMerchants: stats.approvedMerchants,
-        pendingMerchants: stats.pendingMerchants,
+        totalMerchants: stats.merchants ?? prev.totalMerchants,
+        totalClients: stats.clients ?? prev.totalClients,
+        totalDrivers: stats.drivers ?? prev.totalDrivers,
+        activeMerchants: stats.approvedMerchants ?? prev.activeMerchants,
+        pendingMerchants: stats.pendingMerchants ?? prev.pendingMerchants,
+        bannedUsers: stats.bannedUsers ?? prev.bannedUsers,
+        onlineUsers: stats.onlineUsers ?? prev.onlineUsers,
+        totalUsers: stats.totalUsers ?? prev.totalUsers,
       }));
     } catch {
       // Silencieux : on conserve les dernières valeurs connues.
@@ -445,9 +451,10 @@ const SuperAdminDashboard = () => {
   const loadUsers = useCallback(async () => {
     setLoading(prev => ({ ...prev, users: true }));
     try {
-      const [usersData, businessesData] = await Promise.all([
+      const [usersData, businessesData, statsData] = await Promise.all([
         getUsers({ limit: 1000 }),
         getBusinesses(),
+        getPlatformStats(),
       ]);
       const list = Array.isArray(usersData)
         ? usersData
@@ -460,6 +467,9 @@ const SuperAdminDashboard = () => {
       setPlatformStats(prev => ({
         ...prev,
         suspendedAccounts: list.filter((u) => u.isActive === false).length,
+        bannedUsers: statsData?.bannedUsers ?? (prev.bannedUsers ?? list.filter((u) => (u.isActive === false) || u.bannedAt).length),
+        onlineUsers: statsData?.onlineUsers ?? (prev.onlineUsers ?? list.filter((u) => u.isActive !== false && u.isOnline).length),
+        totalUsers: statsData?.totalUsers ?? (prev.totalUsers ?? list.length),
       }));
       setUsersMsg(null);
     } catch (err) {
@@ -1268,6 +1278,37 @@ const SuperAdminDashboard = () => {
                 icon={Shield}
                 color="#EF4444"
                 loading={loading.kyc}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Utilisateurs Inscrits"
+                value={platformStats.totalUsers}
+                icon={Users}
+                color="#6366F1"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Comptes Bannís"
+                value={platformStats.bannedUsers}
+                icon={Ban}
+                color="#EF4444"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="En Ligne"
+                value={platformStats.onlineUsers}
+                icon={Activity}
+                color="#22C55E"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Comptes Suspendus"
+                value={platformStats.suspendedAccounts}
+                icon={AlertCircle}
+                color="#F59E0B"
+                loading={loading.platform}
               />
             </div>
 
