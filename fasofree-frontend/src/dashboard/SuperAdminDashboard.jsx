@@ -419,14 +419,35 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
-  // Utilisateurs + statistiques plateforme (données réelles)
-  const loadUsers = useCallback(async () => {
-    setLoading(prev => ({ ...prev, users: true, platform: true }));
+  // Statistiques plateforme (vue globale) — chargées INDÉPENDAMMENT de la liste
+  // des utilisateurs : une erreur sur l'une ne doit jamais mettre l'autre à 0.
+  const loadPlatformStats = useCallback(async () => {
+    setLoading(prev => ({ ...prev, platform: true }));
     try {
-      const [usersData, businessesData, stats] = await Promise.all([
-        getUsers({ limit: 200 }),
+      const stats = await getPlatformStats();
+      setPlatformStats(prev => ({
+        ...prev,
+        totalMerchants: stats.merchants,
+        totalClients: stats.clients,
+        totalDrivers: stats.drivers,
+        activeMerchants: stats.approvedMerchants,
+        pendingMerchants: stats.pendingMerchants,
+      }));
+    } catch {
+      // Silencieux : on conserve les dernières valeurs connues.
+    } finally {
+      setLoading(prev => ({ ...prev, platform: false }));
+    }
+  }, []);
+
+  // Utilisateurs + commerces (données réelles). On charge large (1000) pour que
+  // le SUPER_ADMIN voie TOUS les comptes, pas seulement les 200 plus récents.
+  const loadUsers = useCallback(async () => {
+    setLoading(prev => ({ ...prev, users: true }));
+    try {
+      const [usersData, businessesData] = await Promise.all([
+        getUsers({ limit: 1000 }),
         getBusinesses(),
-        getPlatformStats(),
       ]);
       const list = Array.isArray(usersData)
         ? usersData
@@ -436,29 +457,26 @@ const SuperAdminDashboard = () => {
       const merchants = Array.isArray(businessesData) ? businessesData : [];
       setUsers(list);
       setBusinesses(merchants);
-      const countRole = (r) =>
-        list.filter((u) => String(u.role).toLowerCase().replace('-', '_') === r).length;
-      setPlatformStats({
-        totalMerchants: stats.merchants,
-        totalClients: stats.clients,
-        totalDrivers: stats.drivers,
-        activeMerchants: stats.approvedMerchants,
-        pendingMerchants: stats.pendingMerchants,
+      setPlatformStats(prev => ({
+        ...prev,
         suspendedAccounts: list.filter((u) => u.isActive === false).length,
-      });
+      }));
       setUsersMsg(null);
     } catch (err) {
       setUsersMsg({ type: 'error', text: err.message });
     } finally {
-      setLoading(prev => ({ ...prev, users: false, platform: false }));
+      setLoading(prev => ({ ...prev, users: false }));
     }
   }, []);
 
-  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes.
+  // 🔄 Polling : rafraîchir la vue globale + les utilisateurs toutes les 30 s.
   useEffect(() => {
-    const interval = setInterval(loadUsers, 30_000);
+    const interval = setInterval(() => {
+      loadPlatformStats();
+      loadUsers();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [loadUsers]);
+  }, [loadPlatformStats, loadUsers]);
 
   // ─── Push Campaigns ───
   const loadPushCampaigns = useCallback(async () => {
@@ -535,12 +553,13 @@ const SuperAdminDashboard = () => {
     loadPendingValidations();
     loadKyc();
     loadUsers();
+    loadPlatformStats();
     loadBanRequests();
     loadSettings();
     loadConversations();
     loadPushCampaigns();
     loadAffiliateGlobal();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadBanRequests, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
 
   // 🏢 Charger les agences quand l'onglet est ouvert
   useEffect(() => {
@@ -557,6 +576,7 @@ const SuperAdminDashboard = () => {
       loadFinancialStats();
       loadFinancialOverview();
       loadUsers();
+      loadPlatformStats();
     };
     socket.on('orderStatusChanged', onStatusChanged);
 
@@ -566,6 +586,7 @@ const SuperAdminDashboard = () => {
         loadFinancialStats();
         loadFinancialOverview();
         loadUsers();
+        loadPlatformStats();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -574,7 +595,7 @@ const SuperAdminDashboard = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
     };
-  }, [loadFinancialStats, loadFinancialOverview, loadUsers]);
+  }, [loadFinancialStats, loadFinancialOverview, loadUsers, loadPlatformStats]);
 
   useEffect(() => {
     return () => {

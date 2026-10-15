@@ -161,6 +161,18 @@ async function bootstrap() {
   const globalPrefix = 'api/v1';
   app.setGlobalPrefix(globalPrefix, { exclude: ['r'] });
 
+  // 7bis. Root probe (Render / uptime health-checks). The global prefix does
+  // not cover `/`, so every `HEAD /` ping used to log `Cannot HEAD /` (404).
+  const httpServer = app.getHttpAdapter().getInstance();
+  httpServer.get('/', (_req: unknown, res: any) =>
+    res.json({
+      name: 'FasoFree API',
+      status: 'operational',
+      docs: '/api/docs',
+    }),
+  );
+  httpServer.head('/', (_req: unknown, res: any) => res.status(200).end());
+
   // 8. Documentation OpenAPI / Swagger (UX Améliorée)
   const swaggerConfig = new DocumentBuilder()
     .setTitle('FasoFree API')

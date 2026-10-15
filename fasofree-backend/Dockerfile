@@ -1,5 +1,7 @@
 # ── Stage 1: Build ──────────────────────────────────────────
-FROM node:20-alpine AS builder
+# ⚠️ Node 24 (LTS) : requis par firebase-admin@14 (>=22) et lint-staged@17
+# (>=22.22.1). L'image node:20 provoquait des warnings EBADENGINE à chaque build.
+FROM node:24-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -10,7 +12,7 @@ COPY src ./src
 RUN npm run build
 
 # ── Stage 2: Production ─────────────────────────────────────
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 RUN apk add --no-cache dumb-init

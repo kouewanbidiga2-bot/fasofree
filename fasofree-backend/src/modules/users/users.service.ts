@@ -611,7 +611,9 @@ export class UsersService implements OnModuleInit {
     limit?: number;
   }): Promise<{ items: User[]; total: number; page: number; limit: number }> {
     const page = Math.max(1, options?.page ?? 1);
-    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    // Plafond porté à 1000 : le SUPER_ADMIN doit pouvoir afficher TOUS les
+    // comptes (le back-office paginé standard, lui, reste à 50 par défaut).
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 1000);
     const qb = this.userRepository
       .createQueryBuilder('u')
       .orderBy('u.createdAt', 'DESC')
@@ -663,11 +665,15 @@ export class UsersService implements OnModuleInit {
   }> {
     const [totalUsers, byRole, pendingByStatus, activeUsers] = await Promise.all([
       this.userRepository.createQueryBuilder('u').getCount(),
+      // ⚠️ `role` est un ENUM PostgreSQL ("users_role_enum") : `LOWER(u.role)`
+      // lève `function lower(users_role_enum) does not exist`. Il faut donc
+      // caster explicitement en texte AVANT de comparer en minuscules — sinon
+      // tout l'endpoint part en 500 et les compteurs du dashboard restent à 0.
       this.userRepository
         .createQueryBuilder('u')
-        .select('LOWER(u.role)', 'role')
+        .select('LOWER(CAST(u.role AS text))', 'role')
         .addSelect('COUNT(*)', 'count')
-        .groupBy('LOWER(u.role)')
+        .groupBy('LOWER(CAST(u.role AS text))')
         .getRawMany<{ role: string; count: string }>(),
       this.userRepository
         .createQueryBuilder('u')
