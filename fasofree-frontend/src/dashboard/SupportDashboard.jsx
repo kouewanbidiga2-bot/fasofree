@@ -23,7 +23,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getPendingDisputes } from '../services/financialService';
-import { getPlatformStats, getBanRequests, reviewBanRequest } from '../services/usersService';
+import { getPlatformStats, getBanRequests, reviewBanRequest, getBanRequestPendingCount } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import { getBusinesses } from '../services/subscriptionService';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
@@ -48,7 +48,30 @@ const SupportDashboard = () => {
     activeMerchants: 0,
     pendingMerchants: 0,
     agencies: 0,
+    totalUsers: 0,
+    bannedUsers: 0,
+    onlineUsers: 0,
   });
+
+  // Compteur de demandes de bannissement en attente.
+  // `null` = indisponible (endpoint non autorisé ou erreur réseau).
+  const [pendingBanCount, setPendingBanCount] = useState(null);
+
+  // La décision de bannir/débannir est strictement SUPER_ADMIN côté backend
+  // (`POST /ban-requests/:id/review`). Le Support, en lecture seule, ne doit
+  // donc pas afficher de boutons de décision qui échoueraient en 403.
+  const canReviewBanRequests = user?.role === 'SUPER_ADMIN';
+
+  // Incrémenté pour forcer le rafraîchissement de la liste des comptes.
+  const [usersRefreshTick, setUsersRefreshTick] = useState(0);
+
+  const refreshUsersTab = useCallback(() => {
+    setUsersRefreshTick((t) => t + 1);
+  }, []);
+
+  const loadPendingBanCount = useCallback(async () => {
+    setPendingBanCount(await getBanRequestPendingCount());
+  }, []);
 
   // Pending disputes (badge de l'onglet)
   const [pendingDisputes, setPendingDisputes] = useState([]);
@@ -90,26 +113,34 @@ const SupportDashboard = () => {
     try {
       const stats = await getPlatformStats();
       setPlatformStats({
-        totalMerchants: stats.merchants,
-        totalClients: stats.clients,
-        totalDrivers: stats.drivers,
-        activeMerchants: stats.approvedMerchants,
-        pendingMerchants: stats.pendingMerchants,
-        agencies: stats.agencies,
+        totalMerchants: stats.merchants ?? 0,
+        totalClients: stats.clients ?? 0,
+        totalDrivers: stats.drivers ?? 0,
+        activeMerchants: stats.approvedMerchants ?? 0,
+        pendingMerchants: stats.pendingMerchants ?? 0,
+        agencies: stats.agencies ?? 0,
+        totalUsers: stats.totalUsers ?? 0,
+        bannedUsers: stats.bannedUsers ?? 0,
+        onlineUsers: stats.onlineUsers ?? 0,
       });
     } catch (err) {
-      // Silent fail
+      // Silent fail : on conserve les derniers compteurs connus
     } finally {
       setLoading(prev => ({ ...prev, platform: false }));
     }
   }, []);
 
-  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes pour refléter
-  // les nouvelles candidatures/validations en temps réel.
+  // 🔄 Polling : rafraîchir les stats ET la liste des comptes toutes les
+  // 30 secondes pour refléter les inscriptions / bannissements / présences.
+  // NB : la liste des comptes a son propre polling dans UsersBackofficeTab ;
+  // on ne la sollicite donc pas ici pour éviter une double requête.
   useEffect(() => {
-    const interval = setInterval(loadPlatformStats, 30_000);
+    const interval = setInterval(() => {
+      loadPlatformStats();
+      loadPendingBanCount();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [loadPlatformStats]);
+  }, [loadPlatformStats, loadPendingBanCount]);
 
   const loadPendingDisputes = useCallback(async () => {
     setLoading(prev => ({ ...prev, pending: true }));
@@ -165,8 +196,24 @@ const SupportDashboard = () => {
     loadPendingDisputes();
     loadKyc();
     loadBanRequests();
+    loadPendingBanCount();
     loadConversations();
-  }, [loadPlatformStats, loadPendingDisputes, loadKyc, loadBanRequests, loadConversations]);
+  }, [loadPlatformStats, loadPendingDisputes, loadKyc, loadBanRequests, loadPendingBanCount, loadConversations]);
+
+  // 👁️ Retour sur l'onglet : rattrapage immédiat des compteurs et de la
+  // liste des comptes (l'intervalle peut avoir été suspendu en arrière-plan).
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      loadPlatformStats();
+      loadBanRequests();
+      loadPendingBanCount();
+      refreshUsersTab();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [loadPlatformStats, loadBanRequests, loadPendingBanCount, refreshUsersTab]);
 
   useEffect(() => {
     return () => {
@@ -231,6 +278,13 @@ const SupportDashboard = () => {
         text: status === 'APPROVED' ? 'Demande approuvée — utilisateur banni.' : 'Demande rejetée.',
       });
       await loadBanRequests();
+      // Le bannissement vient de changer le « mouvement des comptes » :
+      // on resynchronise stats + badge + liste des comptes.
+      await Promise.all([
+        loadPlatformStats(),
+        loadPendingBanCount(),
+      ]);
+      refreshUsersTab();
     } catch (err) {
       setBanRequestsMsg({ type: 'error', text: err.message });
     } finally {
@@ -448,6 +502,38 @@ const SupportDashboard = () => {
                 loading={loading.pending}
               />
             </div>
+
+            {/* Mouvement des comptes : inscrits / présents / bannis */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Utilisateurs Inscrits"
+                value={platformStats.totalUsers}
+                icon={Users}
+                color="#6366F1"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Présents en ligne"
+                value={platformStats.onlineUsers}
+                icon={Activity}
+                color="#22C55E"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Comptes Bannis"
+                value={platformStats.bannedUsers}
+                icon={Shield}
+                color="#EF4444"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Demandes de bannissement"
+                value={pendingBanCount ?? '—'}
+                icon={Clock}
+                color="#F59E0B"
+                loading={false}
+              />
+            </div>
           </div>
         )}
 
@@ -648,7 +734,7 @@ const SupportDashboard = () => {
                             </p>
                           )}
                         </div>
-                        {isPending && (
+                        {isPending && canReviewBanRequests && (
                           <div className="flex flex-col gap-2 shrink-0">
                             <button
                               onClick={() => handleReviewBanRequest(req.id, 'APPROVED')}
@@ -665,6 +751,11 @@ const SupportDashboard = () => {
                             >
                               <XCircle size={12} /> Rejeter
                             </button>
+                          </div>
+                        )}
+                        {isPending && !canReviewBanRequests && (
+                          <div className="shrink-0 text-[10px] text-text-tertiary text-right max-w-[130px] leading-tight border border-border-light rounded px-2 py-1">
+                            Décision réservée au Super Admin
                           </div>
                         )}
                       </div>
@@ -772,7 +863,11 @@ const SupportDashboard = () => {
 
         {activeTab === 'users-backoffice' && (
           <div className="animate-slide-up">
-            <UsersBackofficeTab />
+            <UsersBackofficeTab
+              autoRefresh
+              refreshIntervalMs={30_000}
+              refreshTick={usersRefreshTick}
+            />
           </div>
         )}
 

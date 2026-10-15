@@ -47,9 +47,26 @@ export const reviewBanRequest = async (id, data) => {
   return response.data;
 };
 
+/**
+ * Nombre de demandes de bannissement en attente (badge).
+ *
+ * ⚠️ Endpoint réservé au SUPER_ADMIN côté backend (`@Roles(SUPER_ADMIN)`).
+ * Pour ADMIN / SUPPORT la réponse est 403 : on renvoie `null` — et non `0` —
+ * afin de distinguer « aucune demande » de « compteur indisponible » et
+ * d'éviter d'afficher un badge trompeur. Ne lève jamais d'exception.
+ *
+ * @returns {Promise<number|null>}
+ */
 export const getBanRequestPendingCount = async () => {
-  const response = await api.get('/ban-requests/pending-count');
-  return response.data;
+  try {
+    const response = await api.get('/ban-requests/pending-count');
+    const data = response.data;
+    if (typeof data === 'number') return data;
+    if (data && typeof data.count === 'number') return data.count;
+    return null;
+  } catch {
+    return null;
+  }
 };
 
 // ─── Chat (Admin/Support) ──────────────────────────────────────

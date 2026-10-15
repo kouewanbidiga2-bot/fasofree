@@ -44,6 +44,7 @@ import {
   deleteUser,
   getBanRequests,
   reviewBanRequest,
+  getBanRequestPendingCount,
   getPlatformStats,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
@@ -139,6 +140,8 @@ const SuperAdminDashboard = () => {
   const [banRequestsLoading, setBanRequestsLoading] = useState(false);
   const [banReviewBusy, setBanReviewBusy] = useState(null);
   const [banRequestsMsg, setBanRequestsMsg] = useState(null);
+  // Compteur dédié de demandes en attente (endpoint léger `/pending-count`).
+  const [pendingBanCount, setPendingBanCount] = useState(null);
 
   // Subscriptions
   const [plans, setPlans] = useState([]);
@@ -479,15 +482,6 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
-  // 🔄 Polling : rafraîchir la vue globale + les utilisateurs toutes les 30 s.
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadPlatformStats();
-      loadUsers();
-    }, 30_000);
-    return () => clearInterval(interval);
-  }, [loadPlatformStats, loadUsers]);
-
   // ─── Push Campaigns ───
   const loadPushCampaigns = useCallback(async () => {
     setLoad('pushCampaigns', true);
@@ -544,6 +538,24 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
+  // Compteur dédié de demandes en attente (endpoint léger, SUPER_ADMIN).
+  const loadPendingBanCount = useCallback(async () => {
+    setPendingBanCount(await getBanRequestPendingCount());
+  }, []);
+
+  // 🔄 Polling : rafraîchir la vue globale, les utilisateurs et les demandes
+  // de bannissement toutes les 30 s. (déclaré APRÈS les callbacks ci-dessus
+  // pour éviter toute référence avant initialisation.)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadPlatformStats();
+      loadUsers();
+      loadBanRequests();
+      loadPendingBanCount();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [loadPlatformStats, loadUsers, loadBanRequests, loadPendingBanCount]);
+
   // Load conversations
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -565,11 +577,12 @@ const SuperAdminDashboard = () => {
     loadUsers();
     loadPlatformStats();
     loadBanRequests();
+    loadPendingBanCount();
     loadSettings();
     loadConversations();
     loadPushCampaigns();
     loadAffiliateGlobal();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
 
   // 🏢 Charger les agences quand l'onglet est ouvert
   useEffect(() => {
@@ -587,6 +600,8 @@ const SuperAdminDashboard = () => {
       loadFinancialOverview();
       loadUsers();
       loadPlatformStats();
+      loadBanRequests();
+      loadPendingBanCount();
     };
     socket.on('orderStatusChanged', onStatusChanged);
 
@@ -597,6 +612,8 @@ const SuperAdminDashboard = () => {
         loadFinancialOverview();
         loadUsers();
         loadPlatformStats();
+        loadBanRequests();
+        loadPendingBanCount();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -605,7 +622,7 @@ const SuperAdminDashboard = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       socket.off('orderStatusChanged', onStatusChanged);
     };
-  }, [loadFinancialStats, loadFinancialOverview, loadUsers, loadPlatformStats]);
+  }, [loadFinancialStats, loadFinancialOverview, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount]);
 
   useEffect(() => {
     return () => {
@@ -769,6 +786,9 @@ const SuperAdminDashboard = () => {
       });
       await loadBanRequests();
       await loadUsers();
+      // Le bannissement vient de changer le mouvement des comptes :
+      // on resynchronise les compteurs et le badge dédié.
+      await Promise.all([loadPlatformStats(), loadPendingBanCount()]);
     } catch (err) {
       setBanRequestsMsg({ type: 'error', text: err.message });
     } finally {
@@ -1309,6 +1329,13 @@ const SuperAdminDashboard = () => {
                 icon={AlertCircle}
                 color="#F59E0B"
                 loading={loading.platform}
+              />
+              <StatCard
+                label="Demandes de bannissement"
+                value={pendingBanCount ?? '—'}
+                icon={Ban}
+                color="#8B5CF6"
+                loading={false}
               />
             </div>
 

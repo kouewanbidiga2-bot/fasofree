@@ -27,7 +27,12 @@ import PaymentReconciliationTab from './components/PaymentReconciliationTab';
 import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getBusinesses } from '../services/subscriptionService';
-import { getPlatformStats, getActiveConversations, getChatHistory } from '../services/usersService';
+import {
+  getPlatformStats,
+  getActiveConversations,
+  getChatHistory,
+  getBanRequestPendingCount,
+} from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
@@ -45,7 +50,27 @@ const AdminManagerDashboard = () => {
     activeMerchants: 0,
     pendingMerchants: 0,
     agencies: 0,
+    totalUsers: 0,
+    bannedUsers: 0,
+    onlineUsers: 0,
   });
+
+  // Compteur de demandes de bannissement en attente.
+  // `null` = indisponible pour ce rôle (endpoint SUPER_ADMIN) : on n'affiche
+  // alors aucun badge plutôt qu'un « 0 » trompeur.
+  const [pendingBanCount, setPendingBanCount] = useState(null);
+
+  // Incrémenté pour forcer le rafraîchissement de la liste des comptes
+  // (socket + retour sur l'onglet).
+  const [usersRefreshTick, setUsersRefreshTick] = useState(0);
+
+  const refreshUsersTab = useCallback(() => {
+    setUsersRefreshTick((t) => t + 1);
+  }, []);
+
+  const loadPendingBanCount = useCallback(async () => {
+    setPendingBanCount(await getBanRequestPendingCount());
+  }, []);
 
   const [pendingDisputes, setPendingDisputes] = useState([]);
   const [processingDispute, setProcessingDispute] = useState(null);
@@ -76,26 +101,34 @@ const AdminManagerDashboard = () => {
     try {
       const stats = await getPlatformStats();
       setPlatformStats({
-        totalMerchants: stats.merchants,
-        totalClients: stats.clients,
-        totalDrivers: stats.drivers,
-        activeMerchants: stats.approvedMerchants,
-        pendingMerchants: stats.pendingMerchants,
-        agencies: stats.agencies,
+        totalMerchants: stats.merchants ?? 0,
+        totalClients: stats.clients ?? 0,
+        totalDrivers: stats.drivers ?? 0,
+        activeMerchants: stats.approvedMerchants ?? 0,
+        pendingMerchants: stats.pendingMerchants ?? 0,
+        agencies: stats.agencies ?? 0,
+        totalUsers: stats.totalUsers ?? 0,
+        bannedUsers: stats.bannedUsers ?? 0,
+        onlineUsers: stats.onlineUsers ?? 0,
       });
     } catch (err) {
-      // silent
+      // silent : on conserve les derniers compteurs connus
     } finally {
       setLoading(prev => ({ ...prev, platform: false }));
     }
   }, []);
 
-  // 🔄 Polling : rafraîchir les stats toutes les 30 secondes pour refléter
-  // les nouvelles candidatures/validations en temps réel.
+  // 🔄 Polling : rafraîchir les stats ET la liste des comptes toutes les
+  // 30 secondes pour refléter les inscriptions / bannissements / présences.
+  // NB : la liste des comptes a son propre polling dans UsersBackofficeTab ;
+  // on ne la sollicite donc pas ici pour éviter une double requête.
   useEffect(() => {
-    const interval = setInterval(loadPlatformStats, 30_000);
+    const interval = setInterval(() => {
+      loadPlatformStats();
+      loadPendingBanCount();
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [loadPlatformStats]);
+  }, [loadPlatformStats, loadPendingBanCount]);
 
   const loadPendingDisputes = useCallback(async () => {
     setLoading(prev => ({ ...prev, pending: true }));
@@ -126,7 +159,8 @@ const AdminManagerDashboard = () => {
     loadPlatformStats();
     loadPendingDisputes();
     loadKyc();
-  }, [loadPlatformStats, loadPendingDisputes, loadKyc]);
+    loadPendingBanCount();
+  }, [loadPlatformStats, loadPendingDisputes, loadKyc, loadPendingBanCount]);
 
   // 📡 Dispatch socket : temps réel des statuts de commande
   useEffect(() => {
@@ -135,13 +169,15 @@ const AdminManagerDashboard = () => {
     const onStatusChanged = () => {
       loadPlatformStats();
       loadPendingDisputes();
+      loadPendingBanCount();
+      refreshUsersTab();
     };
-    
+
     const onNewOrderAlert = () => {
       console.log('[Admin] Nouvelle commande reçue');
       loadPlatformStats();
     };
-    
+
     socket.on('orderStatusChanged', onStatusChanged);
     socket.on('newOrderAlert', onNewOrderAlert);
 
@@ -150,6 +186,8 @@ const AdminManagerDashboard = () => {
         if (!socket.connected) socket.connect();
         loadPlatformStats();
         loadPendingDisputes();
+        loadPendingBanCount();
+        refreshUsersTab();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -159,7 +197,7 @@ const AdminManagerDashboard = () => {
       socket.off('orderStatusChanged', onStatusChanged);
       socket.off('newOrderAlert', onNewOrderAlert);
     };
-  }, [loadPlatformStats, loadPendingDisputes]);
+  }, [loadPlatformStats, loadPendingDisputes, loadPendingBanCount, refreshUsersTab]);
 
   const loadConversations = useCallback(async () => {
     setChatLoading(true);
@@ -448,6 +486,38 @@ const AdminManagerDashboard = () => {
                 loading={loading.pending}
               />
             </div>
+
+            {/* Mouvement des comptes : inscrits / présents / bannis */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatCard
+                label="Utilisateurs Inscrits"
+                value={platformStats.totalUsers}
+                icon={Users}
+                color="#6366F1"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Présents en ligne"
+                value={platformStats.onlineUsers}
+                icon={Activity}
+                color="#22C55E"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Comptes Bannis"
+                value={platformStats.bannedUsers}
+                icon={Shield}
+                color="#EF4444"
+                loading={loading.platform}
+              />
+              <StatCard
+                label="Demandes de bannissement"
+                value={pendingBanCount ?? '—'}
+                icon={AlertCircle}
+                color="#F59E0B"
+                loading={false}
+              />
+            </div>
           </div>
         )}
 
@@ -679,7 +749,11 @@ const AdminManagerDashboard = () => {
 
         {activeTab === 'users-backoffice' && (
           <div className="animate-slide-up">
-            <UsersBackofficeTab />
+            <UsersBackofficeTab
+              autoRefresh
+              refreshIntervalMs={30_000}
+              refreshTick={usersRefreshTick}
+            />
           </div>
         )}
 

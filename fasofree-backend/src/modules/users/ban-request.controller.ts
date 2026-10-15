@@ -39,22 +39,26 @@ export class BanRequestController {
     return this.banRequestService.create(dto, req.user.userId);
   }
 
+  // 📖 Lecture ouverte au SUPPORT : le support doit pouvoir consulter et
+  // filtrer les demandes de bannissement pour répondre aux utilisateurs.
+  // La DÉCISION (approve/reject) reste strictement SUPER_ADMIN — voir `review`.
   @Get()
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Lister les demandes de ban (Super Admin)' })
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPPORT)
+  @ApiOperation({ summary: 'Lister les demandes de ban (Super Admin / Support — lecture)' })
   list(@Query('status') status?: BanRequestStatus) {
     return this.banRequestService.list(status);
   }
 
   @Get('pending-count')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.SUPPORT)
   @ApiOperation({ summary: 'Nombre de demandes en attente (badge)' })
   pendingCount() {
     return this.banRequestService.pendingCount();
   }
 
+  // 🔒 Décision de bannir / débannir : SUPER_ADMIN exclusivement.
   @Post(':id/review')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN)
