@@ -92,7 +92,59 @@ export class BanRequestService {
     this.logger.log(
       `[BanRequest] Demande créée par ${requester.fullName} → cible ${target.fullName}`,
     );
+
+    // 🔔 Alerte les Super Admin : sans cela, une demande pouvait rester
+    // PENDING dans l'onglet sans que personne ne s'en aperçoive.
+    await this.notifySuperAdmins(saved, requester, target);
+
     return saved;
+  }
+
+  /**
+   * 🔔 Notifie tous les SUPER_ADMIN qu'une demande de bannissement attend
+   * une décision. Les erreurs sont isolées : une alerte ratée ne doit jamais
+   * faire échouer la création de la demande.
+   */
+  private async notifySuperAdmins(
+    request: BanRequest,
+    requester: User,
+    target: User,
+  ): Promise<void> {
+    try {
+      const superAdmins = await this.userRepo.find({
+        where: { role: UserRole.SUPER_ADMIN, isActive: true },
+      });
+
+      if (superAdmins.length === 0) return;
+
+      const subject = 'FasoFree — Demande de bannissement à traiter';
+      const message =
+        `Une demande de bannissement vient d'être soumise.\n\n` +
+        `Cible : ${target.fullName} (${target.email})\n` +
+        `Demandé par : ${requester.fullName} (${requester.role})\n` +
+        `Motif : ${request.reason}\n\n` +
+        `Votre validation est requise dans le back-office.`;
+
+      await Promise.all(
+        superAdmins.map(async (admin) => {
+          try {
+            await this.notificationsService.sendNotification(
+              admin,
+              subject,
+              message,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `[BanRequest] Échec notification admin ${admin.email}: ${(err as Error).message}`,
+            );
+          }
+        }),
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[BanRequest] Échec alerte Super Admin: ${(err as Error).message}`,
+      );
+    }
   }
 
   /**
@@ -175,7 +227,41 @@ export class BanRequestService {
       );
     }
 
+    // 🔔 Informe le demandeur (support/admin) de la décision : sans cela il
+    // n'a aucun moyen de savoir que sa demande a été traitée.
+    await this.notifyRequester(request, admin);
+
     return request;
+  }
+
+  /**
+   * 🔔 Notifie l'auteur de la demande de la décision prise.
+   */
+  private async notifyRequester(
+    request: BanRequest,
+    admin: User,
+  ): Promise<void> {
+    try {
+      const requester = await this.userRepo.findOne({
+        where: { id: request.requestedBy },
+      });
+      if (!requester || requester.id === admin.id) return;
+
+      const approved = request.status === BanRequestStatus.APPROVED;
+      await this.notificationsService.sendNotification(
+        requester,
+        approved
+          ? 'FasoFree — Votre demande de bannissement a été approuvée'
+          : 'FasoFree — Votre demande de bannissement a été rejetée',
+        approved
+          ? `Le Super Admin ${admin.fullName} a approuvé votre demande. Le compte concerné a été banni.${request.reviewNote ? `\n\nNote : ${request.reviewNote}` : ''}`
+          : `Le Super Admin ${admin.fullName} a rejeté votre demande.${request.reviewNote ? `\n\nMotif : ${request.reviewNote}` : ''}`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[BanRequest] Échec notification demandeur: ${(err as Error).message}`,
+      );
+    }
   }
 
   /**

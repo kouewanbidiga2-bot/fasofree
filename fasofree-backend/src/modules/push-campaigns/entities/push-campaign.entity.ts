@@ -13,6 +13,17 @@ export enum PushCampaignTarget {
 }
 
 /**
+ * ⏱️ Cycle de vie d'une campagne.
+ *
+ * SENT       : déjà diffusée (statut par défaut, rétro-compatible).
+ * SCHEDULED  : programmée, sera diffusée par le cron automatique.
+ */
+export enum PushCampaignStatus {
+  SCHEDULED = 'SCHEDULED',
+  SENT = 'SENT',
+}
+
+/**
  * 📢 Campagne push promotionnelle.
  *
  * Super Admin + Admin peuvent envoyer une campagne à un public cible
@@ -36,11 +47,30 @@ export class PushCampaign {
   })
   target: PushCampaignTarget;
 
+  @Column({
+    type: 'enum',
+    enum: PushCampaignStatus,
+    default: PushCampaignStatus.SENT,
+  })
+  status: PushCampaignStatus;
+
+  /** Date/heure de diffusion programmée (null = envoi immédiat). */
+  @Column({ type: 'timestamptz', nullable: true })
+  scheduledAt: Date | null;
+
   @Column({ type: 'varchar', length: 200, nullable: true })
   sentBy: string | null;
 
+  /** Nombre d'utilisateurs réellement contactés avec succès. */
   @Column({ type: 'int', default: 0 })
   recipientCount: number;
+
+  /**
+   * Nombre d'utilisateurs correspondant à la cible (avant envoi).
+   * Permet de distinguer « personne ne corresponded » de « l'envoi a échoué ».
+   */
+  @Column({ type: 'int', default: 0 })
+  targetedCount: number;
 
   @CreateDateColumn()
   createdAt: Date;

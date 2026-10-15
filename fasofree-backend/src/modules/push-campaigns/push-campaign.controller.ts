@@ -35,6 +35,7 @@ export class PushCampaignController {
       dto.body,
       dto.target,
       user?.fullName || user?.email || 'admin',
+      dto.scheduledAt ? new Date(dto.scheduledAt) : null,
     );
   }
 

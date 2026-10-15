@@ -186,6 +186,7 @@ const SuperAdminDashboard = () => {
     title: '',
     body: '',
     target: 'ALL',
+    scheduledAt: '',
   });
   const [createCampaignBusy, setCreateCampaignBusy] = useState(false);
 
@@ -500,9 +501,17 @@ const SuperAdminDashboard = () => {
     e.preventDefault();
     setCreateCampaignBusy(true);
     try {
-      await pushCampaignService.createCampaign(createCampaignForm);
+      await pushCampaignService.createCampaign({
+        title: createCampaignForm.title,
+        body: createCampaignForm.body,
+        target: createCampaignForm.target,
+        // Champ vide = envoi immédiat. Sinon on envoie l'ISO au backend.
+        ...(createCampaignForm.scheduledAt
+          ? { scheduledAt: new Date(createCampaignForm.scheduledAt).toISOString() }
+          : {}),
+      });
       setShowCreateCampaignModal(false);
-      setCreateCampaignForm({ title: '', body: '', target: 'ALL' });
+      setCreateCampaignForm({ title: '', body: '', target: 'ALL', scheduledAt: '' });
       await loadPushCampaigns();
     } catch (err) {
       setPushCampaignsError(err.message);
@@ -1922,6 +1931,21 @@ const SuperAdminDashboard = () => {
                 </select>
               </div>
               <div>
+                <label className="block text-xs text-text-secondary mb-2">
+                  Programmer l'envoi (optionnel)
+                </label>
+                <input
+                  type="datetime-local"
+                  className="input"
+                  value={createCampaignForm.scheduledAt}
+                  onChange={(e) => setCreateCampaignForm({ ...createCampaignForm, scheduledAt: e.target.value })}
+                />
+                <p className="text-[11px] text-text-tertiary mt-1">
+                  Laissez vide pour envoyer immédiatement. Sinon la campagne part
+                  automatiquement à l'heure indiquée.
+                </p>
+              </div>
+              <div>
                 <label className="block text-xs text-text-secondary mb-2">Message *</label>
                 <textarea
                   className="input min-h-[100px] resize-y"
@@ -1934,7 +1958,11 @@ const SuperAdminDashboard = () => {
               </div>
               <button type="submit" className="btn-primary gap-2" disabled={createCampaignBusy}>
                 <Megaphone size={14} />
-                {createCampaignBusy ? 'Envoi en cours…' : 'Créer et envoyer'}
+                {createCampaignBusy
+                  ? 'Envoi en cours…'
+                  : createCampaignForm.scheduledAt
+                    ? 'Programmer la campagne'
+                    : 'Créer et envoyer'}
               </button>
             </form>
 
@@ -1964,8 +1992,19 @@ const SuperAdminDashboard = () => {
                             Cible : {campaign.target}
                           </span>
                           <span className="flex items-center gap-1">
-                            <Users size={10} />
-                            Destinataires : {campaign.recipientCount || 0}
+                            {campaign.status === 'SCHEDULED' ? (
+                              <>
+                                <Clock size={10} />
+                                Programmée le{' '}
+                                {new Date(campaign.scheduledAt).toLocaleString('fr-FR')}
+                              </>
+                            ) : (
+                              <>
+                                <Users size={10} />
+                                Ciblés : {campaign.targetedCount ?? 0} · Livrés :{' '}
+                                {campaign.recipientCount || 0}
+                              </>
+                            )}
                           </span>
                           <span className="flex items-center gap-1">
                             <Clock size={10} />

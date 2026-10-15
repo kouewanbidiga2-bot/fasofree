@@ -1,7 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsDateString,
   IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MaxLength,
   MinLength,
@@ -38,4 +40,20 @@ export class CreatePushCampaignDto {
     message: `Cible invalide. Valeurs acceptées : ${Object.values(PushCampaignTarget).join(', ')}`,
   })
   target: PushCampaignTarget;
+
+  /**
+   * ⏱️ Date/heure de diffusion (ISO). Absente ou passée = envoi immédiat.
+   */
+  @ApiProperty({
+    example: '2026-10-20T18:00:00.000Z',
+    required: false,
+    description:
+      'Date de diffusion programmée. Si absente ou déjà passée, la campagne part immédiatement.',
+  })
+  @IsOptional()
+  @IsDateString(
+    {},
+    { message: 'scheduledAt doit être une date ISO valide.' },
+  )
+  scheduledAt?: string;
 }

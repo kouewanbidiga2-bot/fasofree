@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
 import {
   PushCampaign,
+  PushCampaignStatus,
   PushCampaignTarget,
 } from './entities/push-campaign.entity';
 import { User } from '../users/entities/user.entity';
@@ -50,20 +52,37 @@ export class PushCampaignService {
     body: string,
     target: PushCampaignTarget,
     sentBy?: string | null,
+    scheduledAt?: Date | null,
   ): Promise<PushCampaign> {
+    // ⏱️ Programmation : une date dans le futur diffuse plus maintenant.
+    const isScheduled =
+      scheduledAt instanceof Date &&
+      !Number.isNaN(scheduledAt.getTime()) &&
+      scheduledAt.getTime() > Date.now();
+
     const campaign = await this.campaignRepo.save(
       this.campaignRepo.create({
         title,
         body,
         target,
         sentBy: sentBy || null,
+        status: isScheduled ? PushCampaignStatus.SCHEDULED : PushCampaignStatus.SENT,
+        scheduledAt: isScheduled ? scheduledAt : null,
         recipientCount: 0,
+        targetedCount: 0,
       }),
     );
 
+    if (isScheduled) {
+      this.logger.log(
+        `[PushCampaign] ${campaign.id} programmée pour ${scheduledAt?.toISOString()} (cible=${target})`,
+      );
+      return campaign;
+    }
+
     // ⚠️ L'envoi part en arrière-plan : on ne bloque PAS la réponse HTTP sur
-    // N appels FCM. On journalise les erreurs pour ne jamais laisser un
-    // rejet non capté tuer le process.
+    // N envois. On journalise les erreurs pour ne jamais laisser un rejet non
+    // capté tuer le process.
     void this.sendCampaign(campaign.id, title, body, target).catch((err) => {
       this.logger.error(
         `[PushCampaign] Échec envoi async: ${(err as Error).message}`,
@@ -73,6 +92,65 @@ export class PushCampaignService {
     return campaign;
   }
 
+  /**
+   * ⏱️ Cron : diffuse les campagnes programmées dont l'heure est atteinte.
+   * `timeZone: 'UTC'` aligne l'évaluation sur le stockage `timestamptz`.
+   */
+  @Cron(CronExpression.EVERY_MINUTE, { name: 'push-campaign-scheduler' })
+  async sendDueCampaigns(): Promise<void> {
+    let due: PushCampaign[] = [];
+    try {
+      due = await this.campaignRepo.find({
+        where: {
+          status: PushCampaignStatus.SCHEDULED,
+          scheduledAt: LessThanOrEqual(new Date()),
+        },
+        take: 20,
+        order: { scheduledAt: 'ASC' },
+      });
+    } catch (err) {
+      this.logger.error(
+        `[PushCampaign] Cron — lecture des campagnes programmées impossible: ${(err as Error).message}`,
+      );
+      return;
+    }
+
+    for (const campaign of due) {
+      try {
+        this.logger.log(
+          `[PushCampaign] Diffusion programmée ${campaign.id} — « ${campaign.title} »`,
+        );
+        await this.sendCampaign(
+          campaign.id,
+          campaign.title,
+          campaign.body,
+          campaign.target,
+        );
+        await this.campaignRepo.update(campaign.id, {
+          status: PushCampaignStatus.SENT,
+        });
+      } catch (err) {
+        this.logger.error(
+          `[PushCampaign] Cron — échec diffusion ${campaign.id}: ${(err as Error).message}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * 📤 Diffuse une campagne aux utilisateurs correspondant à la cible.
+   *
+   * ⚠️ Régression corrigée : la sélection exigeait `fcmToken IS NOT NULL`.
+   * Or le FCM n'est alimenté que par l'app mobile — un client inscrit depuis
+   * le web n'a donc AUCUN token. Résultat : la campagne « CLIENT » partait
+   * à 0 destinataire malgré des comptes existants.
+   *
+   * On cible désormais les comptes ACTIFS par rôle, et on délivre via
+   * `NotificationsService.sendNotification`, qui choisit le canal préféré de
+   * chaque utilisateur (EMAIL par défaut, sinon WHATSAPP / SMS / PUSH) avec
+   * repli automatique. Le push FCM reste envoyé en complément si un token
+   * existe.
+   */
   private async sendCampaign(
     campaignId: string,
     title: string,
@@ -81,19 +159,22 @@ export class PushCampaignService {
   ): Promise<void> {
     const roles = this.getRoleFilter(target);
 
-    // Requêtes par lots : on ne charge jamais toute la table `users` en RAM.
-    const tokens: string[] = [];
+    const recipients: User[] = [];
     let lastId: string | null = null;
 
+    // Pagination par curseur (keyset) : on ne charge jamais toute la table.
     for (;;) {
       const qb = this.userRepo
         .createQueryBuilder('u')
-        .select('u.id', 'id')
-        .addSelect('u.fcmToken', 'fcmToken')
-        .where('u.fcmToken IS NOT NULL')
-        .andWhere("u.fcmToken != ''")
-        .andWhere('u.isActive = true')
-        // Pagination par curseur (keyset) : robuste même si la table grossit.
+        .select([
+          'u.id',
+          'u.email',
+          'u.phone',
+          'u.fullName',
+          'u.fcmToken',
+          'u.preferredNotificationChannel',
+        ])
+        .where('u.isActive = true')
         .andWhere(lastId ? 'u.id > :lastId' : '1 = 1', { lastId })
         .orderBy('u.id', 'ASC')
         .limit(this.BATCH_SIZE);
@@ -102,13 +183,13 @@ export class PushCampaignService {
         qb.andWhere('u.role IN (:...roles)', { roles });
       }
 
-      const rows = await qb.getRawMany<{ id: string; fcmToken: string }>();
-      if (rows.length === 0) break;
+      const rows = (await qb.getMany()) ?? [];
+      if (!Array.isArray(rows) || rows.length === 0) break;
 
-      tokens.push(...rows.map((r) => r.fcmToken).filter(Boolean));
+      recipients.push(...rows);
       lastId = rows[rows.length - 1].id;
 
-      if (tokens.length >= this.MAX_RECIPIENTS) {
+      if (recipients.length >= this.MAX_RECIPIENTS) {
         this.logger.warn(
           `[PushCampaign] Plafond de ${this.MAX_RECIPIENTS} destinataires atteint — envoi tronqué`,
         );
@@ -117,24 +198,26 @@ export class PushCampaignService {
       if (rows.length < this.BATCH_SIZE) break;
     }
 
-    if (tokens.length === 0) {
+    await this.campaignRepo.update(campaignId, {
+      targetedCount: recipients.length,
+    });
+
+    if (recipients.length === 0) {
       await this.campaignRepo.update(campaignId, { recipientCount: 0 });
-      this.logger.log(
-        `[PushCampaign] ${campaignId} — aucun destinataire (cible=${target})`,
+      this.logger.warn(
+        `[PushCampaign] ${campaignId} — aucun compte actif pour la cible=${target}`,
       );
       return;
     }
 
     let sent = 0;
-    for (let i = 0; i < tokens.length; i += this.BATCH_SIZE) {
-      const batch = tokens.slice(i, i + this.BATCH_SIZE);
+    for (let i = 0; i < recipients.length; i += this.BATCH_SIZE) {
+      const batch = recipients.slice(i, i + this.BATCH_SIZE);
       const results = await Promise.all(
-        batch.map((token) =>
-          this.notifications.sendToDevice(token, {
-            title,
-            body,
-            data: { campaignId },
-          }),
+        batch.map((user) =>
+          this.notifications
+            .sendNotification(user, title, body, { campaignId })
+            .catch(() => false),
         ),
       );
       sent += results.filter(Boolean).length;
@@ -142,7 +225,7 @@ export class PushCampaignService {
 
     await this.campaignRepo.update(campaignId, { recipientCount: sent });
     this.logger.log(
-      `[PushCampaign] ${campaignId} envoyé à ${sent}/${tokens.length} destinataires (cible=${target})`,
+      `[PushCampaign] ${campaignId} envoyé à ${sent}/${recipients.length} destinataires (cible=${target})`,
     );
   }
 

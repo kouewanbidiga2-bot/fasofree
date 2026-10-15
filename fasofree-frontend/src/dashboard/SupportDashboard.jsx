@@ -23,7 +23,7 @@ import {
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
 import { getPendingDisputes } from '../services/financialService';
-import { getPlatformStats, getBanRequests, reviewBanRequest, getBanRequestPendingCount } from '../services/usersService';
+import { getPlatformStats, getBanRequests, createBanRequest, reviewBanRequest, getBanRequestPendingCount, getUsers } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import { getBusinesses } from '../services/subscriptionService';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
@@ -87,6 +87,80 @@ const SupportDashboard = () => {
   const [banRequestsLoading, setBanRequestsLoading] = useState(false);
   const [banReviewBusy, setBanReviewBusy] = useState(null);
   const [banRequestsMsg, setBanRequestsMsg] = useState(null);
+
+  // ─── Création d'une demande de bannissement (Support / Admin) ───
+  // Le support SOUMET, le Super Admin DÉCIDE. La création est ouverte à
+  // ADMIN / SUPPORT / SUPER_ADMIN côté backend (`POST /ban-requests`).
+  const [showBanForm, setShowBanForm] = useState(false);
+  const [banTargetQuery, setBanTargetQuery] = useState('');
+  const [banTargets, setBanTargets] = useState([]);
+  const [banTargetsLoading, setBanTargetsLoading] = useState(false);
+  const [banTargetId, setBanTargetId] = useState('');
+  const [banReason, setBanReason] = useState('');
+  const [banSubmitBusy, setBanSubmitBusy] = useState(false);
+  const [banFormError, setBanFormError] = useState('');
+  const [banFormMsg, setBanFormMsg] = useState(null);
+
+  const searchBanTargets = useCallback(async () => {
+    const q = banTargetQuery.trim();
+    if (q.length < 2) {
+      setBanTargets([]);
+      return;
+    }
+    setBanTargetsLoading(true);
+    try {
+      const res = await getUsers({ search: q, limit: 20 });
+      const list = Array.isArray(res?.items) ? res.items : Array.isArray(res) ? res : [];
+      // On ne propose que des comptes actifs et bannissables : on ne peut pas
+      // se bannir soi-même ni cibler un Super Admin (validé côté backend).
+      setBanTargets(
+        list.filter(
+          (u) =>
+            u.isActive !== false &&
+            u.role !== 'SUPER_ADMIN' &&
+            u.role !== 'SUPPORT' &&
+            u.role !== 'ADMIN' &&
+            u.id !== user?.id,
+        ),
+      );
+    } catch {
+      setBanTargets([]);
+    } finally {
+      setBanTargetsLoading(false);
+    }
+  }, [banTargetQuery, user?.id]);
+
+  const submitBanRequest = async () => {
+    setBanFormError('');
+    if (!banTargetId) {
+      setBanFormError('Sélectionnez le compte à signaler.');
+      return;
+    }
+    if (banReason.trim().length < 10) {
+      setBanFormError('Le motif doit contenir au moins 10 caractères.');
+      return;
+    }
+    setBanSubmitBusy(true);
+    try {
+      await createBanRequest({ targetUserId: banTargetId, reason: banReason.trim() });
+      setBanFormMsg({
+        type: 'success',
+        text: 'Demande transmise — le Super Admin doit maintenant la valider.',
+      });
+      setShowBanForm(false);
+      setBanTargetId('');
+      setBanReason('');
+      setBanTargetQuery('');
+      setBanTargets([]);
+      await loadBanRequests();
+      await loadPendingBanCount();
+      refreshUsersTab();
+    } catch (err) {
+      setBanFormError(err?.response?.data?.message || err.message || 'Envoi impossible.');
+    } finally {
+      setBanSubmitBusy(false);
+    }
+  };
 
   // Chat inbox
   const [conversations, setConversations] = useState([]);
@@ -678,13 +752,130 @@ const SupportDashboard = () => {
               <div>
                 <h2 className="text-xl font-bold text-text-primary">Demandes de Bannissement</h2>
                 <p className="text-text-secondary text-sm">
-                  Les admins et agents support soumettent des demandes. Vous validez ou rejetez.
+                  Vous soumettez une demande ; le Super Admin décide de bannir ou non.
                 </p>
               </div>
-              <button onClick={loadBanRequests} className="btn-secondary gap-2">
-                <RefreshCw size={14} className={banRequestsLoading ? 'animate-spin' : ''} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setShowBanForm((v) => !v);
+                    setBanFormError('');
+                  }}
+                  className="btn-primary gap-2"
+                >
+                  <Ban size={14} />
+                  Demander un bannissement
+                </button>
+                <button onClick={loadBanRequests} className="btn-secondary gap-2">
+                  <RefreshCw size={14} className={banRequestsLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
             </div>
+
+            {/* ─── Formulaire de soumission ─── */}
+            {showBanForm && (
+              <div className="card p-5 border border-border-light space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-text-primary mb-1">
+                    Nouvelle demande de bannissement
+                  </h3>
+                  <p className="text-xs text-text-secondary">
+                    Cette action ne bannit personne : elle soumet une demande qui devra être
+                    approuvée par le Super Admin.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Rechercher le compte concerné
+                  </label>
+                  <input
+                    value={banTargetQuery}
+                    onChange={(e) => setBanTargetQuery(e.target.value)}
+                    onBlur={searchBanTargets}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchBanTargets(); } }}
+                    placeholder="Nom, email ou téléphone (2 caractères minimum)"
+                    className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+                  />
+                  {banTargetsLoading && (
+                    <p className="text-xs text-text-tertiary mt-1">Recherche…</p>
+                  )}
+                  {banTargets.length > 0 && (
+                    <ul className="mt-2 max-h-56 overflow-auto border border-border-light rounded-lg divide-y divide-border-light">
+                      {banTargets.map((u) => (
+                        <li key={u.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBanTargetId(u.id);
+                              setBanTargets([]);
+                              setBanTargetQuery(
+                                `${u.fullName || '—'} · ${u.email}`,
+                              );
+                            }}
+                            className={`w-full text-left px-3 py-2 text-xs hover:bg-background-secondary ${
+                              banTargetId === u.id ? 'bg-background-secondary' : ''
+                            }`}
+                          >
+                            <span className="font-semibold text-text-primary">
+                              {u.fullName || '—'}
+                            </span>
+                            <span className="text-text-secondary"> · {u.email}</span>
+                            <span className="ml-1 text-text-tertiary">({u.role})</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {banTargetId && (
+                    <p className="text-xs text-status-success mt-1">Compte sélectionné.</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary mb-1">
+                    Motif (10 caractères minimum)
+                  </label>
+                  <textarea
+                    value={banReason}
+                    onChange={(e) => setBanReason(e.target.value)}
+                    rows={3}
+                    placeholder="Ex. : comportement abusif répété envers les livreurs et les clients."
+                    className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+                  />
+                  <p className="text-xs text-text-tertiary mt-1">
+                    {banReason.trim().length}/10 caractères minimum
+                  </p>
+                </div>
+
+                {banFormError && (
+                  <p className="text-xs text-status-error">{banFormError}</p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={submitBanRequest}
+                    disabled={banSubmitBusy}
+                    className="btn-primary gap-2"
+                  >
+                    {banSubmitBusy ? <RefreshCw size={14} className="animate-spin" /> : <Ban size={14} />}
+                    Transmettre au Super Admin
+                  </button>
+                  <button
+                    onClick={() => { setShowBanForm(false); setBanFormError(''); }}
+                    className="btn-secondary"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {banFormMsg && (
+              <div className="bg-status-successBg border border-status-success/30 text-status-success rounded-lg p-3 text-sm">
+                {banFormMsg.text}
+              </div>
+            )}
 
             {banRequestsMsg && (
               <div className={`p-3 rounded-lg border text-sm ${banRequestsMsg.type === 'success' ? 'bg-status-successBg border-status-success/30 text-status-success' : 'bg-status-errorBg border-status-error/30 text-status-error'}`}>
