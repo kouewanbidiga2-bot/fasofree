@@ -22,7 +22,7 @@ const AgencyDashboard = retryLazy(() => import('./dashboard/AgencyDashboard'));
 
 function App() {
   return (
-    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <Router>
       <Suspense fallback={<Loading />}>
         <Routes>
           {/* ROUTE PAR DÉFAUT */}
