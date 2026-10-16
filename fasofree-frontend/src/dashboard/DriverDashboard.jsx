@@ -15,7 +15,7 @@ import {
   Layout, MapPin, Clock, DollarSign, Star, LogOut,
   RefreshCw, AlertCircle, CheckCircle, XCircle, Navigation,
   TrendingUp, Wallet, Phone, MessageSquare, Power, PowerOff,
-  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings, Camera, User,
+  Calendar, History, Package, Route, ChevronRight, Send, ArrowLeft, Settings, Camera, User, Gavel,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, LoadingSkeleton, EmptyState } from '../dashboard/components/StatCard';
@@ -29,6 +29,9 @@ import {
 } from '../services/orderService';
 import { getWallet, getWalletTransactions } from '../services/walletService';
 import { getChatSocket, getDispatchSocket, forceReconnectRealtime } from '../services/realtime';
+import { getMyPenalties } from '../services/penaltyService';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { DriverStatus, OrderStatus } from '../types';
 
 const STATUS_PROGRESS = [
@@ -271,16 +274,38 @@ const DriverDashboard = () => {
         orderId: o.id,
         customerName: o.customerName || 'Client',
         deliveryAddress: o.deliveryLocation?.address || '—',
-        deliveredAt: o.updatedAt || o.deliveredAt || null,
+        deliveredAt: o.deliveredAt || null,
         deliveryFee: o.deliveryFee || 0,
         tip: o.tip || 0,
         rating: o.rating || 0,
         totalEarnings: (o.deliveryFee || 0) + (o.tip || 0),
+        // 🎚️ Champs SLA (bloc B) : conservés tels quels pour l'onglet
+        // Qualité — le livreur lit la mesure posée par FasoFree, il n'a
+        // rien à calculer.
+        deliveryLate: o.deliveryLate ?? false,
+        deliveryEtaMinutes: o.deliveryEtaMinutes ?? null,
+        deliveryDurationMinutes: o.deliveryDurationMinutes ?? null,
       })));
     } catch {
       setDeliveryHistory([]);
     } finally {
       setLoad('history', false);
+    }
+  }, []);
+
+  // ─── ⚖️ SANCTIONS QUALITÉ (bloc C) ──────────────────────────────────────
+  // Le livreur voit SES propres sanctions (transparence) : l'endpoint
+  // /delivery-penalties/me est restreint aux rôles DRIVER / COURIER.
+  const [penalties, setPenalties] = useState([]);
+
+  const loadPenalties = useCallback(async () => {
+    try {
+      const data = await getMyPenalties();
+      setPenalties(Array.isArray(data) ? data : []);
+    } catch {
+      // 403 possible si le compte n'a plus le rôle livreur : on n'affiche
+      // simplement pas la section plutôt que de faire échouer le dashboard.
+      setPenalties([]);
     }
   }, []);
 
@@ -382,7 +407,8 @@ const DriverDashboard = () => {
     loadWallet();
     loadEarnings();
     loadDeliveryHistory();
-  }, [loadWallet, loadEarnings, loadDeliveryHistory]);
+    loadPenalties();
+  }, [loadWallet, loadEarnings, loadDeliveryHistory, loadPenalties]);
 
   useEffect(() => {
     if (user?.isOnline) {
@@ -639,6 +665,7 @@ const DriverDashboard = () => {
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessages },
     { id: 'earnings', label: 'Gains', icon: DollarSign },
     { id: 'history', label: 'Historique', icon: History },
+    { id: 'quality', label: 'Qualité', icon: Gavel },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
@@ -1232,6 +1259,239 @@ const DriverDashboard = () => {
               )}
             </div>
           )}
+
+          {/* ─── ONGLET QUALITÉ (blocs B + C) ────────────────────── */}
+          {activeTab === 'quality' && (() => {
+            const done = deliveryHistory.filter((d) => d.deliveredAt);
+            const late = done.filter((d) => d.deliveryLate).length;
+            const rate = done.length ? Math.round(((done.length - late) / done.length) * 100) : null;
+            const activePenalties = penalties.filter((p) => p.active);
+            const suspendu = activePenalties.some((p) => p.level === 'SUSPENSION');
+            const routeReady = currentJob?.pickupCoords && currentJob?.deliveryCoords;
+            return (
+              <div className="animate-slide-up space-y-6">
+                <h1 className="text-xl font-bold text-text-primary">Qualité de mes livraisons</h1>
+
+                {/* ⚠️ Bandeau suspension : l'information la plus importante, car
+                    une suspension exclut du dispatch — le livreur doit la voir
+                    avant tout le reste. */}
+                {suspendu && (
+                  <div className="rounded-lg border border-status-error/30 bg-status-errorBg p-4 text-sm text-status-error">
+                    <p className="font-semibold">Vous êtes suspendu du dispatch.</p>
+                    <p className="mt-1 text-xs">
+                      Aucune nouvelle course ne vous sera proposée pendant la durée de la
+                      suspension. Motif :{' '}
+                      {activePenalties.find((p) => p.level === 'SUSPENSION')?.reason || 'non précisé'}.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <StatCard label="Livraisons terminées" value={done.length} icon={Package} color="#3B82F6" loading={loading.history} />
+                  <StatCard
+                    label="À temps"
+                    value={rate == null ? '—' : `${rate} %`}
+                    icon={CheckCircle}
+                    color="#22C55E"
+                    loading={loading.history}
+                  />
+                  <StatCard label="En retard" value={late} icon={AlertCircle} color="#EF4444" loading={loading.history} />
+                  <StatCard
+                    label="Sanctions actives"
+                    value={activePenalties.length}
+                    icon={Gavel}
+                    color={activePenalties.length ? '#EF4444' : '#22C55E'}
+                    loading={loading.history}
+                  />
+                </div>
+
+                {/* 📍 Ma course en cours : vue jusqu'à la destination (bloc E).
+                    Le livreur voit le ramassage et la destination de SA course
+                    uniquement — jamais les positions des autres livreurs. */}
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border-light">
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Ma course en cours
+                    </h3>
+                    <p className="text-xs text-text-secondary">
+                      {currentJob
+                        ? `${currentJob.pickupAddress} → ${currentJob.deliveryAddress}`
+                        : 'Aucune course active.'}
+                    </p>
+                  </div>
+                  {!routeReady ? (
+                    <div className="p-6 text-center text-sm text-text-tertiary">
+                      {currentJob
+                        ? 'Itinéraire indisponible (coordonnées manquantes).'
+                        : 'Acceptez une course pour voir votre itinéraire.'}
+                    </div>
+                  ) : (
+                    <MapContainer
+                      center={[
+                        currentJob.pickupCoords.latitude,
+                        currentJob.pickupCoords.longitude,
+                      ]}
+                      zoom={13}
+                      className="h-[320px] w-full"
+                      scrollWheelZoom
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <CircleMarker
+                        center={[
+                          currentJob.pickupCoords.latitude,
+                          currentJob.pickupCoords.longitude,
+                        ]}
+                        radius={7}
+                        pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.85 }}
+                      >
+                        <Popup>
+                          <div className="text-xs">
+                            <p className="font-semibold">Ramassage</p>
+                            <p>{currentJob.pickupAddress}</p>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                      <CircleMarker
+                        center={[
+                          currentJob.deliveryCoords.latitude,
+                          currentJob.deliveryCoords.longitude,
+                        ]}
+                        radius={8}
+                        pathOptions={{ color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.85 }}
+                      >
+                        <Popup>
+                          <div className="text-xs">
+                            <p className="font-semibold">Destination</p>
+                            <p>{currentJob.deliveryAddress}</p>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    </MapContainer>
+                  )}
+                </div>
+
+                {/* Détail SLA des dernières livraisons */}
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border-light">
+                    <h3 className="text-sm font-semibold text-text-primary">
+                      Mes dernières livraisons
+                    </h3>
+                    <p className="text-xs text-text-secondary">
+                      ETA estimée par FasoFree, durée réelle constatée, retard au-delà de
+                      la tolérance de +25 %.
+                    </p>
+                  </div>
+                  {loading.history ? (
+                    <div className="p-4 space-y-3">
+                      {[1, 2, 3].map((i) => (
+                        <LoadingSkeleton key={i} height="h-4" />
+                      ))}
+                    </div>
+                  ) : done.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-text-tertiary">
+                      Aucune livraison terminée pour le moment.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border-light">
+                      {done.slice(0, 12).map((d) => {
+                        const lateMin =
+                          d.deliveryDurationMinutes != null && d.deliveryEtaMinutes != null
+                            ? d.deliveryDurationMinutes - d.deliveryEtaMinutes
+                            : null;
+                        return (
+                          <div key={d.id} className="px-4 py-3 flex flex-wrap items-center gap-3">
+                            <div className="flex-1 min-w-[180px]">
+                              <p className="text-sm font-medium text-text-primary">
+                                {d.deliveryAddress}
+                              </p>
+                              <p className="text-[11px] text-text-tertiary">
+                                {d.deliveredAt
+                                  ? new Date(d.deliveredAt).toLocaleString('fr-FR')
+                                  : '—'}
+                              </p>
+                            </div>
+                            <span className="text-xs text-text-secondary">
+                              ETA {Math.round(d.deliveryEtaMinutes || 0)} min · réelle{' '}
+                              {Math.round(d.deliveryDurationMinutes || 0)} min
+                            </span>
+                            {d.deliveryLate ? (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-status-errorBg text-status-error">
+                                +{Math.round(lateMin || 0)} min
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-status-successBg text-status-success">
+                                À temps
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Mes sanctions */}
+                <div className="card overflow-hidden">
+                  <div className="px-4 py-3 border-b border-border-light">
+                    <h3 className="text-sm font-semibold text-text-primary">Mes sanctions</h3>
+                    <p className="text-xs text-text-secondary">
+                      Historique conservé : une sanction se révoque ou expire, elle
+                      n&apos;est jamais effacée.
+                    </p>
+                  </div>
+                  {activePenalties.length === 0 && penalties.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-text-tertiary">
+                      Aucune sanction. Continuez ainsi.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border-light">
+                      {penalties.slice(0, 10).map((p) => (
+                        <div key={p.id} className="px-4 py-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                              p.level === 'SUSPENSION'
+                                ? 'bg-status-errorBg text-status-error'
+                                : p.level === 'PRIORITY_DOWNGRADE'
+                                  ? 'bg-status-warningBg text-status-warning'
+                                  : 'bg-background-secondary text-text-secondary'
+                            }`}>
+                              {p.level === 'SUSPENSION'
+                                ? 'Suspension'
+                                : p.level === 'PRIORITY_DOWNGRADE'
+                                  ? 'Priorité baissée'
+                                  : 'Avertissement'}
+                            </span>
+                            <span className="text-xs text-text-tertiary">
+                              {p.createdAt
+                                ? new Date(p.createdAt).toLocaleDateString('fr-FR')
+                                : ''}
+                            </span>
+                            {p.active ? (
+                              <span className="text-[11px] font-semibold text-status-error">Active</span>
+                            ) : (
+                              <span className="text-[11px] text-text-tertiary">Levée</span>
+                            )}
+                          </div>
+                          {p.reason && (
+                            <p className="mt-1 text-xs text-text-secondary">{p.reason}</p>
+                          )}
+                          {p.active && p.effectiveUntil && (
+                            <p className="mt-0.5 text-[11px] text-text-tertiary">
+                              Jusqu&apos;au{' '}
+                              {new Date(p.effectiveUntil).toLocaleDateString('fr-FR')}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ─── ONGLET PARAMETRES ─────────────────────────────── */}
           {activeTab === 'settings' && (

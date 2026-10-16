@@ -54,3 +54,13 @@ export const getAvailableDrivers = async () => {
   const response = await api.get('/orders/available-drivers');
   return response.data;
 };
+
+/**
+ * Mes sanctions en tant que livreur (DRIVER / COURIER).
+ * Le livreur ne voit que les siennes — transparence sur les retards
+ * constatés et les décisions prises à son encontre.
+ */
+export const getMyPenalties = async () => {
+  const response = await api.get('/delivery-penalties/me');
+  return response.data;
+};

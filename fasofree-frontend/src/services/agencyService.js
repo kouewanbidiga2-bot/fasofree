@@ -99,3 +99,14 @@ export const getAgencyPenalties = async () => {
   const response = await api.get('/agencies/penalties');
   return response.data;
 };
+
+// ─── 📍 GÉOLOCALISATION (bloc E) ────────────────────────────────
+
+/**
+ * Carte temps réel de l'agence : positions de SES chauffeurs et de ses
+ * courses actives. Le périmètre est borné à l'agence connectée.
+ */
+export const getAgencyMap = async () => {
+  const response = await api.get('/agencies/map');
+  return response.data;
+};

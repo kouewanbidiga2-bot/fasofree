@@ -20,3 +20,6 @@ $null
 !manifest.json
 *.exe
 k6-bin/
+
+# Espace de travail local (exports PDF, polices, scripts de design) - jamais versionné
+deo/

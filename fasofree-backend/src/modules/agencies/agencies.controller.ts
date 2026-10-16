@@ -99,6 +99,23 @@ export class AgenciesController {
     return this.agenciesService.getDrivers(agency.id);
   }
 
+  // ─── 📍 GÉOLOCALISATION (bloc E) ───────────────────────────────
+
+  /**
+   * Carte temps réel de l'agence : positions de ses chauffeurs et de ses
+   * courses actives. Périmètre strictement borné à l'agence connectée.
+   */
+  @Get('map')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENCY)
+  @ApiOperation({
+    summary: 'Positions temps réel de mes chauffeurs et de mes courses actives',
+  })
+  async getAgencyMap(@NestRequest() req: RequestWithUser) {
+    const agency = await this.getAgencyFromRequest(req);
+    return this.agenciesService.getAgencyMap(agency.id);
+  }
+
   // ─── 📣 APPEL D'OFFRES MULTI-AGENCES (bloc A4) ────────────────
 
   @Get('offers')

@@ -391,6 +391,26 @@ const BusinessAdminDashboard = () => {
   const branchesRef = useRef(branches);
   branchesRef.current = branches;
 
+  // 🎚️ Qualité de livraison (bloc B) : le commerce lit la mesure posée par
+  // FasoFree au moment de la remise. On se limite aux commandes terminées
+  // du chargement courant (200 max) — c'est un indicateur, pas un audit.
+  const sla = React.useMemo(() => {
+    const done = orders.filter(
+      (o) => o.deliveredAt || o.status === 'DELIVERED' || o.status === 'COMPLETED',
+    );
+    const late = done.filter((o) => o.deliveryLate).length;
+    const avg = (key) =>
+      done.length
+        ? done.reduce((s, o) => s + (Number(o[key]) || 0), 0) / done.length
+        : null;
+    return {
+      total: done.length,
+      late,
+      rate: done.length ? Math.round(((done.length - late) / done.length) * 100) : null,
+      avgDuration: avg('deliveryDurationMinutes'),
+    };
+  }, [orders]);
+
   // Sélection d'agence (null = vue marque)
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [brandAnalytics, setBrandAnalytics] = useState(null);
@@ -1167,6 +1187,42 @@ const BusinessAdminDashboard = () => {
                   color="#F59E0B"
                   loading={loading.alerts}
                 />
+              </div>
+
+              {/* 🎚️ Qualité de livraison (bloc B) */}
+              <div className="card p-5 mb-6">
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-sm font-bold text-text-primary">Qualité de livraison</h2>
+                  <span className="text-[11px] text-text-tertiary">
+                    {sla.total} livraison(s) terminée(s)
+                  </span>
+                </div>
+                <p className="text-xs text-text-secondary mb-4">
+                  Retard constaté au-delà de +25 % de l&apos;ETA estimée. Une livraison
+                  en retard déclenche un avertissement automatique pour le livreur.
+                </p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="rounded-lg bg-background-secondary p-3">
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">À temps</p>
+                    <p className="text-xl font-bold text-status-success">
+                      {sla.rate == null ? '—' : `${sla.rate} %`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-background-secondary p-3">
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">En retard</p>
+                    <p className="text-xl font-bold text-status-error">{sla.late}</p>
+                  </div>
+                  <div className="rounded-lg bg-background-secondary p-3">
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Durée moyenne</p>
+                    <p className="text-xl font-bold text-text-primary">
+                      {sla.avgDuration == null ? '—' : `${Math.round(sla.avgDuration)} min`}
+                    </p>
+                  </div>
+                  <div className="rounded-lg bg-background-secondary p-3">
+                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Dont livrées</p>
+                    <p className="text-xl font-bold text-text-primary">{sla.total}</p>
+                  </div>
+                </div>
               </div>
 
               {errors.analytics && !errors.analytics.includes('401') && !errors.analytics.includes('Non autorisé') && (

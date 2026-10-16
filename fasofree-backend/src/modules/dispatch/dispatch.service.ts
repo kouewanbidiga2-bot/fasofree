@@ -20,6 +20,7 @@ import { DriverScoringService } from './services/driver-scoring.service';
 import { DeliverySlaService } from './services/delivery-sla.service';
 import { DeliveryCallForTenderService } from './services/delivery-call-for-tender.service';
 import { DeliveryAgency } from './entities/delivery-agency.entity';
+import { GeoDispatchService, DriverLocation } from '../orders/dispatch.service';
 import { OrdersService } from '../orders/orders.service';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
@@ -47,7 +48,33 @@ export class DispatchService {
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly notificationStore: NotificationStoreService,
+    private readonly geoDispatchService: GeoDispatchService,
   ) {}
+
+  /**
+   * 📍 Positions connues de PLUSIEURS livreurs, en une passe parallèle.
+   *
+   * Exposé sur `DispatchService` (et non sur `GeoDispatchService`) parce que
+   * c'est lui que les autres modules injectent : `DispatchModule` est
+   * `@Global`, donc `AgenciesService` l'obtient sans nouveau câblage, là où
+   * `GeoDispatchService` n'est pas exporté par `OrdersModule`… si, il l'est,
+   * mais passer par le service global évite d'importer OrdersModule partout.
+   *
+   * Un livreur sans position connue (jamais envoyé de GPS, ou TTL Redis
+   * expiré) vaut `null` — c'est un état normal, pas une erreur.
+   */
+  async getDriversLocations(
+    driverIds: string[],
+  ): Promise<Map<string, DriverLocation | null>> {
+    const unique = Array.from(new Set(driverIds.filter(Boolean)));
+    const map = new Map<string, DriverLocation | null>();
+    await Promise.all(
+      unique.map(async (id) => {
+        map.set(id, await this.geoDispatchService.getDriverLocation(id));
+      }),
+    );
+    return map;
+  }
 
   /**
    * 🚀 Assigner automatiquement une commande au meilleur livreur

@@ -11,6 +11,8 @@ import {
   Megaphone,
   X,
 } from 'lucide-react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   getMyAgency,
   getAgencyDeliveries,
@@ -19,6 +21,8 @@ import {
   getAgencyOpenOffers,
   acceptAgencyOffer,
   refuseAgencyOffer,
+  getAgencyMap,
+  getAgencyPenalties,
 } from '../services/agencyService';
 import { getDispatchSocket } from '../services/realtime';
 
@@ -51,26 +55,43 @@ const AgencyDashboard = () => {
   const [assigning, setAssigning] = useState({});
   const [assignTarget, setAssignTarget] = useState({});
   const [responding, setResponding] = useState({});
+  // 📍 Carte temps réel (bloc E) : positions des chauffeurs + courses actives.
+  // `null` = pas encore chargé ou chargement en cours.
+  const [mapData, setMapData] = useState(null);
+  // ⚖️ Sanctions qualité de l'agence (bloc C).
+  const [penalties, setPenalties] = useState([]);
   // Horloge locale : fait vivre le compte à rebours des offres sans
   // re-interroger le serveur chaque seconde.
   const [now, setNow] = useState(() => Date.now());
 
   const loadAll = useCallback(async () => {
     try {
-      const [agencyData, deliveriesData, driversData, offersData] =
-        await Promise.all([
-          getMyAgency(),
-          getAgencyDeliveries(),
-          getAgencyDrivers(),
-          // Les offres d'appel d'offres sont un flux distinct : tant
-          // qu'aucune agence n'a gagné, la course n'a pas encore de
-          // `deliveryProviderId` et n'apparaît pas dans `deliveries`.
-          getAgencyOpenOffers().catch(() => []),
-        ]);
+      const [
+        agencyData,
+        deliveriesData,
+        driversData,
+        offersData,
+        mapDataResult,
+        penaltiesData,
+      ] = await Promise.all([
+        getMyAgency(),
+        getAgencyDeliveries(),
+        getAgencyDrivers(),
+        // Les offres d'appel d'offres sont un flux distinct : tant
+        // qu'aucune agence n'a gagné, la course n'a pas encore de
+        // `deliveryProviderId` et n'apparaît pas dans `deliveries`.
+        getAgencyOpenOffers().catch(() => []),
+        // La carte et les sanctions sont des lectures annexes : un échec
+        // ne doit pas faire échouer le chargement principal de l'espace.
+        getAgencyMap().catch(() => null),
+        getAgencyPenalties().catch(() => []),
+      ]);
       setAgency(agencyData);
       setDeliveries(deliveriesData || []);
       setDrivers(driversData || []);
       setOffers(offersData || []);
+      setMapData(mapDataResult);
+      setPenalties(penaltiesData || []);
       setError(null);
     } catch (err) {
       setError(err.message || 'Erreur de chargement');
@@ -116,6 +137,45 @@ const AgencyDashboard = () => {
     );
     return { pending, assigned, delivered, commission };
   }, [deliveries]);
+
+  // 🎚️ Qualité de livraison (blocs B + C) : calculée sur les courses
+  // terminées de l'agence. `deliveryLate` est posé par le backend au
+  // moment de la remise (tolérance +25 % de l'ETA) — l'agence n'a donc
+  // rien à calculer elle-même, elle lit la mesure.
+  const quality = useMemo(() => {
+    const done = deliveries.filter(
+      (d) => d.deliveredAt || d.status === 'DELIVERED' || d.status === 'COMPLETED',
+    );
+    const late = done.filter((d) => d.deliveryLate).length;
+    const onTime = done.length - late;
+    const avg = (key) =>
+      done.length
+        ? done.reduce((sum, d) => sum + (Number(d[key]) || 0), 0) / done.length
+        : null;
+    return {
+      total: done.length,
+      late,
+      onTime,
+      rate: done.length ? Math.round((onTime / done.length) * 100) : null,
+      avgDuration: avg('deliveryDurationMinutes'),
+      avgEta: avg('deliveryEtaMinutes'),
+    };
+  }, [deliveries]);
+
+  const activePenalties = penalties.filter((p) => p.active);
+
+  // 📍 Centre de la carte : première position connue (chauffeur ou course),
+  // sinon Ouagadougou par défaut. Sans position du tout, on reste sur la
+  // ville plutôt que d'afficher une carte vide centrée sur l'océan.
+  const mapCenter = useMemo(() => {
+    if (!mapData) return null;
+    const pts = [
+      ...mapData.drivers.map((d) => d.location),
+      ...mapData.orders.flatMap((o) => [o.pickup, o.dropoff, o.driverLocation]),
+    ].filter(Boolean);
+    if (pts.length === 0) return [12.37, -1.52];
+    return [pts[0].latitude, pts[0].longitude];
+  }, [mapData]);
 
   const handleAssign = async (orderId) => {
     const driverId = assignTarget[orderId];
@@ -479,6 +539,228 @@ const AgencyDashboard = () => {
               ))}
             </div>
           )}
+        </div>
+
+        {/* ── 🎚️ QUALITÉ & SLA (blocs B + C) ─────────────────── */}
+        <div className="card p-5">
+          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-1">
+            Qualité de livraison
+          </h3>
+          <p className="text-xs text-text-secondary mb-4">
+            Mesure posée par FasoFree au moment de la remise (tolérance +25 % de
+            l'ETA). Une sanction se révoque, elle ne s'efface jamais.
+          </p>
+
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="rounded-lg bg-background-secondary p-3">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Livrées</p>
+              <p className="text-xl font-bold text-text-primary">{quality.total}</p>
+            </div>
+            <div className="rounded-lg bg-background-secondary p-3">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">À temps</p>
+              <p className="text-xl font-bold text-status-success">
+                {quality.rate == null ? '—' : `${quality.rate} %`}
+              </p>
+            </div>
+            <div className="rounded-lg bg-background-secondary p-3">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">En retard</p>
+              <p className="text-xl font-bold text-status-error">{quality.late}</p>
+            </div>
+            <div className="rounded-lg bg-background-secondary p-3">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Durée moy.</p>
+              <p className="text-xl font-bold text-text-primary">
+                {quality.avgDuration == null
+                  ? '—'
+                  : `${Math.round(quality.avgDuration)} min`}
+              </p>
+            </div>
+            <div className="rounded-lg bg-background-secondary p-3">
+              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Sanctions</p>
+              <p className="text-xl font-bold text-status-warning">{activePenalties.length}</p>
+            </div>
+          </div>
+
+          {penalties.length > 0 && (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[10px] uppercase tracking-[0.15em] text-text-tertiary border-b border-border-light">
+                    <th className="py-2 pr-3">Niveau</th>
+                    <th className="py-2 pr-3">Motif</th>
+                    <th className="py-2 pr-3">Début</th>
+                    <th className="py-2 pr-3">Fin</th>
+                    <th className="py-2">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {penalties.map((p) => (
+                    <tr key={p.id} className="border-b border-border-light/60">
+                      <td className="py-2 pr-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          p.level === 'SUSPENSION'
+                            ? 'bg-status-errorBg text-status-error'
+                            : p.level === 'PRIORITY_DOWNGRADE'
+                              ? 'bg-status-warningBg text-status-warning'
+                              : 'bg-background-secondary text-text-secondary'
+                        }`}>
+                          {p.level === 'SUSPENSION'
+                            ? 'Suspension'
+                            : p.level === 'PRIORITY_DOWNGRADE'
+                              ? 'Priorité baissée'
+                              : 'Avertissement'}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 text-text-secondary max-w-[280px]">
+                        <span className="line-clamp-2">{p.reason || '—'}</span>
+                      </td>
+                      <td className="py-2 pr-3 text-text-secondary text-xs">
+                        {p.effectiveFrom
+                          ? new Date(p.effectiveFrom).toLocaleDateString('fr-FR')
+                          : '—'}
+                      </td>
+                      <td className="py-2 pr-3 text-text-secondary text-xs">
+                        {p.effectiveUntil
+                          ? new Date(p.effectiveUntil).toLocaleDateString('fr-FR')
+                          : 'Jusqu\u2019à révocation'}
+                      </td>
+                      <td className="py-2 text-xs">
+                        {p.active ? (
+                          <span className="font-semibold text-status-error">Active</span>
+                        ) : (
+                          <span className="text-text-tertiary">Levée</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* ── 📍 CARTE TEMPS RÉEL (bloc E) ───────────────────── */}
+        <div className="card overflow-hidden">
+          <div className="px-5 py-3 border-b border-border-light flex items-center justify-between">
+            <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+              Carte temps réel
+            </h3>
+            <span className="text-xs text-text-tertiary">
+              {mapData
+                ? `${mapData.drivers.length} chauffeur(s) · ${mapData.orders.length} course(s) active(s)`
+                : 'Chargement…'}
+            </span>
+          </div>
+
+          {!mapData || !mapCenter ? (
+            <div className="p-10 text-center text-text-tertiary text-sm">
+              Aucune position disponible pour le moment.
+            </div>
+          ) : (
+            <MapContainer
+              center={mapCenter}
+              zoom={12}
+              className="h-[420px] w-full"
+              scrollWheelZoom
+            >
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+
+              {/* Mes chauffeurs : point violet + encart */}
+              {mapData.drivers.map((d) =>
+                d.location ? (
+                  <CircleMarker
+                    key={`driver-${d.id}`}
+                    center={[d.location.latitude, d.location.longitude]}
+                    radius={7}
+                    pathOptions={{ color: '#7C3AED', fillColor: '#7C3AED', fillOpacity: 0.8 }}
+                  >
+                    <Popup>
+                      <div className="text-xs">
+                        <p className="font-semibold">{d.name}</p>
+                        <p>{d.vehicleType || 'Véhicule non précisé'}</p>
+                        <p>
+                          {d.isOnline ? 'En ligne' : 'Hors ligne'} · Note{' '}
+                          {d.averageRating || '—'}
+                        </p>
+                        <p>
+                          Position :{' '}
+                          {new Date(d.location.updatedAt).toLocaleTimeString('fr-FR')}
+                        </p>
+                      </div>
+                    </Popup>
+                  </CircleMarker>
+                ) : null,
+              )}
+
+              {/* Mes courses actives : ramassage (vert) et destination (orange) */}
+              {mapData.orders.map((o) => (
+                <React.Fragment key={`order-${o.id}`}>
+                  {o.pickup && (
+                    <CircleMarker
+                      center={[o.pickup.latitude, o.pickup.longitude]}
+                      radius={6}
+                      pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.8 }}
+                    >
+                      <Popup>
+                        <div className="text-xs">
+                          <p className="font-semibold">Ramassage · {o.ref}</p>
+                          <p>{o.pickup.address || 'Adresse non renseignée'}</p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+                  {o.dropoff && (
+                    <CircleMarker
+                      center={[o.dropoff.latitude, o.dropoff.longitude]}
+                      radius={6}
+                      pathOptions={{ color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.8 }}
+                    >
+                      <Popup>
+                        <div className="text-xs">
+                          <p className="font-semibold">Livraison · {o.ref}</p>
+                          <p>{o.dropoff.address || 'Adresse non renseignée'}</p>
+                          <p>Frais : {Number(o.deliveryFee).toLocaleString()} FCFA</p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+                  {o.driverLocation && (
+                    <CircleMarker
+                      center={[o.driverLocation.latitude, o.driverLocation.longitude]}
+                      radius={9}
+                      pathOptions={{ color: '#EF4444', fillColor: '#EF4444', fillOpacity: 0.9 }}
+                    >
+                      <Popup>
+                        <div className="text-xs">
+                          <p className="font-semibold">Livreur en route · {o.ref}</p>
+                          <p>
+                            {o.pickup?.address || '?'} → {o.dropoff?.address || '?'}
+                          </p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  )}
+                </React.Fragment>
+              ))}
+            </MapContainer>
+          )}
+
+          <div className="px-5 py-3 border-t border-border-light flex flex-wrap gap-4 text-[11px] text-text-tertiary">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#7C3AED]" /> Mes chauffeurs
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#EF4444]" /> Livreur en route
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#22C55E]" /> Ramassage
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" /> Destination
+            </span>
+          </div>
         </div>
       </main>
     </div>
