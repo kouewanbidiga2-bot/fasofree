@@ -6,6 +6,10 @@ import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Order } from '../orders/entities/order.entity';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { DeliveryCallForTenderService, AgencyOpenOffer } from '../dispatch/services/delivery-call-for-tender.service';
+import { PenaltiesService } from '../penalties/penalties.service';
+import { DeliveryOffer } from '../dispatch/entities/delivery-offer.entity';
+import { DeliveryPenalty } from '../penalties/entities/delivery-penalty.entity';
 import { CreateAgencyDto, UpdateAgencyDto } from './dto/agency.dto';
 
 /**
@@ -28,6 +32,8 @@ export class AgenciesService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly dispatchService: DispatchService,
+    private readonly callForTender: DeliveryCallForTenderService,
+    private readonly penaltiesService: PenaltiesService,
   ) {}
 
   // ─── SUPER_ADMIN : gestion des agences ─────────────────────────
@@ -109,6 +115,38 @@ export class AgenciesService {
         longitude: true,
       },
     });
+  }
+
+  // ─── 📣 APPEL D'OFFRES MULTI-AGENCES (bloc A4) ────────────────
+
+  /**
+   * Offres encore ouvertes pour mon agence, enrichies de la commande.
+   *
+   * Distinct de `getDeliveries` : une offre n'a pas encore de
+   * `deliveryProviderId` (aucune agence n'a gagné), elle n'apparaîtrait
+   * donc jamais dans la liste des courses routées.
+   */
+  async getOpenOffers(agencyId: string): Promise<AgencyOpenOffer[]> {
+    return this.callForTender.listOpenOffersForAgency(agencyId);
+  }
+
+  /**
+   * ✅ Accepter une offre — « premier qui accepte gagne ».
+   * L'acceptation est atomique (verrou sur la commande) : une seconde
+   * agence qui clique au même instant reçoit un 400 explicite.
+   */
+  async acceptOffer(orderId: string, agencyId: string): Promise<Order> {
+    return this.callForTender.acceptOffer(orderId, agencyId);
+  }
+
+  /** 🚫 Refuser une offre (l'appel d'offres continue pour les autres). */
+  async refuseOffer(orderId: string, agencyId: string): Promise<DeliveryOffer> {
+    return this.callForTender.refuseOffer(orderId, agencyId);
+  }
+
+  /** ⚖️ Sanctions qualité de mon agence (bloc C). */
+  async getMyPenalties(agencyId: string): Promise<DeliveryPenalty[]> {
+    return this.penaltiesService.listForAgency(agencyId);
   }
 
   /**

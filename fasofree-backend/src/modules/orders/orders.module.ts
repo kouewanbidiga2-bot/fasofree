@@ -13,6 +13,7 @@ import { Product } from '../products/entities/product.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
 import { DispatchModule } from '../dispatch/dispatch.module';
 import { AnalyticsModule } from '../analytics/analytics.module';
+import { PenaltiesModule } from '../penalties/penalties.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { RedisModule } from '../../core/redis/redis.module';
@@ -43,6 +44,7 @@ import { FraudModule } from '../fraud/fraud.module';
     WalletModule,
     SubscriptionsModule,
     FraudModule, // 🚫 Anti-fraude : contrôle avant création de commande
+    PenaltiesModule, // ⚖️ Sanctions qualité (avertissement auto sur retard)
   ],
   controllers: [OrdersController],
   providers: [

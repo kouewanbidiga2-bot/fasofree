@@ -15,6 +15,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
 import { AgenciesModule } from './modules/agencies/agencies.module';
+import { PenaltiesModule } from './modules/penalties/penalties.module';
 import { HealthModule } from './modules/health/health.module'; // 👈 Import
 import { FinancialModule } from './modules/financial/financial.module';
 import { WalletModule } from './modules/wallets/wallet.module';
@@ -93,6 +94,7 @@ import { PushCampaignModule } from './modules/push-campaigns/push-campaign.modul
     PaymentsModule,
     DispatchModule,
     AgenciesModule, // 🏢 Niveau 2 du dispatch : agences partenaires
+    PenaltiesModule, // ⚖️ Pénalités qualité (avertissement / priorité / suspension)
     AnalyticsModule,
     HealthModule, // 👈 Ajout du module Health
     FinancialModule, // 👈 Ajout du module Financial

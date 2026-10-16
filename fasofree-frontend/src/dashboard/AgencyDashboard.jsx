@@ -8,12 +8,17 @@ import {
   RefreshCw,
   UserPlus,
   Building2,
+  Megaphone,
+  X,
 } from 'lucide-react';
 import {
   getMyAgency,
   getAgencyDeliveries,
   getAgencyDrivers,
   assignAgencyDelivery,
+  getAgencyOpenOffers,
+  acceptAgencyOffer,
+  refuseAgencyOffer,
 } from '../services/agencyService';
 import { getDispatchSocket } from '../services/realtime';
 
@@ -29,7 +34,8 @@ import { getDispatchSocket } from '../services/realtime';
  */
 const STATUS_LABELS = {
   ROUTED: 'En attente',
-  ACCEPTED: 'Assignée',
+  OFFERED: 'Appel d’offres',
+  ACCEPTED: 'À assigner',
   DISPATCHED: 'Dispatchée',
   MANUAL_QUEUE: 'File manuelle',
   ESCALATED: 'Escaladée',
@@ -39,21 +45,32 @@ const AgencyDashboard = () => {
   const [agency, setAgency] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [assigning, setAssigning] = useState({});
   const [assignTarget, setAssignTarget] = useState({});
+  const [responding, setResponding] = useState({});
+  // Horloge locale : fait vivre le compte à rebours des offres sans
+  // re-interroger le serveur chaque seconde.
+  const [now, setNow] = useState(() => Date.now());
 
   const loadAll = useCallback(async () => {
     try {
-      const [agencyData, deliveriesData, driversData] = await Promise.all([
-        getMyAgency(),
-        getAgencyDeliveries(),
-        getAgencyDrivers(),
-      ]);
+      const [agencyData, deliveriesData, driversData, offersData] =
+        await Promise.all([
+          getMyAgency(),
+          getAgencyDeliveries(),
+          getAgencyDrivers(),
+          // Les offres d'appel d'offres sont un flux distinct : tant
+          // qu'aucune agence n'a gagné, la course n'a pas encore de
+          // `deliveryProviderId` et n'apparaît pas dans `deliveries`.
+          getAgencyOpenOffers().catch(() => []),
+        ]);
       setAgency(agencyData);
       setDeliveries(deliveriesData || []);
       setDrivers(driversData || []);
+      setOffers(offersData || []);
       setError(null);
     } catch (err) {
       setError(err.message || 'Erreur de chargement');
@@ -67,6 +84,12 @@ const AgencyDashboard = () => {
     const interval = setInterval(loadAll, 30000); // fallback polling
     return () => clearInterval(interval);
   }, [loadAll]);
+
+  // ⏱️ Compte à rebours local (1 s) des fenêtres d'acceptation de 5 min.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   // 🔌 Temps réel : rejoindre la room agence et rafraîchir à chaque course routée
   useEffect(() => {
@@ -106,6 +129,46 @@ const AgencyDashboard = () => {
     } finally {
       setAssigning((prev) => ({ ...prev, [orderId]: false }));
     }
+  };
+
+  // ✅ Accepter une offre d'appel d'offres — « premier qui accepte gagne ».
+  // Un 400 signifie qu'une autre agence a été plus rapide (ou fenêtre
+  // écoulée) : on rafraîchit la liste pour la faire disparaître.
+  const handleAcceptOffer = async (orderId) => {
+    setResponding((prev) => ({ ...prev, [orderId]: 'accept' }));
+    try {
+      await acceptAgencyOffer(orderId);
+      await loadAll();
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          err.message ||
+          "Échec de l'acceptation",
+      );
+      await loadAll();
+    } finally {
+      setResponding((prev) => ({ ...prev, [orderId]: null }));
+    }
+  };
+
+  // 🚫 Refuser une offre — l'appel d'offres continue pour les autres agences.
+  const handleRefuseOffer = async (orderId) => {
+    setResponding((prev) => ({ ...prev, [orderId]: 'refuse' }));
+    try {
+      await refuseAgencyOffer(orderId);
+      setOffers((prev) => prev.filter((o) => o.orderId !== orderId));
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Échec du refus');
+    } finally {
+      setResponding((prev) => ({ ...prev, [orderId]: null }));
+    }
+  };
+
+  const formatCountdown = (seconds) => {
+    const safe = Math.max(0, seconds);
+    const m = Math.floor(safe / 60);
+    const s = safe % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
   };
 
   if (loading) {
@@ -198,6 +261,104 @@ const AgencyDashboard = () => {
             </p>
           </div>
         </div>
+
+        {/* ── 📣 APPELS D'OFFRES OUVERTS (A4) ─────────────────── */}
+        {offers.length > 0 && (
+          <div className="card overflow-hidden border-2 border-accent-primary/40">
+            <div className="px-5 py-3 border-b border-border-light flex items-center justify-between bg-accent-primary/5">
+              <h3 className="text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-2 text-accent-primary">
+                <Megaphone size={14} />
+                Appels d'offres — premier qui accepte gagne
+              </h3>
+              <span className="text-xs font-semibold text-accent-primary">
+                {offers.length} à saisir
+              </span>
+            </div>
+            <div className="divide-y divide-border-light">
+              {offers.map((offer) => {
+                const remaining = offer.expiresAt
+                  ? Math.floor(
+                      (new Date(offer.expiresAt).getTime() - now) / 1000,
+                    )
+                  : 0;
+                const expired = remaining <= 0;
+                const busy = responding[offer.orderId];
+                return (
+                  <div key={offer.offerId} className="px-5 py-4">
+                    <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <p className="text-sm font-semibold text-text-primary">
+                            #{offer.orderId.slice(0, 8)}
+                          </p>
+                          {offer.order?.businessName && (
+                            <span className="text-xs text-text-secondary">
+                              · {offer.order.businessName}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              expired
+                                ? 'bg-status-errorBg text-status-error'
+                                : remaining <= 60
+                                  ? 'bg-status-warningBg text-status-warning'
+                                  : 'bg-accent-primary/10 text-accent-primary'
+                            }`}
+                          >
+                            {expired
+                              ? 'Fenêtre écoulée'
+                              : `Reste ${formatCountdown(remaining)}`}
+                          </span>
+                          <span className="text-[10px] text-text-tertiary">
+                            tour {offer.round}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-text-tertiary">
+                          <MapPin size={12} />
+                          <span className="truncate">
+                            {offer.order?.pickupAddress || 'Ramassage'} →{' '}
+                            {offer.order?.deliveryAddress || 'Livraison'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-text-tertiary mt-1">
+                          Frais :{' '}
+                          {Number(offer.order?.deliveryFee || 0).toLocaleString()}{' '}
+                          FCFA
+                          <span className="text-accent-primary font-semibold">
+                            {' '}
+                            · Ma commission :{' '}
+                            {Number(
+                              offer.agencyCommissionXof || 0,
+                            ).toLocaleString()}{' '}
+                            FCFA ({offer.commissionPct}%)
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleAcceptOffer(offer.orderId)}
+                          disabled={expired || !!busy}
+                          className="btn-primary gap-2 text-sm disabled:opacity-50"
+                        >
+                          <CheckCircle2 size={14} />
+                          {busy === 'accept' ? '…' : 'Accepter'}
+                        </button>
+                        <button
+                          onClick={() => handleRefuseOffer(offer.orderId)}
+                          disabled={!!busy}
+                          className="btn-secondary gap-2 text-sm"
+                        >
+                          <X size={14} />
+                          {busy === 'refuse' ? '…' : 'Refuser'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* ── COURSES ROUTÉES ────────────────────────────────── */}
         <div className="card overflow-hidden">

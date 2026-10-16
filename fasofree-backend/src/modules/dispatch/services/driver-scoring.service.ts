@@ -4,6 +4,8 @@ import { Repository, In } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { UserRole } from '../../users/entities/user-role.enum';
 import { OrderType } from '../../orders/entities/order.entity';
+import { PenaltiesService, PENALTY_SCORE_IMPACT } from '../../penalties/penalties.service';
+import { DeliveryPenaltyLevel } from '../../penalties/entities/delivery-penalty.entity';
 
 /**
  * 📍 Structure pour le scoring des livreurs
@@ -41,6 +43,7 @@ export class DriverScoringService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly penaltiesService: PenaltiesService,
   ) {}
 
   /**
@@ -122,6 +125,29 @@ export class DriverScoringService {
       return [];
     }
 
+    // ⚖️ Pénalités qualité (bloc C) : UNE requête pour tous les candidats.
+    // Une panne du module pénalités dégrade en « aucune sanction connue »
+    // plutôt que de bloquer tout le dispatch — on préfère risquer de
+    // solliciter un livreur sanctionné que de ne livrer personne.
+    let driverLevels = new Map<string, DeliveryPenaltyLevel>();
+    let agencyLevels = new Map<string, DeliveryPenaltyLevel>();
+    try {
+      driverLevels = await this.penaltiesService.getActiveDriverLevels(
+        drivers.map((d) => d.id),
+      );
+      const agencyIds = [
+        ...new Set(drivers.map((d) => d.agencyId).filter(Boolean)),
+      ] as string[];
+      agencyLevels =
+        await this.penaltiesService.getActiveAgencyLevels(agencyIds);
+    } catch (err) {
+      this.logger.warn(
+        `[Dispatch] Pénalités indisponibles au scoring : ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
+      );
+    }
+
     // 2. Calculer le score pour chaque livreur
     const scoredDrivers: DriverScore[] = [];
 
@@ -177,25 +203,53 @@ export class DriverScoringService {
         continue;
       }
 
-      const score = this.calculateDriverScore(distanceKm, averageRating);
+      // ⚖️ Suspension (niveau 3) : le livreur, ou sa société de livraison,
+      // est exclu du dispatch jusqu'à la fin de la sanction.
+      const driverLevel = driverLevels.get(driver.id);
+      const agencyLevel = driver.agencyId
+        ? agencyLevels.get(driver.agencyId)
+        : undefined;
+      if (
+        driverLevel === DeliveryPenaltyLevel.SUSPENSION ||
+        agencyLevel === DeliveryPenaltyLevel.SUSPENSION
+      ) {
+        this.logger.debug(
+          `[Dispatch] Livreur ${driver.id} exclu (suspension ${
+            driverLevel === DeliveryPenaltyLevel.SUSPENSION
+              ? 'individuelle'
+              : 'de sa société'
+          })`,
+        );
+        continue;
+      }
+
+      const baseScore = this.calculateDriverScore(distanceKm, averageRating);
 
       // 🏍️ RIDE : pénalité si le livreur se déplace à vélo / à pied (préférer moto/VTC)
       const isRide = orderType === OrderType.RIDE;
-      if (isRide && (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')) {
+      const isSlowVehicle =
+        vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED';
+      if (isRide && isSlowVehicle) {
         this.logger.debug(
           `[Dispatch] Livreur ${driver.id} à vélo (${vehicle}) pénalisé pour une course RIDE`,
         );
       }
+
+      // ⚖️ Baisse de priorité : la sanction renchérit le score (rappel :
+      // plus bas = meilleur). La sanction de la société compte moitié
+      // moins que la sanction individuelle — un livreur ne doit pas payer
+      // plein tarif pour une décision prise au niveau de son employeur.
+      let penaltyImpact = 0;
+      if (driverLevel) penaltyImpact += PENALTY_SCORE_IMPACT[driverLevel];
+      if (agencyLevel) penaltyImpact += PENALTY_SCORE_IMPACT[agencyLevel] / 2;
 
       scoredDrivers.push({
         driverId: driver.id,
         driver,
         distanceKm,
         averageRating,
-        score: isRide &&
-          (vehicle === 'BICYCLE' || vehicle === 'FOOT' || vehicle === 'PIED')
-          ? score + 0.5
-          : score,
+        score:
+          baseScore + (isRide && isSlowVehicle ? 0.5 : 0) + penaltyImpact,
       });
     }
 

@@ -315,6 +315,39 @@ export class Order {
   @Column({ type: 'numeric', precision: 12, scale: 2, nullable: true })
   agencyCommissionXof: number | null;
 
+  // --- ⏱️ SLA DE LIVRAISON (suivi du temps de course) ---
+  // Horodatage réel de la remise du colis (validation par le livreur).
+  @Column({ type: 'timestamp', nullable: true })
+  deliveredAt: Date | null;
+
+  // ETA annoncée au dispatch (minutes) : distance ÷ 30 km/h,
+  // majorée +30 % en heures de pointe, plancher 15 min.
+  @Column({ type: 'int', nullable: true })
+  deliveryEtaMinutes: number | null;
+
+  // Échéance « en retard » = dispatch + ETA + tolérance.
+  // Comparée à `deliveredAt` pour le drapeau `deliveryLate`.
+  @Column({ type: 'timestamp', nullable: true })
+  deliverySlaDeadline: Date | null;
+
+  // Durée réelle de la course (minutes), calculée à la remise du colis.
+  @Column({ type: 'int', nullable: true })
+  deliveryDurationMinutes: number | null;
+
+  // Retard constaté → déclenche l'alerte et l'avertissement qualité.
+  @Column({ type: 'boolean', default: false })
+  deliveryLate: boolean;
+
+  // --- 📣 APPEL D'OFFRES MULTI-AGENCES (A4) ---
+  // Fin de la fenêtre d'acceptation en cours (null = aucune offre ouverte).
+  @Column({ type: 'timestamp', nullable: true })
+  dispatchOfferExpiresAt: Date | null;
+
+  // Tour d'appel d'offres : 0 = aucun, 1 = diffusion T+0,
+  // 2 = re-diffusion T+5, 3 = clôture sans preneur T+10.
+  @Column({ type: 'int', default: 0 })
+  dispatchOfferRound: number;
+
   // --- 🎫 QR CODE (PICKUP / DINE_IN) ---
   @Column({ type: 'varchar', length: 32, nullable: true, unique: true })
   qrCode: string | null;

@@ -18,11 +18,15 @@ import { Business } from '../businesses/entities/business.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { DeliveryAgency } from './entities/delivery-agency.entity';
+import { DeliveryOffer } from './entities/delivery-offer.entity';
 import { DriverScoringService } from './services/driver-scoring.service';
+import { DeliverySlaService } from './services/delivery-sla.service';
+import { DeliveryCallForTenderService } from './services/delivery-call-for-tender.service';
 import { DeliveryProviderRegistry } from './providers/delivery-provider.registry';
 import { InternalFleetProvider } from './providers/internal-fleet.provider';
 import { AgencyProvider } from './providers/agency.provider';
 import { ManualProvider } from './providers/manual.provider';
+import { PenaltiesModule } from '../penalties/penalties.module';
 import { resolveJwtSecret } from '../../config/jwt.config';
 
 @Global()
@@ -35,12 +39,14 @@ import { resolveJwtSecret } from '../../config/jwt.config';
       Order,
       Brand,
       DeliveryAgency,
+      DeliveryOffer,
     ]),
     forwardRef(() => OrdersModule),
     forwardRef(() => UsersModule),
     forwardRef(() => BusinessesModule),
     forwardRef(() => BrandsModule),
     NotificationsModule,
+    PenaltiesModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -58,6 +64,8 @@ import { resolveJwtSecret } from '../../config/jwt.config';
     RoomHandler,
     // 🧭 Dispatch multi-niveaux (Delivery Providers / Fallback)
     DriverScoringService,
+    DeliverySlaService,
+    DeliveryCallForTenderService,
     DeliveryProviderRegistry,
     InternalFleetProvider,
     AgencyProvider,
@@ -68,6 +76,8 @@ import { resolveJwtSecret } from '../../config/jwt.config';
     DispatchService,
     DeliveryProviderRegistry,
     DriverScoringService,
+    DeliverySlaService,
+    DeliveryCallForTenderService,
     JwtModule,
   ],
 })

@@ -17,6 +17,9 @@ import { DeliveryPricingService } from '../orders/delivery-pricing.service';
 import { DeliveryProviderRegistry } from './providers/delivery-provider.registry';
 import { DeliveryTicket } from './providers/delivery-provider.interface';
 import { DriverScoringService } from './services/driver-scoring.service';
+import { DeliverySlaService } from './services/delivery-sla.service';
+import { DeliveryCallForTenderService } from './services/delivery-call-for-tender.service';
+import { DeliveryAgency } from './entities/delivery-agency.entity';
 import { OrdersService } from '../orders/orders.service';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
@@ -32,11 +35,15 @@ export class DispatchService {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(DeliveryAgency)
+    private readonly agencyRepository: Repository<DeliveryAgency>,
     private readonly dispatchGateway: DispatchGateway,
     private readonly deliveryPricingService: DeliveryPricingService,
     private readonly configService: ConfigService,
     private readonly providerRegistry: DeliveryProviderRegistry,
     private readonly driverScoringService: DriverScoringService,
+    private readonly deliverySlaService: DeliverySlaService,
+    private readonly callForTender: DeliveryCallForTenderService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly notificationStore: NotificationStoreService,
@@ -112,14 +119,103 @@ export class DispatchService {
     // L'échec d'un niveau n'est PAS une erreur finale → fail-over.
     const handled = await this.dispatchThroughProviders(order, ticket);
 
-    if (!handled) {
-      // ⛔ Tous les niveaux ont échoué : aucun moyen de livraison.
-      this.logger.warn(
-        `[Auto-Dispatch] Aucun provider de livraison disponible pour la commande #${orderId}`,
+    // ⏱️ SLA (bloc B) : ETA + échéance de retard estampillées une seule fois,
+    // avant tout fail-over, pour que la mesure porte sur la course entière.
+    await this.stampDeliverySla(order, ticket);
+
+    // 📣 A4-T0 : appel d'offres diffusé EN PARALLÈLE du pool interne vers
+    // TOUTES les agences éligibles (« premier qui accepte gagne »).
+    // Volontairement indépendant de DELIVERY_PROVIDERS : le niveau agence
+    // doit fonctionner même quand la chaîne de secours est réglée sur
+    // « internal » seul (valeur par défaut).
+    let tenderOpen = false;
+    try {
+      const tender = await this.callForTender.openTender(order.id, ticket, 1);
+      tenderOpen = tender.agencyCount > 0;
+      if (tenderOpen) {
+        this.logger.log(
+          `[A4] Course #${orderId} : appel d'offres ouvert à ${tender.agencyCount} agence(s) en parallèle du pool interne`,
+        );
+      }
+    } catch (err) {
+      // Un échec de l'appel d'offres ne doit JAMAIS empêcher le dispatch interne.
+      this.logger.error(
+        `[A4] Appel d'offres impossible pour la commande #${orderId}: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
       );
+    }
+
+    if (!handled) {
       // Notifier le système qu'aucun livreur n'est disponible
       this.dispatchGateway.notifyNewOrderToBusiness(order.businessId, order);
-      await this.markEscalated(order);
+
+      if (!tenderOpen) {
+        // ⛔ Tous les niveaux ont échoué : aucun moyen de livraison.
+        this.logger.warn(
+          `[Auto-Dispatch] Aucun provider de livraison disponible pour la commande #${orderId}`,
+        );
+        await this.markEscalated(order);
+      } else {
+        // L'appel d'offres A4 prend le relais : escalader tout de suite
+        // priverait les agences de leur fenêtre de 5 minutes. C'est le cron
+        // `processCallForTenders` qui clôturera à T+10 si personne ne prend.
+        this.logger.log(
+          `[A4] Course #${orderId} confiée à l'appel d'offres (aucun pool interne éligible)`,
+        );
+      }
+    }
+  }
+
+  /**
+   * ⏱️ Estampille l'ETA et l'échéance de retard sur la commande (bloc B).
+   *
+   * Idempotent : une échéance déjà posée n'est jamais réécrite, sinon un
+   * fail-over repousserait indéfiniment le retard d'une course en cours.
+   */
+  private async stampDeliverySla(
+    order: Order,
+    ticket: DeliveryTicket,
+  ): Promise<void> {
+    try {
+      if (order.deliverySlaDeadline) return;
+
+      const from = order.dispatchedAt ?? new Date();
+
+      // Distance ramassage → livraison (0 si l'une des extrémités manque :
+      // le plancher de 15 min s'applique alors, ce qui reste honnête).
+      const pLat = ticket.pickupLatitude;
+      const pLng = ticket.pickupLongitude;
+      const dLat = ticket.deliveryLatitude;
+      const dLng = ticket.deliveryLongitude;
+      const distanceKm =
+        pLat != null && pLng != null && dLat != null && dLng != null
+          ? this.driverScoringService.calculateDistance(pLat, pLng, dLat, dLng)
+          : 0;
+
+      const eta = this.deliverySlaService.computeEta(distanceKm, from);
+      const deadline = this.deliverySlaService.computeLateDeadline(
+        eta.etaMinutes,
+        from,
+      );
+
+      await this.orderRepository.update(order.id, {
+        deliveryEtaMinutes: eta.etaMinutes,
+        deliverySlaDeadline: deadline,
+      });
+
+      this.logger.log(
+        `[SLA] Course #${order.id} : ETA ${eta.etaMinutes} min (${eta.distanceKm.toFixed(1)} km${
+          eta.peakApplied ? ', heure de pointe' : ''
+        }) — échéance ${deadline.toISOString()}`,
+      );
+    } catch (err) {
+      // Le SLA ne doit jamais bloquer une livraison.
+      this.logger.warn(
+        `[SLA] ETA non calculable pour la commande #${order.id}: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
+      );
     }
   }
 
@@ -179,6 +275,22 @@ export class DispatchService {
     order: Order,
     ticket: DeliveryTicket,
   ): Promise<boolean> {
+    // 🏁 Bloc A4 — une société de livraison a-t-elle déjà accepté l'appel
+    // d'offres ? Si oui, la course est prise : notifier d'autres livreurs
+    // serait trompeur et un « accept » concurrent casserait le contrat
+    // « premier qui accepte gagne ». Vérifié AVANT la boucle pour ne
+    // déclencher aucun effet de bord (notifications) inutilement.
+    const current = await this.orderRepository.findOne({
+      where: { id: order.id },
+      select: { id: true, deliveryProviderId: true },
+    });
+    if (current?.deliveryProviderId) {
+      this.logger.log(
+        `[Dispatch] Commande #${order.id} déjà prise par la société ${current.deliveryProviderId} — chaîne de secours ignorée`,
+      );
+      return true;
+    }
+
     for (const provider of this.providerRegistry.getAll()) {
       try {
         const canHandle = await provider.canHandle(ticket);
@@ -286,6 +398,21 @@ export class DispatchService {
         .getMany();
 
       for (const order of pendingOrders) {
+        // 📣 Appel d'offres A4 ouvert et non échu : c'est le cron dédié
+        // `processCallForTenders` qui pilote la suite (T+5 / T+10).
+        // Décider ici en parallèle ferait diverger les deux crons
+        // (fail-over manuel immédiat + re-diffusion aux agences).
+        if (
+          order.dispatchOfferRound > 0 &&
+          order.dispatchOfferRound < 3 &&
+          order.dispatchOfferExpiresAt != null
+        ) {
+          this.logger.debug(
+            `[Dispatch Timeout] Commande #${order.id} sous appel d'offres A4 (tour ${order.dispatchOfferRound}) — géré par le cron dédié`,
+          );
+          continue;
+        }
+
         if (
           !order.dispatchCandidates ||
           order.dispatchCandidates.length === 0
@@ -398,6 +525,173 @@ export class DispatchService {
     } catch (error) {
       this.logger.error(
         `[Dispatch Timeout Error] Erreur lors de la vérification des timeouts: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * 📣 CHAÎNE DE SECOURS A4 — appel d'offres multi-agences.
+   *
+   * T+0  : diffusion interne + toutes agences éligibles (tour 1)
+   * T+5  : retour pool interne + re-diffusion aux agences + notification
+   *        à l'établissement (tour 2)
+   * T+10 : « aucun livreur disponible » à l'établissement + appel aux
+   *        sociétés partenaires « besoin livreur » + escalade (tour 3)
+   *
+   * Le cron ne traite QUE les commandes dont l'appel d'offres est ouvert et
+   * échu, et où personne n'a pris la course :
+   * `driverId IS NULL` (aucun livreur) ET `deliveryProviderId IS NULL`
+   * (aucune agence n'a accepté).
+   */
+  @Cron(CronExpression.EVERY_MINUTE)
+  async processCallForTenders(): Promise<void> {
+    try {
+      const now = new Date();
+      const dueOrders = await this.orderRepository
+        .createQueryBuilder('o')
+        // ⚠️ PAS de filtre sur READY_FOR_PICKUP : le dispatch — et donc la
+        // fenêtre A4 — démarre dès PAID / IN_PREPARATION (le livreur peut
+        // accepter pendant que la commande se prépare). Filtrer sur
+        // READY_FOR_PICKUP ferait expirer la fenêtre avant même que la
+        // commande y arrive, et la chaîne sauterait directement à T+10.
+        .where('o."driverId" IS NULL')
+        .andWhere('o."deliveryProviderId" IS NULL')
+        .andWhere('o."dispatchOfferExpiresAt" IS NOT NULL')
+        .andWhere('o."dispatchOfferExpiresAt" <= :now', { now })
+        .andWhere('o."dispatchOfferRound" < :finalRound', { finalRound: 3 })
+        .andWhere('o.status NOT IN (:...closed)', {
+          closed: [
+            OrderStatus.CANCELLED,
+            OrderStatus.FAILED,
+            OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+            OrderStatus.DELIVERED,
+            OrderStatus.COMPLETED,
+            OrderStatus.DISPUTED,
+            OrderStatus.REFUNDED,
+          ],
+        })
+        .getMany();
+
+      for (const order of dueOrders) {
+        if (order.dispatchOfferRound <= 1) {
+          await this.escalateTenderRoundTwo(order);
+        } else {
+          await this.closeTenderWithoutWinner(order);
+        }
+      }
+    } catch (error) {
+      this.logger.error(
+        `[A4] Erreur du cron d'appel d'offres: ${(error as Error)?.message ?? 'inconnu'}`,
+      );
+    }
+  }
+
+  /**
+   * 🔁 A4 — T+5 : personne n'a accepté, on relance plus largement.
+   * ① retour au pool interne, ② re-diffusion aux agences, ③ information de
+   * l'établissement (il doit savoir que la course traîne).
+   */
+  private async escalateTenderRoundTwo(order: Order): Promise<void> {
+    this.logger.warn(
+      `[A4] T+5 — aucune acceptation sur la course #${order.id} : retour pool interne + re-diffusion + notification à l'établissement`,
+    );
+
+    // Les offres du tour 1 sont closes AVANT d'ouvrir le tour 2, sinon
+    // elles cohabiteraient avec des offres aux fenêtres différentes.
+    await this.callForTender.closePendingOffers(order.id);
+
+    // ① Retour au pool interne : diffusion à tous les livreurs disponibles.
+    this.dispatchGateway.dispatchOrderToDrivers(order);
+
+    // ③ L'établissement est informé que la recherche se poursuit.
+    this.dispatchGateway.notifyBusinessNoCourier(order.businessId, order.id, {
+      stage: 'RETRY',
+    });
+
+    // ② Re-diffusion aux agences éligibles (tour 2).
+    const business = order.businessId
+      ? await this.businessRepository.findOne({
+          where: { id: order.businessId },
+        })
+      : null;
+    const ticket = this.buildTicket(order, business);
+    const tender = await this.callForTender.openTender(order.id, ticket, 2);
+
+    if (tender.agencyCount === 0) {
+      // Plus aucune agence éligible (désactivée, suspendue, en surcharge) :
+      // on clôture immédiatement au lieu de boucler à vide pendant 5 min.
+      await this.closeTenderWithoutWinner(order);
+    }
+  }
+
+  /**
+   * ⛔ A4 — T+10 : aucun livreur disponible. On clôture proprement,
+   * on prévient l'établissement, on fait appel aux sociétés partenaires
+   * et on escalade à un opérateur humain (Niveau 4).
+   */
+  private async closeTenderWithoutWinner(order: Order): Promise<void> {
+    this.logger.warn(
+      `[A4] T+10 — course #${order.id} : aucun livreur disponible, clôture et appel aux sociétés partenaires`,
+    );
+
+    await this.callForTender.closePendingOffers(order.id);
+    await this.orderRepository.update(order.id, {
+      dispatchOfferExpiresAt: null,
+      dispatchOfferRound: 3,
+    });
+
+    // ① Message explicite à l'établissement.
+    this.dispatchGateway.notifyBusinessNoCourier(order.businessId, order.id, {
+      stage: 'EXHAUSTED',
+    });
+
+    // ② Appel aux sociétés partenaires « besoin livreur ».
+    await this.notifyPartnerAgenciesNeedDriver(order);
+
+    // ③ Escalade opérateur : un humain reprend la course.
+    await this.markEscalated(order);
+  }
+
+  /**
+   * 📢 Re-notification de TOUTES les sociétés partenaires actives
+   * (« besoin livreur ») — y compris celles qui n'étaient pas éligibles
+   * au tour courant : c'est un appel à l'aide humain, pas une offre
+   * formelle. La notification persistée garantit que les agences hors
+   * ligne la retrouvent à la reconnexion.
+   */
+  private async notifyPartnerAgenciesNeedDriver(order: Order): Promise<void> {
+    try {
+      const agencies = await this.agencyRepository.find({
+        where: { isActive: true },
+      });
+
+      for (const agency of agencies) {
+        this.dispatchGateway.notifyAgency(agency.id, {
+          type: 'need_driver',
+          orderId: order.id,
+          message: 'Besoin urgent de livreur',
+          orderType: order.orderType,
+          pickupAddress: order.pickupLocation?.address ?? null,
+          deliveryAddress: order.dropoffLocation?.address ?? null,
+          deliveryFeeXOF: Number(order.deliveryFee ?? 0),
+        });
+      }
+
+      await this.notificationStore.broadcastToRole(
+        UserRole.AGENCY,
+        'Besoin de livreur',
+        `Aucun livreur n'a pu prendre la course #${order.id}. Une société partenaire peut-elle la couvrir ?`,
+        NotificationType.SYSTEM,
+      );
+
+      this.logger.log(
+        `[A4] Appel « besoin livreur » diffusé à ${agencies.length} société(s) partenaire(s)`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `[A4] Appel aux sociétés partenaires impossible: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
       );
     }
   }

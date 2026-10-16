@@ -31,6 +31,8 @@ import { QuoteOrderDto } from './dto/quote-order.dto';
 // Gateways et Services
 import { DispatchGateway } from '../dispatch/dispatch.gateway';
 import { DispatchService } from '../dispatch/dispatch.service';
+import { DeliverySlaService } from '../dispatch/services/delivery-sla.service';
+import { PenaltiesService } from '../penalties/penalties.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { PayoutsService } from '../payments/payouts.service';
 import { PayoutStatus } from '../payments/entities/merchant-payout.entity';
@@ -141,6 +143,20 @@ const DRIVER_TRANSITIONS: OrderStatus[] = [
   OrderStatus.DELIVERED_PENDING_CONFIRMATION,
 ];
 
+/**
+ * ⏱️ Statuts marquant la REMISE PHYSIQUE du colis (SLA livraison, bloc B).
+ *
+ * Le premier atteint gagne : c'est la validation du livreur
+ * (DELIVERED_PENDING_CONFIRMATION) qui fait foi en pratique ; les autres
+ * existent pour les flux de secours (confirmation admin, rattrapage auto)
+ * où la validation livreur a été sautée.
+ */
+const DELIVERED_TRACKING_STATES: OrderStatus[] = [
+  OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+];
+
 const MERCHANT_TRANSITIONS: OrderStatus[] = [
   OrderStatus.IN_PREPARATION,
   OrderStatus.READY_FOR_PICKUP,
@@ -232,7 +248,95 @@ export class OrdersService {
     private readonly walletService: WalletService,
     private readonly geniusPayService: GeniusPayService,
     private readonly notificationStore: NotificationStoreService,
+    private readonly deliverySlaService: DeliverySlaService,
+    private readonly penaltiesService: PenaltiesService,
   ) {}
+
+  /**
+   * ⏱️ Bloc B — horodate la REMISE RÉELLE du colis et mesure le retard.
+   *
+   * Idempotent et à sens unique : le premier horodatage gagne. Sans cela,
+   * la confirmation client (parfois plusieurs heures après) écraserait
+   * l'heure de livraison et rendrait toute mesure de SLA fausse.
+   */
+  private stampDeliveredAt(order: Order): void {
+    if (order.deliveredAt) return;
+
+    const now = new Date();
+    order.deliveredAt = now;
+
+    // Durée mesurée depuis le dispatch (à défaut, depuis la création) :
+    // c'est le temps que le client a réellement attendu.
+    const start = order.dispatchedAt ?? order.createdAt;
+    if (start) {
+      order.deliveryDurationMinutes = Math.max(
+        0,
+        Math.round((now.getTime() - new Date(start).getTime()) / 60000),
+      );
+    }
+
+    order.deliveryLate = this.deliverySlaService.isLate(
+      now,
+      order.deliverySlaDeadline,
+    );
+  }
+
+  /**
+   * ⚖️ Bloc C — avertissement qualité automatique sur livraison en retard.
+   *
+   * Cible le livreur ET, quand la course a été confiée à une société de
+   * livraison, la société elle-même : c'est elle qui répond de ses
+   * chauffeurs. Le dédoublonnage par (commande, cible) est assuré par
+   * PenaltiesService — cet appel peut donc être rejoué sans risque.
+   *
+   * Seul le niveau ① (avertissement) est automatique : les niveaux ②
+   * (baisse de priorité) et ③ (suspension) restent des décisions humaines.
+   */
+  private async issueLateDeliveryPenalties(order: Order): Promise<void> {
+    if (!order.deliveryLate || !order.deliveredAt) return;
+
+    try {
+      const minutesLate = this.deliverySlaService.minutesLate(
+        order.deliveredAt,
+        order.deliverySlaDeadline,
+      );
+      const reason = `Livraison en retard de ${minutesLate} min (commande #${order.id})`;
+
+      if (order.driverId) {
+        await this.penaltiesService.issueAutomaticWarning({
+          orderId: order.id,
+          driverId: order.driverId,
+          reason,
+        });
+      }
+      if (order.deliveryProviderId) {
+        await this.penaltiesService.issueAutomaticWarning({
+          orderId: order.id,
+          agencyId: order.deliveryProviderId,
+          reason,
+        });
+      }
+
+      // 🔔 Alerte temps réel : le retard est visible sans ouvrir la commande.
+      this.dispatchGateway.notifyDeliveryLate({
+        orderId: order.id,
+        businessId: order.businessId,
+        driverId: order.driverId,
+        minutesLate,
+      });
+
+      this.logger.warn(
+        `[SLA] Commande #${order.id} livrée avec ${minutesLate} min de retard — avertissement qualité émis`,
+      );
+    } catch (err) {
+      // Une sanction manquée ne doit jamais faire échouer une livraison.
+      this.logger.warn(
+        `[SLA] Avertissement de retard impossible pour la commande #${order.id}: ${
+          (err as Error)?.message ?? 'inconnu'
+        }`,
+      );
+    }
+  }
 
   /**
    * 🔔 Émet les événements de settlement financier à la livraison/complétion.
@@ -1041,6 +1145,17 @@ export class OrdersService {
         return order;
       }
 
+      // 🏁 Bloc A4 — « premier qui accepte gagne » : une société de
+      // livraison peut déjà avoir pris la course depuis son espace
+      // (deliveryProviderId renseigné). Sans ce garde-fou, un livreur
+      // interne prendrait la course sous le nez de l'agence gagnante et la
+      // commission contractée serait perdue.
+      if (order.deliveryProviderId) {
+        throw new ForbiddenException(
+          'Cette course a déjà été prise par une société de livraison',
+        );
+      }
+
       // 🔒 Sécurité : seules les commandes PAYÉES peuvent être acceptées
       if (order.status === OrderStatus.PENDING) {
         throw new BadRequestException(
@@ -1833,6 +1948,13 @@ export class OrdersService {
         );
       }
 
+      // ⏱️ Bloc B : un statut « livré » atteint par un autre chemin
+      // (admin, marchand avec flotte interne) horodate aussi la remise —
+      // sinon la durée de course et le retard resteraient vides.
+      if (DELIVERED_TRACKING_STATES.includes(status)) {
+        this.stampDeliveredAt(order);
+      }
+
       order.status = status;
       const updatedOrder = await queryRunner.manager.save(order);
 
@@ -1861,6 +1983,12 @@ export class OrdersService {
 
       this.emitOrderSettlementEvents(updatedOrder, previousStatus);
       this.notifyChatClosedIfTerminal(updatedOrder, previousStatus);
+
+      // ⚖️ Bloc C : avertissement automatique si la course est en retard
+      // (même dédoublonnage que la validation livreur).
+      if (DELIVERED_TRACKING_STATES.includes(status)) {
+        await this.issueLateDeliveryPenalties(updatedOrder);
+      }
 
       // ⚠️ `PAID` n'est plus listé ici : il ne peut pas arriver via cet endpoint
       // (verrou en tête de updateStatus). Le dispatch au passage à PAID est
@@ -2036,6 +2164,11 @@ export class OrdersService {
     order.driverValidatedAt = new Date();
     order.status = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
 
+    // ⏱️ Bloc B : c'est ICI que le colis est physiquement remis.
+    // On horodate avant la sauvegarde pour que `deliveredAt`, la durée et
+    // le retard soient persistés dans le même UPDATE que le statut.
+    this.stampDeliveredAt(order);
+
     const saved = await this.orderRepository.save(order);
 
     // 📡 Broadcast temps réel : admin + marchand voient le changement sans reconnexion
@@ -2049,6 +2182,10 @@ export class OrdersService {
     // 🔔 Paiements & séquestre + notifications
     this.emitOrderSettlementEvents(saved, previousStatus);
     await this.sendStatusNotifications(saved, previousStatus);
+
+    // ⚖️ Bloc C : retard constaté → avertissement qualité automatique
+    // (livreur + société de livraison le cas échéant) et alerte temps réel.
+    await this.issueLateDeliveryPenalties(saved);
 
     this.logger.log(
       `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente de confirmation du client.`,
@@ -2121,6 +2258,9 @@ export class OrdersService {
 
       order.clientValidatedAt = new Date();
       order.status = OrderStatus.COMPLETED;
+      // ⏱️ Bloc B : filet de sécurité — si la validation livreur a été
+      // sautée, la remise est horodatée ici (jamais réécrite sinon).
+      this.stampDeliveredAt(order);
 
       const saved = await queryRunner.manager.save(order);
       await queryRunner.commitTransaction();
@@ -2145,6 +2285,9 @@ export class OrdersService {
         saved,
         OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       );
+
+      // ⚖️ Bloc C : retard → avertissement qualité + alerte temps réel.
+      await this.issueLateDeliveryPenalties(saved);
 
       this.logger.log(
         `[Order Completed] Commande #${orderId} validée par le client. Double validation réussie !`,
@@ -2248,6 +2391,8 @@ export class OrdersService {
 
     order.clientValidatedAt = new Date();
     order.status = OrderStatus.COMPLETED;
+    // ⏱️ Bloc B : filet de sécurité (validation livreur sautée).
+    this.stampDeliveredAt(order);
 
     const saved = await this.orderRepository.save(order);
 
@@ -2268,6 +2413,9 @@ export class OrdersService {
       saved,
       OrderStatus.DELIVERED_PENDING_CONFIRMATION,
     );
+
+    // ⚖️ Bloc C : retard → avertissement qualité + alerte temps réel.
+    await this.issueLateDeliveryPenalties(saved);
 
     this.logger.log(
       `[Order Completed] ✅ Commande #${orderId} confirmée par admin/marchand ${userId}.`,
@@ -2625,6 +2773,9 @@ export class OrdersService {
     for (const order of staleOrders) {
       order.status = OrderStatus.COMPLETED;
       order.clientValidatedAt = new Date();
+      // ⏱️ Bloc B : rattrapage 24h — horodate la remise si elle manque,
+      // sinon la durée de course resterait définitivement vide.
+      this.stampDeliveredAt(order);
       await this.orderRepository.save(order);
 
       // 🔔 Settlement marchand (cron auto-complétion 24h)

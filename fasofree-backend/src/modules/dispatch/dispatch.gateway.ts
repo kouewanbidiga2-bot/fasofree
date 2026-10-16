@@ -292,6 +292,62 @@ export class DispatchGateway
       .emit('agency_delivery', payload);
   }
 
+  /**
+   * 🚫 A4 — informer l'établissement qu'aucun livreur n'a pris la course.
+   *
+   * `stage` distingue la relance (RETRY, à T+5) de l'échec définitif
+   * (EXHAUSTED, à T+10) : sans cette nuance, le marchand croirait sa
+   * commande abandonnée dès la première minute.
+   */
+  notifyBusinessNoCourier(
+    businessId: string | null,
+    orderId: string,
+    meta?: Record<string, any>,
+  ): void {
+    if (!this.server || !businessId) return;
+    const stage = meta?.stage ?? 'EXHAUSTED';
+    this.server
+      .to(`${WsRooms.BUSINESS_PREFIX}${businessId}`)
+      .emit('noCourierAvailable', {
+        orderId,
+        stage,
+        message:
+          stage === 'RETRY'
+            ? "Aucun livreur n'a encore accepté cette course. Nous élargissons la recherche."
+            : "Aucun livreur n'est disponible pour le moment. Un opérateur prend le relais.",
+      });
+  }
+
+  /**
+   * ⏱️ Bloc B — alerte de retard de livraison.
+   *
+   * Diffusée à la room de la commande (client, livreur, marchand qui
+   * suivent la course) ET à celle du marchand : un retard doit être
+   * visible partout où la course s'affiche, pas seulement dans un écran
+   * d'administration que le client ne voit jamais.
+   */
+  notifyDeliveryLate(payload: {
+    orderId: string;
+    businessId?: string | null;
+    driverId?: string | null;
+    minutesLate: number;
+  }): void {
+    if (!this.server) return;
+    const body = {
+      orderId: payload.orderId,
+      minutesLate: payload.minutesLate,
+      message: `Livraison en retard de ${payload.minutesLate} min`,
+    };
+    this.server
+      .to(`${WsRooms.ORDER_PREFIX}${payload.orderId}`)
+      .emit('deliveryLateAlert', body);
+    if (payload.businessId) {
+      this.server
+        .to(`${WsRooms.BUSINESS_PREFIX}${payload.businessId}`)
+        .emit('deliveryLateAlert', body);
+    }
+  }
+
   dispatchOrderToDrivers(order: Order): void {
     this.server
       .to(WsRooms.AVAILABLE_DRIVERS)

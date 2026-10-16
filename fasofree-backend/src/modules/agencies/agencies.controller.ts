@@ -99,6 +99,57 @@ export class AgenciesController {
     return this.agenciesService.getDrivers(agency.id);
   }
 
+  // ─── 📣 APPEL D'OFFRES MULTI-AGENCES (bloc A4) ────────────────
+
+  @Get('offers')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENCY)
+  @ApiOperation({
+    summary: "Offres d'appel d'offres encore ouvertes pour mon agence",
+  })
+  async getOpenOffers(@NestRequest() req: RequestWithUser) {
+    const agency = await this.getAgencyFromRequest(req);
+    return this.agenciesService.getOpenOffers(agency.id);
+  }
+
+  @Post('deliveries/:orderId/accept')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENCY)
+  @Audited({ action: 'agency.offer.accept', entityType: 'DELIVERY_OFFER', entityParam: 'orderId' })
+  @ApiOperation({
+    summary: 'Accepter une offre (premier qui accepte gagne)',
+  })
+  async acceptOffer(
+    @NestRequest() req: RequestWithUser,
+    @Param('orderId') orderId: string,
+  ) {
+    const agency = await this.getAgencyFromRequest(req);
+    return this.agenciesService.acceptOffer(orderId, agency.id);
+  }
+
+  @Post('deliveries/:orderId/refuse')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENCY)
+  @ApiOperation({ summary: "Refuser une offre d'appel d'offres" })
+  async refuseOffer(
+    @NestRequest() req: RequestWithUser,
+    @Param('orderId') orderId: string,
+  ) {
+    const agency = await this.getAgencyFromRequest(req);
+    return this.agenciesService.refuseOffer(orderId, agency.id);
+  }
+
+  // ─── ⚖️ SANCTIONS QUALITÉ (bloc C) ────────────────────────────
+
+  @Get('penalties')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.AGENCY)
+  @ApiOperation({ summary: 'Sanctions qualité de mon agence' })
+  async getMyPenalties(@NestRequest() req: RequestWithUser) {
+    const agency = await this.getAgencyFromRequest(req);
+    return this.agenciesService.getMyPenalties(agency.id);
+  }
+
   @Post('deliveries/:orderId/assign')
   @UseGuards(RolesGuard)
   @Roles(UserRole.AGENCY)
