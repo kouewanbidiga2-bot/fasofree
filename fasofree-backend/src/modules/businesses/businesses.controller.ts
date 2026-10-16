@@ -17,6 +17,7 @@ import { BusinessesService } from './businesses.service';
 import { Audited } from '../audit/audited.decorator';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { BulkAssignSubCategoryDto } from './dto/bulk-assign-subcategory.dto';
 import { RolesGuard } from '../../core/security/roles.guard';
 import { Roles } from '../../core/security/roles.decorator';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -157,6 +158,60 @@ export class BusinessesController {
   async findTrending(@Query('limit') limit?: string) {
     const max = Math.min(parseInt(limit || '10', 10), 20);
     return this.businessesService.findTrending(max);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────
+  // 🏷️ F-bis — Taguage de masse des sous-catégories (niveau 2)
+  //
+  // Déclaré AVANT `@Get(':id')` / `@Patch(':id')` : Nest résout dans l'ordre
+  // de déclaration, et « admin/… » a deux segments là où `:id` n'en a qu'un.
+  //
+  // Rôles : Super Admin, Admin ET Support. Comme pour les agences, le
+  // Support doit pouvoir réparer une donnée manquante sans escalade — c'est
+  // exactement le travail de rattrapage visé ici. Chaque écriture est
+  // auditée (`@Audited`), donc l'action reste traçable.
+  // ─────────────────────────────────────────────────────────────────────
+
+  // 🏷️ État du taguage : combien de commerces sans sous-catégorie, par verticale
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Get('admin/subcategory-tagging')
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Commerces sans sous-catégorie, groupés par verticale',
+  })
+  async getSubCategoryTagging(@Query('limit') limit?: string) {
+    const parsed = parseInt(limit || '500', 10);
+    return this.businessesService.getSubCategoryTaggingOverview(
+      Number.isFinite(parsed) ? parsed : 500,
+    );
+  }
+
+  // ⚡ Résolution automatique des verticales à sous-catégorie unique
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Patch('admin/subcategory-tagging/auto')
+  @Audited({ action: 'business.subcategory.autotag', entityType: 'BUSINESS' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary:
+      'Compléter automatiquement les verticales à sous-catégorie unique (idempotent)',
+  })
+  async autoTagSubCategories() {
+    return this.businessesService.autoTagSingleSubCategoryBusinesses();
+  }
+
+  // 🎯 Affectation explicite d'une sous-catégorie à une sélection de commerces
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @Patch('admin/subcategory-tagging')
+  @Audited({ action: 'business.subcategory.bulk', entityType: 'BUSINESS' })
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Affecter une sous-catégorie à plusieurs commerces',
+  })
+  async bulkAssignSubCategory(@Body() dto: BulkAssignSubCategoryDto) {
+    return this.businessesService.bulkAssignSubCategory(dto);
   }
 
   @Get(':id')

@@ -8,7 +8,7 @@
  * - Merchant/driver validation and blocking
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Layout, Shield, Users, Store, Settings, LogOut,
@@ -230,6 +230,17 @@ const SuperAdminDashboard = () => {
   // 🎛️ Catalogue COMPLET des verticales de commerces (pour les interrupteurs)
   const [businessCategoryOptions, setBusinessCategoryOptions] = useState([]);
 
+  // 🏷️ F-bis — taguage de masse des sous-catégories (niveau 2).
+  // Un commerce sans `subCategory` reste invisible dans les filtres du
+  // client : cet écran recense les manquants et permet de les traiter en
+  // lot (5 verticales sur 6 résolubles automatiquement, le reste au choix).
+  const [tagging, setTagging] = useState(null);
+  const [taggingLoading, setTaggingLoading] = useState(false);
+  const [tagSelection, setTagSelection] = useState([]);
+  const [tagTarget, setTagTarget] = useState('');
+  const [tagMsg, setTagMsg] = useState(null);
+  const [tagBusy, setTagBusy] = useState(false);
+
   // UI states
   const [loading, setLoading] = useState({
     financial: true,
@@ -312,6 +323,89 @@ const SuperAdminDashboard = () => {
       })
       .catch(() => setBusinessCategoryOptions([]));
   }, []);
+
+  // 🏷️ F-bis — état du taguage des sous-catégories
+  const loadTagging = useCallback(async () => {
+    setTaggingLoading(true);
+    try {
+      const { data } = await api.get('/businesses/admin/subcategory-tagging');
+      setTagging(data);
+      setTagSelection([]);
+      setTagMsg(null);
+    } catch (err) {
+      setTagMsg({
+        type: 'error',
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setTaggingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTagging();
+  }, [loadTagging]);
+
+  // ⚡ Résolution automatique — sûr et idempotent (ne touche jamais un
+  // commerce déjà tagué, ni RESTAURANT qui demande un choix humain).
+  const handleAutoTag = async () => {
+    setTagBusy(true);
+    try {
+      const { data } = await api.patch(
+        '/businesses/admin/subcategory-tagging/auto',
+      );
+      setTagMsg({
+        type: 'success',
+        text: `${data.updated} commerce(s) complété(s) automatiquement.`,
+      });
+      await loadTagging();
+    } catch (err) {
+      setTagMsg({
+        type: 'error',
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setTagBusy(false);
+    }
+  };
+
+  // 🎯 Affectation explicite : le backend ignore (avec motif) tout commerce
+  // dont la verticale ne correspond pas à la sous-catégorie choisie.
+  const handleBulkTag = async () => {
+    if (!tagSelection.length || !tagTarget) return;
+    setTagBusy(true);
+    try {
+      const { data } = await api.patch(
+        '/businesses/admin/subcategory-tagging',
+        { businessIds: tagSelection, subCategory: tagTarget },
+      );
+      const skipped = data.skipped?.length || 0;
+      setTagMsg({
+        type: skipped ? 'warning' : 'success',
+        text: `${data.updated} commerce(s) tagué(s)${
+          skipped ? ` — ${skipped} ignoré(s) (verticale incompatible)` : ''
+        }.`,
+      });
+      await loadTagging();
+    } catch (err) {
+      setTagMsg({
+        type: 'error',
+        text: err.response?.data?.message || err.message,
+      });
+    } finally {
+      setTagBusy(false);
+    }
+  };
+
+  // Sous-catégories proposées = celles des verticales où il reste du travail
+  // (proposer « Pizzas » alors qu'aucun restaurant n'est à taguer serait du bruit).
+  const taggingSubCategoryOptions = useMemo(() => {
+    const seen = new Set();
+    (tagging?.groups || []).forEach((g) => {
+      if (g.count > 0) g.subCategories.forEach((s) => seen.add(s));
+    });
+    return Array.from(seen).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [tagging]);
 
   // Load financial statistics
   // 🏢 Agences partenaires (Niveau 2 du dispatch)
@@ -3070,6 +3164,188 @@ const SuperAdminDashboard = () => {
                   <p className="py-3 text-xs text-text-secondary">Catalogue indisponible.</p>
                 )}
               </div>
+            </div>
+
+            {/* 🏷️ F-bis — Sous-catégories manquantes (niveau 2).
+                Un commerce sans sous-catégorie est absent des filtres du
+                client : ces commerces ont été créés avant le catalogue à
+                deux niveaux. */}
+            <div className="card p-6">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-text-primary">Sous-catégories des commerces</h3>
+                  <p className="text-xs text-text-secondary mt-1 max-w-2xl">
+                    Un commerce sans sous-catégorie (niveau 2) est invisible dans les
+                    filtres du client. Cinq verticales n'ont qu'une seule valeur
+                    possible — elles se complètent en un clic. Un restaurant, lui,
+                    demande un choix humain (Fast-Food, Pizzas, Grillades…).
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadTagging}
+                  disabled={taggingLoading}
+                  className="btn-secondary gap-2 text-sm"
+                >
+                  <RefreshCw size={14} className={taggingLoading ? 'animate-spin' : ''} />
+                  Rafraîchir
+                </button>
+              </div>
+
+              {tagMsg && (
+                <p
+                  className={`mt-3 text-xs font-medium ${
+                    tagMsg.type === 'error'
+                      ? 'text-status-error'
+                      : tagMsg.type === 'warning'
+                        ? 'text-status-warning'
+                        : 'text-status-success'
+                  }`}
+                >
+                  {tagMsg.text}
+                </p>
+              )}
+
+              {taggingLoading && !tagging ? (
+                <p className="py-4 text-xs text-text-secondary">Chargement…</p>
+              ) : !tagging ? (
+                <p className="py-4 text-xs text-text-secondary">Données indisponibles.</p>
+              ) : tagging.untaggedCount === 0 ? (
+                <div className="mt-4 flex items-center gap-2 text-sm text-status-success">
+                  <CheckCircle size={16} />
+                  Tous les commerces ont une sous-catégorie.
+                </div>
+              ) : (
+                <>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-semibold text-text-primary">
+                      {tagging.untaggedCount} commerce(s) sans sous-catégorie
+                    </span>
+                    {tagging.autoCompletableCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleAutoTag}
+                        disabled={tagBusy}
+                        className="btn-secondary gap-2 text-sm disabled:opacity-50"
+                      >
+                        ⚡ Compléter automatiquement ({tagging.autoCompletableCount})
+                      </button>
+                    )}
+                    {tagging.truncated && (
+                      <span className="text-xs text-text-secondary">
+                        (liste bornée à l'affichage — les compteurs sont exacts)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border-light p-3">
+                    <select
+                      className="input-field w-64"
+                      value={tagTarget}
+                      onChange={(e) => setTagTarget(e.target.value)}
+                    >
+                      <option value="">Choisir la sous-catégorie…</option>
+                      {taggingSubCategoryOptions.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleBulkTag}
+                      disabled={!tagSelection.length || !tagTarget || tagBusy}
+                      className="btn-primary gap-2 text-sm disabled:opacity-50"
+                    >
+                      Appliquer à la sélection ({tagSelection.length})
+                    </button>
+                    {tagSelection.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setTagSelection([])}
+                        className="text-xs text-text-secondary underline"
+                      >
+                        Vider la sélection
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-2 divide-y divide-border-light">
+                    {tagging.groups
+                      .filter((g) => g.count > 0)
+                      .map((g) => {
+                        const ids = g.businesses.map((b) => b.id);
+                        const allSelected =
+                          ids.length > 0 && ids.every((id) => tagSelection.includes(id));
+                        return (
+                          <div key={g.category} className="py-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-text-primary">{g.label}</p>
+                                <span className="text-xs text-text-secondary">
+                                  {g.count} sans sous-catégorie
+                                </span>
+                                {g.autoCompletable && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-accent-primary/10 text-accent-primary">
+                                    auto
+                                  </span>
+                                )}
+                                {!g.enabled && (
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-border-light text-text-secondary">
+                                    verticale éteinte
+                                  </span>
+                                )}
+                              </div>
+                              {ids.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setTagSelection((prev) =>
+                                      allSelected
+                                        ? prev.filter((id) => !ids.includes(id))
+                                        : Array.from(new Set([...prev, ...ids])),
+                                    )
+                                  }
+                                  className="text-xs text-accent-primary font-medium"
+                                >
+                                  {allSelected ? 'Désélectionner' : 'Tout sélectionner'}
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-text-secondary">
+                              Sous-catégories valides : {g.subCategories.join(' · ')}
+                            </p>
+                            <div className="mt-2 grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                              {g.businesses.slice(0, 60).map((b) => (
+                                <label
+                                  key={b.id}
+                                  className="flex items-start gap-2 text-xs text-text-secondary"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="mt-0.5"
+                                    checked={tagSelection.includes(b.id)}
+                                    onChange={(e) =>
+                                      setTagSelection((prev) =>
+                                        e.target.checked
+                                          ? Array.from(new Set([...prev, b.id]))
+                                          : prev.filter((id) => id !== b.id),
+                                      )
+                                    }
+                                  />
+                                  <span className="truncate">{b.name}</span>
+                                </label>
+                              ))}
+                            </div>
+                            {g.count > Math.min(g.businesses.length, 60) && (
+                              <p className="mt-2 text-xs text-text-secondary">
+                                Seuls les 60 plus récents sont affichés (sur {g.count}).
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Tranches Tarifaires Livraison */}

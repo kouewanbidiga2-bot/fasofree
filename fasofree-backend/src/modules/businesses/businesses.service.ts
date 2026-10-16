@@ -1,17 +1,25 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Business } from './entities/business.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
+import { BulkAssignSubCategoryDto } from './dto/bulk-assign-subcategory.dto';
 import { UserRole } from '../users/entities/user-role.enum';
 import { escapeLikeTerm } from '../../common/utils/like-escape';
-import { getActiveCatalog, isValidSubCategory } from './constants/business-catalog';
+import {
+  ALL_SUB_CATEGORIES,
+  BUSINESS_CATALOG,
+  getActiveCatalog,
+  getActiveCategoryValues,
+  isValidSubCategory,
+} from './constants/business-catalog';
 
 @Injectable()
 export class BusinessesService {
@@ -214,6 +222,183 @@ export class BusinessesService {
         subCategories: c.subCategories,
       })),
     };
+  }
+
+  /**
+   * 🏷️ F-bis. Recensement des commerces SANS sous-catégorie (niveau 2).
+   *
+   * Les commerces créés avant le catalogue à deux niveaux ont
+   * `subCategory = NULL` : ils restent invisibles dans tous les filtres de
+   * sous-catégorie du client. La base ne peut pas deviner « Fast-Food » ou
+   * « Pizzas » à partir de la seule verticale RESTAURANT — d'où cet écran.
+   *
+   * Exception : 5 verticales sur 6 n'ont qu'UNE sous-catégorie (Épicerie,
+   * Boulangerie & Viennoiserie, Boutique, Pharmacie, Services). Celles-là
+   * sont déductibles : `autoCompletable` les signale à l'interface, qui
+   * peut les résoudre en un clic via `autoTagSingleSubCategoryBusinesses`.
+   */
+  async getSubCategoryTaggingOverview(limit = 500) {
+    const untaggedWhere =
+      'b."subCategory" IS NULL OR b."subCategory" = :empty';
+    const params = { empty: '' };
+    const safeLimit = Math.min(Math.max(limit, 1), 2000);
+
+    const rows = await this.businessRepository
+      .createQueryBuilder('b')
+      .select(['b.id', 'b.name', 'b.address', 'b.category'])
+      .where(untaggedWhere, params)
+      .orderBy('b."createdAt"', 'DESC')
+      .limit(safeLimit)
+      .getMany();
+
+    const countRows: Array<{ category: string; count: string }> =
+      await this.businessRepository
+        .createQueryBuilder('b')
+        .select('b.category', 'category')
+        .addSelect('COUNT(*)', 'count')
+        .where(untaggedWhere, params)
+        .groupBy('b.category')
+        .getRawMany();
+
+    const countByCategory = new Map<string, number>();
+    for (const row of countRows) {
+      countByCategory.set(row.category, Number(row.count) || 0);
+    }
+
+    const activeValues = new Set<string>(getActiveCategoryValues());
+    const groups = BUSINESS_CATALOG.map((def) => ({
+      category: def.value as string,
+      label: def.label,
+      enabled: activeValues.has(def.value),
+      autoCompletable: def.subCategories.length === 1,
+      subCategories: def.subCategories,
+      count: countByCategory.get(def.value) ?? 0,
+      businesses: [] as Array<{ id: string; name: string; address: string }>,
+    }));
+
+    const byValue = new Map(groups.map((g) => [g.category, g]));
+    for (const b of rows) {
+      byValue.get(b.category)?.businesses.push({
+        id: b.id,
+        name: b.name,
+        address: b.address,
+      });
+    }
+
+    const untaggedCount = Array.from(countByCategory.values()).reduce(
+      (sum, n) => sum + n,
+      0,
+    );
+    const autoCompletableCount = groups
+      .filter((g) => g.autoCompletable)
+      .reduce((sum, g) => sum + g.count, 0);
+
+    return {
+      untaggedCount,
+      autoCompletableCount,
+      // La liste d'affichage est bornée : les compteurs restent, eux, exacts.
+      truncated: untaggedCount > rows.length,
+      groups,
+    };
+  }
+
+  /**
+   * 🏷️ F-bis. Résout automatiquement les verticales à sous-catégorie UNIQUE.
+   *
+   * Épicerie, Boulangerie, Boutique, Pharmacie, Services : « la » valeur est
+   * sans ambiguïté, la déduire est donc sûr et idempotent. On ne touche
+   * JAMAIS un commerce déjà tagué, ni RESTAURANT (6 sous-familles → choix
+   * humain). Pharmacie comprise : taguer un commerce déjà saisi ne le rend
+   * pas visible tant que la verticale reste éteinte.
+   */
+  async autoTagSingleSubCategoryBusinesses(): Promise<{
+    updated: number;
+    byCategory: Record<string, number>;
+  }> {
+    const singleSubCategory = BUSINESS_CATALOG.filter(
+      (def) => def.subCategories.length === 1,
+    );
+    const byCategory: Record<string, number> = {};
+    let updated = 0;
+
+    for (const def of singleSubCategory) {
+      const target = def.subCategories[0];
+      const result = await this.businessRepository
+        .createQueryBuilder()
+        .update(Business)
+        .set({ subCategory: target })
+        .where('category = :category', { category: def.value })
+        .andWhere('("subCategory" IS NULL OR "subCategory" = :empty)', {
+          empty: '',
+        })
+        .execute();
+
+      const affected = result.affected ?? 0;
+      if (affected > 0) {
+        byCategory[def.value] = affected;
+        updated += affected;
+      }
+    }
+
+    return { updated, byCategory };
+  }
+
+  /**
+   * 🏷️ F-bis. Taguage de masse explicite (choix humain de la sous-famille).
+   *
+   * Chaque commerce est valide INDIVIDUELLEMENT : une sous-catégorie qui
+   * n'appartient pas à la verticale du commerce est ignorée pour celui-ci
+   * (jamais d'attribution silencieuse d'une valeur incohérente, qui
+   * casserait les filtres en aval).
+   */
+  async bulkAssignSubCategory(dto: BulkAssignSubCategoryDto): Promise<{
+    updated: number;
+    skipped: Array<{ id: string; name?: string; reason: string }>;
+  }> {
+    const subCategory = (dto.subCategory || '').trim();
+    if (!ALL_SUB_CATEGORIES.includes(subCategory)) {
+      throw new BadRequestException(
+        `Sous-catégorie inconnue : « ${subCategory} ». Valeurs acceptées : ${ALL_SUB_CATEGORIES.join(', ')}`,
+      );
+    }
+
+    const ids = Array.from(new Set(dto.businessIds));
+    const businesses = await this.businessRepository.find({
+      where: { id: In(ids) },
+      select: { id: true, name: true, category: true, subCategory: true },
+    });
+
+    const found = new Set(businesses.map((b) => b.id));
+    const skipped: Array<{ id: string; name?: string; reason: string }> = [];
+    for (const id of ids) {
+      if (!found.has(id)) {
+        skipped.push({ id, reason: 'Commerce introuvable' });
+      }
+    }
+
+    const toUpdate: string[] = [];
+    for (const b of businesses) {
+      if (!isValidSubCategory(b.category, subCategory)) {
+        skipped.push({
+          id: b.id,
+          name: b.name,
+          reason: `« ${subCategory} » n'appartient pas à la verticale ${b.category}`,
+        });
+        continue;
+      }
+      toUpdate.push(b.id);
+    }
+
+    if (toUpdate.length > 0) {
+      await this.businessRepository
+        .createQueryBuilder()
+        .update(Business)
+        .set({ subCategory })
+        .whereInIds(toUpdate)
+        .execute();
+    }
+
+    return { updated: toUpdate.length, skipped };
   }
 
   // 🏷️ 2ter. Retourne les marques groupées avec leurs agences
