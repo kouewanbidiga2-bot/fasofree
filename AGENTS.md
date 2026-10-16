@@ -87,7 +87,14 @@ précédentes se sont révélés faux sur des fichiers lus partiellement).
 ## 5. Mémoire projet
 
 `.ecc/memory/project/` contient les mémoires ECC (facts, handoffs, lessons, decisions).
-Le scope MCP `project` est actif ; le scope `user` est **désactivé** côté serveur.
+
+Les deux scopes sont actifs : `project` (mémoires de FasoFree dans `.ecc/memory/project/`)
+et `user` (mémoires transprojets, activé via `ECC_MEMORY_ALLOW_USER_SCOPE=1` dans
+`~/.config/opencode/opencode.json`).
+
+> ⚠️ Le scope `user` est **partagé entre tous les projets** de la machine.
+> Ne pas y déposer de contexte spécifique à FasoFree : il fuiterait dans les
+> autres dépôts. Utiliser `project` pour ce qui est propre à ce repo.
 
 ---
 
