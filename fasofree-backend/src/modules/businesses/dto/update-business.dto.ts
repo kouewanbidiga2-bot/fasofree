@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsObject,
   IsUUID,
+  MaxLength,
 } from 'class-validator';
 import { BusinessCategory } from '../entities/business.entity';
 import { MobileMoneyProvider } from '../../users/entities/user.entity';
@@ -34,6 +35,16 @@ export class UpdateBusinessDto {
   @IsEnum(BusinessCategory)
   @IsOptional()
   category?: BusinessCategory;
+
+  @ApiPropertyOptional({
+    description:
+      'Sous-catégorie (niveau 2) : Fast-Food, Cuisine Locale, Épicerie…',
+    example: 'Fast-Food',
+  })
+  @IsString()
+  @MaxLength(60)
+  @IsOptional()
+  subCategory?: string;
 
   @ApiPropertyOptional({ description: 'Activer la livraison' })
   @IsBoolean()

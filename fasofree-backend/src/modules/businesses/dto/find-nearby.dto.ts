@@ -19,18 +19,24 @@ export class FindNearbyDto {
   @IsLongitude()
   longitude: number;
 
-  @ApiPropertyOptional({
-    example: 5,
-    default: 5,
-    description: 'Rayon de recherche, en kilomètres',
-  })
+  @ApiPropertyOptional({ example: 5, default: 5 })
   @IsOptional()
   @Transform(({ obj }) => obj.radius ?? obj.radiusInKm)
   @IsPositive()
   @Max(50)
   radiusInKm?: number; // Par défaut : 5 km
 
-  @ApiPropertyOptional({ example: 'Fast-Food', description: 'Filtrer par catégorie' })
+  @ApiPropertyOptional({
+    example: 'RESTAURANT',
+    description: 'Filtrer par verticale (niveau 1)',
+  })
   @IsOptional()
   category?: string;
+
+  @ApiPropertyOptional({
+    example: 'Fast-Food',
+    description: 'Filtrer par sous-catégorie (niveau 2)',
+  })
+  @IsOptional()
+  subCategory?: string;
 }

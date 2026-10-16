@@ -102,9 +102,19 @@ export const api = {
       : `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
     return apiFetch(url, { method: 'GET' });
   },
-  getGroupedBusinesses: (lat, lng) => {
-    return apiFetch(`/businesses/grouped?lat=${lat}&lng=${lng}`, { method: 'GET' });
+  getGroupedBusinesses: (lat, lng, category = '', subCategory = '') => {
+    // 🏷️ Le filtre était calculé côté client mais JAMAIS transmis
+    // → mêmes commerces affichés quel que soit le chip sélectionné.
+    const params = new URLSearchParams();
+    if (lat != null) params.set('lat', lat);
+    if (lng != null) params.set('lng', lng);
+    if (category && category !== 'all') params.set('category', category);
+    if (subCategory && subCategory !== 'all') params.set('subCategory', subCategory);
+    const qs = params.toString();
+    return apiFetch(`/businesses/grouped${qs ? `?${qs}` : ''}`, { method: 'GET' });
   },
+  // Catalogue des catégories actives (source unique de vérité, côté serveur)
+  getBusinessCategories: () => apiFetch('/businesses/categories', { method: 'GET' }),
   getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
 
   // Brands & Branches (multi-agences)

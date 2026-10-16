@@ -61,6 +61,7 @@ export class BusinessesController {
     @Query('radius') radius: string,
     @Query('radiusInKm') radiusInKm: string,
     @Query('category') category: string,
+    @Query('subCategory') subCategory: string,
   ) {
     const latVal = parseFloat(lat ?? latitude);
     const lngVal = parseFloat(lng ?? longitude);
@@ -71,6 +72,10 @@ export class BusinessesController {
       latitude: latVal,
       longitude: lngVal,
       radiusInKm: radius ? Number(radius) : radiusInKm ? Number(radiusInKm) : 5,
+      // 🏷️ Filtres catalogue — auparavant IGNORÉS ici alors qu'ils étaient
+      // déclarés en @Query : la route répondait sans filtrer.
+      category: category || undefined,
+      subCategory: subCategory || undefined,
     });
   }
 
@@ -84,10 +89,29 @@ export class BusinessesController {
     @Query('latitude') latitude: string,
     @Query('longitude') longitude: string,
     @Query('category') category: string,
+    @Query('subCategory') subCategory: string,
   ) {
     const latVal = parseFloat(lat ?? latitude) || undefined;
     const lngVal = parseFloat(lng ?? longitude) || undefined;
-    return this.businessesService.findGrouped(latVal, lngVal);
+    // 🏷️ `category` était récupéré puis JETÉ : c'est la cause racine du
+    // « même résultat quel que soit le filtre choisi côté client ».
+    return this.businessesService.findGrouped(
+      latVal,
+      lngVal,
+      category || undefined,
+      subCategory || undefined,
+    );
+  }
+
+  // 🏷️ Route publique : catalogue des catégories actives (niveau 1 + 2).
+  // Le client construit ses filtres à partir de cette liste — plus de
+  // libellés codés en dur (« Fast-Food »…) qui ne correspondaient à rien.
+  @Get('categories')
+  @ApiOperation({
+    summary: 'Catalogue des catégories et sous-catégories actives',
+  })
+  async getCategories() {
+    return this.businessesService.getCategoryCatalog();
   }
 
   // 🏪 Mon commerce (marchand connecté)

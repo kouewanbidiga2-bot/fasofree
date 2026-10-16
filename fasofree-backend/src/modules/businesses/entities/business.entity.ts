@@ -67,6 +67,11 @@ export class Business {
   })
   category: BusinessCategory;
 
+  // 🏷️ Sous-catégorie (niveau 2) : « Fast-Food », « Cuisine Locale », « Épicerie »…
+  //    Voir BUSINESS_CATALOG (constants/business-catalog.ts) pour la liste valide.
+  @Column({ type: 'varchar', length: 60, nullable: true })
+  subCategory?: string | null;
+
   // ⚙️ Configuration des modes de commande
   @Column({ type: 'boolean', default: true })
   enableDelivery: boolean; // Livraison

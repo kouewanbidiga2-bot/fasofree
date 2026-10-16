@@ -328,9 +328,14 @@ const BusinessAdminDashboard = () => {
     enableDineIn: false,
     hasOwnDrivers: false,
     category: 'RESTAURANT',
+    subCategory: '',
     logo: '',
     coverImage: '',
   });
+
+  // 🏷️ Catalogue des catégories actives (source unique de vérité serveur).
+  // Évite de recoder en dur une liste qui dériverait du backend.
+  const [categoryCatalog, setCategoryCatalog] = useState([]);
 
   // États UI
   const [loading, setLoading] = useState({ analytics: true, orders: true, products: true, wallet: true, alerts: true, affiliate: true });
@@ -417,6 +422,19 @@ const BusinessAdminDashboard = () => {
     }
   }, [user]);
 
+  // 🏷️ Charge le catalogue une seule fois : les options de catégorie et de
+  // sous-catégorie viennent du serveur (une verticale désactivée côté Super
+  // Admin disparaît donc automatiquement de ce formulaire).
+  useEffect(() => {
+    api
+      .get('/businesses/categories')
+      .then((res) => {
+        const data = res?.data ?? res;
+        setCategoryCatalog(data?.categories ?? []);
+      })
+      .catch(() => setCategoryCatalog([]));
+  }, []);
+
   const loadSettings = useCallback(async () => {
     if (!businessId) return;
     try {
@@ -429,6 +447,7 @@ const BusinessAdminDashboard = () => {
           enableDineIn: b.enableDineIn ?? false,
           hasOwnDrivers: b.hasOwnDrivers ?? false,
           category: b.category ?? 'RESTAURANT',
+          subCategory: b.subCategory ?? '',
           logo: b.logo ?? '',
           coverImage: b.coverImage ?? '',
         });
@@ -454,6 +473,7 @@ const BusinessAdminDashboard = () => {
         enableDineIn: updatedBusiness.enableDineIn ?? false,
         hasOwnDrivers: updatedBusiness.hasOwnDrivers ?? false,
         category: updatedBusiness.category ?? 'RESTAURANT',
+        subCategory: updatedBusiness.subCategory ?? '',
         logo: updatedBusiness.logo ?? '',
         coverImage: updatedBusiness.coverImage ?? '',
       });
@@ -1908,21 +1928,49 @@ const BusinessAdminDashboard = () => {
                 </div>
               </div>
 
-              {/* Catégorie du commerce */}
+              {/* Catégorie du commerce (niveau 1) + sous-catégorie (niveau 2) */}
               <div className="card p-6">
                 <h3 className="font-bold text-text-primary mb-4">Catégorie du commerce</h3>
                 <select
                   value={businessSettings.category}
-                  onChange={(e) => setBusinessSettings(prev => ({ ...prev, category: e.target.value }))}
+                  onChange={(e) => setBusinessSettings(prev => ({ ...prev, category: e.target.value, subCategory: '' }))}
                   className="input-field"
                 >
-                  <option value="RESTAURANT">Restaurant</option>
-                  <option value="SUPERMARKET">Supermarché</option>
-                  <option value="PHARMACY">Pharmacie</option>
-                  <option value="RETAIL">Commerce de détail</option>
-                  <option value="BAKERY">Boulangerie</option>
-                  <option value="SERVICES">Services</option>
+                  {(categoryCatalog.length > 0
+                    ? categoryCatalog
+                    : [
+                        { value: 'RESTAURANT', label: 'Restaurant' },
+                        { value: 'SUPERMARKET', label: 'Supermarché' },
+                        { value: 'BAKERY', label: 'Boulangerie' },
+                        { value: 'RETAIL', label: 'Commerce de détail' },
+                        { value: 'SERVICES', label: 'Services' },
+                      ]
+                  ).map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
                 </select>
+
+                <label className="block text-xs font-semibold text-text-tertiary mt-4 mb-2">
+                  Sous-catégorie
+                </label>
+                <select
+                  value={businessSettings.subCategory || ''}
+                  onChange={(e) => setBusinessSettings(prev => ({ ...prev, subCategory: e.target.value }))}
+                  className="input-field"
+                >
+                  <option value="">— Choisir —</option>
+                  {(
+                    categoryCatalog.find((c) => c.value === businessSettings.category)
+                      ?.subCategories || []
+                  ).map((sub) => (
+                    <option key={sub} value={sub}>{sub}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-text-tertiary mt-2">
+                  C'est ce que le client voit dans ses filtres (ex. Fast-Food,
+                  Cuisine Locale). Sans sous-catégorie, votre commerce
+                  n'apparaîtra pas dans ces filtres.
+                </p>
               </div>
 
               {/* Bouton de sauvegarde */}

@@ -55,6 +55,8 @@ const Home = () => {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('all');
+  const [categoryCatalog, setCategoryCatalog] = useState([]);
   const [allRestaurants, setAllRestaurants] = useState([]);
   const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -89,7 +91,12 @@ const Home = () => {
       setLoadingBusinesses(true);
       try {
         const { lat, lng } = await getUserLocation();
-        const data = await api.getGroupedBusinesses(lat, lng);
+        const data = await api.getGroupedBusinesses(
+          lat,
+          lng,
+          selectedCategory,
+          selectedSubCategory,
+        );
         if (!cancelled && Array.isArray(data)) {
           setAllRestaurants(data.map(mapBusinessToRestaurant));
         }
@@ -101,9 +108,32 @@ const Home = () => {
     };
     loadBusinesses();
     return () => { cancelled = true; };
-  }, [selectedCategory, refreshKey]);
+  }, [selectedCategory, selectedSubCategory, refreshKey]);
 
-  const categories = ['all', 'Fast-Food', 'Cuisine Locale', 'Pâtisseries & Desserts', 'Supermarchés & Épiceries'];
+  // 🏷️ Catalogue chargé depuis l'API (source unique de vérité).
+  // L'ancienne liste codée en dur (« Fast-Food », « Cuisine Locale »…) ne
+  // correspondait à AUCUNE valeur stockée en base : le filtre était donc
+  // sans effet — d'où « les mêmes restaurants quel que soit le type choisi ».
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getBusinessCategories()
+      .then((data) => {
+        if (!cancelled) setCategoryCatalog(data?.categories || []);
+      })
+      .catch(() => {
+        if (!cancelled) setCategoryCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sous-catégories de la verticale sélectionnée (niveau 2)
+  const activeSubCategories = useMemo(() => {
+    const found = categoryCatalog.find((c) => c.value === selectedCategory);
+    return found?.subCategories || [];
+  }, [categoryCatalog, selectedCategory]);
 
   const filteredRestaurants = useMemo(() => {
     let filtered = allRestaurants;
@@ -132,6 +162,13 @@ const Home = () => {
 
   const handleCategoryChange = useCallback((category) => {
     setSelectedCategory(category);
+    // Retour à une sous-catégorie neutre : les sous-familles diffèrent
+    // d'une verticale à l'autre (« Épicerie » n'existe pas côté restaurants).
+    setSelectedSubCategory('all');
+  }, []);
+
+  const handleSubCategoryChange = useCallback((subCategory) => {
+    setSelectedSubCategory(subCategory);
   }, []);
 
   return (
@@ -223,25 +260,64 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Catégories de recherche - optimisées mobile */}
+          {/* Catégories de recherche (niveau 1 : verticales) — optimisées mobile */}
           <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-none pt-2">
-            {categories.map((category) => {
-              const isActive = selectedCategory === category;
+            <button
+              onClick={() => handleCategoryChange('all')}
+              className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
+                selectedCategory === 'all'
+                  ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
+                  : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
+              }`}
+            >
+              {t('allRestaurants')}
+            </button>
+            {categoryCatalog.map((cat) => {
+              const isActive = selectedCategory === cat.value;
               return (
                 <button
-                  key={category}
-                  onClick={() => handleCategoryChange(category)}
+                  key={cat.value}
+                  onClick={() => handleCategoryChange(cat.value)}
                   className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
                     isActive
                       ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
                       : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
                   }`}
                 >
-                  {category === 'all' ? t('allRestaurants') : category}
+                  {cat.label}
                 </button>
               );
             })}
           </div>
+
+          {/* Sous-catégories (niveau 2) — visibles seulement si la verticale en propose plusieurs */}
+          {activeSubCategories.length > 1 && (
+            <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
+              <button
+                onClick={() => handleSubCategoryChange('all')}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
+                  selectedSubCategory === 'all'
+                    ? 'bg-[#B95B2B]/10 border-[#B95B2B] text-[#B95B2B]'
+                    : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
+                }`}
+              >
+                {t('allRestaurants')}
+              </button>
+              {activeSubCategories.map((sub) => (
+                <button
+                  key={sub}
+                  onClick={() => handleSubCategoryChange(sub)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
+                    selectedSubCategory === sub
+                      ? 'bg-[#B95B2B]/10 border-[#B95B2B] text-[#B95B2B]'
+                      : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
+                  }`}
+                >
+                  {sub}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Mobile search bar */}
           <div className="mt-3 md:hidden">

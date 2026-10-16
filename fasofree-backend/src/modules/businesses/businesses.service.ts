@@ -11,6 +11,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
 import { UserRole } from '../users/entities/user-role.enum';
 import { escapeLikeTerm } from '../../common/utils/like-escape';
+import { BUSINESS_CATALOG, isValidSubCategory } from './constants/business-catalog';
 
 @Injectable()
 export class BusinessesService {
@@ -95,6 +96,7 @@ export class BusinessesService {
           'business.logo',
           'business.coverImage',
           'business.category',
+          'business.subCategory',
           'business.isOpen',
           'business.enableDelivery',
           'business.enablePickup',
@@ -120,6 +122,12 @@ export class BusinessesService {
         query.andWhere('business.category = :category', { category: dto.category });
       }
 
+      if (dto.subCategory) {
+        query.andWhere('business.subCategory = :subCategory', {
+          subCategory: dto.subCategory,
+        });
+      }
+
       // Tri par distance pour garantir un ordre déterministe
       query.orderBy(
         `ST_Distance(
@@ -142,6 +150,7 @@ export class BusinessesService {
           'business.logo',
           'business.coverImage',
           'business.category',
+          'business.subCategory',
           'business.isOpen',
           'business.enableDelivery',
           'business.enablePickup',
@@ -153,6 +162,12 @@ export class BusinessesService {
 
       if (dto.category) {
         query.andWhere('business.category = :category', { category: dto.category });
+      }
+
+      if (dto.subCategory) {
+        query.andWhere('business.subCategory = :subCategory', {
+          subCategory: dto.subCategory,
+        });
       }
 
       const all = await query.getMany();
@@ -182,11 +197,36 @@ export class BusinessesService {
     });
   }
 
+  /**
+   * 🏷️ 2bis-2. Catalogue des catégories ACTIVES (niveau 1 + niveau 2).
+   *
+   * Source unique de vérité consommée par le client : il ne code plus ses
+   * filtres en dur (l'ancienne liste ne correspondait à aucune valeur en base).
+   * Les verticales `enabledByDefault = false` (pharmacie) sont masquées ;
+   * elles s'activeront depuis le Super Admin sans redéploiement.
+   */
+  getCategoryCatalog() {
+    return {
+      categories: BUSINESS_CATALOG.filter((c) => c.enabledByDefault).map(
+        (c) => ({
+          value: c.value,
+          label: c.label,
+          subCategories: c.subCategories,
+        }),
+      ),
+    };
+  }
+
   // 🏷️ 2ter. Retourne les marques groupées avec leurs agences
   // Chaque marque = 1 carte sur le front, les agences sont à l'intérieur
-  async findGrouped(latitude?: number, longitude?: number): Promise<any[]> {
+  async findGrouped(
+    latitude?: number,
+    longitude?: number,
+    category?: string,
+    subCategory?: string,
+  ): Promise<any[]> {
     // 1. Charger toutes les marques
-    const brands = await this.businessRepository
+    const query = this.businessRepository
       .createQueryBuilder('b')
       .select([
         'b.brandId',
@@ -197,14 +237,26 @@ export class BusinessesService {
         'b.logo',
         'b.coverImage',
         'b.category',
+        'b.subCategory',
         'b.isOpen',
         'b.enableDelivery',
         'b.enablePickup',
         'b.latitude',
         'b.longitude',
       ])
-      .where('b.isOpen = true')
-      .getMany();
+      .where('b.isOpen = true');
+
+    // 🏷️ Filtres catalogue. AVANT : `category` était accepté par le
+    // contrôleur mais jamais transmis ici → le front renvoyait toujours
+    // les mêmes commerces, quel que soit le filtre choisi (bug signalé).
+    if (category) {
+      query.andWhere('b.category = :category', { category });
+    }
+    if (subCategory) {
+      query.andWhere('b.subCategory = :subCategory', { subCategory });
+    }
+
+    const brands = await query.getMany();
 
     // 2. Grouper par brandId
     const brandMap = new Map<string, Business[]>();
@@ -266,6 +318,7 @@ export class BusinessesService {
         logo: nearestBranch.logo,
         coverImage: nearestBranch.coverImage,
         category: nearestBranch.category,
+        subCategory: nearestBranch.subCategory,
         phone: nearestBranch.phone,
         deliveryTime: '25-40 min',
         latitude: nearestBranch.latitude,
@@ -286,6 +339,7 @@ export class BusinessesService {
         logo: b.logo,
         coverImage: b.coverImage,
         category: b.category,
+        subCategory: b.subCategory,
         phone: b.phone,
         deliveryTime: '25-40 min',
         latitude: b.latitude,
@@ -348,6 +402,16 @@ export class BusinessesService {
     if (dto.address !== undefined) business.address = dto.address;
     if (dto.phone !== undefined) business.phone = dto.phone;
     if (dto.category !== undefined) business.category = dto.category;
+    if (dto.subCategory !== undefined)
+      business.subCategory = dto.subCategory || null;
+    // 🔒 Cohérence : si la verticale a changé, une sous-catégorie devenue
+    // orpheline (ex. « Fast-Food » sur une épicerie) est effacée.
+    if (
+      business.subCategory &&
+      !isValidSubCategory(business.category, business.subCategory)
+    ) {
+      business.subCategory = null;
+    }
     if (dto.enableDelivery !== undefined)
       business.enableDelivery = dto.enableDelivery;
     if (dto.enablePickup !== undefined)
