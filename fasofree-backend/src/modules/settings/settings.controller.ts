@@ -22,6 +22,15 @@ export class SettingsController {
     return this.settingsService.get();
   }
 
+  @Get('business-categories')
+  @ApiOperation({
+    summary:
+      'Catalogue complet des verticales de commerces + état actif (pour les interrupteurs)',
+  })
+  getBusinessCategories() {
+    return this.settingsService.getBusinessCategoryCatalog();
+  }
+
   @Patch()
   @Audited({ action: 'settings.update', entityType: 'SYSTEM_SETTINGS' })
   @ApiOperation({ summary: 'Mettre à jour les paramètres globaux (super admin)' })

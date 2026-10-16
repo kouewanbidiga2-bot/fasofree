@@ -77,6 +77,18 @@ export class SystemSettings {
   @Column({ type: 'boolean', default: false })
   storiesPassEnabled: boolean;
 
+  // 🏷️ Verticales de commerces ACTIVES (catalogue 2 niveaux).
+  // Liste de valeurs `BusinessCategory`. La PHARMACY est volontairement
+  // absente par défaut : le Super Admin l'active « en temps voulu » depuis
+  // « Paramètres de la plateforme », sans redéploiement.
+  // Source de référence : BUSINESS_CATALOG (modules/businesses/constants).
+  @Column({
+    type: 'jsonb',
+    default: () =>
+      `'["RESTAURANT","SUPERMARKET","BAKERY","RETAIL","SERVICES"]'::jsonb`,
+  })
+  enabledBusinessCategories: string[];
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

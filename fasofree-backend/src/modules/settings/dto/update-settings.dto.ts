@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsInt, IsOptional, IsNumber, Min, Max, IsArray, ValidateNested } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsNumber, Min, Max, IsArray, IsIn, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+import { ALL_CATEGORY_VALUES } from '../../businesses/constants/business-catalog';
 
 export class DeliveryTierDto {
   @ApiPropertyOptional({ example: 0 })
@@ -83,4 +84,15 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   storiesPassEnabled?: boolean;
+
+  @ApiPropertyOptional({
+    example: ['RESTAURANT', 'SUPERMARKET', 'BAKERY', 'RETAIL', 'SERVICES'],
+    description:
+      'Verticales de commerces actives (catalogue 2 niveaux). Retirer une valeur l\'éteint partout : client, formulaires, filtres. Ex. retirer PHARMACY tant qu\'elle n\'est pas ouverte.',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsIn(ALL_CATEGORY_VALUES, { each: true })
+  enabledBusinessCategories?: string[];
 }

@@ -6,6 +6,11 @@ import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { DeliveryPricingService } from '../orders/delivery-pricing.service';
 import { RidePricingService } from '../orders/services/ride-pricing.service';
 import * as Subscription from '../subscriptions/subscription.service';
+import {
+  BUSINESS_CATALOG,
+  BusinessCatalogCache,
+  getActiveCategoryValues,
+} from '../businesses/constants/business-catalog';
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
@@ -52,6 +57,18 @@ export class SettingsService implements OnModuleInit {
 
       Subscription.subscriptionFeeCache.storiesPassEnabled = Boolean(settings.storiesPassEnabled);
       this.logger.log(`[Settings] Pass Stories ${settings.storiesPassEnabled ? 'activé' : 'désactivé'} (storiesPassEnabled=${settings.storiesPassEnabled})`);
+
+      // 🏷️ Verticales de commerces actives (catalogue 2 niveaux).
+      // Alimente le cache statique lu par BusinessesService.getCategoryCatalog()
+      // et par le catalogue public GET /businesses/categories.
+      BusinessCatalogCache.enabledCategories = Array.isArray(
+        settings.enabledBusinessCategories,
+      )
+        ? settings.enabledBusinessCategories
+        : null;
+      this.logger.log(
+        `[Settings] Verticales commerces actives : ${getActiveCategoryValues().join(', ')}`,
+      );
     } catch (err) {
       this.logger.warn(`[Settings] Échec sync caches: ${(err as Error).message}`);
     }
@@ -71,5 +88,25 @@ export class SettingsService implements OnModuleInit {
     const saved = await this.repo.save(settings);
     await this.syncStaticCaches();
     return saved;
+  }
+
+  /**
+   * 🎛️ Catalogue COMPLET des verticales + état actif.
+   *
+   * Différence avec `GET /businesses/categories` (public) qui ne renvoie QUE
+   * les verticales actives : ici on expose l'univers complet, sinon le Super
+   * Admin ne pourrait jamais rallumer une verticale éteinte (elle aurait
+   * disparu de sa propre interface).
+   */
+  getBusinessCategoryCatalog() {
+    const active = new Set(getActiveCategoryValues());
+    return {
+      categories: BUSINESS_CATALOG.map((c) => ({
+        value: c.value,
+        label: c.label,
+        enabled: active.has(c.value),
+      })),
+      enabled: Array.from(active),
+    };
   }
 }

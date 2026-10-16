@@ -11,7 +11,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
 import { UserRole } from '../users/entities/user-role.enum';
 import { escapeLikeTerm } from '../../common/utils/like-escape';
-import { BUSINESS_CATALOG, isValidSubCategory } from './constants/business-catalog';
+import { getActiveCatalog, isValidSubCategory } from './constants/business-catalog';
 
 @Injectable()
 export class BusinessesService {
@@ -202,18 +202,17 @@ export class BusinessesService {
    *
    * Source unique de vérité consommée par le client : il ne code plus ses
    * filtres en dur (l'ancienne liste ne correspondait à aucune valeur en base).
-   * Les verticales `enabledByDefault = false` (pharmacie) sont masquées ;
-   * elles s'activeront depuis le Super Admin sans redéploiement.
+   *
+   * Les verticales éteintes par le Super Admin (ex. PHARMACY) sont absentes :
+   * elles s'activent depuis « Paramètres de la plateforme » sans redéploiement.
    */
   getCategoryCatalog() {
     return {
-      categories: BUSINESS_CATALOG.filter((c) => c.enabledByDefault).map(
-        (c) => ({
-          value: c.value,
-          label: c.label,
-          subCategories: c.subCategories,
-        }),
-      ),
+      categories: getActiveCatalog().map((c) => ({
+        value: c.value,
+        label: c.label,
+        subCategories: c.subCategories,
+      })),
     };
   }
 

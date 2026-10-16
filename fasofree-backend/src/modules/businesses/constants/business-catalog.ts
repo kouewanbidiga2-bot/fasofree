@@ -75,6 +75,49 @@ export const ALL_SUB_CATEGORIES: string[] = Array.from(
   new Set(BUSINESS_CATALOG.flatMap((c) => c.subCategories)),
 );
 
+/** Toutes les valeurs de verticales connues (univers complet du catalogue). */
+export const ALL_CATEGORY_VALUES: string[] = BUSINESS_CATALOG.map(
+  (c) => c.value,
+);
+
+/** Verticales livrées ALLUMÉES (celles que `enabledByDefault` marque actives). */
+export const DEFAULT_ENABLED_CATEGORIES: string[] = BUSINESS_CATALOG.filter(
+  (c) => c.enabledByDefault,
+).map((c) => c.value);
+
+/**
+ * 🎛️ Cache statique des verticales activées par le Super Admin.
+ *
+ * Même pattern que `DeliveryPricingService.tiersFromDB` : on évite une
+ * requête base à chaque appel du catalogue client. Alimenté par
+ * `SettingsService.syncStaticCaches()`.
+ *
+ * `null` = aucun réglage enregistré → on retombe sur `enabledByDefault`.
+ */
+export const BusinessCatalogCache: { enabledCategories: string[] | null } = {
+  enabledCategories: null,
+};
+
+/**
+ * Verticales actuellement activées.
+ *
+ * Si le réglage est absent OU vide, on retombe sur les valeurs par défaut :
+ * une liste vide (toutes éteintes) laisserait le client sans aucun filtre,
+ * ce qui n'est jamais un état souhaitable.
+ */
+export function getActiveCategoryValues(): string[] {
+  const cached = BusinessCatalogCache.enabledCategories;
+  return Array.isArray(cached) && cached.length > 0
+    ? cached
+    : DEFAULT_ENABLED_CATEGORIES;
+}
+
+/** Catalogue filtré sur les verticales actives (ce que voit le client). */
+export function getActiveCatalog(): BusinessCategoryDefinition[] {
+  const active = new Set(getActiveCategoryValues());
+  return BUSINESS_CATALOG.filter((c) => active.has(c.value));
+}
+
 /** Sous-catégories valides pour une verticale donnée. */
 export function subCategoriesFor(category: BusinessCategory): string[] {
   return BUSINESS_CATALOG.find((c) => c.value === category)?.subCategories ?? [];

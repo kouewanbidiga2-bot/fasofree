@@ -220,11 +220,15 @@ const SuperAdminDashboard = () => {
     enableScheduling: true,
     enableBulkOrders: true,
     storiesPassEnabled: false,
+    enabledBusinessCategories: [],
   });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState('');
   const [settingsError, setSettingsError] = useState('');
+
+  // 🎛️ Catalogue COMPLET des verticales de commerces (pour les interrupteurs)
+  const [businessCategoryOptions, setBusinessCategoryOptions] = useState([]);
 
   // UI states
   const [loading, setLoading] = useState({
@@ -279,12 +283,34 @@ const SuperAdminDashboard = () => {
         enableScheduling: data.enableScheduling ?? true,
         enableBulkOrders: data.enableBulkOrders ?? true,
         storiesPassEnabled: data.storiesPassEnabled ?? false,
+        enabledBusinessCategories: data.enabledBusinessCategories ?? [],
       });
     } catch {
       // Keep defaults on error
     } finally {
       setSettingsLoading(false);
     }
+  }, []);
+
+  // 🎛️ Catalogue complet des verticales + état actif réel.
+  // On utilise l'endpoint admin (et non /businesses/categories, public) car
+  // celui-ci n'expose QUE les verticales actives : une verticale éteinte
+  // disparaîtrait de sa propre interface, impossible à rallumer.
+  useEffect(() => {
+    api
+      .get('/admin/settings/business-categories')
+      .then((r) => {
+        const cats = r.data?.categories || [];
+        setBusinessCategoryOptions(cats);
+        // Réglage jamais enregistré → on initialise les interrupteurs sur
+        // l'état réellement actif côté serveur (défauts du catalogue).
+        setPlatformSettings((prev) =>
+          prev.enabledBusinessCategories && prev.enabledBusinessCategories.length > 0
+            ? prev
+            : { ...prev, enabledBusinessCategories: r.data?.enabled || [] },
+        );
+      })
+      .catch(() => setBusinessCategoryOptions([]));
   }, []);
 
   // Load financial statistics
@@ -863,6 +889,7 @@ const SuperAdminDashboard = () => {
         enableScheduling: platformSettings.enableScheduling,
         enableBulkOrders: platformSettings.enableBulkOrders,
         storiesPassEnabled: platformSettings.storiesPassEnabled,
+        enabledBusinessCategories: platformSettings.enabledBusinessCategories,
       });
       setSettingsSuccess('Paramètres enregistrés avec succès.');
       setTimeout(() => setSettingsSuccess(''), 3000);
@@ -3002,6 +3029,46 @@ const SuperAdminDashboard = () => {
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${platformSettings.storiesPassEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
+              </div>
+            </div>
+
+            {/* 🏷️ Catégories de commerces (verticales) — interrupteurs d'activation */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-1">Catégories de commerces</h3>
+              <p className="text-xs text-text-secondary mb-4">
+                Activez ou éteignez une verticale. Éteinte, elle disparaît partout
+                (filtres du client, formulaires marchand) sans redéploiement. La
+                pharmacie est livrée éteinte : activez-la quand vous serez prêt.
+              </p>
+              <div className="divide-y divide-border-light">
+                {businessCategoryOptions.map((cat) => {
+                  const isOn = (platformSettings.enabledBusinessCategories || []).includes(cat.value);
+                  return (
+                    <div key={cat.value} className="flex items-center justify-between py-3">
+                      <div className="pr-4">
+                        <p className="text-sm font-semibold text-text-primary">{cat.label}</p>
+                        <p className="text-xs text-text-secondary">{cat.value}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPlatformSettings(prev => {
+                          const current = prev.enabledBusinessCategories || [];
+                          const next = current.includes(cat.value)
+                            ? current.filter(v => v !== cat.value)
+                            : [...current, cat.value];
+                          return { ...prev, enabledBusinessCategories: next };
+                        })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${isOn ? 'bg-accent-primary' : 'bg-border-light'}`}
+                        aria-pressed={isOn}
+                      >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+                {businessCategoryOptions.length === 0 && (
+                  <p className="py-3 text-xs text-text-secondary">Catalogue indisponible.</p>
+                )}
               </div>
             </div>
 
