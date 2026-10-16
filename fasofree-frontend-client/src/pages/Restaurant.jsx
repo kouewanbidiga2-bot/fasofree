@@ -29,6 +29,18 @@ const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) =
   </svg>
 );
 
+// 🕐 Bloc H — jours d'affichage avec l'index JS correspondant
+// (`Date.getDay()` : 0 = dimanche … 6 = samedi).
+const RESTAURANT_DAYS = [
+  { key: 'monday', label: 'Lun', index: 1 },
+  { key: 'tuesday', label: 'Mar', index: 2 },
+  { key: 'wednesday', label: 'Mer', index: 3 },
+  { key: 'thursday', label: 'Jeu', index: 4 },
+  { key: 'friday', label: 'Ven', index: 5 },
+  { key: 'saturday', label: 'Sam', index: 6 },
+  { key: 'sunday', label: 'Dim', index: 0 },
+];
+
 const Restaurant = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -140,6 +152,9 @@ const Restaurant = () => {
           categories: [...new Set(menu.map((m) => m.category))],
           menu,
           brandId: business.brandId,
+          // 🕐 Bloc H — horaires récurrents + état d'ouverture actuel.
+          openingHours: business.openingHours ?? null,
+          isOpen: business.isOpen ?? true,
         });
 
         // Load branches if this restaurant has a brand
@@ -291,6 +306,37 @@ const Restaurant = () => {
               <MapPin size={14} strokeWidth={1.5} className="flex-shrink-0" />
               <span className="break-words">{restaurant.location}</span>
             </div>
+
+            {/* 🕐 Horaires d'ouverture (bloc H) */}
+            {restaurant.openingHours && (
+              <div className="mt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`w-2 h-2 rounded-full ${restaurant.isOpen ? 'bg-status-success' : 'bg-status-error'}`} />
+                  <span className="text-xs font-semibold text-text-primary">
+                    {restaurant.isOpen ? 'Ouvert maintenant' : 'Fermé'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {RESTAURANT_DAYS.map((day) => {
+                    const slot = restaurant.openingHours?.[day.key];
+                    const isToday = new Date().getDay() === day.index;
+                    return (
+                      <div
+                        key={day.key}
+                        className={`rounded px-2 py-1.5 text-[11px] ${
+                          isToday ? 'bg-accent-primary/10 text-text-primary' : 'text-text-secondary'
+                        }`}
+                      >
+                        <span className="font-medium">{day.label}</span>
+                        <span className="block">
+                          {slot ? `${slot.open} – ${slot.close}` : 'Fermé'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

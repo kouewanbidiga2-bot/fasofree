@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { Package, Clock, Calendar, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import Loading from './Loading';
 import Footer from '../components/Footer';
 import { api } from '../services/api';
@@ -8,6 +8,7 @@ import CallSupportButton from '../components/CallSupportButton';
 
 const STATUS_CONFIG = {
   PENDING: { label: 'En attente', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
+  SCHEDULED: { label: 'Programmée', color: 'text-teal-600', bg: 'bg-teal-50', icon: Calendar },
   PAID: { label: 'Payée', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: CheckCircle },
   IN_PREPARATION: { label: 'En préparation', color: 'text-orange-600', bg: 'bg-orange-50', icon: Package },
   READY_FOR_PICKUP: { label: 'Prête', color: 'text-teal-600', bg: 'bg-teal-50', icon: CheckCircle },

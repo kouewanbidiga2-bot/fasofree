@@ -17,7 +17,7 @@ import {
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
-  BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink
+  BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink, Calendar
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
@@ -331,6 +331,10 @@ const BusinessAdminDashboard = () => {
     subCategory: '',
     logo: '',
     coverImage: '',
+    // 🕐 Bloc H — horaires récurrents (null = non renseigné, isOpen décide seul).
+    openingHours: null,
+    // 📅 Bloc H — commandes à l'avance (null = non configuré, refusée).
+    advanceOrderConfig: null,
   });
 
   // 🏷️ Catalogue des catégories actives (source unique de vérité serveur).
@@ -470,6 +474,8 @@ const BusinessAdminDashboard = () => {
           subCategory: b.subCategory ?? '',
           logo: b.logo ?? '',
           coverImage: b.coverImage ?? '',
+          openingHours: b.openingHours ?? null,
+          advanceOrderConfig: b.advanceOrderConfig ?? null,
         });
       }
     } catch {
@@ -496,6 +502,8 @@ const BusinessAdminDashboard = () => {
         subCategory: updatedBusiness.subCategory ?? '',
         logo: updatedBusiness.logo ?? '',
         coverImage: updatedBusiness.coverImage ?? '',
+        openingHours: updatedBusiness.openingHours ?? null,
+        advanceOrderConfig: updatedBusiness.advanceOrderConfig ?? null,
       });
       setSettingsMsg({ type: 'success', text: 'Paramètres enregistrés avec succès.' });
     } catch (err) {
@@ -503,6 +511,53 @@ const BusinessAdminDashboard = () => {
     } finally {
       setSettingsSaving(false);
     }
+  };
+
+  // ─── 🕐 HORAIRES D'OUVERTURE (bloc H) ─────────────────────────────────
+  // Un jour sans créneau = fermé. `null` sur le champ entier = horaires non
+  // renseignés → c'est alors le seul `isOpen` qui décide (comme avant).
+  const DAYS = [
+    { key: 'monday', label: 'Lundi' },
+    { key: 'tuesday', label: 'Mardi' },
+    { key: 'wednesday', label: 'Mercredi' },
+    { key: 'thursday', label: 'Jeudi' },
+    { key: 'friday', label: 'Vendredi' },
+    { key: 'saturday', label: 'Samedi' },
+    { key: 'sunday', label: 'Dimanche' },
+  ];
+
+  const setDayHours = (day, field, value) => {
+    setBusinessSettings((prev) => {
+      const current = prev.openingHours || {};
+      const slot = current[day] || { open: '08:00', close: '22:00' };
+      return {
+        ...prev,
+        openingHours: { ...current, [day]: { ...slot, [field]: value } },
+      };
+    });
+  };
+
+  /** Retire le créneau d'un jour → ce jour devient « fermé ». */
+  const clearDayHours = (day) => {
+    setBusinessSettings((prev) => {
+      const current = { ...(prev.openingHours || {}) };
+      delete current[day];
+      return { ...prev, openingHours: current };
+    });
+  };
+
+  const setAdvanceConfig = (field, value) => {
+    setBusinessSettings((prev) => {
+      const current = prev.advanceOrderConfig || {
+        enabled: false,
+        minHoursAhead: 2,
+        maxDaysAhead: 7,
+      };
+      return {
+        ...prev,
+        advanceOrderConfig: { ...current, [field]: value },
+      };
+    });
   };
 
   // ─── STORIES ─────────────────────────────────────────────────────
@@ -1963,6 +2018,136 @@ const BusinessAdminDashboard = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* 🕐 Horaires d'ouverture (bloc H) */}
+              <div className="card p-6">
+                <h3 className="font-bold text-text-primary mb-1 flex items-center gap-2">
+                  <Clock size={16} className="text-accent-primary" />
+                  Horaires d'ouverture
+                </h3>
+                <p className="text-text-tertiary text-xs mb-4">
+                  Ces horaires affinent l'interrupteur « ouvert / fermé » : un commerce
+                  ouvert mais hors de ses horaires refuse les commandes. Un jour sans
+                  créneau est fermé. Laissez tout vide pour ne piloter que par
+                  l'interrupteur.
+                </p>
+                <div className="space-y-2">
+                  {DAYS.map((day) => {
+                    const slot = businessSettings.openingHours?.[day.key];
+                    return (
+                      <div key={day.key} className="flex flex-wrap items-center gap-3 p-3 bg-background-secondary rounded-lg">
+                        <span className="w-24 text-sm font-medium text-text-primary">{day.label}</span>
+                        {slot ? (
+                          <>
+                            <input
+                              type="time"
+                              value={slot.open}
+                              onChange={(e) => setDayHours(day.key, 'open', e.target.value)}
+                              className="input-field w-28"
+                              aria-label={`Ouverture ${day.label}`}
+                            />
+                            <span className="text-text-tertiary text-xs">à</span>
+                            <input
+                              type="time"
+                              value={slot.close}
+                              onChange={(e) => setDayHours(day.key, 'close', e.target.value)}
+                              className="input-field w-28"
+                              aria-label={`Fermeture ${day.label}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => clearDayHours(day.key)}
+                              className="text-[11px] text-text-tertiary underline"
+                            >
+                              Fermé
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDayHours(day.key, 'open', '08:00')}
+                            className="text-[11px] text-accent-primary font-semibold"
+                          >
+                            + Renseigner des horaires
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-text-tertiary mt-3">
+                  Astuce : fermeture après minuit (ex. 22:00 → 02:00) est gérée
+                  automatiquement comme un service de nuit.
+                </p>
+              </div>
+
+              {/* 📅 Commandes à l'avance (bloc H) */}
+              <div className="card p-6">
+                <h3 className="font-bold text-text-primary mb-1 flex items-center gap-2">
+                  <Calendar size={16} className="text-accent-primary" />
+                  Commandes à l'avance
+                </h3>
+                <p className="text-text-tertiary text-xs mb-4">
+                  Permet au client de choisir sa date de livraison. La commande est payée
+                  immédiatement mais n'est dispatchée qu'à l'heure choisie.
+                </p>
+
+                <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg mb-4">
+                  <div>
+                    <p className="font-semibold text-text-primary text-sm">Accepter les commandes à l'avance</p>
+                    <p className="text-text-tertiary text-xs">Désactivé = livraison immédiate uniquement</p>
+                  </div>
+                  <button
+                    onClick={() =>
+                      setAdvanceConfig('enabled', !businessSettings.advanceOrderConfig?.enabled)
+                    }
+                    className={`w-12 h-6 rounded-full transition-colors ${
+                      businessSettings.advanceOrderConfig?.enabled ? 'bg-accent-primary' : 'bg-border-light'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                      businessSettings.advanceOrderConfig?.enabled ? 'translate-x-6' : 'translate-x-0.5'
+                    }`} />
+                  </button>
+                </div>
+
+                {businessSettings.advanceOrderConfig?.enabled && (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-text-tertiary mb-1">
+                        Délai minimum (heures)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="72"
+                        value={businessSettings.advanceOrderConfig.minHoursAhead ?? 2}
+                        onChange={(e) => setAdvanceConfig('minHoursAhead', Number(e.target.value))}
+                        className="input-field"
+                      />
+                      <p className="text-[11px] text-text-tertiary mt-1">
+                        Ex. 2 = la livraison la plus proche est dans 2 h.
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-text-tertiary mb-1">
+                        Délai maximum (jours)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="30"
+                        value={businessSettings.advanceOrderConfig.maxDaysAhead ?? 7}
+                        onChange={(e) => setAdvanceConfig('maxDaysAhead', Number(e.target.value))}
+                        className="input-field"
+                      />
+                      <p className="text-[11px] text-text-tertiary mt-1">
+                        Ex. 7 = pas de commande à plus d'une semaine.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Identité visuelle : logo + couverture */}

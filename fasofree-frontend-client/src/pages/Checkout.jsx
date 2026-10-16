@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils, Navigation, Check, Plus } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, CreditCard, Loader2, Truck, ShoppingBag, Utensils, Navigation, Check, Plus, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import { PaymentLogo, paymentMethods } from '../components/PaymentLogos';
@@ -20,6 +20,16 @@ const FULFILLMENT_OPTIONS = [
   { id: 'DINE_IN', label: 'Manger sur place', icon: Utensils, description: 'Consommation au restaurant' },
 ];
 
+/**
+ * 📅 Formate une Date en `YYYY-MM-DDTHH:MM` (heure LOCALE) pour un champ
+ * `input[type=datetime-local]`. `toISOString()` ne convient pas : il renvoie
+ * de l'UTC, ce qui décalerait le rendu d'un fuseau horaire entier.
+ */
+const toLocalInput = (date) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
 const Checkout = () => {
   const navigate = useNavigate();
   const { items, restaurantId } = useCartStore();
@@ -38,6 +48,8 @@ const Checkout = () => {
   const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [deliveryCoords, setDeliveryCoords] = useState(null);
   const [fulfillmentType, setFulfillmentType] = useState('DELIVERY');
+  // 📅 Bloc H — livraison souhaitée (commande à l'avance). `null` = immédiate.
+  const [scheduledFor, setScheduledFor] = useState('');
   const [savedAddresses, setSavedAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [addressMode, setAddressMode] = useState('saved');
@@ -53,7 +65,7 @@ const Checkout = () => {
     let cancelled = false;
     api.getBusiness(restaurantId).then((b) => {
       if (!cancelled) {
-        setRestaurant({ id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude, deliveryFee: b.deliveryFee, deliveryTime: b.deliveryTime });
+        setRestaurant({ id: b.id, name: b.name, latitude: b.latitude, longitude: b.longitude, deliveryFee: b.deliveryFee, deliveryTime: b.deliveryTime, advanceOrderConfig: b.advanceOrderConfig ?? null });
       }
     }).catch(() => {});
     return () => { cancelled = true; };
@@ -154,6 +166,12 @@ const Checkout = () => {
       }
       if (formData.landmark) {
         payload.landmark = formData.landmark;
+      }
+      // 📅 Bloc H — livraison souhaitée. Le backend la valide contre la
+      // config du commerce (délai min / max) : un 400 explicite remonte
+      // dans le message d'erreur affiché au client.
+      if (scheduledFor) {
+        payload.scheduledFor = new Date(scheduledFor).toISOString();
       }
       if (fulfillmentType === 'DINE_IN' && formData.tableNumber) {
         payload.fulfillmentDetails.tableNumber = formData.tableNumber;
@@ -414,6 +432,37 @@ const Checkout = () => {
                       className="app-input"
                     />
                   </div>
+
+                  {/* 📅 Bloc H — commande à l'avance.
+                      Affichée uniquement si le commerce l'accepte : inutile
+                      de proposer une option que le backend refuserait. */}
+                  {restaurant?.advanceOrderConfig?.enabled && (
+                    <div className="mt-4 rounded-lg border border-border-light p-4 bg-background-secondary/50">
+                      <p className="text-xs font-medium text-text-primary mb-1 flex items-center gap-1.5">
+                        <Calendar size={13} className="text-accent-primary" />
+                        Livraison à l'avance
+                      </p>
+                      <p className="text-[11px] text-text-tertiary mb-3">
+                        Choisissez votre date de livraison. La commande est payée
+                        maintenant, mais le livreur n'est envoyé qu'à l'heure choisie.
+                      </p>
+                      <label className="block text-xs text-text-secondary mb-2">
+                        Date et heure souhaitées
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledFor}
+                        min={toLocalInput(new Date(Date.now() + (restaurant.advanceOrderConfig.minHoursAhead || 0) * 3_600_000))}
+                        max={toLocalInput(new Date(Date.now() + (restaurant.advanceOrderConfig.maxDaysAhead || 0) * 86_400_000))}
+                        onChange={(e) => setScheduledFor(e.target.value)}
+                        className="app-input"
+                      />
+                      <p className="text-[11px] text-text-tertiary mt-2">
+                        Entre {restaurant.advanceOrderConfig.minHoursAhead} h et{' '}
+                        {restaurant.advanceOrderConfig.maxDaysAhead} jours à l'avance.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

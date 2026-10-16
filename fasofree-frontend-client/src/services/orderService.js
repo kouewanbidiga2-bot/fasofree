@@ -91,6 +91,8 @@ export const updateOrderStatus = async (orderId, status) => {
 export const getStatusInfo = (status) => {
   const statusMap = {
     PENDING: { label: 'En attente', color: 'yellow', icon: 'Clock' },
+    // 📅 Bloc H — payée mais pas encore due : le dispatch attend l'heure choisie.
+    SCHEDULED: { label: 'Programmée', color: 'teal', icon: 'Calendar' },
     PAID: { label: 'Payé', color: 'blue', icon: 'CreditCard' },
     IN_PREPARATION: { label: 'En préparation', color: 'orange', icon: 'Package' },
     READY_FOR_PICKUP: { label: 'Prêt', color: 'cyan', icon: 'Check' },
@@ -112,6 +114,7 @@ export const getStatusInfo = (status) => {
 export const getOrderSteps = (currentStatus) => {
   const steps = [
     { key: 'PENDING', label: 'En attente' },
+    { key: 'SCHEDULED', label: 'Programmée' },
     { key: 'PAID', label: 'Payé' },
     { key: 'IN_PREPARATION', label: 'En préparation' },
     { key: 'READY_FOR_PICKUP', label: 'Prêt' },
@@ -130,7 +133,10 @@ export const getOrderSteps = (currentStatus) => {
 // ✅ FIX #20 : Transitions réelles du FSM backend
 export const getNextPossibleStatuses = (currentStatus) => {
   const transitions = {
-    PENDING: ['PAID', 'CANCELLED'],
+    PENDING: ['PAID', 'SCHEDULED', 'CANCELLED'],
+    // 📅 Bloc H — une commande à l'avance ne peut que devenir PAID (libération
+    // par le cron) ou être annulée. Jamais dispatchée directement.
+    SCHEDULED: ['PAID', 'CANCELLED'],
     PAID: ['IN_PREPARATION', 'CANCELLED'],
     IN_PREPARATION: ['READY_FOR_PICKUP', 'CANCELLED'],
     READY_FOR_PICKUP: ['DRIVER_ASSIGNED', 'CANCELLED'],

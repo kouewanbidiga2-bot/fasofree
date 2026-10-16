@@ -11,6 +11,7 @@ import {
   Length,
   IsObject,
   IsNumber,
+  IsISO8601,
   ValidateIf,
   IsNotEmpty,
   IsBoolean,
@@ -141,6 +142,18 @@ export class CreateOrderDto {
     numberOfGuests?: number;
     notes?: string;
   };
+
+  // 📅 Bloc H — livraison souhaitée pour une commande à l'avance.
+  // Validée côté serveur contre `business.advanceOrderConfig` (délai min /
+  // max) : une valeur hors limites est un 400 explicite, jamais un silence.
+  @ApiPropertyOptional({
+    description:
+      'Livraison souhaitée (ISO 8601). Absent = livraison immédiate. Nécessite que le commerce accepte les commandes à l\u2019avance.',
+    example: '2026-10-17T18:30:00.000Z',
+  })
+  @IsOptional()
+  @IsISO8601()
+  scheduledFor?: string;
 
   @ApiPropertyOptional({
     description: 'Frais de livraison appliqués en FCFA (XOF)',

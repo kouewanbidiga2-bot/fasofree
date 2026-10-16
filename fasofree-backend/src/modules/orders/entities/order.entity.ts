@@ -13,6 +13,10 @@ import { Transaction } from '../../payments/entities/transaction.entity';
 
 export enum OrderStatus {
   PENDING = 'PENDING',
+  // 📅 Commande à l'avance : payée mais pas encore due. Le cron
+  // `releaseScheduledOrders` la fait passer à PAID (et la dispatche)
+  // quand `scheduledFor` est atteint.
+  SCHEDULED = 'SCHEDULED',
   AWAITING_PAYMENT = 'AWAITING_PAYMENT',
   PAID = 'PAID',
   IN_PREPARATION = 'IN_PREPARATION',
@@ -96,6 +100,12 @@ export class Order {
     numberOfGuests?: number;
     notes?: string;
   };
+
+  // 📅 Livraison souhaitée pour une commande à l'avance (bloc H).
+  // `null` = livraison immédiate (cas historique). Présent + statut
+  // SCHEDULED = la commande est payée mais attend son heure de libération.
+  @Column({ type: 'timestamp', nullable: true })
+  scheduledFor?: Date | null;
 
   @Index()
   @Index('idx_orders_status')

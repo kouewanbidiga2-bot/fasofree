@@ -26,6 +26,56 @@ export enum BusinessCategory {
   SERVICES = 'SERVICES',
 }
 
+// ─── 🕐 Horaires d'ouverture (bloc H) ──────────────────────────────────
+
+/** Clés des jours de la semaine, en minuscules (format `Intl.DateTimeFormat`). */
+export type BusinessOpeningDay =
+  | 'monday'
+  | 'tuesday'
+  | 'wednesday'
+  | 'thursday'
+  | 'friday'
+  | 'saturday'
+  | 'sunday';
+
+/** Horaires d'un jour : `null` (ou jour absent) = fermé ce jour-là. */
+export interface BusinessDayHours {
+  /** "HH:MM" (24 h) */
+  open: string;
+  /** "HH:MM" (24 h) — peut être < `open` pour un service de nuit. */
+  close: string;
+}
+
+/**
+ * Horaires récurrents hebdomadaires. Un jour absent = fermé.
+ * L'ordre des clés n'a pas d'importance.
+ */
+export type BusinessOpeningHours = Partial<
+  Record<BusinessOpeningDay, BusinessDayHours>
+>;
+
+/** Jours dans l'ordre d'affichage (lundi → dimanche). */
+export const BUSINESS_OPENING_DAYS: { key: BusinessOpeningDay; label: string }[] = [
+  { key: 'monday', label: 'Lundi' },
+  { key: 'tuesday', label: 'Mardi' },
+  { key: 'wednesday', label: 'Mercredi' },
+  { key: 'thursday', label: 'Jeudi' },
+  { key: 'friday', label: 'Vendredi' },
+  { key: 'saturday', label: 'Samedi' },
+  { key: 'sunday', label: 'Dimanche' },
+];
+
+// ─── 📅 Commandes à l'avance (bloc H) ─────────────────────────────────
+
+export interface BusinessAdvanceOrderConfig {
+  /** Interdire (`false`) ou autoriser la commande à l'avance. */
+  enabled: boolean;
+  /** Délai minimum en heures entre la commande et la livraison (ex. 2). */
+  minHoursAhead: number;
+  /** Délai maximum en jours (ex. 7). */
+  maxDaysAhead: number;
+}
+
 @Entity('businesses')
 export class Business {
   @PrimaryGeneratedColumn('uuid')
@@ -109,6 +159,27 @@ export class Business {
 
   @Column({ type: 'boolean', default: true })
   isOpen: boolean;
+
+  /**
+   * 🕐 Horaires d'ouverture récurrents (bloc H), par jour de la semaine.
+   *
+   * Pourquoi jsonb et non 14 colonnes : les horaires sont une donnée
+   * pilotée par le marchand, qui peut ne rien renseigner (le commerce
+   * reste alors piloté par le seul `isOpen`, comme avant). Un schéma
+   * rigide aurait imposé 14 colonnes NOT NULL sans apporter la souplesse
+   * nécessaire (jour fermé, horaires différents le week-end).
+   *
+   * `null` = horaires non renseignés → `isOpen` décide seul (rétro-compatible).
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  openingHours?: BusinessOpeningHours | null;
+
+  /**
+   * 📅 Configuration des commandes à l'avance (bloc H).
+   * `null` = fonctionnalité non configurée → commande à l'avance refusée.
+   */
+  @Column({ type: 'jsonb', nullable: true })
+  advanceOrderConfig?: BusinessAdvanceOrderConfig | null;
 
   // 🏷️ Raccordement multi-agences : marque (Brand) à laquelle appartient l'agence
   @Column({ type: 'uuid', nullable: true })

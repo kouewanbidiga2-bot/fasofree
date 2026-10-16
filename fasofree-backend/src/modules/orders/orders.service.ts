@@ -94,7 +94,15 @@ export const ORDER_STATUS_FSM: Record<string, OrderStatus[]> = {
     OrderStatus.CANCELLED,
     OrderStatus.FAILED,
   ],
-  [OrderStatus.PENDING]: [OrderStatus.PAID, OrderStatus.CANCELLED],
+  // 📅 SCHEDULED (bloc H) : une commande à l'avance est payée mais pas
+  // encore due. Elle ne peut que devenir PAID (libération par le cron) ou
+  // être annulée — jamais être dispatchée directement.
+  [OrderStatus.PENDING]: [
+    OrderStatus.PAID,
+    OrderStatus.SCHEDULED,
+    OrderStatus.CANCELLED,
+  ],
+  [OrderStatus.SCHEDULED]: [OrderStatus.PAID, OrderStatus.CANCELLED],
   [OrderStatus.PAID]: [OrderStatus.IN_PREPARATION, OrderStatus.CANCELLED],
   [OrderStatus.IN_PREPARATION]: [
     OrderStatus.READY_FOR_PICKUP,
@@ -432,8 +440,40 @@ export class OrdersService {
     }
 
     const business = await this.businessesService.findOne(businessId);
-    if (!business.isOpen) {
+    // 🕐 Bloc H : `isOpenAt` et non `isOpen` — un commerce ouvert mais hors
+    // de ses horaires déclarés doit refuser une commande immédiate.
+    if (!this.businessesService.isOpenAt(business)) {
       throw new BadRequestException('Ce commerce est actuellement fermé');
+    }
+
+    // 📅 Bloc H — commande à l'avance : le commerce choisit s'il l'accepte,
+    // avec un délai min (heures) et max (jours). `null` = immédiate.
+    let scheduledFor: Date | null = null;
+    if (dto.scheduledFor) {
+      const config = business.advanceOrderConfig;
+      if (!config?.enabled) {
+        throw new BadRequestException(
+          "Ce commerce n'accepte pas les commandes à l'avance.",
+        );
+      }
+      const target = new Date(dto.scheduledFor);
+      if (Number.isNaN(target.getTime())) {
+        throw new BadRequestException('Date de livraison souhaitée invalide.');
+      }
+      const nowMs = Date.now();
+      const minMs = (config.minHoursAhead || 0) * 3_600_000;
+      const maxMs = (config.maxDaysAhead || 0) * 86_400_000;
+      if (target.getTime() < nowMs + minMs) {
+        throw new BadRequestException(
+          `Livraison la plus proche possible : dans ${config.minHoursAhead} h minimum.`,
+        );
+      }
+      if (target.getTime() > nowMs + maxMs) {
+        throw new BadRequestException(
+          `Livraison la plus éloignée possible : ${config.maxDaysAhead} jours maximum.`,
+        );
+      }
+      scheduledFor = target;
     }
 
     if (
@@ -589,6 +629,8 @@ export class OrdersService {
       deliveryLocation,
       landmark: dto.landmark ?? undefined,
       status: initialStatus,
+      // 📅 Bloc H : livraison souhaitée (null = immédiate, cas historique).
+      scheduledFor,
       deliveryPinCode: null,
       driverId: null,
       driverValidatedAt: null,
@@ -1682,6 +1724,31 @@ export class OrdersService {
           `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement GeniusPay ignoré (commande morte)`,
         );
         await queryRunner.rollbackTransaction();
+        return;
+      }
+
+      // 📅 Bloc H — commande à l'avance : payée mais pas encore due.
+      // On ne dispatche PAS tout de suite ; la commande passe en SCHEDULED
+      // et le cron `releaseScheduledOrders` la libérera à l'heure dite.
+      // Sans cela, une commande à l'avance serait dispatchée immédiatement,
+      // ce qui annulerait toute la promesse faite au client.
+      if (order.scheduledFor) {
+        const allowedForScheduled = ORDER_STATUS_FSM[order.status] || [];
+        if (!allowedForScheduled.includes(OrderStatus.SCHEDULED)) {
+          this.logger.error(
+            `[Order Scheduled] Transition invalide: ${order.status} → SCHEDULED pour la commande ${orderId}`,
+          );
+          await queryRunner.rollbackTransaction();
+          return;
+        }
+
+        order.status = OrderStatus.SCHEDULED;
+        await queryRunner.manager.save(order);
+        await queryRunner.commitTransaction();
+
+        this.logger.log(
+          `[Order Scheduled] ${orderId} → libération prévue à ${order.scheduledFor.toISOString()}`,
+        );
         return;
       }
 
@@ -2808,6 +2875,61 @@ export class OrdersService {
   //   • création : index UNIQUE sur merchant_payouts.orderId (+ garde-fou)
   //   • retry     : réclamation atomique UPDATE conditionnelle (claimAndExecute)
   // ========================================================================
+  // ========================================================================
+  // 📅 Bloc H — libération des commandes à l'avance.
+  //
+  // Une commande à l'avance est payée mais reste en SCHEDULED jusqu'à son
+  // `scheduledFor`. Ce cron la fait passer à PAID (ce qui la rend éligible
+  // au dispatch) puis déclenche le dispatch — exactement comme le ferait
+  // un paiement immédiat, mais à l'heure choisie par le client.
+  //
+  // Pourquoi un cron et non un setTimeout : le processus peut redémarrer
+  // (déploiement Render, crash). Un timer en mémoire serait perdu ; une
+  // requête base survivre à tout.
+  //
+  // Idempotent : une commande déjà passée à PAID n'est plus SCHEDULED,
+  // donc n'est plus sélectionnée. Deux instances qui s'exécutent en même
+  // temps ne peuvent pas la libérer deux fois (le statut est la garde).
+  // ========================================================================
+  @Cron(CronExpression.EVERY_MINUTE)
+  async releaseScheduledOrders(): Promise<void> {
+    const now = new Date();
+
+    const dueOrders = await this.orderRepository
+      .createQueryBuilder('o')
+      .where('o.status = :scheduled', { scheduled: OrderStatus.SCHEDULED })
+      .andWhere('o."scheduledFor" IS NOT NULL')
+      .andWhere('o."scheduledFor" <= :now', { now })
+      .take(50)
+      .getMany();
+
+    if (dueOrders.length === 0) return;
+
+    this.logger.log(
+      `[Scheduled] ${dueOrders.length} commande(s) à l'avance à libérer`,
+    );
+
+    for (const order of dueOrders) {
+      try {
+        order.status = OrderStatus.PAID;
+        // `scheduledFor` est conservé : il trace que cette commande était
+        // à l'avance, ce qui explique un dispatch tardif dans les stats.
+        await this.orderRepository.save(order);
+
+        this.dispatchGateway.dispatchOrderToDrivers(order);
+        this.logger.log(
+          `[Scheduled] Commande #${order.id} libérée et dispatchée`,
+        );
+      } catch (error) {
+        // Une commande en échec ne doit pas bloquer les suivantes : elles
+        // seront retentées à la minute suivante (statut resté SCHEDULED).
+        this.logger.error(
+          `[Scheduled] Échec de libération de #${order.id}: ${error.message}`,
+        );
+      }
+    }
+  }
+
   @Cron('*/5 * * * *')
   async releaseHeldPayouts(): Promise<void> {
     const now = new Date();

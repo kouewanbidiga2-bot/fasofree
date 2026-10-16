@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Business } from './entities/business.entity';
+import { BUSINESS_OPENING_DAYS } from './entities/business.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { FindNearbyDto } from './dto/find-nearby.dto';
@@ -224,6 +225,45 @@ export class BusinessesService {
     };
   }
 
+  /**
+   * 🕐 Le commerce est-il ouvert à l'instant `at` ? (bloc H)
+   *
+   * `isOpen` reste l'interrupteur maître : le comportement antérieur est
+   * préservé à l'identique. Les horaires récurrents l'affinent seulement :
+   * si le jour courant a un créneau renseigné, le commerce n'est ouvert que
+   * dans ce créneau. Un jour sans créneau → `isOpen` décide seul (et les
+   * commerces qui n'ont jamais renseigné d'horaire ne changent rien).
+   *
+   * Gestion des services de nuit : quand `close` < `open` (ex. 22:00 →
+   * 02:00), le créneau est traité comme chevauchant minuit.
+   *
+   * Volontairement synchrone et sans accès base : appelé à chaque création
+   * de commande, il doit rester gratuit.
+   */
+  isOpenAt(business: Business, at: Date = new Date()): boolean {
+    if (!business.isOpen) return false;
+
+    const hours = business.openingHours;
+    if (!hours) return true;
+
+    // `getDay()` renvoie 0 (dimanche) → 6 (samedi) ; on réaligne sur
+    // lundi = 0 pour correspondre à BUSINESS_OPENING_DAYS.
+    const dayIndex = at.getDay() === 0 ? 6 : at.getDay() - 1;
+    const slot = hours[BUSINESS_OPENING_DAYS[dayIndex].key];
+    if (!slot?.open || !slot?.close) return true;
+
+    const toMinutes = (value: string): number => {
+      const [h, m] = value.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+    const now = at.getHours() * 60 + at.getMinutes();
+    const open = toMinutes(slot.open);
+    const close = toMinutes(slot.close);
+
+    if (close > open) return now >= open && now < close;
+    // Service de nuit : ouvert après `open` OU avant `close`.
+    return now >= open || now < close;
+  }
   /**
    * 🏷️ F-bis. Recensement des commerces SANS sous-catégorie (niveau 2).
    *
@@ -605,6 +645,13 @@ export class BusinessesService {
     if (dto.hasOwnDrivers !== undefined)
       business.hasOwnDrivers = dto.hasOwnDrivers;
     if (dto.isOpen !== undefined) business.isOpen = dto.isOpen;
+    // 🕐 Bloc H — horaires récurrents. `null` explicite = effacer (revenir à
+    // un pilotage par `isOpen` seul) ; champ absent = ne pas toucher.
+    if (dto.openingHours !== undefined)
+      business.openingHours = dto.openingHours || null;
+    // 📅 Bloc H — config commandes à l'avance. Même sémantique.
+    if (dto.advanceOrderConfig !== undefined)
+      business.advanceOrderConfig = dto.advanceOrderConfig || null;
     if (dto.brandId !== undefined) business.brandId = dto.brandId;
     if (dto.logo !== undefined) (business as any).logo = dto.logo || null;
     if (dto.coverImage !== undefined) (business as any).coverImage = dto.coverImage || null;
