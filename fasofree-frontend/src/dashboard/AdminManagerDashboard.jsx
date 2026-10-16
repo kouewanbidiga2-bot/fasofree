@@ -14,7 +14,7 @@ import {
   Layout, Shield, Users, Settings, LogOut,
   TrendingUp, Activity, AlertCircle,
   BadgeCheck, RefreshCw, CheckCircle, XCircle, MessageSquare, Clock, Eye,
-  Building2, Link2, Send, CreditCard
+  Building2, Link2, Send, CreditCard, Gavel
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -24,6 +24,7 @@ import AgenciesTab from './components/AgenciesTab';
 import AffiliateTab from './components/AffiliateTab';
 import PushCampaignsTab from './components/PushCampaignsTab';
 import PaymentReconciliationTab from './components/PaymentReconciliationTab';
+import DeliveryQualityTab from './components/DeliveryQualityTab';
 import { getPendingDisputes } from '../services/financialService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import { getBusinesses } from '../services/subscriptionService';
@@ -348,6 +349,7 @@ const AdminManagerDashboard = () => {
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'users-backoffice', label: 'Comptes', icon: Users },
     { id: 'agencies', label: 'Agences', icon: Building2 },
+    { id: 'quality', label: 'Qualité livraisons', icon: Gavel },
     { id: 'affiliate', label: 'Affiliation', icon: Link2 },
     { id: 'push-campaigns', label: 'Campagnes push', icon: Send },
     { id: 'payments-reconcile', label: 'Paiements', icon: CreditCard },
@@ -774,6 +776,8 @@ const AdminManagerDashboard = () => {
             <PushCampaignsTab />
           </div>
         )}
+
+        {activeTab === 'quality' && <DeliveryQualityTab />}
 
         {activeTab === 'payments-reconcile' && (
           <div className="animate-slide-up">

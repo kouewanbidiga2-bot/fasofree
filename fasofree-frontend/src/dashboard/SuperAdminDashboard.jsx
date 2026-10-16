@@ -15,7 +15,7 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2
+  Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2, Gavel
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -24,6 +24,7 @@ import BrandsManagementTab from './components/BrandsManagementTab';
 import FinancialChart from './components/BrandChart';
 import DisputesTab from './components/DisputesTab';
 import TraceabilityTab from './TraceabilityTab';
+import DeliveryQualityTab from './components/DeliveryQualityTab';
 import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
 import { getAgencies, createAgency, updateAgency } from '../services/agencyService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
@@ -1264,6 +1265,7 @@ const SuperAdminDashboard = () => {
     { id: 'financial', label: 'Finance', icon: DollarSign },
     { id: 'traceability', label: 'Traçabilité', icon: ScrollText },
     { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
+    { id: 'quality', label: 'Qualité livraisons', icon: Gavel },
     { id: 'subscriptions', label: 'Abonnements', icon: Crown },
     { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
     { id: 'push-campaigns', label: 'Campagnes Push', icon: Megaphone },
@@ -2004,6 +2006,8 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET CAMPAGNES PUSH */}
         {/* ──────────────────────────────────────────────────────── */}
+        {activeTab === 'quality' && <DeliveryQualityTab />}
+
         {activeTab === 'push-campaigns' && (
           <div className="space-y-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">

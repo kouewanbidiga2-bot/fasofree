@@ -1,6 +1,11 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  In,
+  MoreThanOrEqual,
+  Repository,
+  SelectQueryBuilder,
+} from 'typeorm';
 import {
   DeliveryPenalty,
   DeliveryPenaltyLevel,
@@ -8,6 +13,9 @@ import {
 } from './entities/delivery-penalty.entity';
 import { CreatePenaltyDto } from './dto/create-penalty.dto';
 import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
+import { Order } from '../orders/entities/order.entity';
+import { User } from '../users/entities/user.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 /**
  * 🎚️ Impact des pénalités sur le scoring livreur.
@@ -53,6 +61,12 @@ export class PenaltiesService {
     private readonly penaltyRepository: Repository<DeliveryPenalty>,
     @InjectRepository(DeliveryAgency)
     private readonly agencyRepository: Repository<DeliveryAgency>,
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
   ) {}
 
   // ─── Lecture administration ─────────────────────────────────────
@@ -115,6 +129,218 @@ export class PenaltiesService {
     });
     if (!agency) return [];
     return this.listForAgency(agency.id);
+  }
+
+  /**
+   * 🎚️ Vue consolidée « Qualité des livraisons » (écran C).
+   *
+   * Un SEUL appel alimente l'écran entier : les trois crans de sanction ET
+   * les retards observés. Deux appels séparés produiraient deux instantanés
+   * décalés, avec des compteurs qui ne se recoupent pas d'une carte à l'autre.
+   *
+   * Les libellés (nom du livreur, de la société, du commerce) sont résolus
+   * côté serveur : l'interface ne peut rien afficher d'utile à partir d'un
+   * UUID seul, et la laisser enchaîner N requêtes serait bien pire.
+   *
+   * Deux fenêtres de temps, volontairement distinctes :
+   *  - la LISTE des sanctions est bornée à `days` (vue d'activité) ;
+   *  - les COMPTEURS portent sur toutes les sanctions encore actives, même
+   *    anciennes : une suspension de 30 jours reste active au 20ᵉ jour et
+   *    doit donc toujours être comptée, sinon l'écran mentirait.
+   */
+  async getQualityOverview(
+    params: {
+      days?: number;
+      targetType?: DeliveryPenaltyTarget;
+      activeOnly?: boolean;
+      limit?: number;
+    } = {},
+  ) {
+    const days = Math.min(Math.max(params.days ?? 7, 1), 90);
+    const limit = Math.min(Math.max(params.limit ?? 100, 1), 200);
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    // 1. Sanctions créées dans la fenêtre
+    const listQb = this.penaltyRepository
+      .createQueryBuilder('p')
+      .where('p."createdAt" >= :since', { since })
+      .orderBy('p."createdAt"', 'DESC')
+      .limit(limit);
+    if (params.targetType) {
+      listQb.andWhere('p."targetType" = :targetType', {
+        targetType: params.targetType,
+      });
+    }
+    if (params.activeOnly) this.applyActiveFilter(listQb);
+    const penaltyRows = await listQb.getMany();
+
+    // 2. Compteurs des sanctions ACTIVES, toutes fenêtres confondues
+    const countQb = this.penaltyRepository
+      .createQueryBuilder('p')
+      .select('p."level"', 'level')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('p."level"');
+    this.applyActiveFilter(countQb);
+    const countRows = await countQb.getRawMany<{
+      level: DeliveryPenaltyLevel;
+      count: string;
+    }>();
+
+    const counts = {
+      warning: 0,
+      priorityDowngrade: 0,
+      suspension: 0,
+      totalActive: 0,
+    };
+    for (const row of countRows) {
+      const n = Number(row.count) || 0;
+      if (row.level === DeliveryPenaltyLevel.WARNING) counts.warning = n;
+      else if (row.level === DeliveryPenaltyLevel.PRIORITY_DOWNGRADE)
+        counts.priorityDowngrade = n;
+      else if (row.level === DeliveryPenaltyLevel.SUSPENSION)
+        counts.suspension = n;
+      counts.totalActive += n;
+    }
+
+    // 3. Livraisons en retard de la fenêtre
+    const lateOrders = await this.orderRepository.find({
+      where: { deliveryLate: true, deliveredAt: MoreThanOrEqual(since) },
+      order: { deliveredAt: 'DESC' },
+      take: limit,
+    });
+
+    // 4. Agrégat ETA estimée / durée réelle sur les livraisons terminées
+    const slaRow = await this.orderRepository
+      .createQueryBuilder('o')
+      .select('COUNT(*)', 'total')
+      .addSelect('COUNT(*) FILTER (WHERE o."deliveryLate" = true)', 'late')
+      .addSelect('AVG(o."deliveryEtaMinutes")', 'avgEta')
+      .addSelect('AVG(o."deliveryDurationMinutes")', 'avgDuration')
+      .where('o."deliveredAt" >= :since', { since })
+      .getRawOne<{
+        total: string;
+        late: string;
+        avgEta: string | null;
+        avgDuration: string | null;
+      }>();
+
+    // 5. Libellés — un lot de requêtes par type d'entité, jamais par ligne
+    const driverIds = new Set<string>();
+    const agencyIds = new Set<string>();
+    const businessIds = new Set<string>();
+    const addRefs = (
+      driverId?: string | null,
+      agencyId?: string | null,
+      businessId?: string | null,
+    ) => {
+      if (driverId) driverIds.add(driverId);
+      if (agencyId) agencyIds.add(agencyId);
+      if (businessId) businessIds.add(businessId);
+    };
+
+    for (const p of penaltyRows) addRefs(p.driverId, p.agencyId, null);
+    for (const o of lateOrders) {
+      addRefs(o.driverId, o.deliveryProviderId, o.businessId);
+    }
+
+    const drivers = driverIds.size
+      ? await this.userRepository.find({
+          where: { id: In(Array.from(driverIds)) },
+          select: { id: true, fullName: true, phone: true },
+        })
+      : [];
+    const agencies = agencyIds.size
+      ? await this.agencyRepository.find({
+          where: { id: In(Array.from(agencyIds)) },
+          select: { id: true, name: true },
+        })
+      : [];
+    const businesses = businessIds.size
+      ? await this.businessRepository.find({
+          where: { id: In(Array.from(businessIds)) },
+          select: { id: true, name: true },
+        })
+      : [];
+
+    const driverById = new Map(drivers.map((d) => [d.id, d]));
+    const agencyById = new Map(agencies.map((a) => [a.id, a]));
+    const businessById = new Map(businesses.map((b) => [b.id, b]));
+
+    const nowMs = Date.now();
+    // Une sanction reste active si elle n'a pas été révoquée ET n'est pas
+    // expirée — même règle que `applyActiveFilter`, mais en mémoire.
+    const isStillActive = (p: DeliveryPenalty) =>
+      p.active &&
+      (p.effectiveUntil == null || p.effectiveUntil.getTime() > nowMs);
+
+    const ref = (orderId: string | null) =>
+      orderId ? `#${orderId.slice(0, 8)}` : null;
+
+    const totalDeliveries = Number(slaRow?.total ?? 0);
+    const lateDeliveriesCount = Number(slaRow?.late ?? 0);
+
+    return {
+      window: { days, since },
+      counts,
+      penalties: penaltyRows.map((p) => {
+        const driver = p.driverId ? driverById.get(p.driverId) : undefined;
+        const agency = p.agencyId ? agencyById.get(p.agencyId) : undefined;
+        return {
+          id: p.id,
+          targetType: p.targetType,
+          level: p.level,
+          reason: p.reason,
+          orderId: p.orderId,
+          orderRef: ref(p.orderId),
+          driverId: p.driverId,
+          agencyId: p.agencyId,
+          // Cible supprimée depuis : on l'affiche explicitement plutôt que
+          // de laisser une cellule vide, qui ferait croire à un bug.
+          targetName: driver?.fullName ?? agency?.name ?? 'Cible supprimée',
+          targetPhone: driver?.phone ?? null,
+          // `createdBy = null` = avertissement automatique (retard).
+          automatic: p.createdBy == null,
+          active: isStillActive(p),
+          revoked: !p.active,
+          effectiveFrom: p.effectiveFrom,
+          effectiveUntil: p.effectiveUntil,
+          createdAt: p.createdAt,
+        };
+      }),
+      lateDeliveries: lateOrders.map((o) => ({
+        id: o.id,
+        ref: ref(o.id),
+        businessName: o.businessId
+          ? (businessById.get(o.businessId)?.name ?? null)
+          : null,
+        driverId: o.driverId,
+        driverName: o.driverId
+          ? (driverById.get(o.driverId)?.fullName ?? null)
+          : null,
+        agencyId: o.deliveryProviderId,
+        agencyName: o.deliveryProviderId
+          ? (agencyById.get(o.deliveryProviderId)?.name ?? null)
+          : null,
+        deliveredAt: o.deliveredAt,
+        etaMinutes: o.deliveryEtaMinutes,
+        durationMinutes: o.deliveryDurationMinutes,
+        lateMinutes:
+          o.deliveryDurationMinutes != null && o.deliveryEtaMinutes != null
+            ? o.deliveryDurationMinutes - o.deliveryEtaMinutes
+            : null,
+        totalAmount: Number(o.totalAmount ?? 0),
+      })),
+      sla: {
+        deliveries: totalDeliveries,
+        lateDeliveries: lateDeliveriesCount,
+        lateRate:
+          totalDeliveries > 0 ? lateDeliveriesCount / totalDeliveries : 0,
+        averageEtaMinutes: slaRow?.avgEta ? Number(slaRow.avgEta) : null,
+        averageDurationMinutes: slaRow?.avgDuration
+          ? Number(slaRow.avgDuration)
+          : null,
+      },
+    };
   }
 
   // ─── Décision administration ────────────────────────────────────

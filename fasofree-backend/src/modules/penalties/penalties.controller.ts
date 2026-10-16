@@ -83,6 +83,27 @@ export class PenaltiesController {
     return this.penaltiesService.revoke(id);
   }
 
+  // ─── Écran C : supervision qualité ──────────────────────────────
+  // Déclaré avant `@Get('me')` : Nest résout dans l'ordre de déclaration.
+  @Get('quality-overview')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT)
+  @ApiOperation({
+    summary:
+      'Tableau de bord qualité : sanctions actives, retards SLA, libellés résolus',
+  })
+  async qualityOverview(
+    @Query('days') days?: string,
+    @Query('targetType') targetType?: DeliveryPenaltyTarget,
+    @Query('activeOnly') activeOnly?: string,
+  ) {
+    const parsed = parseInt(days || '7', 10);
+    return this.penaltiesService.getQualityOverview({
+      days: Number.isFinite(parsed) ? parsed : 7,
+      targetType,
+      activeOnly: activeOnly === 'true' || activeOnly === '1',
+    });
+  }
+
   @Get('me')
   @Roles(UserRole.DRIVER, UserRole.COURIER)
   @ApiOperation({ summary: 'Mes sanctions en tant que livreur' })

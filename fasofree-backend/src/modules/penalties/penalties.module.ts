@@ -6,6 +6,9 @@ import {
 import { PenaltiesService } from './penalties.service';
 import { PenaltiesController } from './penalties.controller';
 import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
+import { Order } from '../orders/entities/order.entity';
+import { User } from '../users/entities/user.entity';
+import { Business } from '../businesses/entities/business.entity';
 
 /**
  * ⚖️ Module des pénalités qualité (bloc C).
@@ -14,10 +17,21 @@ import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
  * (seulement d'entités), ce qui évite tout cycle avec OrdersModule ou
  * DispatchModule — les deux le consomment en lecture (scoring + alerte
  * de retard) et en écriture (avertissement automatique).
+ *
+ * `Order` / `User` / `Business` sont enregistrés pour l'écran de
+ * supervision : résoudre « nom du livreur / de la société / du commerce »
+ * et agréger les temps de livraison demande de les lire. Aucun service
+ * n'est injecté depuis ces modules → toujours aucun cycle possible.
  */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DeliveryPenalty, DeliveryAgency]),
+    TypeOrmModule.forFeature([
+      DeliveryPenalty,
+      DeliveryAgency,
+      Order,
+      User,
+      Business,
+    ]),
   ],
   controllers: [PenaltiesController],
   providers: [PenaltiesService],

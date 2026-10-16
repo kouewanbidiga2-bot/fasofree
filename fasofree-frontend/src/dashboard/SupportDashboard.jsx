@@ -18,7 +18,7 @@ import {
   TrendingUp, Activity, AlertCircle,
   BadgeCheck, Radio, Ban, MessageSquare, RefreshCw,
   CheckCircle, XCircle, Clock, ShoppingBag, Eye,
-  Building2, Link2, CreditCard
+  Building2, Link2, CreditCard, Gavel
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
@@ -33,6 +33,7 @@ import UsersBackofficeTab from './components/UsersBackofficeTab';
 import AgenciesTab from './components/AgenciesTab';
 import AffiliateTab from './components/AffiliateTab';
 import PaymentReconciliationTab from './components/PaymentReconciliationTab';
+import DeliveryQualityTab from './components/DeliveryQualityTab';
 
 const SupportDashboard = () => {
   const navigate = useNavigate();
@@ -439,6 +440,7 @@ const SupportDashboard = () => {
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
     { id: 'users-backoffice', label: 'Comptes', icon: Users },
     { id: 'agencies', label: 'Agences', icon: Building2 },
+    { id: 'quality', label: 'Qualité livraisons', icon: Gavel },
     { id: 'affiliate', label: 'Affiliation', icon: Link2 },
     { id: 'payments-reconcile', label: 'Paiements', icon: CreditCard },
   ];
@@ -1073,6 +1075,8 @@ const SupportDashboard = () => {
             <AffiliateTab />
           </div>
         )}
+
+        {activeTab === 'quality' && <DeliveryQualityTab />}
 
         {activeTab === 'payments-reconcile' && (
           <div className="animate-slide-up">
