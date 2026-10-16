@@ -15,7 +15,8 @@ import {
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
-  Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2, Gavel
+  Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2,
+  Gavel, Link2, ExternalLink, ShoppingBag
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -2178,7 +2179,7 @@ const SuperAdminDashboard = () => {
               <>
                 {/* KPIs principaux */}
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <StatCard label="Liens créés" value={affiliateGlobalStats.totalLinks || 0} icon={Link} trend="neutral" />
+                  <StatCard label="Liens créés" value={affiliateGlobalStats.totalLinks || 0} icon={Link2} trend="neutral" />
                   <StatCard label="Total Clics" value={affiliateGlobalStats.totalClicks || 0} icon={ExternalLink} trend={affiliateGlobalStats.totalClicks > 0 ? 'up' : 'neutral'} />
                   <StatCard label="Inscriptions" value={affiliateGlobalStats.totalSignups || 0} icon={Users} trend={affiliateGlobalStats.totalSignups > 0 ? 'up' : 'neutral'} />
                   <StatCard label="Commandes" value={affiliateGlobalStats.totalOrders || 0} icon={ShoppingBag} trend={affiliateGlobalStats.totalOrders > 0 ? 'up' : 'neutral'} />
