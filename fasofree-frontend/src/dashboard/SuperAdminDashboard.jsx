@@ -53,6 +53,7 @@ import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../serv
 import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
 import PWAInstallButton from '../components/PWAInstallButton';
+import NotificationBell from '../components/NotificationBell';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
@@ -1385,6 +1386,7 @@ const SuperAdminDashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <PWAInstallButton className="hidden sm:inline-flex" />
+            <NotificationBell />
             <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
               Mode {isSuperAdmin ? 'Super Admin' : roleLabel(userRole)}
             </span>

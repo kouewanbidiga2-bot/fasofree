@@ -36,6 +36,7 @@ import {
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import InternalChat from '../components/InternalChat';
+import NotificationBell from '../components/NotificationBell';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
 const AdminManagerDashboard = () => {
@@ -439,9 +440,12 @@ const AdminManagerDashboard = () => {
             <h1 className="text-2xl font-bold text-text-primary">Administration</h1>
             <p className="text-text-secondary text-sm">Gestion de la plateforme FasoFree</p>
           </div>
-          <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
-            Mode Admin
-          </span>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
+              Mode Admin
+            </span>
+          </div>
         </header>
 
         {/* ──────────────────────────────────────────────────────── */}

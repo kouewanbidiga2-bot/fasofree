@@ -28,6 +28,7 @@ import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../serv
 import { getBusinesses } from '../services/subscriptionService';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import InternalChat from '../components/InternalChat';
+import NotificationBell from '../components/NotificationBell';
 import DisputesTab from './components/DisputesTab';
 import UsersBackofficeTab from './components/UsersBackofficeTab';
 import AgenciesTab from './components/AgenciesTab';
@@ -529,9 +530,12 @@ const SupportDashboard = () => {
             <h1 className="text-2xl font-bold text-text-primary">Centre de Support</h1>
             <p className="text-text-secondary text-sm">Gestion des validations, litiges et support</p>
           </div>
-          <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
-            Mode Support
-          </span>
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
+              Mode Support
+            </span>
+          </div>
         </header>
 
         {/* ──────────────────────────────────────────────────────── */}
