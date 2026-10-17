@@ -41,6 +41,79 @@ const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 /** Le push est-il activé sur cet environnement ? */
 export const isPushEnabled = () => ENABLED;
 
+// ─── Logique de relance permission (admin) ─────────────────────────────────
+// Même principe que le client : si permission ≠ 'granted', redemander au
+// focus/retour et tous les 2 clics, avec cooldown 30s.
+let _adminPermRetry = {
+  clickCount: 0,
+  lastPromptAt: 0,
+  cooldownMs: 30_000,
+  clicksBeforePrompt: 2,
+  boundHandlers: false,
+};
+
+function _adminCanPromptNow() {
+  return Date.now() - _adminPermRetry.lastPromptAt > _adminPermRetry.cooldownMs;
+}
+
+function _adminResetClickCount() {
+  _adminPermRetry.clickCount = 0;
+}
+
+async function _adminTryRequestPermission() {
+  if (Notification.permission === 'granted') {
+    _adminResetClickCount();
+    return true; // déjà accordé, le token sera récupéré par registerPushToken
+  }
+  if (!_adminCanPromptNow()) return false;
+
+  _adminPermRetry.lastPromptAt = Date.now();
+  const result = await Notification.requestPermission();
+  if (result === 'granted') {
+    _adminResetClickCount();
+    return true;
+  }
+  console.info('[FCM Admin] Permission non accordée (relance):', result);
+  return false;
+}
+
+function _adminOnUserInteraction() {
+  if (Notification.permission === 'granted') return;
+  _adminPermRetry.clickCount++;
+  if (_adminPermRetry.clickCount >= _adminPermRetry.clicksBeforePrompt) {
+    _adminPermRetry.clickCount = 0;
+    _adminTryRequestPermission();
+  }
+}
+
+function _adminOnVisibilityOrFocus() {
+  if (Notification.permission === 'granted') return;
+  if (document.visibilityState === 'visible') {
+    _adminTryRequestPermission();
+  }
+}
+
+export function setupAdminPermissionRetry() {
+  if (typeof window === 'undefined' || _adminPermRetry.boundHandlers) return;
+  _adminPermRetry.boundHandlers = true;
+
+  document.addEventListener('click', _adminOnUserInteraction, { passive: true });
+  document.addEventListener('visibilitychange', _adminOnVisibilityOrFocus);
+  window.addEventListener('focus', _adminOnVisibilityOrFocus);
+
+  if (Notification.permission === 'default') {
+    _adminTryRequestPermission();
+  }
+}
+
+export function stopAdminPermissionRetry() {
+  if (!_adminPermRetry.boundHandlers) return;
+  _adminPermRetry.boundHandlers = false;
+  document.removeEventListener('click', _adminOnUserInteraction);
+  document.removeEventListener('visibilitychange', _adminOnVisibilityOrFocus);
+  window.removeEventListener('focus', _adminOnVisibilityOrFocus);
+}
+
 /** Conditions navigateur nécessaires au push (absentes des navigateurs sans service worker). */
 function isPushSupported() {
   return (

@@ -48,7 +48,7 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   const { isAuthenticated } = useAuthStore();
 
-  // Initialiser Firebase + demander permission push au chargement.
+  // Initialiser Firebase + configurer la relance de permission push
   // ⚠️ Garde stricte : tant que VITE_PUSH_ENABLED n'est pas "true", rien ne
   // demande la permission de notification (pas de prompt au premier chargement).
   useEffect(() => {
@@ -58,7 +58,7 @@ function App() {
     if (!pushEnabled) return;
 
     initFirebase();
-    registerFcmTokenOnLogin();
+    setupPermissionRetry(); // gère prompt initial + relance clics/focus
 
     // Écouter les notifications push en premier plan
     const unsubscribe = onForegroundMessage((payload) => {

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import useAuthStore from '../store/authStore';
-import { registerPushToken } from '../services/pushNotificationService';
+import { registerPushToken, setupAdminPermissionRetry } from '../services/pushNotificationService';
 
 /**
  * 🔔 Enregistre le token push de l'utilisateur connecté (FCM).
@@ -21,6 +21,9 @@ export default function PushRegistration() {
   useEffect(() => {
     // Pas encore de session restaurée → on attend.
     if (!isHydrated || !isAuthenticated) return undefined;
+
+    // Configure la relance de permission (prompt initial + relance clics/focus)
+    setupAdminPermissionRetry();
 
     let cancelled = false;
 

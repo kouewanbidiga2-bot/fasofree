@@ -13,6 +13,86 @@ const firebaseConfig = {
 let app = null;
 let messaging = null;
 
+// ─── Logique de relance permission (push FCM) ──────────────────────────────
+// Objectif : si permission ≠ 'granted', redemander :
+//   - au focus/retour sur l'app (visibilitychange + focus)
+//   - à chaque 2 clics utilisateur dans la page
+// Avec un cooldown de 30s entre deux prompts pour ne pas harceler.
+let _permRetry = {
+  clickCount: 0,
+  lastPromptAt: 0,
+  cooldownMs: 30_000,        // 30s entre deux prompts
+  clicksBeforePrompt: 2,     // redemander tous les 2 clics
+  boundHandlers: false,
+};
+
+function _canPromptNow() {
+  return Date.now() - _permRetry.lastPromptAt > _permRetry.cooldownMs;
+}
+
+function _resetClickCount() {
+  _permRetry.clickCount = 0;
+}
+
+async function _tryRequestPermission() {
+  if (Notification.permission === 'granted') {
+    _resetClickCount();
+    return getFcmToken(); // déjà accordé → token direct
+  }
+  if (!_canPromptNow()) return null;
+
+  _permRetry.lastPromptAt = Date.now();
+  const result = await Notification.requestPermission();
+  if (result === 'granted') {
+    _resetClickCount();
+    return getFcmToken();
+  }
+  console.info('[FCM] Permission non accordée (relance):', result);
+  return null;
+}
+
+function _onUserInteraction() {
+  if (Notification.permission === 'granted') return;
+  _permRetry.clickCount++;
+  if (_permRetry.clickCount >= _permRetry.clicksBeforePrompt) {
+    _permRetry.clickCount = 0;
+    _tryRequestPermission();
+  }
+}
+
+function _onVisibilityOrFocus() {
+  if (Notification.permission === 'granted') return;
+  // Au retour sur l'app (onglet visible / focus), tenter une relance
+  if (document.visibilityState === 'visible') {
+    _tryRequestPermission();
+  }
+}
+
+export function setupPermissionRetry() {
+  if (typeof window === 'undefined' || _permRetry.boundHandlers) return;
+  _permRetry.boundHandlers = true;
+
+  // 1) Clics utilisateur (délégué sur document)
+  document.addEventListener('click', _onUserInteraction, { passive: true });
+
+  // 2) Retour sur l'onglet / focus fenêtre
+  document.addEventListener('visibilitychange', _onVisibilityOrFocus);
+  window.addEventListener('focus', _onVisibilityOrFocus);
+
+  // 3) Tentative immédiate si permission par défaut (premier chargement)
+  if (Notification.permission === 'default') {
+    _tryRequestPermission();
+  }
+}
+
+export function stopPermissionRetry() {
+  if (!_permRetry.boundHandlers) return;
+  _permRetry.boundHandlers = false;
+  document.removeEventListener('click', _onUserInteraction);
+  document.removeEventListener('visibilitychange', _onVisibilityOrFocus);
+  window.removeEventListener('focus', _onVisibilityOrFocus);
+}
+
 /**
  * Initialise Firebase côté client (une seule fois).
  */
