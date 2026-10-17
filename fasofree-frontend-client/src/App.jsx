@@ -27,7 +27,7 @@ import AssistantWidget from './components/AssistantWidget';
 import useAuthStore from './store/authStore';
 import { needsVerification } from './store/authStore';
 import { registerFcmTokenOnLogin } from './services/pushRegistration';
-import { initFirebase, onForegroundMessage } from './services/firebase';
+import { initFirebase, onForegroundMessage, setupPermissionRetry } from './services/firebase';
 
 const ProtectedRoute = ({ children }) => {
   const location = useLocation();
