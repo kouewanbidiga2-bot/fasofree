@@ -40,8 +40,9 @@ import {
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
-import { NotificationsService } from '../notifications/notifications.service';
 import { UsersService } from '../users/users.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 import * as bcrypt from 'bcrypt';
 
 const STAFF_ROLES: UserRole[] = [
@@ -63,7 +64,6 @@ export class DisputesService {
     private readonly dataSource: DataSource,
     private readonly events: EventEmitter2,
     private readonly walletService: WalletService,
-    private readonly notificationsService: NotificationsService,
     private readonly usersService: UsersService,
     private readonly businessesService: BusinessesService,
     // 🔧 @InjectRepository requis : sans décorateur, Nest cherche le token de
@@ -71,6 +71,8 @@ export class DisputesService {
     // cassé en UnknownDependenciesException ("Repository at index [6]").
     @InjectRepository(DisputeMessage)
     private readonly messageRepo: Repository<DisputeMessage>,
+    // Notifications in-app + push FCM (jamais d'e-mail/SMS/WhatsApp).
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   async open(
@@ -644,20 +646,15 @@ export class DisputesService {
           `[Dispute Refund] Wallet du client ${order.clientId} crédité de ${refundAmount} FCFA. Nouveau solde: ${wallet.balance}`,
         );
 
-        // 📱 Notifier le client (dispatcher multi-canal : push + fallback email/SMS/WhatsApp)
-        const client = await this.usersService.findById(order.clientId);
-        if (client) {
-          await this.notificationsService.sendNotification(
-            client,
-            'Remboursement effectué 💰',
-            `Votre compte a été crédité de ${refundAmount.toLocaleString()} FCFA suite à votre réclamation.`,
-            {
-              orderId: order.id,
-              disputeId: dispute.id,
-              type: 'REFUND_CREDITED',
-            },
-          );
-        }
+        // 📱 Notifier le client (in-app + push FCM, jamais d'e-mail)
+        await this.notificationStore.create({
+          userId: order.clientId,
+          type: NotificationType.ACCOUNT,
+          title: 'Remboursement effectué 💰',
+          body: `Votre compte a été crédité de ${refundAmount.toLocaleString()} FCFA suite à votre réclamation.`,
+          orderId: order.id,
+          actionUrl: `/order-tracking?orderId=${order.id}`,
+        });
       } catch (walletError) {
         this.logger.error(
           `[Dispute Refund Error] Erreur lors du crédit du wallet: ${walletError.message}`,
@@ -845,20 +842,15 @@ export class DisputesService {
           `[Dispute Merchant Refund] Wallet du client ${order.clientId} crédité de ${refundAmount} FCFA. Nouveau solde: ${wallet.balance}`,
         );
 
-        // 📱 Notifier le client (dispatcher multi-canal : push + fallback)
-        const client = await this.usersService.findById(order.clientId);
-        if (client) {
-          await this.notificationsService.sendNotification(
-            client,
-            'Remboursement effectué 💰',
-            `Le commerce a remboursé votre commande : ${refundAmount.toLocaleString()} FCFA crédités sur votre compte.`,
-            {
-              orderId: order.id,
-              disputeId: dispute.id,
-              type: 'REFUND_CREDITED',
-            },
-          );
-        }
+        // 📱 Notifier le client (in-app + push FCM, jamais d'e-mail)
+        await this.notificationStore.create({
+          userId: order.clientId,
+          type: NotificationType.ACCOUNT,
+          title: 'Remboursement effectué 💰',
+          body: `Le commerce a remboursé votre commande : ${refundAmount.toLocaleString()} FCFA crédités sur votre compte.`,
+          orderId: order.id,
+          actionUrl: `/order-tracking?orderId=${order.id}`,
+        });
       } catch (walletError) {
         this.logger.error(
           `[Dispute Merchant Refund Error] Erreur lors du crédit du wallet: ${walletError.message} (dispute #${dispute.id}, order #${order.id}, refundAmount ${refundAmount})`,

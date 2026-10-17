@@ -9,7 +9,8 @@ import {
 } from './entities/push-campaign.entity';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class PushCampaignService {
@@ -23,7 +24,7 @@ export class PushCampaignService {
     private readonly campaignRepo: Repository<PushCampaign>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly notifications: NotificationsService,
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   /**
@@ -146,10 +147,9 @@ export class PushCampaignService {
    * à 0 destinataire malgré des comptes existants.
    *
    * On cible désormais les comptes ACTIFS par rôle, et on délivre via
-   * `NotificationsService.sendNotification`, qui choisit le canal préféré de
-   * chaque utilisateur (EMAIL par défaut, sinon WHATSAPP / SMS / PUSH) avec
-   * repli automatique. Le push FCM reste envoyé en complément si un token
-   * existe.
+   * `NotificationStoreService.sendToUsers` : notification in-app déposée en
+   * base (visible dans la cloche) + push FCM si un token existe. Aucun
+   * e-mail / SMS / WhatsApp — comme les notifications YouTube / WhatsApp.
    */
   private async sendCampaign(
     campaignId: string,
@@ -213,14 +213,15 @@ export class PushCampaignService {
     let sent = 0;
     for (let i = 0; i < recipients.length; i += this.BATCH_SIZE) {
       const batch = recipients.slice(i, i + this.BATCH_SIZE);
-      const results = await Promise.all(
-        batch.map((user) =>
-          this.notifications
-            .sendNotification(user, title, body, { campaignId })
-            .catch(() => false),
-        ),
+      // Notification in-app + push FCM (jamais d'e-mail/SMS/WhatsApp).
+      const created = await this.notificationStore.sendToUsers(
+        batch.map((user) => user.id),
+        title,
+        body,
+        NotificationType.PROMOTION,
+        '/notifications',
       );
-      sent += results.filter(Boolean).length;
+      sent += created;
     }
 
     await this.campaignRepo.update(campaignId, { recipientCount: sent });

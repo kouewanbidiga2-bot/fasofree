@@ -32,7 +32,46 @@ export class NotificationStoreService {
       orderId: params.orderId ?? null,
       actionUrl: params.actionUrl ?? null,
     });
-    return this.repo.save(notif);
+    const saved = await this.repo.save(notif);
+
+    // Push FCM complémentaire (non bloquant) — jamais d'e-mail/SMS/WhatsApp.
+    // Le flux in-app (cette ligne en base) reste la source de vérité, la cloche
+    // du back-office / de l'app client la relaie.
+    this.pushToUsers([params.userId], params.title, params.body, {
+      type: 'IN_APP_NOTIFICATION',
+      actionUrl: params.actionUrl ?? '/',
+    }).catch(() => {});
+
+    return saved;
+  }
+
+  /**
+   * Push FCM UNIQUEMENT (jamais d'e-mail / SMS / WhatsApp) vers une liste
+   * d'utilisateurs. Utilisé par `create` et `sendToUsers` : la notification
+   * in-app est déposée en base, puis poussée si un token FCM existe.
+   */
+  async pushToUsers(
+    userIds: string[],
+    title: string,
+    body: string,
+    data?: Record<string, string>,
+  ): Promise<void> {
+    try {
+      const users = await this.usersService.findNotificationRecipients(userIds);
+      await Promise.allSettled(
+        users
+          .filter((user) => !!user.fcmToken)
+          .map((user) =>
+            this.notificationsService.sendToDevice(user.fcmToken as string, {
+              title,
+              body,
+              data,
+            }),
+          ),
+      );
+    } catch (err) {
+      this.logger.warn(`[pushToUsers] Échec push FCM: ${err}`);
+    }
   }
 
   async findAllByUser(
@@ -89,22 +128,11 @@ export class NotificationStoreService {
     );
     await this.repo.save(notifications);
 
-    // 2. Envoyer via le dispatcher multi-canal (non bloquant)
-    try {
-      const users = await this.usersService.findNotificationRecipients(userIds);
-      await Promise.allSettled(
-        users.map((user) =>
-          this.notificationsService.sendNotification(
-            user as any,
-            title,
-            body,
-            { type: 'SYSTEM_NOTIFICATION', actionUrl: actionUrl ?? '/' },
-          ),
-        ),
-      );
-    } catch (err) {
-      this.logger.warn(`[sendToUsers] Envoi multi-canal échoué: ${err}`);
-    }
+    // 2. Push FCM (non bloquant) — jamais d'e-mail/SMS/WhatsApp.
+    await this.pushToUsers(safeUserIds, title, body, {
+      type: 'SYSTEM_NOTIFICATION',
+      actionUrl: actionUrl ?? '/',
+    });
 
     return notifications.length;
   }

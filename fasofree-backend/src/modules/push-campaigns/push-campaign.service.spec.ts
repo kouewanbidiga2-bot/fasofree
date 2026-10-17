@@ -24,7 +24,7 @@ describe('PushCampaignService', () => {
   let service: PushCampaignService;
   let campaignRepo: ReturnType<typeof makeRepo>;
   let userRepo: ReturnType<typeof makeRepo>;
-  let notifications: { sendToDevice: jest.Mock; sendNotification: jest.Mock };
+  let notificationStore: { create: jest.Mock; sendToUsers: jest.Mock };
 
   /** Exécute une promesse et laisse passer les rejets (fire-and-forget). */
   const flush = () => new Promise((r) => setImmediate(r));
@@ -46,15 +46,15 @@ describe('PushCampaignService', () => {
   beforeEach(() => {
     campaignRepo = makeRepo();
     userRepo = makeRepo();
-    notifications = {
-      sendToDevice: jest.fn().mockResolvedValue(true),
-      sendNotification: jest.fn().mockResolvedValue(true),
+    notificationStore = {
+      create: jest.fn(),
+      sendToUsers: jest.fn().mockResolvedValue(1),
     };
 
     service = new PushCampaignService(
       campaignRepo as never,
       userRepo as never,
-      notifications as never,
+      notificationStore as never,
     );
   });
 
@@ -157,8 +157,16 @@ describe('PushCampaignService', () => {
       await service.createCampaign('Promo', 'Profitez', PushCampaignTarget.CLIENT, 'admin');
       await flush();
 
-      expect(notifications.sendNotification).toHaveBeenCalledTimes(1);
-      expect(notifications.sendToDevice).not.toHaveBeenCalled();
+      // In-app + push FCM uniquement : la notification est déposée en base même
+      // sans token FCM — aucun e-mail n'est envoyé.
+      expect(notificationStore.sendToUsers).toHaveBeenCalledTimes(1);
+      expect(notificationStore.sendToUsers).toHaveBeenCalledWith(
+        ['u1'],
+        'Promo',
+        'Profitez',
+        'PROMOTION',
+        '/notifications',
+      );
       expect(campaignRepo.update).toHaveBeenCalledWith(
         'camp-1',
         expect.objectContaining({ targetedCount: 1 }),
@@ -181,7 +189,7 @@ describe('PushCampaignService', () => {
       );
 
       expect(campaign.status).toBe('SCHEDULED');
-      expect(notifications.sendNotification).not.toHaveBeenCalled();
+      expect(notificationStore.sendToUsers).not.toHaveBeenCalled();
     });
 
     it('envoie immédiatement si la date programmée est déjà passée', async () => {
@@ -199,7 +207,7 @@ describe('PushCampaignService', () => {
 
       expect(campaign.status).toBe('SENT');
       await flush();
-      expect(notifications.sendNotification).toHaveBeenCalled();
+      expect(notificationStore.sendToUsers).toHaveBeenCalled();
     });
   });
 
@@ -219,7 +227,7 @@ describe('PushCampaignService', () => {
 
       await service.sendDueCampaigns();
 
-      expect(notifications.sendNotification).toHaveBeenCalled();
+      expect(notificationStore.sendToUsers).toHaveBeenCalled();
       expect(campaignRepo.update).toHaveBeenCalledWith(
         'camp-sched',
         expect.objectContaining({ status: 'SENT' }),

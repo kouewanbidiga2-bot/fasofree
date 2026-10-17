@@ -182,8 +182,9 @@ const makeService = (store: Store) => {
       .fn()
       .mockResolvedValue({ wallet: { balance: 7000 }, transaction: {} }),
   };
-  const notificationsService = {
-    sendNotification: jest.fn().mockResolvedValue(undefined),
+  const notificationStore = {
+    create: jest.fn().mockResolvedValue(undefined),
+    sendToUsers: jest.fn().mockResolvedValue(0),
   };
   const usersService = {
     findById: jest.fn(
@@ -203,10 +204,10 @@ const makeService = (store: Store) => {
     dataSource,
     events as unknown as EventEmitter2,
     walletService as never,
-    notificationsService as never,
     usersService as never,
     businessesService as never,
     messageRepo as never,
+    notificationStore as never,
   );
 
   return {

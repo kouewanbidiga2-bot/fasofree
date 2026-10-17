@@ -103,12 +103,12 @@ const makeService = (fixture: Fixture) => {
     dataSource,
     { emit: jest.fn() } as unknown as EventEmitter2,
     {} as never,
-    {} as never,
     { findById: jest.fn() } as never,
     {
       assertManagedBy: jest.fn().mockResolvedValue(undefined),
     } as never,
     messageRepo as never,
+    { create: jest.fn(), sendToUsers: jest.fn() } as never,
   );
 
   return { service, messageRepo, data };

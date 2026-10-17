@@ -55,12 +55,23 @@ Les migrations s'exécutent au démarrage : `tsc` vert ne suffit pas.
 `role` est un enum. `LOWER(u.role)` → `function lower(users_role_enum) does not exist` (endpoint 500, compteurs à 0).
 → Toujours `LOWER(CAST(u.role AS text))`.
 
-### 3.3 Le push FCM est désactivé au lancement
-`VITE_PUSH_ENABLED` est **absent** de `.env` / `.env.local` → **désactivé volontairement**.
-Ne pas l'activer sans application mobile. Les notifications passent par
-`NotificationsService.sendNotification()` (EMAIL → SMS → WhatsApp → PUSH, avec repli).
-Conséquence : **aucun utilisateur n'a de `fcmToken`**. Toute logique qui filtre sur
-`fcmToken IS NOT NULL` sélectionne zéro destinataire — bug déjà rencontré sur les campagnes.
+### 3.3 Les notifications ne passent JAMAIS par e-mail / SMS / WhatsApp
+`VITE_PUSH_ENABLED` est **absent** de `.env` / `.env.local` → push FCM **désactivé
+volontairement**. Ne pas l'activer sans application mobile.
+
+**Règle plateforme (définitive)** : une notification du flux in-app est déposée en base
+(`NotificationStoreService.create()` / `sendToUsers()`) puis, le cas échéant, poussée via FCM
+(`NotificationsService.sendPushNotification()`). **Aucun e-mail / SMS / WhatsApp** — comme les
+notifications YouTube / WhatsApp. L'ancien dispatcher multi-canal `sendNotification()`
+(EMAIL → SMS → WhatsApp → PUSH) a été **remplacé** : ne pas le réintroduire.
+
+Les e-mails restent réservés aux messages **transactionnels** (OTP, approbation / refus de
+compte avec identifiants, reset de mot de passe) via `EmailService` /
+`sendApprovalNotification()` / `sendRejectionNotification()`.
+
+Conséquence du push désactivé : **aucun utilisateur n'a de `fcmToken`**. Toute logique qui
+filtre sur `fcmToken IS NOT NULL` sélectionne zéro destinataire — bug déjà rencontré sur les
+campagnes (une campagne doit déposer une notification in-app même sans token).
 
 ### 3.4 Les rôles sont un contrat, pas un détail
 Les endpoints sont verrouillés par `@Roles` + `RolesGuard`, et `BanRequestService.review()`

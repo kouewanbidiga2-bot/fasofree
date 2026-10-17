@@ -159,7 +159,8 @@ export class OtpService {
       }
     }
 
-    // Fallback : notifications multi-canal (SMS, WhatsApp, Push, etc.)
+    // Fallback : push FCM (jamais d'e-mail/SMS/WhatsApp) — l'e-mail Resend
+    // ci-dessus reste le canal principal du code de vérification.
     if (!sent) {
       const isContractSign = purpose === OtpService.PURPOSE_CONTRACT_SIGN;
       const subject = isContractSign
@@ -171,7 +172,7 @@ export class OtpService {
         isContractSign ? 'de signature de contrat' : 'de vérification'
       } FasoFree est : ${code}\n\nCe code expire dans 5 minutes.\n\nSi vous n'avez pas demandé ce code, ignorez ce message.`;
       try {
-        await this.notificationsService.sendNotification(user, subject, message);
+        await this.notificationsService.sendPushNotification(user, subject, message);
       } catch (err) {
         this.logger.warn(`[OTP] Échec envoi notification fallback: ${(err as Error).message}`);
       }

@@ -39,7 +39,6 @@ import { PayoutStatus } from '../payments/entities/merchant-payout.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
 import { PromotionsService } from '../promotions/promotions.service';
-import { NotificationsService } from '../notifications/notifications.service';
 import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
@@ -241,7 +240,6 @@ export class OrdersService {
     private readonly dataSource: DataSource,
     @Inject(forwardRef(() => PromotionsService))
     private readonly promotionsService: PromotionsService,
-    private readonly notificationsService: NotificationsService,
     private readonly smsService: SmsService,
     private readonly usersService: UsersService,
     private readonly qrCodeService: QrCodeService,
@@ -2544,29 +2542,13 @@ export class OrdersService {
     previousStatus: OrderStatus,
   ): Promise<void> {
     try {
-      // 📨 Multi-channel dispatcher : sendNotification handles FCM push,
-      //   SMS fallback, and in-app delivery automatically.
-      const client = await this.usersService.findById(order.clientId);
-      if (!client) {
-        this.logger.warn(
-          `[Notifications] Client ${order.clientId} introuvable — notifications ignorées pour la commande #${order.id}`,
-        );
-        return;
-      }
-
-      // Notifier selon le nouveau statut
+      // 📨 Notifications in-app + push FCM uniquement (jamais d'e-mail /
+      // SMS / WhatsApp) : `notificationStore.create` dépose la notification
+      // en base et pousse le FCM si l'utilisateur a un token.
       switch (order.status) {
         case OrderStatus.PAID: {
           // Client: "Paiement confirmé, en attente de préparation"
-          const data = { orderId: order.id, type: 'ORDER_CONFIRMED' };
-          await this.notificationsService.sendNotification(
-            client,
-            'Paiement confirmé',
-            'Paiement confirmé, en attente de préparation par le restaurant.',
-            data,
-          );
-
-          // 🔒 Notification persistante en DB
+          // 🔒 Notification persistante en DB (+ push FCM si token)
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2580,12 +2562,6 @@ export class OrdersService {
 
         case OrderStatus.IN_PREPARATION:
           // Client: "Votre commande est en préparation"
-          await this.notificationsService.sendNotification(
-            client,
-            'En préparation',
-            'Votre commande est en cours de préparation.',
-            { orderId: order.id, type: 'ORDER_PREPARING' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2598,12 +2574,6 @@ export class OrdersService {
 
         case OrderStatus.DRIVER_ASSIGNED: {
           // Client: "Un livreur a été assigné à votre commande"
-          await this.notificationsService.sendNotification(
-            client,
-            'Livreur assigné',
-            'Un livreur a été assigné à votre commande. Il arrive bientôt!',
-            { orderId: order.id, type: 'DRIVER_ASSIGNED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2615,17 +2585,14 @@ export class OrdersService {
 
           // 🛵 Notifier le livreur assigné (fire-and-forget)
           if (order.driverId) {
-            this.usersService
-              .findById(order.driverId)
-              .then((driver) => {
-                if (driver) {
-                  this.notificationsService.sendNotification(
-                    driver,
-                    'Nouvelle commande assignée',
-                    `Commande #${order.id.slice(-8)} — ${order.totalAmount} FCFA. Allez récupérer!`,
-                    { orderId: order.id, type: 'DRIVER_NEW_ORDER' },
-                  );
-                }
+            this.notificationStore
+              .create({
+                userId: order.driverId,
+                type: NotificationType.ORDER_UPDATE,
+                title: 'Nouvelle commande assignée',
+                body: `Commande #${order.id.slice(-8)} — ${order.totalAmount} FCFA. Allez récupérer!`,
+                orderId: order.id,
+                actionUrl: `/order-tracking?orderId=${order.id}`,
               })
               .catch(() => {});
           }
@@ -2634,12 +2601,6 @@ export class OrdersService {
 
         case OrderStatus.IN_DELIVERY: {
           // Client: "Le livreur est en route avec votre repas"
-          await this.notificationsService.sendNotification(
-            client,
-            'Livreur en route',
-            'Le livreur est en route avec votre repas. Il arrivera bientôt!',
-            { orderId: order.id, type: 'DRIVER_EN_ROUTE' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2653,12 +2614,6 @@ export class OrdersService {
 
         case OrderStatus.DELIVERED_PENDING_CONFIRMATION: {
           // Client: "Le livreur est arrivé - confirmez la réception"
-          await this.notificationsService.sendNotification(
-            client,
-            'Livreur arrivé',
-            'Le livreur est arrivé avec votre commande. Confirmez la réception!',
-            { orderId: order.id, type: 'DELIVERY_PENDING_CONFIRMATION' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2672,12 +2627,6 @@ export class OrdersService {
 
         case OrderStatus.DELIVERED:
           // Client: "Le livreur est arrivé à destination"
-          await this.notificationsService.sendNotification(
-            client,
-            'Livraison validée',
-            'Le livreur a validé la livraison. Confirmez la réception de votre commande!',
-            { orderId: order.id, type: 'DRIVER_ARRIVED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.DELIVERY,
@@ -2690,12 +2639,6 @@ export class OrdersService {
 
         case OrderStatus.COMPLETED:
           // Client: "Commande livrée avec succès"
-          await this.notificationsService.sendNotification(
-            client,
-            'Commande livrée',
-            'Votre commande a été livrée avec succès. Bon appétit!',
-            { orderId: order.id, type: 'ORDER_COMPLETED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2708,12 +2651,6 @@ export class OrdersService {
 
         case OrderStatus.CANCELLED:
           // Client: "Votre commande a été annulée"
-          await this.notificationsService.sendNotification(
-            client,
-            'Commande annulée',
-            'Votre commande a été annulée. Aucun montant ne vous a été débité.',
-            { orderId: order.id, type: 'ORDER_CANCELLED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2728,20 +2665,13 @@ export class OrdersService {
               .findOne(order.businessId)
               .then((business) => {
                 if (business?.ownerId) {
-                  this.usersService
-                    .findById(business.ownerId)
-                    .then((merchant) => {
-                      if (merchant) {
-                        this.notificationsService.sendNotification(
-                          merchant,
-                          'Commande annulée',
-                          `La commande #${order.id.slice(-8)} a été annulée par le client.`,
-                          {
-                            orderId: order.id,
-                            type: 'ORDER_CANCELLED_MERCHANT',
-                          },
-                        );
-                      }
+                  this.notificationStore
+                    .create({
+                      userId: business.ownerId,
+                      type: NotificationType.ORDER_UPDATE,
+                      title: 'Commande annulée',
+                      body: `La commande #${order.id.slice(-8)} a été annulée par le client.`,
+                      orderId: order.id,
                     })
                     .catch(() => {});
                 }
@@ -2752,12 +2682,6 @@ export class OrdersService {
 
         case OrderStatus.FAILED:
           // Client: "Paiement échoué"
-          await this.notificationsService.sendNotification(
-            client,
-            'Paiement échoué',
-            'Le paiement de votre commande a échoué. Veuillez réessayer.',
-            { orderId: order.id, type: 'PAYMENT_FAILED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2769,12 +2693,6 @@ export class OrdersService {
 
         case OrderStatus.REFUNDED:
           // Client: "Votre commande a été remboursée"
-          await this.notificationsService.sendNotification(
-            client,
-            'Commande remboursée',
-            'Votre commande a été remboursée. Le montant sera crédité sous 48h.',
-            { orderId: order.id, type: 'ORDER_REFUNDED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
@@ -2786,12 +2704,6 @@ export class OrdersService {
 
         case OrderStatus.DISPUTED:
           // Client + Marchand: "Un litige a été ouvert"
-          await this.notificationsService.sendNotification(
-            client,
-            'Litige ouvert',
-            'Un litige a été ouvert sur votre commande. Notre équipe va examiner le dossier.',
-            { orderId: order.id, type: 'ORDER_DISPUTED' },
-          );
           await this.notificationStore.create({
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,

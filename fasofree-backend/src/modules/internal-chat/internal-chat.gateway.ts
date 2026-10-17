@@ -237,11 +237,9 @@ export class InternalChatGateway
       const body = `${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`;
 
       // 🔔 Notification IN-APP (persistée, visible dans le centre de notifications).
-      // On N'UTILISE PAS NotificationsService.sendNotification ici : ce dernier
-      // utilise le canal préféré de l'utilisateur (EMAIL par défaut pour les
-      // admins/support), ce qui envoyait un email à chaque message de chat
-      // interne — c'est le comportement anormal signalé. Le chat interne doit
-      // notifier par notification in-app + push FCM uniquement.
+      // On passe par NotificationStoreService.create : in-app + push FCM
+      // uniquement, jamais d'e-mail/SMS/WhatsApp (règle plateforme). C'est le
+      // même chemin que partout ailleurs.
       this.notificationStoreService
         .create({
           userId: u.id,

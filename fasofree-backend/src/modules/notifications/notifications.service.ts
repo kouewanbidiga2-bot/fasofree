@@ -24,69 +24,30 @@ export class NotificationsService {
     private readonly usersService: UsersService,
   ) {}
 
-  // ─── DISPATCHER MULTI-CANAUX ────────────────────────────────────────────────
+  // ─── NOTIFICATIONS (PUSH FCM UNIQUEMENT) ────────────────────────────────────
 
   /**
-   * Envoie une notification via le canal préféré de l'utilisateur.
-   * Si fcmToken présent, push FCM envoyé en parallèle (toujours).
-   * Fallback : si le canal principal échoue, essaie les autres.
+   * Envoie UNIQUEMENT un push FCM à l'utilisateur (si un token existe).
+   *
+   * ⚠️ Règle plateforme (définitive) : les notifications du flux in-app ne
+   * passent JAMAIS par e-mail / SMS / WhatsApp. Elles sont déposées en base
+   * (centre de notifications → cloche) par `NotificationStoreService` et, le
+   * cas échéant, poussées via FCM — exactement comme les notifications
+   * YouTube / WhatsApp.
+   *
+   * Les e-mails restent réservés aux messages TRANSACTIONNELS qui ne sont pas
+   * des notifications du flux : OTP, approbation / refus de compte (avec
+   * identifiants), reset de mot de passe (voir `sendApprovalNotification`,
+   * `sendRejectionNotification`, `EmailService`).
    */
-  async sendNotification(
+  async sendPushNotification(
     user: User,
     subject: string,
     message: string,
     data?: Record<string, string>,
   ): Promise<boolean> {
-    const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
-    let channelOk = false;
-
-    // 1. Canal principal
-    switch (channel) {
-      case NotificationChannel.PUSH: {
-        if (user.fcmToken) {
-          channelOk = await this.sendToDevice(user.fcmToken, { title: subject, body: message, data });
-        }
-        if (!channelOk && user.email) {
-          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-        }
-        break;
-      }
-      case NotificationChannel.EMAIL: {
-        if (user.email) {
-          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-        }
-        if (!channelOk && user.phone) {
-          channelOk = await this.smsService.sendSms(user.phone, `${subject}: ${message}`);
-        }
-        break;
-      }
-      case NotificationChannel.WHATSAPP: {
-        if (user.phone) {
-          channelOk = await this.whatsappService.sendTextMessage(user.phone, `*${subject}*\n\n${message}`);
-        }
-        if (!channelOk && user.email) {
-          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-        }
-        break;
-      }
-      case NotificationChannel.SMS:
-      default: {
-        if (user.phone) {
-          channelOk = await this.smsService.sendSms(user.phone, `${subject}: ${message}`);
-        }
-        if (!channelOk && user.email) {
-          channelOk = await this.emailService.sendEmail(user.email, subject, this.wrapHtml(subject, message));
-        }
-        break;
-      }
-    }
-
-    // 2. Push FCM en parallèle (complément, non bloquant) — sauf si le canal principal EST déjà PUSH
-    if (channel !== NotificationChannel.PUSH && user.fcmToken) {
-      this.sendToDevice(user.fcmToken, { title: subject, body: message, data }).catch(() => {});
-    }
-
-    return channelOk;
+    if (!user?.fcmToken) return false;
+    return this.sendToDevice(user.fcmToken, { title: subject, body: message, data });
   }
 
   /**

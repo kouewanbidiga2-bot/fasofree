@@ -16,7 +16,8 @@ import { User } from './entities/user.entity';
 import { UserRole } from './entities/user-role.enum';
 import { CreateBanRequestDto } from './dto/create-ban-request.dto';
 import { ReviewBanRequestDto } from './dto/review-ban-request.dto';
-import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class BanRequestService {
@@ -27,7 +28,7 @@ export class BanRequestService {
     private readonly banRequestRepo: Repository<BanRequest>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
-    private readonly notificationsService: NotificationsService,
+    private readonly notificationStore: NotificationStoreService,
   ) {}
 
   /**
@@ -128,11 +129,12 @@ export class BanRequestService {
       await Promise.all(
         superAdmins.map(async (admin) => {
           try {
-            await this.notificationsService.sendNotification(
-              admin,
-              subject,
-              message,
-            );
+            await this.notificationStore.create({
+              userId: admin.id,
+              type: NotificationType.SYSTEM,
+              title: subject,
+              body: message,
+            });
           } catch (err) {
             this.logger.warn(
               `[BanRequest] Échec notification admin ${admin.email}: ${(err as Error).message}`,
@@ -209,16 +211,15 @@ export class BanRequestService {
           `[BanRequest] Utilisateur ${target.fullName} banni par ${admin.fullName}`,
         );
 
-        if (target.email) {
-          try {
-            await this.notificationsService.sendNotification(
-              target,
-              'FasoFree — Votre compte a été suspendu',
-              `Bonjour ${target.fullName},\n\nVotre compte FasoFree a été suspendu pour la raison suivante :\n\n"${request.reason}"\n\nSi vous pensez qu'il s'agit d'une erreur, contactez le support.`,
-            );
-          } catch (err) {
-            this.logger.warn(`[BanRequest] Échec notification ban: ${(err as Error).message}`);
-          }
+        try {
+          await this.notificationStore.create({
+            userId: target.id,
+            type: NotificationType.ACCOUNT,
+            title: 'FasoFree — Votre compte a été suspendu',
+            body: `Bonjour ${target.fullName},\n\nVotre compte FasoFree a été suspendu pour la raison suivante :\n\n"${request.reason}"\n\nSi vous pensez qu'il s'agit d'une erreur, contactez le support.`,
+          });
+        } catch (err) {
+          this.logger.warn(`[BanRequest] Échec notification ban: ${(err as Error).message}`);
         }
       }
     } else {
@@ -248,15 +249,16 @@ export class BanRequestService {
       if (!requester || requester.id === admin.id) return;
 
       const approved = request.status === BanRequestStatus.APPROVED;
-      await this.notificationsService.sendNotification(
-        requester,
-        approved
+      await this.notificationStore.create({
+        userId: requester.id,
+        type: NotificationType.SYSTEM,
+        title: approved
           ? 'FasoFree — Votre demande de bannissement a été approuvée'
           : 'FasoFree — Votre demande de bannissement a été rejetée',
-        approved
+        body: approved
           ? `Le Super Admin ${admin.fullName} a approuvé votre demande. Le compte concerné a été banni.${request.reviewNote ? `\n\nNote : ${request.reviewNote}` : ''}`
           : `Le Super Admin ${admin.fullName} a rejeté votre demande.${request.reviewNote ? `\n\nMotif : ${request.reviewNote}` : ''}`,
-      );
+      });
     } catch (err) {
       this.logger.warn(
         `[BanRequest] Échec notification demandeur: ${(err as Error).message}`,
