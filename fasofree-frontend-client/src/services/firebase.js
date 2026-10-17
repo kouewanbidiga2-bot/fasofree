@@ -102,7 +102,20 @@ async function getFcmToken() {
   if (!messagingInstance) return null;
 
   try {
-    const token = await getToken(messagingInstance, { vapidKey });
+    // ⚠️ Le SW du PWA (`/sw.js`, injectManifest) doit être passé à getToken :
+    // sinon Firebase enregistrerait un 2ᵉ SW `/firebase-messaging-sw.js` sur
+    // le même scope → collision silencieuse et push cassé.
+    let registration = null;
+    try {
+      registration = await navigator.serviceWorker.ready;
+    } catch {
+      registration = null;
+    }
+
+    const token = await getToken(messagingInstance, {
+      vapidKey,
+      ...(registration ? { serviceWorkerRegistration: registration } : {}),
+    });
     return token;
   } catch (err) {
     console.warn('[FCM] getToken error:', err.message);

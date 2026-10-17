@@ -4,23 +4,21 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // 📱 PWA — application CLIENT FasoFree (1ʳᵉ des 2 apps PWA).
 //
-// `generateSW` (et non `injectManifest`) : AUCUN service worker n'est
-// enregistré aujourd'hui — le push FCM est désactivé (`VITE_PUSH_ENABLED`
-// absent) et `public/firebase-messaging-sw.js` n'est jamais enregistré par
-// le code. Il n'y a donc aucun conflit de SW à gérer.
-//
-// ⚠️ Règle à respecter quand le push sera activé : un SEUL service worker
-// par scope (contrainte navigateur). Le handler FCM de
-// `public/firebase-messaging-sw.js` devra alors être fusionné dans ce SW
-// (passer à `strategies: 'injectManifest'` avec un `swSrc` commun) — sinon
-// l'enregistrement du second SW échouera silencieusement.
+// `injectManifest` : le Service Worker source `src/sw.js` fusionne le
+// precache Workbox (hors-ligne) et le handler Firebase Messaging (push).
+// Un SEUL SW par scope (contrainte navigateur) : c'est ce qui évite la
+// collision silencieuse entre le SW PWA et l'ancien
+// `public/firebase-messaging-sw.js` (supprimé).
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // `autoUpdate` : une nouvelle version est appliquée dès qu'elle est
-      // disponible, sans attendre la fermeture de tous les onglets — adapté
-      // à un back-office utilisé toute la journée.
+      // ⚠️ injectManifest : le SW source `src/sw.js` fusionne le precache
+      // Workbox ET le handler Firebase Messaging → un seul SW sur le scope
+      // racine (sinon collision silencieuse entre deux SW).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'assets/*.jpeg', 'assets/*.jpg'],
       manifest: {
@@ -52,14 +50,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // ⚠️ On ne met JAMAIS en cache les appels réseau : API, WebSocket
-        // (socket.io) et tuiles OpenStreetMap. Un cache agressif casserait
-        // le temps réel et renverrait des données périmées au client.
-        navigateFallbackDenylist: [
-          /^\/api/,
-          /^\/socket\.io/,
-          /tile\.openstreetmap\.org/,
-        ],
+        // Le repli de navigation (hors API / WebSocket / tuiles) est géré
+        // dans `src/sw.js` (NavigationRoute + denylist). On conserve le
+        // manifeste de precache ci-dessous.
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff,woff2}'],
       },
       // Le SW n'est pas généré en dev : il mettrait en cache les sources et

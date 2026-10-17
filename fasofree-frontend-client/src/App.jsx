@@ -48,9 +48,14 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   const { isAuthenticated } = useAuthStore();
 
-  // Initialiser Firebase + demander permission push au chargement
+  // Initialiser Firebase + demander permission push au chargement.
+  // ⚠️ Garde stricte : tant que VITE_PUSH_ENABLED n'est pas "true", rien ne
+  // demande la permission de notification (pas de prompt au premier chargement).
   useEffect(() => {
     if (!isAuthenticated) return;
+    const pushEnabled =
+      String(import.meta.env.VITE_PUSH_ENABLED || '').toLowerCase() === 'true';
+    if (!pushEnabled) return;
 
     initFirebase();
     registerFcmTokenOnLogin();

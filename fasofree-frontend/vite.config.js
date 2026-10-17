@@ -8,12 +8,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Livreur et Commerce. Installable sur le poste des équipes d'exploitation
 // comme une application native, avec mise à jour automatique.
 //
-// `generateSW` : aucun service worker n'est enregistré aujourd'hui dans
-// cette application, donc aucun conflit à gérer.
+// `injectManifest` : le SW source `src/sw.js` fusionne le precache Workbox
+// (hors-ligne) et le handler Firebase Messaging (push) — un seul SW par scope.
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // ⚠️ injectManifest : le SW source `src/sw.js` fusionne le precache
+      // Workbox ET le handler Firebase Messaging → un seul SW par scope.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
@@ -45,13 +50,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        // ⚠️ Jamais de cache sur les appels réseau : API, WebSocket et tuiles
-        // OpenStreetMap. Le back-office vit de données fraîches.
-        navigateFallbackDenylist: [
-          /^\/api/,
-          /^\/socket\.io/,
-          /tile\.openstreetmap\.org/,
-        ],
+        // Le repli de navigation (hors API / WebSocket / tuiles) est géré
+        // dans `src/sw.js` (NavigationRoute + denylist). On conserve le
+        // manifeste de precache ci-dessous.
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,jpeg,woff,woff2}'],
       },
       devOptions: { enabled: false },
