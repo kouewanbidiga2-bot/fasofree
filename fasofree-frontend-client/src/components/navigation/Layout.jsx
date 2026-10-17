@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import PWAInstallButton from '../../components/PWAInstallButton';
+import PWAInstallIOSHint from '../../components/PWAInstallIOSHint';
 
 const Layout = () => {
   return (
@@ -13,6 +14,7 @@ const Layout = () => {
         <Outlet />
       </main>
       <BottomNav />
+      <PWAInstallIOSHint />
     </div>
   );
 };
