@@ -147,13 +147,14 @@ export class NotificationStoreService {
     type: NotificationType = NotificationType.SYSTEM,
     actionUrl?: string,
   ): Promise<number> {
-    // On crée une notification pour chaque user ayant ce rôle
-    // Requête directe puisque User est dans un module séparé
+    // On ne notifie que les utilisateurs ACTIFS de ce rôle.
+    // Requête directe puisque User est dans un module séparé.
     const result = await this.repo.manager
       .createQueryBuilder()
       .select('id')
       .from('users', 'u')
       .where('u.role = :role', { role })
+      .andWhere('u."isActive" = true')
       .getRawMany();
 
     const userIds = result.map((r: any) => r.id);

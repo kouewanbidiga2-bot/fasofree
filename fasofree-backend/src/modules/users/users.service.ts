@@ -398,12 +398,14 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Supprime un token FCM invalide/expiré de la base de données.
+   * ⚠️ TypeORM ignore `undefined` dans `.set()` — on utilise `() => null`
+   * pour générer `SET fcmToken = NULL` en SQL.
    */
   async clearFcmToken(fcmToken: string): Promise<void> {
     await this.userRepository
       .createQueryBuilder()
       .update(User)
-      .set({ fcmToken: undefined as any })
+      .set({ fcmToken: () => 'NULL' })
       .where('fcmToken = :fcmToken', { fcmToken })
       .execute();
   }

@@ -62,7 +62,7 @@ export class User {
   })
   mobileMoneyProvider?: MobileMoneyProvider | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'text', nullable: true })
   fcmToken?: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })

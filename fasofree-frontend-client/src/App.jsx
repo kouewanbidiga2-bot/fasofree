@@ -63,6 +63,18 @@ function App() {
     // Écouter les notifications push en premier plan
     const unsubscribe = onForegroundMessage((payload) => {
       console.info('[FCM Foreground]', payload.title, payload.body);
+      // Toast visible pour l'utilisateur (sonner déjà monté via <Toaster />)
+      try {
+        const { toast } = require('sonner');
+        toast(payload.title || 'FasoFree', {
+          description: payload.body,
+          action: payload.data?.orderId
+            ? { label: 'Voir la commande', onClick: () => window.location.href = `/order-tracking?id=${payload.data.orderId}` }
+            : undefined,
+        });
+      } catch {
+        // sonner non dispo (SSR etc.) — fallback console
+      }
     });
 
     return () => {

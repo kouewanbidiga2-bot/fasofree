@@ -240,6 +240,8 @@ export class InternalChatGateway
       // On passe par NotificationStoreService.create : in-app + push FCM
       // uniquement, jamais d'e-mail/SMS/WhatsApp (règle plateforme). C'est le
       // même chemin que partout ailleurs.
+      // ⚠️ create() pousse déjà le FCM via pushToUsers() — pas de 2e sendToDevice
+      // pour éviter le double push (problème #8).
       this.notificationStoreService
         .create({
           userId: u.id,
@@ -253,19 +255,6 @@ export class InternalChatGateway
             `[InternalChat] Création notif in-app échouée pour ${u.id}: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
-
-      // Push FCM direct si token disponible (fire-and-forget, non bloquant).
-      // Pas de fallback email/SMS/WhatsApp : pour le chat interne, le push
-      // est un complément optionnel, jamais un canal de substitution.
-      if (u.fcmToken) {
-        this.notificationsService
-          .sendToDevice(u.fcmToken, {
-            title,
-            body,
-            data: { type: 'INTERNAL_CHAT', channel, room: roomName },
-          })
-          .catch(() => {});
-      }
     }
   }
 
@@ -376,16 +365,6 @@ export class InternalChatGateway
             `[InternalChat] Création notif in-app DM échouée pour ${recipientId}: ${err instanceof Error ? err.message : String(err)}`,
           ),
         );
-
-      if (recipient.fcmToken) {
-        this.notificationsService
-          .sendToDevice(recipient.fcmToken, {
-            title,
-            body,
-            data: { type: 'INTERNAL_CHAT_DM', room: roomName },
-          })
-          .catch(() => {});
-      }
     }
 
     return { status: 'sent', data: packet };
