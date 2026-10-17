@@ -52,6 +52,7 @@ import {
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
 import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
+import PWAInstallButton from '../components/PWAInstallButton';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
@@ -1382,9 +1383,12 @@ const SuperAdminDashboard = () => {
             <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
             <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
           </div>
-          <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
-            Mode {isSuperAdmin ? 'Super Admin' : roleLabel(userRole)}
-          </span>
+          <div className="flex items-center gap-3">
+            <PWAInstallButton className="hidden sm:inline-flex" />
+            <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
+              Mode {isSuperAdmin ? 'Super Admin' : roleLabel(userRole)}
+            </span>
+          </div>
         </header>
 
         {/* ──────────────────────────────────────────────────────── */}

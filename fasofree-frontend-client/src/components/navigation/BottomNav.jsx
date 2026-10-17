@@ -4,6 +4,7 @@ import { Home, Search, ShoppingCart, ClipboardList, User } from 'lucide-react';
 import useCartStore from '../../store/cartStore';
 import useAuthStore from '../../store/authStore';
 import { useLanguage } from '../../contexts/LanguageContext';
+import PWAInstallButton from '../../components/PWAInstallButton';
 
 const BottomNav = () => {
   const navigate = useNavigate();
@@ -82,6 +83,9 @@ const BottomNav = () => {
             </button>
           );
         })}
+        <div className="flex items-center ml-auto pr-1 md:hidden">
+          <PWAInstallButton className="px-2 py-1 text-xs shadow-sm" />
+        </div>
       </div>
     </nav>
   );
