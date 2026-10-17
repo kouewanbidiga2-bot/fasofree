@@ -23,3 +23,6 @@ k6-bin/
 
 # Espace de travail local (exports PDF, polices, scripts de design) - jamais versionné
 deo/
+
+# Archives locales (zip de design/exports)
+*.zip

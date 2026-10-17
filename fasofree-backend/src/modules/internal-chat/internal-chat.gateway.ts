@@ -21,6 +21,8 @@ import {
 } from './internal-chat.service';
 import { User } from '../users/entities/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationStoreService } from '../notifications/notification-store.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 import { resolveJwtSecret } from '../../config/jwt.config';
 import { originAllowed } from '../../config/cors.config';
 
@@ -65,6 +67,7 @@ export class InternalChatGateway
     private readonly configService: ConfigService,
     private readonly internalChatService: InternalChatService,
     private readonly notificationsService: NotificationsService,
+    private readonly notificationStoreService: NotificationStoreService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -233,12 +236,38 @@ export class InternalChatGateway
       const title = `[#${channel}] Nouveau message`;
       const body = `${message.slice(0, 120)}${message.length > 120 ? '…' : ''}`;
 
-      await this.notificationsService.sendNotification(
-        u as any, // cast pour accéder aux champs
-        title,
-        body,
-        { type: 'INTERNAL_CHAT', channel, room: roomName },
-      );
+      // 🔔 Notification IN-APP (persistée, visible dans le centre de notifications).
+      // On N'UTILISE PAS NotificationsService.sendNotification ici : ce dernier
+      // utilise le canal préféré de l'utilisateur (EMAIL par défaut pour les
+      // admins/support), ce qui envoyait un email à chaque message de chat
+      // interne — c'est le comportement anormal signalé. Le chat interne doit
+      // notifier par notification in-app + push FCM uniquement.
+      this.notificationStoreService
+        .create({
+          userId: u.id,
+          type: NotificationType.SYSTEM,
+          title,
+          body,
+          actionUrl: `/internal-chat?channel=${channel}`,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `[InternalChat] Création notif in-app échouée pour ${u.id}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+
+      // Push FCM direct si token disponible (fire-and-forget, non bloquant).
+      // Pas de fallback email/SMS/WhatsApp : pour le chat interne, le push
+      // est un complément optionnel, jamais un canal de substitution.
+      if (u.fcmToken) {
+        this.notificationsService
+          .sendToDevice(u.fcmToken, {
+            title,
+            body,
+            data: { type: 'INTERNAL_CHAT', channel, room: roomName },
+          })
+          .catch(() => {});
+      }
     }
   }
 
@@ -334,12 +363,31 @@ export class InternalChatGateway
     if (!onlineUsersByRoom.get(roomName)?.has(recipientId)) {
       const title = `💬 Message direct de ${user.role}`;
       const body = `${sanitizedMessage.slice(0, 120)}${sanitizedMessage.length > 120 ? '…' : ''}`;
-      await this.notificationsService.sendNotification(
-        recipient as any,
-        title,
-        body,
-        { type: 'INTERNAL_CHAT_DM', room: roomName },
-      ).catch((err) => this.logger.warn(`[InternalChat] DM notify error: ${err instanceof Error ? err.message : String(err)}`));
+
+      // 🔔 Notification IN-APP + push FCM uniquement (pas d'email pour le chat).
+      this.notificationStoreService
+        .create({
+          userId: recipientId,
+          type: NotificationType.SYSTEM,
+          title,
+          body,
+          actionUrl: `/internal-chat?dm=${recipientId}`,
+        })
+        .catch((err) =>
+          this.logger.warn(
+            `[InternalChat] Création notif in-app DM échouée pour ${recipientId}: ${err instanceof Error ? err.message : String(err)}`,
+          ),
+        );
+
+      if (recipient.fcmToken) {
+        this.notificationsService
+          .sendToDevice(recipient.fcmToken, {
+            title,
+            body,
+            data: { type: 'INTERNAL_CHAT_DM', room: roomName },
+          })
+          .catch(() => {});
+      }
     }
 
     return { status: 'sent', data: packet };
