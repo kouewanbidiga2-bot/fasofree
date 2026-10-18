@@ -6,6 +6,9 @@ export interface PayoutTransferResult {
   success: boolean;
   message: string;
   providerReference?: string;
+  disburseToken?: string;
+  transactionId?: string;
+  providerRef?: string;
 }
 
 /**
