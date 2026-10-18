@@ -4,6 +4,7 @@ import { Mic, Volume2, VolumeX, Square, ChevronDown, ChevronUp } from 'lucide-re
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
 import { hasSupportPhone } from '../utils/support';
+import { FasoFreeMask } from './FasoFreeLogo';
 
 const DEFAULT_CHIPS = [
   'Comment commander ?',
@@ -20,20 +21,8 @@ const WELCOME =
 const HINT_SHOW_DELAY = 1450;
 const BUBBLE_DURATION_MS = 2600;
 
-/** Logo « feuille » FasoFree — l'identité visuelle de l'app (cf. SplashScreen). */
-function FasoFreeMark({ className = 'h-8 w-8', color = '#B95B2B' }) {
-  return (
-    <svg viewBox="0 0 140 140" fill="none" className={className} aria-hidden="true">
-      <ellipse cx="70" cy="70" rx="44" ry="52" stroke={color} strokeWidth="4" />
-      <path d="M38 50 Q70 22 102 50" stroke={color} strokeWidth="3" strokeLinecap="round" opacity="0.6" />
-      <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill={color} opacity="0.9" />
-      <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill={color} opacity="0.9" />
-      <path d="M70 62 L64 84 L76 84 Z" fill={color} opacity="0.55" />
-      <path d="M56 96 Q70 104 84 96" stroke={color} strokeWidth="3" strokeLinecap="round" />
-      <circle cx="70" cy="70" r="3" fill={color} opacity="0.3" />
-    </svg>
-  );
-}
+// Le masque FasoFree est désormais centralisé dans ./FasoFreeLogo
+// (FasoFreeMask, version monochrome via la prop `color`).
 
 /**
  * 🤖 Widget assistant flottant (app client).
@@ -358,7 +347,7 @@ export default function AssistantWidget() {
         <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[60] md:bottom-6">
           <div className="flex items-center gap-1 rounded-full border border-border-light bg-background-card py-1.5 pl-2 pr-1.5 shadow-elevated">
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-primary text-white">
-              <FasoFreeMark className="h-5 w-5" color="#FFFDFC" />
+              <FasoFreeMask className="h-5 w-5" color="#FFFDFC" />
             </span>
             <span className="max-w-[110px] truncate text-xs font-bold text-text-primary">
               Assistant
@@ -415,7 +404,7 @@ export default function AssistantWidget() {
                   <span className="text-2xl font-bold leading-none">✕</span>
                 ) : (
                   <>
-                    <FasoFreeMark className="h-8 w-8" color="#FFFDFC" />
+                    <FasoFreeMask className="h-8 w-8" color="#FFFDFC" />
                     <span
                       aria-hidden="true"
                       className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-gradient-to-br from-accent-primary to-[#C1652E] text-white shadow-subtle"
@@ -448,7 +437,7 @@ export default function AssistantWidget() {
           <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-accent-primary to-[#C1652E] px-4 py-3 text-white">
             <div className="flex items-center gap-2.5">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-sm">
-                <FasoFreeMark className="h-6 w-6" />
+                <FasoFreeMask className="h-6 w-6" />
               </span>
               <div>
                 <p className="text-sm font-bold leading-tight">Assistant FasoFree</p>

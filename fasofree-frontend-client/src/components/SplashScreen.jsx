@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { FasoFreeLockup } from './FasoFreeLogo';
 
 const SPLASH_KEY = 'fasofree_client_splash_shown';
 
@@ -46,21 +47,13 @@ export default function SplashScreen({ children }) {
           pointerEvents: fading ? 'none' : 'auto',
         }}
       >
-        <svg width="80" height="80" viewBox="0 0 140 140" fill="none" style={{ marginBottom: 20 }}>
-          <ellipse cx="70" cy="70" rx="44" ry="52" stroke="#B95B2B" strokeWidth="2.5" fill="none" />
-          <path d="M38 50 Q70 22 102 50" stroke="#B95B2B" strokeWidth="1.8" fill="none" opacity="0.6" />
-          <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill="#B95B2B" opacity="0.9" />
-          <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill="#B95B2B" opacity="0.9" />
-          <path d="M70 62 L64 84 L76 84 Z" fill="#8B7355" opacity="0.8" />
-          <path d="M56 96 Q70 104 84 96" stroke="#B95B2B" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-          <circle cx="70" cy="70" r="3" fill="#B95B2B" opacity="0.3" />
-        </svg>
+        <FasoFreeLockup maskSize={72} style={{ marginBottom: 28 }} />
         <div
           style={{
             width: 36,
             height: 36,
             border: '3px solid rgba(185,91,43,0.15)',
-            borderTopColor: '#B95B2B',
+            borderTopColor: '#C1652E',
             borderRadius: '50%',
             animation: 'fasofree-spin 0.75s linear infinite',
           }}

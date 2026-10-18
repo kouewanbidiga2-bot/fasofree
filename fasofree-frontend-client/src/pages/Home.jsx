@@ -12,6 +12,7 @@ import useAuthStore from '../store/authStore';
 import useNotificationStore from '../store/notificationStore';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 import { useLanguage } from '../contexts/LanguageContext';
+import { FasoFreeMask } from '../components/FasoFreeLogo';
 
 const mapBusinessToRestaurant = (b) => {
   const category = b.category || 'Fast Food';
@@ -180,20 +181,10 @@ const Home = () => {
             
             {/* Logo & Localisation */}
             <button type="button" className="flex items-center gap-2 sm:gap-3 text-left min-w-0 flex-1 md:flex-none" onClick={() => navigate('/')} aria-label={t('homeAria')}>
-              <svg
+              <FasoFreeMask
+                size={38}
                 className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex-shrink-0"
-                viewBox="0 0 140 140"
-                fill="none"
-              >
-                <ellipse cx="70" cy="70" rx="44" ry="52" stroke="#B95B2B" strokeWidth="2" fill="none"/>
-                <path d="M38 50 Q70 22 102 50" stroke="#B95B2B" strokeWidth="1.5" fill="none" opacity="0.6"/>
-                <line x1="70" y1="22" x2="70" y2="38" stroke="#B95B2B" strokeWidth="1" opacity="0.4"/>
-                <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill="#B95B2B" opacity="0.85"/>
-                <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill="#B95B2B" opacity="0.85"/>
-                <path d="M70 62 L64 84 L76 84 Z" fill="#8B7355" opacity="0.7"/>
-                <path d="M56 96 Q70 104 84 96" stroke="#B95B2B" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
-                <circle cx="70" cy="70" r="3" fill="#B95B2B" opacity="0.2"/>
-              </svg>
+              />
               <div className="flex flex-col min-w-0">
                 <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">{t('deliveryTo')}</span>
                 <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold truncate">

@@ -7,19 +7,10 @@ import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { getContractStatus } from '../services/legalService';
+import { FasoFreeMask } from '../components/FasoFreeLogo';
 
-const FasoFreeLogo = ({ size = 64 }) => (
-  <svg width={size} height={size} viewBox="0 0 140 140" fill="none">
-    <rect width="140" height="140" rx="28" fill="#0D0D0D" />
-    <ellipse cx="70" cy="70" rx="44" ry="52" stroke="#C1652E" strokeWidth="2.5" fill="none" />
-    <path d="M38 50 Q70 22 102 50" stroke="#C1652E" strokeWidth="1.8" fill="none" opacity="0.6" />
-    <path d="M50 62 Q58 56 66 62 Q58 68 50 62Z" fill="#C1652E" opacity="0.9" />
-    <path d="M74 62 Q82 56 90 62 Q82 68 74 62Z" fill="#C1652E" opacity="0.9" />
-    <path d="M70 62 L64 84 L76 84 Z" fill="#8B7355" opacity="0.8" />
-    <path d="M56 96 Q70 104 84 96" stroke="#C1652E" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-    <circle cx="70" cy="70" r="3" fill="#C1652E" opacity="0.3" />
-  </svg>
-);
+// Le masque FasoFree est centralisé dans ../components/FasoFreeLogo
+// (version disque noir + glyphes terracotta, alignée sur l'icône PWA).
 
 const T = {
   bg: '#0D0D0D',
@@ -172,7 +163,7 @@ const PhoneAuth = () => {
       <div style={{ width: '100%', maxWidth: 400, position: 'relative', animation: 'slideUp 0.4s ease-out' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-            <FasoFreeLogo size={72} />
+            <FasoFreeMask size={72} />
           </div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: T.text, fontFamily: T.font, margin: 0, letterSpacing: '-0.02em' }}>
             FasoFree
