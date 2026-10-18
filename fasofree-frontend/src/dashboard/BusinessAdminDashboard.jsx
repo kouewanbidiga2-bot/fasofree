@@ -18,11 +18,12 @@ import {
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
   BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink, Calendar,
-  BadgeCheck
+  BadgeCheck, Megaphone
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
 import MerchantDisputesTab from './components/MerchantDisputesTab';
+import SelfServicePushCampaigns from './components/SelfServicePushCampaigns';
 import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
 import { getMyOrders, getBusinessOrders, getBrandOrders, getAvailableDrivers, assignDriverToOrder, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
@@ -1015,6 +1016,7 @@ const BusinessAdminDashboard = () => {
     { id: 'affiliate', label: 'Affiliation', icon: Share2 },
     { id: 'stories', label: 'Stories', icon: Camera },
     { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
+    { id: 'push-campaigns', label: 'Campagnes push', icon: Megaphone },
     { id: 'disputes', label: 'Litiges', icon: Shield },
     { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
@@ -1979,6 +1981,7 @@ const BusinessAdminDashboard = () => {
           {/* ──────────────────────────────────────────────────────── */}
           {/* ONGLET LITIGES (gérant) */}
           {/* ──────────────────────────────────────────────────────── */}
+          {activeTab === 'push-campaigns' && <SelfServicePushCampaigns role="merchant" />}
           {activeTab === 'disputes' && <MerchantDisputesTab />}
 
           {/* ──────────────────────────────────────────────────────── */}

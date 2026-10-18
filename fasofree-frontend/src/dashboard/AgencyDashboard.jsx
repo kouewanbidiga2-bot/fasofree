@@ -26,6 +26,7 @@ import {
   getAgencyPenalties,
 } from '../services/agencyService';
 import { getDispatchSocket } from '../services/realtime';
+import SelfServicePushCampaigns from './components/SelfServicePushCampaigns';
 
 /**
  * 🏢 Espace Agence (Niveau 2 du dispatch multi-niveaux).
@@ -780,6 +781,10 @@ const AgencyDashboard = () => {
             </span>
           </div>
         </div>
+
+        {/* 💳 Lot 3 — campagne push auto-service payante (audience : mes
+            livreurs ou tous les clients). Ne peut jamais viser toute la base. */}
+        <SelfServicePushCampaigns role="agency" />
       </main>
     </div>
   );

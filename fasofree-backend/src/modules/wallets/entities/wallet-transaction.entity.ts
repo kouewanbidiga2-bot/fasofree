@@ -34,6 +34,7 @@ export enum TransactionReason {
   SERVICE_FEE = 'SERVICE_FEE',
   SUBSCRIPTION_FEE = 'SUBSCRIPTION_FEE',
   STORY_FEE = 'STORY_FEE', // Publication de story à l'unité (50 FCFA)
+  PUSH_CAMPAIGN_FEE = 'PUSH_CAMPAIGN_FEE', // Campagne push auto-service (Lot 3)
 }
 
 @Entity('wallet_transactions')
