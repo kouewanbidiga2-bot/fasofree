@@ -45,6 +45,13 @@ const BottomNav = () => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background-primary border-t border-border-light safe-area-bottom md:hidden">
+      {/* CTA d'installation PWA flottant AU-DESSUS de la barre (à gauche, la zone
+          droite étant occupée par l'assistant). Auparavant il était placé DANS la
+          zone `overflow-x-auto` : sur petit mobile il était poussé hors écran et
+          donc invisible (« le bouton Installer n'apparaît pas »). */}
+      <div className="absolute -top-12 left-3 sm:hidden">
+        <PWAInstallButton className="shadow-lg" />
+      </div>
       <div className="flex items-center h-16 px-2 gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
           const active = isActive(tab);
@@ -83,9 +90,6 @@ const BottomNav = () => {
             </button>
           );
         })}
-        <div className="flex items-center ml-auto pr-1 md:hidden">
-          <PWAInstallButton className="px-2 py-1 text-xs shadow-sm" />
-        </div>
       </div>
     </nav>
   );

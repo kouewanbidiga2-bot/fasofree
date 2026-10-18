@@ -2,6 +2,28 @@ import { requestNotificationPermission } from './firebase';
 import { api } from './api';
 
 /**
+ * Persiste un token FCM auprès du backend (`POST /notifications/fcm-token`).
+ * Utilisé par `registerFcmTokenOnLogin` ET par la relance de permission
+ * (`setupPermissionRetry({ onToken })`) — un seul chemin d'écriture.
+ *
+ * Ne propage jamais les erreurs pour ne pas casser le flux utilisateur.
+ *
+ * @returns {Promise<string|null>} le token si enregistré, sinon null.
+ */
+export async function persistFcmToken(token) {
+  if (!token) return null;
+  try {
+    await api.registerFcmToken(token);
+    console.info('[FCM] Token enregistré auprès du backend');
+    return token;
+  } catch (err) {
+    // Token invalide ou endpoint indisponible : non bloquant
+    console.warn('[FCM] Enregistrement token échoué:', err.message);
+    return null;
+  }
+}
+
+/**
  * Demande la permission notifications, récupère le token FCM,
  * et l'enregistre auprès du backend.
  *
@@ -13,14 +35,9 @@ import { api } from './api';
  */
 export async function registerFcmTokenOnLogin() {
   try {
-    const token = await requestNotificationPermission();
-    if (!token) return;
-
-    // Envoyer au backend (POST /notifications/fcm-token)
-    await api.registerFcmToken(token);
-    console.info('[FCM] Token enregistré auprès du backend');
+    return await persistFcmToken(await requestNotificationPermission());
   } catch (err) {
-    // Token invalide ou endpoint indisponible : non bloquant
-    console.warn('[FCM] Enregistrement token échoué:', err.message);
+    console.warn('[FCM] Enregistrement token échoué:', err?.message);
+    return null;
   }
 }

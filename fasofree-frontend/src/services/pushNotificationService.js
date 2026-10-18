@@ -50,6 +50,7 @@ let _adminPermRetry = {
   cooldownMs: 30_000,
   clicksBeforePrompt: 2,
   boundHandlers: false,
+  onGranted: null,
 };
 
 function _adminCanPromptNow() {
@@ -60,10 +61,27 @@ function _adminResetClickCount() {
   _adminPermRetry.clickCount = 0;
 }
 
+/**
+ * Prévient que la permission vient d'être (ou était déjà) accordée.
+ * ⚠️ Indispensable : sans ce callback, une permission accordée lors d'une
+ * relance (clic/focus) n'entraînait AUCUN enregistrement du token → le
+ * back-office ne recevait jamais ses push (« 0 destinataire »).
+ */
+function _adminDeliverGranted() {
+  try {
+    if (typeof _adminPermRetry.onGranted === 'function') {
+      _adminPermRetry.onGranted();
+    }
+  } catch (err) {
+    console.warn('[FCM Admin] onGranted callback error:', err?.message);
+  }
+}
+
 async function _adminTryRequestPermission() {
   if (Notification.permission === 'granted') {
     _adminResetClickCount();
-    return true; // déjà accordé, le token sera récupéré par registerPushToken
+    _adminDeliverGranted();
+    return true;
   }
   if (!_adminCanPromptNow()) return false;
 
@@ -71,6 +89,7 @@ async function _adminTryRequestPermission() {
   const result = await Notification.requestPermission();
   if (result === 'granted') {
     _adminResetClickCount();
+    _adminDeliverGranted();
     return true;
   }
   console.info('[FCM Admin] Permission non accordée (relance):', result);
@@ -93,17 +112,33 @@ function _adminOnVisibilityOrFocus() {
   }
 }
 
-export function setupAdminPermissionRetry() {
-  if (typeof window === 'undefined' || _adminPermRetry.boundHandlers) return;
+/**
+ * Branche la relance de permission (admin) + l'enregistrement du token obtenu.
+ *
+ * @param {{ onGranted?: () => void }} [options]
+ *   `onGranted` est appelé dès que la permission est accordée (immédiatement si
+ *   elle l'était déjà, ou après le prompt / une relance clic-focus). C'est ce qui
+ *   déclenche réellement `registerPushToken()` côté appelant.
+ */
+export function setupAdminPermissionRetry(options = {}) {
+  if (typeof window === 'undefined') return;
+  if (typeof options.onGranted === 'function') {
+    _adminPermRetry.onGranted = options.onGranted;
+  }
+
+  // À chaque appel (donc à chaque connexion) : si la permission est déjà
+  // accordée, on (re)enregistre le token — un autre compte peut se connecter sur
+  // le même navigateur et doit recevoir SES push. Sinon on (re)demande.
+  if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+    _adminTryRequestPermission();
+  }
+
+  if (_adminPermRetry.boundHandlers) return;
   _adminPermRetry.boundHandlers = true;
 
   document.addEventListener('click', _adminOnUserInteraction, { passive: true });
   document.addEventListener('visibilitychange', _adminOnVisibilityOrFocus);
   window.addEventListener('focus', _adminOnVisibilityOrFocus);
-
-  if (Notification.permission === 'default') {
-    _adminTryRequestPermission();
-  }
 }
 
 export function stopAdminPermissionRetry() {

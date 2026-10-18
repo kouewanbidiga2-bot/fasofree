@@ -1,54 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { Download } from 'lucide-react';
+import {
+  getInstallState,
+  subscribeInstall,
+  promptInstall,
+} from '../services/pwaInstall';
 
+/**
+ * Bouton « Installer l'app ».
+ *
+ * ⚠️ Il ne branche AUCUN écouteur `beforeinstallprompt` lui-même : l'événement
+ * est capturé une fois pour toutes par `services/pwaInstall.js` (importé au
+ * démarrage). Sans cela, l'événement — émis une seule fois par chargement, avant
+ * le montage du bouton (souvent sur /login) — était perdu et le bouton
+ * n'apparaissait jamais.
+ */
 export default function PWAInstallButton({ className = '' }) {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
-  const [isInstalled, setIsInstalled] = useState(false);
-  const [show, setShow] = useState(false);
+  const { canInstall, installed } = useSyncExternalStore(
+    subscribeInstall,
+    getInstallState,
+    getInstallState,
+  );
 
-  useEffect(() => {
-    const checkInstalled = () => {
-      if (
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.navigator.standalone
-      ) {
-        setIsInstalled(true);
-        return;
-      }
-    };
-    checkInstalled();
+  if (installed || !canInstall) return null;
 
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setShow(true);
-    };
-    const handleAppInstalled = () => {
-      setIsInstalled(true);
-      setShow(false);
-      setDeferredPrompt(null);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
-
-  const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
-      setShow(false);
-    }
+  const handleInstall = () => {
+    promptInstall().catch(() => {});
   };
-
-  if (isInstalled || !show || !deferredPrompt) return null;
 
   return (
     <button
@@ -58,7 +36,7 @@ export default function PWAInstallButton({ className = '' }) {
       type="button"
     >
       <Download className="w-4 h-4" />
-      <span>Installer l'app</span>
+      <span>Installer l&apos;app</span>
     </button>
   );
 }

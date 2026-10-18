@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
 import RideBooking from './pages/RideBooking';
@@ -26,7 +26,7 @@ import Layout from './components/navigation/Layout';
 import AssistantWidget from './components/AssistantWidget';
 import useAuthStore from './store/authStore';
 import { needsVerification } from './store/authStore';
-import { registerFcmTokenOnLogin } from './services/pushRegistration';
+import { persistFcmToken } from './services/pushRegistration';
 import { initFirebase, onForegroundMessage, setupPermissionRetry } from './services/firebase';
 
 const ProtectedRoute = ({ children }) => {
@@ -58,22 +58,29 @@ function App() {
     if (!pushEnabled) return;
 
     initFirebase();
-    setupPermissionRetry(); // gère prompt initial + relance clics/focus
+    // ⚠️ `onToken` est OBLIGATOIRE : c'est ce qui enregistre réellement le token
+    // FCM côté API (POST /notifications/fcm-token). Sans lui, le token récupéré
+    // était jeté → `users.fcmToken` restait NULL → 0 destinataire de push.
+    setupPermissionRetry({ onToken: persistFcmToken }); // prompt initial + relance clics/focus
 
     // Écouter les notifications push en premier plan
     const unsubscribe = onForegroundMessage((payload) => {
       console.info('[FCM Foreground]', payload.title, payload.body);
-      // Toast visible pour l'utilisateur (sonner déjà monté via <Toaster />)
+      // Toast visible quand l'app est ouverte (sonner est déjà monté via <Toaster />).
       try {
-        const { toast } = require('sonner');
         toast(payload.title || 'FasoFree', {
           description: payload.body,
           action: payload.data?.orderId
-            ? { label: 'Voir la commande', onClick: () => window.location.href = `/order-tracking?id=${payload.data.orderId}` }
+            ? {
+                label: 'Voir la commande',
+                onClick: () => {
+                  window.location.href = `/order-tracking?id=${payload.data.orderId}`;
+                },
+              }
             : undefined,
         });
       } catch {
-        // sonner non dispo (SSR etc.) — fallback console
+        // sonner indisponible : le log console suffit.
       }
     });
 

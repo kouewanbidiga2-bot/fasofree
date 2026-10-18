@@ -22,8 +22,14 @@ export default function PushRegistration() {
     // Pas encore de session restaurée → on attend.
     if (!isHydrated || !isAuthenticated) return undefined;
 
-    // Configure la relance de permission (prompt initial + relance clics/focus)
-    setupAdminPermissionRetry();
+    // Configure la relance de permission (prompt initial + relance clics/focus).
+    // `onGranted` : dès que la permission est accordée (maintenant ou plus tard,
+    // via un clic / le retour sur l'app), on enregistre réellement le token.
+    setupAdminPermissionRetry({
+      onGranted: () => {
+        registerPushToken().catch(() => {});
+      },
+    });
 
     let cancelled = false;
 

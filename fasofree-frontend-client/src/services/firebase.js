@@ -24,6 +24,7 @@ let _permRetry = {
   cooldownMs: 30_000,        // 30s entre deux prompts
   clicksBeforePrompt: 2,     // redemander tous les 2 clics
   boundHandlers: false,
+  onToken: null,             // callback(token) → persisté côté API
 };
 
 function _canPromptNow() {
@@ -34,10 +35,27 @@ function _resetClickCount() {
   _permRetry.clickCount = 0;
 }
 
+/**
+ * Transmet le token FCM au callback d'enregistrement (fourni par App.jsx).
+ * ⚠️ Sans ce callback, le token récupéré était simplement JETÉ : `users.fcmToken`
+ * restait NULL en base et aucun push ne partait (bug « 0 destinataire »).
+ */
+function _deliverToken(token) {
+  if (!token) return;
+  try {
+    if (typeof _permRetry.onToken === 'function') _permRetry.onToken(token);
+  } catch (err) {
+    console.warn('[FCM] onToken callback error:', err?.message);
+  }
+}
+
 async function _tryRequestPermission() {
+  if (typeof Notification === 'undefined') return null; // navigateur non compatible
   if (Notification.permission === 'granted') {
     _resetClickCount();
-    return getFcmToken(); // déjà accordé → token direct
+    const token = await getFcmToken(); // déjà accordé → token direct
+    _deliverToken(token);
+    return token;
   }
   if (!_canPromptNow()) return null;
 
@@ -45,13 +63,16 @@ async function _tryRequestPermission() {
   const result = await Notification.requestPermission();
   if (result === 'granted') {
     _resetClickCount();
-    return getFcmToken();
+    const token = await getFcmToken();
+    _deliverToken(token);
+    return token;
   }
   console.info('[FCM] Permission non accordée (relance):', result);
   return null;
 }
 
 function _onUserInteraction() {
+  if (typeof Notification === 'undefined') return;
   if (Notification.permission === 'granted') return;
   _permRetry.clickCount++;
   if (_permRetry.clickCount >= _permRetry.clicksBeforePrompt) {
@@ -61,6 +82,7 @@ function _onUserInteraction() {
 }
 
 function _onVisibilityOrFocus() {
+  if (typeof Notification === 'undefined') return;
   if (Notification.permission === 'granted') return;
   // Au retour sur l'app (onglet visible / focus), tenter une relance
   if (document.visibilityState === 'visible') {
@@ -68,8 +90,32 @@ function _onVisibilityOrFocus() {
   }
 }
 
-export function setupPermissionRetry() {
-  if (typeof window === 'undefined' || _permRetry.boundHandlers) return;
+/**
+ * Branche la relance de permission + la persistance du token FCM.
+ *
+ * @param {{ onToken?: (token: string) => void }} [options]
+ *   `onToken` est appelé À CHAQUE fois qu'un token FCM valide est obtenu
+ *   (permission déjà accordée, accordée après prompt, ou accordée lors d'une
+ *   relance clic/focus). C'est ce qui enregistre réellement le token côté API.
+ */
+export function setupPermissionRetry(options = {}) {
+  if (typeof window === 'undefined') return;
+  if (typeof options.onToken === 'function') {
+    _permRetry.onToken = options.onToken;
+  }
+
+  // À CHAQUE appel — donc à chaque connexion — on tente d'obtenir et de
+  // persister le token, même si les écouteurs sont déjà branchés : un autre
+  // utilisateur peut se connecter sur le même navigateur et doit recevoir SON
+  // push (le token FCM est propre au navigateur, pas au compte).
+  //   - permission 'granted' → token récupéré puis enregistré (aucun prompt)
+  //   - permission 'default' → prompt (respecte le cooldown de 30 s)
+  //   - permission 'denied'  → on ne fait rien (irréversible sans action manuelle)
+  if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+    _tryRequestPermission();
+  }
+
+  if (_permRetry.boundHandlers) return;
   _permRetry.boundHandlers = true;
 
   // 1) Clics utilisateur (délégué sur document)
@@ -78,11 +124,6 @@ export function setupPermissionRetry() {
   // 2) Retour sur l'onglet / focus fenêtre
   document.addEventListener('visibilitychange', _onVisibilityOrFocus);
   window.addEventListener('focus', _onVisibilityOrFocus);
-
-  // 3) Tentative immédiate si permission par défaut (premier chargement)
-  if (Notification.permission === 'default') {
-    _tryRequestPermission();
-  }
 }
 
 export function stopPermissionRetry() {
