@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Injectable, Logger, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -184,6 +185,54 @@ export class WalletService {
       // Libération OBLIGATOIRE du queryRunner pour éviter les fuites de mémoire
       await queryRunner.release();
     }
+  }
+
+  /**
+   * 💰 Crédit MANUEL d'un portefeuille par le SUPER_ADMIN.
+   *
+   * Réutilise `creditWallet` (transaction ACID + écriture au grand livre) pour
+   * ne PAS dupliquer la logique d'écriture. Une `reference` externe rend
+   * l'opération IDEMPOTENTE : rejouer la même requête (double clic, retry
+   * réseau) ne crédite pas deux fois.
+   */
+  async adminCreditWallet(params: {
+    userId: string;
+    userRole: UserRole;
+    amount: number;
+    branchId?: string;
+    reason?: string;
+    reference?: string;
+    actorId?: string;
+  }): Promise<{ wallet: Wallet; transaction: WalletTransaction }> {
+    const reference =
+      params.reference?.trim() || `ADMIN-CREDIT-${randomUUID()}`;
+    const motive = params.reason?.trim();
+    const description = motive
+      ? `Crédit manuel Super Admin — ${motive}`
+      : 'Crédit manuel Super Admin';
+
+    const result = await this.creditWallet(
+      params.userId,
+      params.userRole,
+      params.amount,
+      // On réutilise `TOPUP` : c'est une recharge de portefeuille. Aucune
+      // nouvelle valeur d'enum n'est donc nécessaire (pas de migration).
+      TransactionReason.TOPUP,
+      reference,
+      description,
+      TransactionType.CREDIT,
+      params.branchId,
+    );
+
+    this.logger.log(
+      `[Admin Credit] +${params.amount} XOF ${params.userRole} ${
+        params.userId
+      }${params.branchId ? ` (agence ${params.branchId})` : ''} par ${
+        params.actorId ?? 'super-admin'
+      } — ref ${reference}`,
+    );
+
+    return result;
   }
 
   /**

@@ -26,6 +26,7 @@ import FinancialChart from './components/BrandChart';
 import DisputesTab from './components/DisputesTab';
 import TraceabilityTab from './TraceabilityTab';
 import DeliveryQualityTab from './components/DeliveryQualityTab';
+import WalletAdminCreditCard from './components/WalletAdminCreditCard';
 import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
 import { getAgencies, createAgency, updateAgency } from '../services/agencyService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
@@ -1643,6 +1644,10 @@ const SuperAdminDashboard = () => {
                 </button>
               ))}
             </div>
+
+            {/* 💰 Outil d'exploitation : créditer un portefeuille à la main
+                (l'agent support y a recours quand la recharge en ligne échoue). */}
+            <WalletAdminCreditCard />
 
             {overviewLoading ? (
               <div className="space-y-4">

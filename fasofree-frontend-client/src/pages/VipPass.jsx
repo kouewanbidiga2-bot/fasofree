@@ -80,6 +80,14 @@ const VipPass = () => {
         customerEmail: user?.email || 'client@fasofree.bf',
       });
       setTopupOpen(false);
+      // 🔗 Redirection obligatoire vers la page de paiement GeniusPay : sans
+      // elle, aucun paiement n'est encaissé et le portefeuille n'est JAMAIS
+      // crédité. Le crédit est appliqué par le webhook à la confirmation.
+      const checkoutUrl = data?.checkoutUrl || data?.paymentUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
       if (user?.id) {
         const walletData = await api.getWallet(user.id);
         setWallet(walletData);

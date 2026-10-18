@@ -16,6 +16,12 @@ import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
 import { GeniusPayService } from './providers/geniuspay.service';
+import { WalletService } from '../wallets/wallet.service';
+import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
+import {
+  TransactionReason,
+  TransactionType,
+} from '../wallets/entities/wallet-transaction.entity';
 
 @Injectable()
 export class PaymentsService {
@@ -30,6 +36,7 @@ export class PaymentsService {
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly geniusPayService: GeniusPayService,
+    private readonly walletService: WalletService,
   ) {}
 
   async initiatePayment(dto: InitiatePaymentDto, clientId: string) {
@@ -363,5 +370,177 @@ export class PaymentsService {
     this.logger.log(
       `Commande ${orderId} validée avec succès via ${paymentMethod}`,
     );
+  }
+
+  // ========================================================================
+  // 💳 RECHARGE DE PORTEFEUILLE (top-up) — chemin dédié au webhook GeniusPay
+  // ========================================================================
+
+  /**
+   * Crédite le portefeuille d'un utilisateur après un encaissement GeniusPay.
+   *
+   * Pourquoi un chemin dédié : une recharge n'a AUCUNE commande associée, donc
+   * `metadata.order_id` est absent. Avant ce correctif, `handlePaymentSuccess`
+   * exigeait un `order_id` et levait une exception : l'argent réellement
+   * encaissé n'était JAMAIS crédité (bug bloquant pour financer une campagne).
+   *
+   * Idempotence : le crédit porte la référence `TOPUP-...` générée à
+   * l'initiation. `WalletService.creditWallet` ignore tout doublon
+   * (walletId + reference + reason), donc un webhook rejoué ne crédite pas 2×.
+   *
+   * @returns `true` si un crédit a été appliqué, `false` si le webhook est ignoré.
+   */
+  async creditTopupFromGateway(data: any, payload: any): Promise<boolean> {
+    const metadata = data?.metadata ?? payload?.metadata ?? {};
+    const userId = metadata.userId != null ? String(metadata.userId) : '';
+    const topupRef =
+      metadata.reference != null ? String(metadata.reference) : '';
+    const branchId = metadata.branchId ? String(metadata.branchId) : undefined;
+    // Le rôle vient du JWT de l'appelant, transmis dans le metadata signé.
+    const walletRole = this.resolveWalletRole(metadata.walletRole);
+
+    if (!userId || !topupRef) {
+      this.logger.error(
+        'Webhook topup: userId ou reference manquant dans metadata — crédit refusé',
+      );
+      return false;
+    }
+
+    // 🔒 On n'encaisse un crédit QUE sur un paiement réellement `completed`.
+    const gatewayStatus = String(data?.status ?? '').toLowerCase();
+    if (gatewayStatus && gatewayStatus !== 'completed') {
+      this.logger.error(
+        `Webhook topup ${topupRef}: statut agrégateur = "${gatewayStatus}" — NON crédité`,
+      );
+      return false;
+    }
+
+    const amount = Number(data?.amount ?? payload?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.logger.error(
+        `Webhook topup ${topupRef}: montant invalide (${data?.amount}) — NON crédité`,
+      );
+      return false;
+    }
+
+    await this.walletService.creditWallet(
+      userId,
+      walletRole,
+      amount,
+      TransactionReason.TOPUP,
+      topupRef,
+      `Recharge portefeuille via GeniusPay${
+        data?.reference ? ` (réf. ${data.reference})` : ''
+      }`,
+      TransactionType.DEPOSIT,
+      branchId,
+    );
+
+    this.logger.log(
+      `✅ Recharge ${topupRef} créditée : +${amount} XOF → ${walletRole} ${userId}`,
+    );
+    return true;
+  }
+
+  /**
+   * Reprend le montant d'une recharge remboursée par GeniusPay.
+   *
+   * Le débit est autorisé EN NÉGATIF : si l'utilisateur a déjà dépensé l'argent,
+   * le portefeuille passe en dette — FasoFree doit récupérer des fonds qu'elle
+   * n'a plus. Idempotent via la référence `TOPUP-REFUND-<référence de recharge>`.
+   *
+   * On ne fait jamais échouer le webhook (sinon retries inutiles côté GeniusPay) :
+   * en cas de problème, on trace pour une reprise manuelle par le Super Admin.
+   */
+  async reverseTopupFromGateway(data: any, payload: any): Promise<boolean> {
+    const metadata = data?.metadata ?? payload?.metadata ?? {};
+    const userId = metadata.userId != null ? String(metadata.userId) : '';
+    const topupRef =
+      metadata.reference != null ? String(metadata.reference) : '';
+    const branchId = metadata.branchId ? String(metadata.branchId) : undefined;
+    const walletRole = this.resolveWalletRole(metadata.walletRole);
+
+    if (!userId || !topupRef) {
+      this.logger.error(
+        'Webhook topup refund: metadata incomplète — annulation ignorée',
+      );
+      return false;
+    }
+
+    const amount = Number(data?.amount ?? payload?.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.logger.error(
+        `Webhook topup refund ${topupRef}: montant invalide — annulation ignorée`,
+      );
+      return false;
+    }
+
+    const reference = `TOPUP-REFUND-${topupRef}`;
+
+    // Garde-fou : ne jamais reprendre deux fois le même montant.
+    const already = await this.walletService.hasLedgerEntry(
+      userId,
+      walletRole,
+      reference,
+      TransactionReason.REFUND,
+      branchId,
+    );
+    if (already) {
+      this.logger.warn(
+        `Webhook topup refund ${topupRef}: déjà annulé — ignoré`,
+      );
+      return false;
+    }
+
+    try {
+      await this.walletService.debitWalletAllowNegative(
+        userId,
+        walletRole,
+        amount,
+        TransactionReason.REFUND,
+        reference,
+        `Reprise de la recharge ${topupRef} (remboursement GeniusPay)`,
+        branchId,
+      );
+      this.logger.log(
+        `↩️ Recharge ${topupRef} annulée : -${amount} XOF ← ${walletRole} ${userId}`,
+      );
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `❌ Échec de l'annulation de la recharge ${topupRef}: ${
+          (err as Error).message
+        }. Reprise manuelle requise.`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Traduit le rôle applicatif (transmis dans le metadata à l'initiation) vers
+   * le rôle de PORTEFEUILLE. Les deux enums sont distincts : `AGENCY` n'existe
+   * pas dans `wallets_userrole_enum`, une société de livraison utilise donc un
+   * portefeuille marchand (cf. Lot 3).
+   */
+  private resolveWalletRole(raw: unknown): WalletUserRole {
+    const key = String(raw ?? '').toUpperCase();
+    const map: Record<string, WalletUserRole> = {
+      BUSINESS_ADMIN: WalletUserRole.MERCHANT,
+      MERCHANT: WalletUserRole.MERCHANT,
+      AGENCY: WalletUserRole.MERCHANT,
+      DRIVER: WalletUserRole.DRIVER,
+      COURIER: WalletUserRole.COURIER,
+      CUSTOMER: WalletUserRole.CUSTOMER,
+      CLIENT: WalletUserRole.CUSTOMER,
+      SUPER_ADMIN: WalletUserRole.SUPER_ADMIN,
+    };
+    const resolved = map[key];
+    if (!resolved) {
+      this.logger.warn(
+        `Webhook topup: rôle "${key || '(vide)'}" inconnu — repli sur MERCHANT`,
+      );
+      return WalletUserRole.MERCHANT;
+    }
+    return resolved;
   }
 }

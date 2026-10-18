@@ -98,7 +98,7 @@ export class PaymentsController {
   @Post('topup')
   @ApiOperation({ summary: 'Recharger son portefeuille via GeniusPay' })
   async topup(
-    @Request() req: Request & { user?: { userId?: string } },
+    @Request() req: Request & { user?: { userId?: string; role?: string } },
     @Body() dto: TopupDto,
   ) {
     const userId = req.user?.userId;
@@ -108,6 +108,19 @@ export class PaymentsController {
 
     try {
       const topupRef = `TOPUP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+
+      // 🏷️ Le webhook ne reçoit QUE le metadata : on y transporte le rôle du
+      // compte (lu dans le JWT, donc fiable) et l'agence éventuelle, pour que
+      // le crédit tombe sur le BON portefeuille. Sans le rôle, le crédit est
+      // appliqué par défaut au portefeuille marchand.
+      const metadata: Record<string, string> = {
+        type: 'topup',
+        userId,
+        reference: topupRef,
+      };
+      if (req.user?.role) metadata.walletRole = String(req.user.role);
+      if (dto.branchId) metadata.branchId = String(dto.branchId);
+
       const payment = await this.geniusPayService.createPayment({
         amount: dto.amount,
         description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
@@ -115,7 +128,7 @@ export class PaymentsController {
           name: dto.customerName || 'Client FasoFree',
           email: dto.customerEmail || 'client@fasofree.bf',
         },
-        metadata: { type: 'topup', userId, reference: topupRef },
+        metadata,
       });
       return {
         success: true,
@@ -165,10 +178,31 @@ export class PaymentsController {
     // Même traitement que /geniuspay/webhook
     const event = webhookEvent || payload.event || payload.type || 'unknown';
     const data = payload.data || payload;
-    const orderId = data.metadata?.order_id || payload.metadata?.order_id;
+    const metadata = data.metadata || payload.metadata || {};
+    const orderId = metadata.order_id;
     const geniusPayRef = data.reference || String(data.id || '');
 
     try {
+      // 💳 RECHARGE DE PORTEFEUILLE (top-up) : aucune commande associée.
+      // Sans ce branchement, une recharge encaissée via cette ANCIENNE URL ne
+      // serait jamais créditée.
+      if (metadata.type === 'topup') {
+        if (
+          event === 'payment.success' ||
+          payload.status === 'SUCCESS' ||
+          payload.status === 'success'
+        ) {
+          await this.paymentsService.creditTopupFromGateway(data, payload);
+        } else if (event === 'payment.refunded') {
+          await this.paymentsService.reverseTopupFromGateway(data, payload);
+        } else {
+          this.logger.warn(
+            `[DEPRECATED] Recharge ${metadata.reference}: événement ${event} sans effet`,
+          );
+        }
+        return { success: true };
+      }
+
       if (event === 'payment.success' || payload.status === 'SUCCESS' || payload.status === 'success') {
         if (orderId) {
           // ✅ Sécurité : montant obligatoire et valide

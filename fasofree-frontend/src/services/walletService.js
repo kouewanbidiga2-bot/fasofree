@@ -52,3 +52,16 @@ export const requestWithdrawal = async (data) => {
   const response = await api.post('/wallets/withdrawals', data);
   return response.data;
 };
+
+/**
+ * 💰 Créditer MANUELLEMENT un portefeuille (SUPER_ADMIN uniquement) — Lot 4.
+ *
+ * Débloque les comptes qui ne peuvent pas encore se recharger seuls.
+ * @param {Object} data - { userId, userRole, amount, branchId?, reason?, reference? }
+ *   `userRole` est le rôle du PORTEFEUILLE (MERCHANT pour un commerce/agence).
+ *   Une `reference` fournie rend le crédit idempotent (pas de double crédit).
+ */
+export const adminCreditWallet = async (data) => {
+  const response = await api.post('/wallets/admin/credit', data);
+  return response.data;
+};

@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { GeniusPayService } from './providers/geniuspay.service';
+import { PaymentsService } from './payments.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Roles } from '../../core/security/roles.decorator';
@@ -34,6 +35,7 @@ export class GeniusPayController {
 
   constructor(
     private readonly geniusPayService: GeniusPayService,
+    private readonly paymentsService: PaymentsService,
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
     @InjectRepository(Order)
@@ -265,7 +267,16 @@ export class GeniusPayController {
   }
 
   private async handlePaymentSuccess(payload: any) {
-    const data = payload.data;
+    const data = payload.data ?? payload;
+
+    // 💳 RECHARGE DE PORTEFEUILLE (top-up) : aucune commande associée, donc
+    // aucun `order_id`. On route AVANT l'exigence d'`order_id` — sinon le
+    // webhook levait une exception et l'argent encaissé n'était JAMAIS crédité.
+    if (data?.metadata?.type === 'topup') {
+      await this.paymentsService.creditTopupFromGateway(data, payload);
+      return;
+    }
+
     const orderId = data.metadata?.order_id;
 
     if (!orderId) {
@@ -372,9 +383,18 @@ export class GeniusPayController {
   }
 
   private async handlePaymentFailed(payload: any) {
-    const data = payload.data;
+    const data = payload.data ?? payload;
     const orderId = data.metadata?.order_id;
     const geniusPayRef = data.reference || String(data.id);
+
+    // 💳 Échec d'une RECHARGE : rien n'a été crédité (le crédit n'a lieu qu'au
+    // succès) — on trace pour le support, sans rien modifier.
+    if (!orderId && data?.metadata?.type === 'topup') {
+      this.logger.warn(
+        `Webhook topup ${data.metadata?.reference}: paiement échoué — aucun crédit effectué`,
+      );
+      return;
+    }
 
     if (orderId) {
       // Trouver la transaction par orderId OU par référence GeniusPay
@@ -409,9 +429,17 @@ export class GeniusPayController {
   }
 
   private async handlePaymentCancelled(payload: any) {
-    const data = payload.data;
+    const data = payload.data ?? payload;
     const orderId = data.metadata?.order_id;
     const geniusPayRef = data.reference || String(data.id);
+
+    // 💳 Annulation d'une RECHARGE : rien n'a été crédité — on trace.
+    if (!orderId && data?.metadata?.type === 'topup') {
+      this.logger.warn(
+        `Webhook topup ${data.metadata?.reference}: paiement annulé — aucun crédit effectué`,
+      );
+      return;
+    }
 
     if (orderId) {
       // Trouver la transaction par orderId OU par référence GeniusPay
@@ -446,18 +474,42 @@ export class GeniusPayController {
   }
 
   private async handlePaymentRefunded(payload: any) {
-    const data = payload.data;
+    const data = payload.data ?? payload;
+
+    // 💳 Remboursement d'une RECHARGE : on reprend le montant crédité.
+    if (data?.metadata?.type === 'topup') {
+      await this.paymentsService.reverseTopupFromGateway(data, payload);
+      return;
+    }
+
     const orderId = data.metadata?.order_id;
     const geniusPayRef = data.reference || String(data.id);
 
+    // 🔒 Sans `order_id`, la recherche « where » ci-dessous dégénérait en
+    // `{ status: SUCCESS }` (TypeORM ignore les propriétés `undefined`) : une
+    // transaction réussie QUELCONQUE pouvait être marquée REFUNDED et une
+    // commande arbitraire remboursée. On refuse désormais de deviner.
+    if (!orderId) {
+      this.logger.warn(
+        'Webhook GeniusPay: payment.refunded sans order_id — ignoré (aucune commande remboursée)',
+      );
+      return;
+    }
+
     // Trouver la transaction par orderId OU par référence GeniusPay
-    const transaction = await this.transactionRepository.findOne({
-      where: [
-        { orderId, status: TransactionStatus.SUCCESS },
-        { reference: geniusPayRef, status: TransactionStatus.SUCCESS },
-        { paymentGatewayId: geniusPayRef, status: TransactionStatus.SUCCESS },
-      ],
-    });
+    const where: any[] = [{ orderId, status: TransactionStatus.SUCCESS }];
+    if (geniusPayRef) {
+      where.push({
+        reference: geniusPayRef,
+        status: TransactionStatus.SUCCESS,
+      });
+      where.push({
+        paymentGatewayId: geniusPayRef,
+        status: TransactionStatus.SUCCESS,
+      });
+    }
+
+    const transaction = await this.transactionRepository.findOne({ where });
 
     if (transaction) {
       await this.transactionRepository.update(transaction.id, {

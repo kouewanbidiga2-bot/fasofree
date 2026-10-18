@@ -24,6 +24,7 @@ import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
 import MerchantDisputesTab from './components/MerchantDisputesTab';
 import SelfServicePushCampaigns from './components/SelfServicePushCampaigns';
+import WalletTopupButton from './components/WalletTopupButton';
 import { getBusinessAnalytics, getBrandAnalytics } from '../services/analyticsService';
 import { getMyOrders, getBusinessOrders, getBrandOrders, getAvailableDrivers, assignDriverToOrder, updateOrderStatus, getStatusInfo, getOrderSteps, getNextPossibleStatuses } from '../services/orderService';
 import {
@@ -1070,23 +1071,30 @@ const BusinessAdminDashboard = () => {
           })}
         </nav>
 
-        {wallet && (
-          <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <Wallet size={13} className="text-accent-primary" />
-              <span className="text-text-tertiary text-xs">Portefeuille</span>
-            </div>
-            <p className="text-text-primary text-sm font-bold">
-              {(selectedBranchId
-                ? (wallet.balance || 0)
-                : (brandWallets?.totalBalance ?? wallet?.balance ?? 0)
-              ).toLocaleString()} FCFA
-            </p>
-            <p className="text-text-tertiary text-[10px]">
-              {selectedBranchId ? 'Agence sélectionnée' : 'Total toutes agences'}
-            </p>
+        <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <Wallet size={13} className="text-accent-primary" />
+            <span className="text-text-tertiary text-xs">Portefeuille</span>
           </div>
-        )}
+          <p className="text-text-primary text-sm font-bold">
+            {(selectedBranchId
+              ? (wallet?.balance || 0)
+              : (brandWallets?.totalBalance ?? wallet?.balance ?? 0)
+            ).toLocaleString()} FCFA
+          </p>
+          <p className="text-text-tertiary text-[10px]">
+            {selectedBranchId ? 'Agence sélectionnée' : 'Total toutes agences'}
+          </p>
+          {/* 💳 Sans recharge possible, aucune campagne payante ne peut être
+              financée. Le rôle du portefeuille est déduit du JWT côté serveur. */}
+          <div className="mt-2">
+            <WalletTopupButton
+              label={selectedBranchId ? 'Recharger cette agence' : 'Recharger'}
+              className="w-full justify-center"
+              branchId={selectedBranchId || undefined}
+            />
+          </div>
+        </div>
 
         <div className="p-3 border-t border-border-light">
           <button onClick={handleLogout} className="nav-item w-full text-status-error hover:bg-status-errorBg">

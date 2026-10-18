@@ -14,12 +14,17 @@ import { FinancialLedger } from './entities/financial-ledger.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { OrdersModule } from '../orders/orders.module';
+import { WalletModule } from '../wallets/wallet.module';
 import { RedisModule } from '../../core/redis/redis.module';
 
 @Module({
   imports: [
     RedisModule,
     forwardRef(() => OrdersModule),
+    // 💳 Nécessaire au crédit des RECHARGES (top-up) depuis le webhook GeniusPay :
+    // une recharge ne crée pas de commande, c'est WalletService.creditWallet qui
+    // applique le crédit (idempotent par référence).
+    WalletModule,
     TypeOrmModule.forFeature([
       MerchantPayout,
       Transaction,

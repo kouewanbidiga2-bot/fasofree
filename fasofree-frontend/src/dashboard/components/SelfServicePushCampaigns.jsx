@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, Send, Repeat, Clock, Ban, Wallet } from 'lucide-react';
 import { selfServicePushCampaignService } from '../../services/selfServicePushCampaignService';
 import { LoadingSkeleton, EmptyState } from './StatCard';
+import WalletTopupButton from './WalletTopupButton';
 
 /**
  * 💳 Campagnes push AUTO-SERVICE (marchand / agence) — Lots 3 et 3.1.
@@ -245,17 +246,24 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
         </button>
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg bg-accent-primary/5 border border-accent-primary/20 p-3 text-sm text-text-secondary">
-        <Wallet size={16} className="mt-0.5 shrink-0 text-accent-primary" />
-        <span>
-          <strong className="text-text-primary">
-            {priceLabel} par campagne envoyée
-          </strong>{' '}
-          pour l'audience choisie — débité de votre portefeuille, jamais par
-          destinataire. Une campagne récurrente est facturée à chaque diffusion.
-          {form.audience === 'ALL_CLIENTS' &&
-            " L'audience « tous les clients » est facturée au tarif premium : réservez-la aux annonces importantes."}
-        </span>
+      <div className="rounded-lg bg-accent-primary/5 border border-accent-primary/20 p-3 text-sm text-text-secondary">
+        <div className="flex items-start gap-2">
+          <Wallet size={16} className="mt-0.5 shrink-0 text-accent-primary" />
+          <span>
+            <strong className="text-text-primary">
+              {priceLabel} par campagne envoyée
+            </strong>{' '}
+            pour l'audience choisie — débité de votre portefeuille, jamais par
+            destinataire. Une campagne récurrente est facturée à chaque
+            diffusion.
+            {form.audience === 'ALL_CLIENTS' &&
+              " L'audience « tous les clients » est facturée au tarif premium : réservez-la aux annonces importantes."}
+          </span>
+        </div>
+        {/* 💳 Recharge directe : sans solde, aucune campagne ne peut partir. */}
+        <div className="mt-2 pl-6">
+          <WalletTopupButton label="Recharger mon portefeuille" />
+        </div>
       </div>
 
       {error && (

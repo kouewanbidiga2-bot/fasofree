@@ -23,6 +23,7 @@ import { PayoutsService } from './payouts.service';
 import { PayoutStatus } from '../financial/entities/payout-request.entity';
 import { UserRole } from './entities/wallet.entity';
 import { RequestWithdrawalDto, ApprovePayoutDto } from './dto/request-withdrawal.dto';
+import { AdminCreditWalletDto } from './dto/admin-credit-wallet.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole as AppUserRole } from '../users/entities/user-role.enum';
 import { BusinessesService } from '../businesses/businesses.service';
@@ -86,6 +87,42 @@ export class WalletController {
       body.reason || 'Retrait rejeté par le SuperAdmin',
       PayoutStatus.REJECTED,
     );
+  }
+
+  /**
+   * 💰 Crédit MANUEL d'un portefeuille (Super Admin uniquement).
+   * POST /wallets/admin/credit
+   *
+   * Débloque les comptes qui ne peuvent pas encore se recharger seuls
+   * (recharge GeniusPay en échec, encaissement hors plateforme) sans passer
+   * par un script SQL. Une `reference` fournie rend le crédit idempotent.
+   */
+  @Post('admin/credit')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
+  @Roles(AppUserRole.SUPER_ADMIN)
+  @ApiOperation({
+    summary: 'Créditer manuellement un portefeuille (Super Admin)',
+  })
+  async adminCredit(
+    @Request()
+    req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
+    @Body() dto: AdminCreditWalletDto,
+  ) {
+    const actorId = req.user?.userId;
+    if (!actorId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    return this.walletService.adminCreditWallet({
+      userId: dto.userId,
+      userRole: dto.userRole,
+      amount: dto.amount,
+      branchId: dto.branchId,
+      reason: dto.reason,
+      reference: dto.reference,
+      actorId,
+    });
   }
 
   @Post('fee-preview')
