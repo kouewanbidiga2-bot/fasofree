@@ -3,7 +3,10 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  NotFoundException,
+  Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -36,6 +39,15 @@ export class PushCampaignController {
       dto.target,
       user?.fullName || user?.email || 'admin',
       dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+      // 🔁 Lot 2 : la récurrence est optionnelle ; son absence conserve
+      // strictement le comportement d'avant (envoi unique).
+      {
+        recurrence: dto.recurrence ?? null,
+        timeOfDay: dto.timeOfDay ?? null,
+        daysOfWeek: dto.daysOfWeek ?? null,
+        timeZone: dto.timeZone ?? null,
+        endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
+      },
     );
   }
 
@@ -47,5 +59,19 @@ export class PushCampaignController {
   ) {
     // Garde-fou : un `?limit` abusif ne doit pas vider la table en RAM.
     return this.service.findAll(Math.min(Math.max(limit, 1), 200));
+  }
+
+  @Patch(':id/stop')
+  @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ApiOperation({
+    summary:
+      'Arrêter une campagne récurrente (SUPER_ADMIN / ADMIN) — passe à COMPLETED',
+  })
+  async stop(@Param('id') id: string) {
+    const campaign = await this.service.stopRecurrence(id);
+    if (!campaign) {
+      throw new NotFoundException('Campagne introuvable.');
+    }
+    return campaign;
   }
 }

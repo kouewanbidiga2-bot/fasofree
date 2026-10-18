@@ -1,16 +1,40 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import {
+  FindOptionsOrder,
+  FindOptionsWhere,
+  LessThanOrEqual,
+  Repository,
+} from 'typeorm';
 import {
   PushCampaign,
+  PushCampaignRecurrence,
   PushCampaignStatus,
   PushCampaignTarget,
+  DEFAULT_CAMPAIGN_TIMEZONE,
 } from './entities/push-campaign.entity';
+import {
+  computeNextRunAt,
+  RecurrenceSpec,
+} from './push-campaign-recurrence';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+
+/**
+ * 🔁 Options de récurrence passées à `createCampaign`.
+ * Objet (et non paramètres positionnels) pour ne pas casser les appels
+ * existants `createCampaign(title, body, target, sentBy, scheduledAt)`.
+ */
+export interface CreatePushCampaignOptions {
+  recurrence?: PushCampaignRecurrence | null;
+  timeOfDay?: string | null;
+  daysOfWeek?: number[] | null;
+  timeZone?: string | null;
+  endsAt?: Date | null;
+}
 
 @Injectable()
 export class PushCampaignService {
@@ -18,6 +42,8 @@ export class PushCampaignService {
   private readonly BATCH_SIZE = 200;
   /** Garde-fou mémoire : jamais plus de 50 000 destinataires par campagne. */
   private readonly MAX_RECIPIENTS = 50_000;
+  /** Nombre de campagnes échues traitées par tick de cron (borne la charge). */
+  private readonly MAX_DUE_PER_TICK = 20;
 
   constructor(
     @InjectRepository(PushCampaign)
@@ -54,7 +80,78 @@ export class PushCampaignService {
     target: PushCampaignTarget,
     sentBy?: string | null,
     scheduledAt?: Date | null,
+    options?: CreatePushCampaignOptions,
   ): Promise<PushCampaign> {
+    const recurrence = options?.recurrence ?? PushCampaignRecurrence.NONE;
+    const timeZone = (options?.timeZone || '').trim() || DEFAULT_CAMPAIGN_TIMEZONE;
+    const timeOfDay = options?.timeOfDay?.trim() || null;
+    const rawDays = options?.daysOfWeek;
+    const daysOfWeek =
+      Array.isArray(rawDays) && rawDays.length > 0
+        ? rawDays.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+        : null;
+    const endsAt =
+      options?.endsAt instanceof Date && !Number.isNaN(options.endsAt.getTime())
+        ? options.endsAt
+        : null;
+
+    // ─── 🔁 Campagne RÉCURRENTE ────────────────────────────────────
+    // La 1ʳᵉ exécution est PLANIFIÉE (jamais immédiate) : chaque exécution
+    // passe ainsi par le même chemin (facturation par run, Lot 3) et l'admin
+    // sait exactement quand part la première diffusion.
+    if (recurrence !== PushCampaignRecurrence.NONE) {
+      const validScheduled =
+        scheduledAt instanceof Date && !Number.isNaN(scheduledAt.getTime())
+          ? scheduledAt
+          : null;
+      const anchor = validScheduled ?? new Date();
+      const spec: RecurrenceSpec = {
+        recurrence,
+        anchor,
+        timeOfDay,
+        daysOfWeek,
+        timeZone,
+        endsAt,
+      };
+      const firstRunAt = computeNextRunAt(spec, new Date());
+
+      const campaign = await this.campaignRepo.save(
+        this.campaignRepo.create({
+          title,
+          body,
+          target,
+          sentBy: sentBy || null,
+          status: firstRunAt
+            ? PushCampaignStatus.ACTIVE
+            : PushCampaignStatus.COMPLETED,
+          // `scheduledAt` garde la 1ʳᵉ échéance (affichage), `nextRunAt` pilote
+          // le cron — les deux coïncident au départ.
+          scheduledAt: firstRunAt,
+          recurrence,
+          timeOfDay,
+          daysOfWeek,
+          timeZone,
+          nextRunAt: firstRunAt,
+          lastRunAt: null,
+          endsAt,
+          runCount: 0,
+          recipientCount: 0,
+          targetedCount: 0,
+        }),
+      );
+
+      if (!firstRunAt) {
+        this.logger.warn(
+          `[PushCampaign] ${campaign.id} récurrente (${recurrence}) sans prochaine occurrence — endsAt déjà dépassé ? → COMPLETED`,
+        );
+      } else {
+        this.logger.log(
+          `[PushCampaign] ${campaign.id} récurrente (${recurrence}${timeOfDay ? ` à ${timeOfDay}` : ''} ${timeZone}) — 1ʳᵉ diffusion le ${firstRunAt.toISOString()}`,
+        );
+      }
+      return campaign;
+    }
+
     // ⏱️ Programmation : une date dans le futur diffuse plus maintenant.
     const isScheduled =
       scheduledAt instanceof Date &&
@@ -94,47 +191,133 @@ export class PushCampaignService {
   }
 
   /**
-   * ⏱️ Cron : diffuse les campagnes programmées dont l'heure est atteinte.
-   * `timeZone: 'UTC'` aligne l'évaluation sur le stockage `timestamptz`.
+   * ⏱️ Cron : diffuse les campagnes échues.
+   *
+   * Deux populations :
+   *  1. `SCHEDULED` (envoi unique) dont `scheduledAt` est atteint → SENT ;
+   *  2. `ACTIVE` (récurrente) dont `nextRunAt` est atteint → on rediffuse puis
+   *     on recalcule `nextRunAt` (→ COMPLETED si `endsAt` est dépassé).
+   *
+   * Chaque requête est bornée à MAX_DUE_PER_TICK pour ne jamais saturer un tick,
+   * et l'ordre croissant traite d'abord les échéances les plus anciennes
+   * (aucune famine si plus de campagnes sont échues qu'on n'en traite par tick).
    */
   @Cron(CronExpression.EVERY_MINUTE, { name: 'push-campaign-scheduler' })
   async sendDueCampaigns(): Promise<void> {
-    let due: PushCampaign[] = [];
-    try {
-      due = await this.campaignRepo.find({
-        where: {
-          status: PushCampaignStatus.SCHEDULED,
-          scheduledAt: LessThanOrEqual(new Date()),
-        },
-        take: 20,
-        order: { scheduledAt: 'ASC' },
-      });
-    } catch (err) {
-      this.logger.error(
-        `[PushCampaign] Cron — lecture des campagnes programmées impossible: ${(err as Error).message}`,
-      );
-      return;
-    }
+    const now = new Date();
 
-    for (const campaign of due) {
+    const [oneShot, recurring] = await Promise.all([
+      this.findDue(
+        {
+          status: PushCampaignStatus.SCHEDULED,
+          scheduledAt: LessThanOrEqual(now),
+        },
+        { scheduledAt: 'ASC' },
+        'programmées',
+      ),
+      this.findDue(
+        { status: PushCampaignStatus.ACTIVE, nextRunAt: LessThanOrEqual(now) },
+        { nextRunAt: 'ASC' },
+        'récurrentes',
+      ),
+    ]);
+
+    // Une campagne ne peut pas être dans les deux états, mais la déduplication
+    // garantit qu'un même id n'est jamais diffusé deux fois dans un tick.
+    const seen = new Set<string>();
+    for (const campaign of [...oneShot, ...recurring]) {
+      if (seen.has(campaign.id)) continue;
+      seen.add(campaign.id);
       try {
-        this.logger.log(
-          `[PushCampaign] Diffusion programmée ${campaign.id} — « ${campaign.title} »`,
-        );
-        await this.sendCampaign(
-          campaign.id,
-          campaign.title,
-          campaign.body,
-          campaign.target,
-        );
-        await this.campaignRepo.update(campaign.id, {
-          status: PushCampaignStatus.SENT,
-        });
+        await this.processDueCampaign(campaign, now);
       } catch (err) {
         this.logger.error(
           `[PushCampaign] Cron — échec diffusion ${campaign.id}: ${(err as Error).message}`,
         );
       }
+    }
+  }
+
+  /** Campagnes d'un statut dont la date d'échéance est atteinte. */
+  private async findDue(
+    where: FindOptionsWhere<PushCampaign>,
+    order: FindOptionsOrder<PushCampaign>,
+    label: string,
+  ): Promise<PushCampaign[]> {
+    try {
+      return await this.campaignRepo.find({
+        where,
+        take: this.MAX_DUE_PER_TICK,
+        order,
+      });
+    } catch (err) {
+      this.logger.error(
+        `[PushCampaign] Cron — lecture des campagnes ${label} impossible: ${(err as Error).message}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Diffuse une campagne échue puis met à jour son état :
+   *  - unique (NONE) → SENT (comportement historique, `scheduledAt` conservé) ;
+   *  - récurrente    → runCount++, lastRunAt, `nextRunAt` recalculé
+   *                    (COMPLETED dès qu'il n'y a plus d'occurrence).
+   */
+  private async processDueCampaign(
+    campaign: PushCampaign,
+    now: Date,
+  ): Promise<void> {
+    this.logger.log(
+      `[PushCampaign] Diffusion ${campaign.id} — « ${campaign.title} » (${campaign.status})`,
+    );
+
+    await this.sendCampaign(
+      campaign.id,
+      campaign.title,
+      campaign.body,
+      campaign.target,
+    );
+
+    const recurrence = campaign.recurrence ?? PushCampaignRecurrence.NONE;
+    if (recurrence === PushCampaignRecurrence.NONE) {
+      await this.campaignRepo.update(campaign.id, {
+        status: PushCampaignStatus.SENT,
+      });
+      return;
+    }
+
+    // Ancre : `scheduledAt` (1ʳᵉ échéance) reste la référence du quantième
+    // mensuel et de l'heure par défaut ; `nextRunAt` sert de repli.
+    const nextRunAt = computeNextRunAt(
+      {
+        recurrence,
+        anchor: campaign.scheduledAt ?? campaign.nextRunAt ?? now,
+        timeOfDay: campaign.timeOfDay,
+        daysOfWeek: campaign.daysOfWeek,
+        timeZone: campaign.timeZone,
+        endsAt: campaign.endsAt,
+      },
+      now,
+    );
+
+    await this.campaignRepo.update(campaign.id, {
+      status: nextRunAt
+        ? PushCampaignStatus.ACTIVE
+        : PushCampaignStatus.COMPLETED,
+      nextRunAt,
+      lastRunAt: now,
+      runCount: (campaign.runCount ?? 0) + 1,
+    });
+
+    if (!nextRunAt) {
+      this.logger.log(
+        `[PushCampaign] ${campaign.id} — récurrence terminée → COMPLETED`,
+      );
+    } else {
+      this.logger.log(
+        `[PushCampaign] ${campaign.id} — prochaine diffusion le ${nextRunAt.toISOString()}`,
+      );
     }
   }
 
@@ -239,5 +422,27 @@ export class PushCampaignService {
 
   async findOne(id: string): Promise<PushCampaign | null> {
     return this.campaignRepo.findOne({ where: { id } });
+  }
+
+  /**
+   * 🛑 Arrête une campagne récurrente (ou programme mais pas encore envoyée).
+   *
+   * Sans cette méthode, une récurrence DAILY serait IMPOSSIBLE à arrêter depuis
+   * l'interface : le cron la rediffuserait indéfiniment. On la passe donc à
+   * COMPLETED et on neutralise `nextRunAt` pour qu'elle ne soit plus sélectionnée.
+   *
+   * Une campagne déjà SENT est terminale : on la renvoie telle quelle.
+   */
+  async stopRecurrence(id: string): Promise<PushCampaign | null> {
+    const campaign = await this.findOne(id);
+    if (!campaign) return null;
+    if (campaign.status === PushCampaignStatus.SENT) return campaign;
+
+    await this.campaignRepo.update(id, {
+      status: PushCampaignStatus.COMPLETED,
+      nextRunAt: null,
+    });
+    this.logger.log(`[PushCampaign] ${id} arrêtée manuellement → COMPLETED`);
+    return this.findOne(id);
   }
 }
