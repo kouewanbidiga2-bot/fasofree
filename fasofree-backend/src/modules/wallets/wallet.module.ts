@@ -25,6 +25,6 @@ import { BusinessesModule } from '../businesses/businesses.module';
   ],
   controllers: [WalletController, WalletWebhookController],
   providers: [WalletService, PayoutsService, GeniusPayPayoutProvider, PaydunyaPayoutProvider],
-  exports: [WalletService, PayoutsService, TypeOrmModule],
+  exports: [WalletService, PayoutsService, GeniusPayPayoutProvider, PaydunyaPayoutProvider, TypeOrmModule],
 })
 export class WalletModule {}
