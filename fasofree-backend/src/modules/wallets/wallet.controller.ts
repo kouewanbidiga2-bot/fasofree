@@ -408,4 +408,65 @@ export class WalletWebhookController {
 
     return { received: true };
   }
+
+  // ============================================================================
+  // Webhook PayDunya Disburse (Payout PER) — SANS garde JWT
+  // URL exacte configurée dans la console PayDunya :
+  // https://fasofree-3nh8.onrender.com/api/v1/paydunya/disburse-webhook
+  // ============================================================================
+  @Post('paydunya/disburse-webhook')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Webhook PayDunya Disburse (Payout PER)' })
+  async handlePaydunyaDisburseWebhook(@Body() body: any) {
+    this.logger.log(`🔔 PayDunya Disburse webhook: ${JSON.stringify(body).slice(0, 300)}`);
+
+    // PayDunya disburse envoie : { response_code, response_text, transaction_id, provider_ref, disburse_id, hash }
+    const responseCode = body?.response_code;
+    const disburseId = body?.disburse_id; // notre payoutReference
+    const transactionId = body?.transaction_id;
+    const providerRef = body?.provider_ref;
+    const failureReason = body?.response_text;
+    const receivedHash = body?.hash;
+
+    // 🔒 SÉCURITÉ CRITIQUE : Vérification SHA-512 du hash
+    const masterKey = this.configService.get<string>('PAYDUNYA_MASTER_KEY', '');
+    if (receivedHash && masterKey) {
+      const crypto = await import('crypto');
+      const expectedHash = crypto.createHash('sha512').update(masterKey).digest('hex');
+      if (receivedHash.toLowerCase() !== expectedHash.toLowerCase()) {
+        this.logger.warn('❌ PayDunya Disburse webhook: hash SHA-512 invalide — rejeté');
+        return { received: false };
+      }
+    }
+
+    if (!disburseId) {
+      this.logger.warn('PayDunya Disburse webhook: disburse_id manquant');
+      return { received: true }; // On répond 200 pour éviter les retries
+    }
+
+    try {
+      // Trouver le PayoutRequest par transactionReference (notre payoutReference)
+      const payoutRequest = await this.payoutsService.findPayoutByIdentifier(disburseId);
+      if (!payoutRequest) {
+        this.logger.warn(`PayDunya Disburse: PayoutRequest introuvable pour disburse_id ${disburseId}`);
+        return { received: true };
+      }
+
+      if (responseCode === '00') {
+        // SUCCÈS : confirmer le payout
+        this.logger.log(`✅ PayDunya Disburse SUCCESS — ${payoutRequest.id} | providerRef: ${providerRef} | txId: ${transactionId}`);
+        await this.payoutsService.confirmPayout(payoutRequest.id, providerRef);
+      } else {
+        // ÉCHEC : marquer comme échoué et libérer les fonds
+        const reason = failureReason ?? `PayDunya response_code: ${responseCode}`;
+        this.logger.warn(`❌ PayDunya Disburse FAILED — ${payoutRequest.id}: ${reason}`);
+        await this.payoutsService.failPayout(payoutRequest.id, reason);
+      }
+    } catch (err) {
+      this.logger.error(`PayDunya Disburse webhook error: ${err.message}`);
+      // On répond 200 pour ne pas déclencher de retries infinis
+    }
+
+    return { received: true };
+  }
 }

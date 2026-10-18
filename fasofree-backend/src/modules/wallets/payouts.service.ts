@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
+import { PaydunyaPayoutProvider } from './providers/paydunya-payout.provider';
 import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
@@ -19,6 +20,7 @@ export class PayoutsService {
 
   constructor(
     private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
+    private readonly paydunyaPayoutProvider: PaydunyaPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
     @InjectRepository(PayoutRequest)
@@ -74,11 +76,13 @@ export class PayoutsService {
     feePercentage: number;
     freeThreshold: number;
     isExempt: boolean;
+    minWithdrawalAmountXof: number;
   }> {
     const settings = await this.settingsService.get();
     const isActive = settings.isPayoutFeeActive;
     const percentage = Number(settings.payoutFeePercentage) || 0;
     const threshold = settings.payoutFreeThreshold || 0;
+    const minWithdrawal = settings.minWithdrawalAmountXof ?? 1000;
 
     if (!isActive || percentage <= 0 || amountFcfa <= threshold) {
       return {
@@ -87,6 +91,7 @@ export class PayoutsService {
         feePercentage: percentage,
         freeThreshold: threshold,
         isExempt: true,
+        minWithdrawalAmountXof: minWithdrawal,
       };
     }
 
@@ -97,6 +102,7 @@ export class PayoutsService {
       feePercentage: percentage,
       freeThreshold: threshold,
       isExempt: false,
+      minWithdrawalAmountXof: minWithdrawal,
     };
   }
 
@@ -132,6 +138,14 @@ export class PayoutsService {
     dto: RequestWithdrawalDto,
     branchId?: string,
   ) {
+    const settings = await this.settingsService.get();
+    const minWithdrawal = settings.minWithdrawalAmountXof ?? 1000;
+    if (dto.amountFcfa < minWithdrawal) {
+      throw new BadRequestException(
+        `Le montant minimum de retrait est de ${minWithdrawal.toLocaleString('fr-FR')} FCFA.`,
+      );
+    }
+
     const payoutReference = `PAYOUT_${Date.now()}_${uuidv4().substring(0, 6)}`;
     const feeInfo = await this.calculatePayoutFee(dto.amountFcfa);
 
@@ -198,14 +212,27 @@ export class PayoutsService {
       };
     }
 
-    // 4. Appeler GeniusPay API
+    // 4. Appeler le provider de payout actif (GeniusPay OU PayDunya)
     try {
-      const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
-        payoutReference,
-        feeInfo.netAmount,
-        dto.phoneNumber,
-        dto.provider,
-      );
+      const provider = this.getActivePayoutProvider();
+      let transferResult;
+
+      if (provider === 'paydunya') {
+        transferResult = await this.paydunyaPayoutProvider.executePayout(
+          payoutReference,
+          feeInfo.netAmount,
+          dto.phoneNumber,
+          dto.provider,
+          payoutReference, // withdrawId = notre référence interne
+        );
+      } else {
+        transferResult = await this.geniusPayPayoutProvider.sendTransfer(
+          payoutReference,
+          feeInfo.netAmount,
+          dto.phoneNumber,
+          dto.provider,
+        );
+      }
 
       if (transferResult.success) {
         await this.payoutRequestRepository.update(payoutRequest.id, {
@@ -255,6 +282,23 @@ export class PayoutsService {
       }
       throw error;
     }
+  }
+
+  // ─── DÉTERMINER LE PROVIDER DE PAYOUT ACTIF ───────────────────────────────────
+  /**
+   * Détermine le provider de payout actif.
+   * Priorité : 1. PAYMENT_PROVIDER explicite, 2. PayDunya si 4 clés présentes, 3. GeniusPay.
+   */
+  private getActivePayoutProvider(): 'geniuspay' | 'paydunya' {
+    const explicit = this.configService.get<string>('PAYMENT_PROVIDER');
+    if (explicit === 'geniuspay' || explicit === 'paydunya') {
+      return explicit;
+    }
+    // Auto : PayDunya par défaut si configuré (4 clés Render présentes)
+    if (this.paydunyaPayoutProvider.isConfigured()) {
+      return 'paydunya';
+    }
+    return 'geniuspay';
   }
 
   // ─── HANDLE FAILURE ──────────────────────────────────────────────────────
