@@ -26,10 +26,18 @@ import { ReceiptsModule } from '../receipts/receipts.module';
 import { WalletModule } from '../wallets/wallet.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { FraudModule } from '../fraud/fraud.module';
+import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, Product, Transaction]),
+    TypeOrmModule.forFeature([
+      Order,
+      OrderItem,
+      Product,
+      Transaction,
+      // 🏢 Lot 1 : badge d'identité des sociétés de livraison sur les commandes.
+      DeliveryAgency,
+    ]),
     forwardRef(() => DispatchModule),
     forwardRef(() => AnalyticsModule),
     forwardRef(() => PaymentsModule),

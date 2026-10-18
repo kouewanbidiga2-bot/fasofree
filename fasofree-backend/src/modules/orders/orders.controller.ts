@@ -232,7 +232,9 @@ export class OrdersController {
       );
     }
 
-    return this.ordersService.findOneForUser(id, userId, role);
+    // 🏢 Lot 1 : le détail inclut le badge de la société de livraison
+    // (nom, logo, vérification) pour le client comme pour le marchand.
+    return this.ordersService.findOneForUserWithAgency(id, userId, role);
   }
 
   // 🗺️ Suivi live GPS + estimateur de temps

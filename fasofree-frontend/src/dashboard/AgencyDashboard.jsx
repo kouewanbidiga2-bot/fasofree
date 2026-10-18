@@ -9,6 +9,7 @@ import {
   UserPlus,
   Building2,
   Megaphone,
+  BadgeCheck,
   X,
 } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
@@ -262,12 +263,29 @@ const AgencyDashboard = () => {
       <header className="bg-card border-b border-border-light sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-accent-primary/10 flex items-center justify-center">
-              <Building2 className="text-accent-primary" size={22} />
-            </div>
+            {/* 🏢 Lot 1 : logo de la société — c'est l'identité que le client
+                verra sur le suivi de sa commande. */}
+            {agency.logoUrl ? (
+              <img
+                src={agency.logoUrl}
+                alt={agency.name}
+                className="w-10 h-10 rounded-xl object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-accent-primary/10 flex items-center justify-center">
+                <Building2 className="text-accent-primary" size={22} />
+              </div>
+            )}
             <div>
-              <h1 className="text-lg font-bold text-text-primary">
-                {agency.name}
+              <h1 className="flex items-center gap-1 text-lg font-bold text-text-primary">
+                <span className="truncate">{agency.name}</span>
+                {agency.isVerified === true && (
+                  <BadgeCheck
+                    size={16}
+                    className="text-status-success shrink-0"
+                    aria-label="Société vérifiée"
+                  />
+                )}
               </h1>
               <p className="text-xs text-text-tertiary">
                 Espace Agence — FasoFree Livraison

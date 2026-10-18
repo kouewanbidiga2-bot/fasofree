@@ -20,6 +20,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import api from '../services/api';
+import { getAbsoluteImageUrl } from '../utils/images';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import useAuthStore from '../store/authStore';
 import Footer from '../components/Footer';
@@ -409,7 +410,54 @@ const OrderTracking = () => {
                 </span>
               </div>
 
-              {tracking?.deliveryProvider && (
+              {tracking?.agency ? (
+                // 🏢 Lot 1 : la société de livraison est NOMMÉE (nom + logo),
+                // au lieu du générique « une agence partenaire ». Le client
+                // sait ainsi qui a réellement livré.
+                <div className="mb-4 flex items-center gap-3 p-3 rounded-xl bg-background-secondary border border-border-light">
+                  {tracking.agency.logoUrl ? (
+                    <img
+                      src={getAbsoluteImageUrl(tracking.agency.logoUrl)}
+                      alt={tracking.agency.name}
+                      className="w-12 h-12 rounded-lg object-cover shrink-0"
+                    />
+                  ) : (
+                    <div
+                      className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
+                      style={{
+                        backgroundColor: tracking.agency.brandColor || '#C1652E',
+                      }}
+                    >
+                      {String(tracking.agency.name || '?').charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-text-secondary">
+                      Livraison assurée par
+                    </p>
+                    <p className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                      <span className="truncate">{tracking.agency.name}</span>
+                      {tracking.agency.isVerified && (
+                        <Check
+                          size={14}
+                          className="shrink-0 text-status-success"
+                          aria-label="Société vérifiée"
+                        />
+                      )}
+                    </p>
+                    {tracking.agency.phone && (
+                      <p className="text-xs text-text-secondary">
+                        {tracking.agency.phone}
+                      </p>
+                    )}
+                    {tracking.deliveryProviderStatus === 'ESCALATED' && (
+                      <p className="text-xs font-semibold text-status-error">
+                        escalade en cours
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ) : tracking?.deliveryProvider ? (
                 <p className="mb-4 text-xs text-text-secondary">
                   🚚 Livraison confiée à{' '}
                   <span className="font-semibold text-text-primary">
@@ -421,7 +469,7 @@ const OrderTracking = () => {
                     </span>
                   )}
                 </p>
-              )}
+              ) : null}
 
               <div className="relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-background-secondary">

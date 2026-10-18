@@ -17,7 +17,8 @@ import {
   TrendingUp, Users, Wallet, Plus, Pencil, Trash2, ToggleLeft,
   ToggleRight, RefreshCw, AlertCircle, ChevronDown, X, Check,
   ArrowUpRight, Clock, Star, Scan, AlertTriangle, Search, MessageSquare,
-  BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink, Calendar
+  BarChart3, XCircle, Camera, Eye, Shield, Share2, Copy, QrCode, ExternalLink, Calendar,
+  BadgeCheck
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
@@ -1399,19 +1400,63 @@ const BusinessAdminDashboard = () => {
 
                         {order.deliveryProvider && (
                           <div className="mb-4 p-3 bg-background-secondary rounded-lg">
-                            <p className="text-xs text-text-secondary">Livraison confiée à</p>
-                            <p className="text-sm font-semibold text-text-primary">
-                              {order.deliveryProvider === 'agency'
-                                ? 'Agence partenaire'
-                                : order.deliveryProvider === 'manual'
-                                  ? 'File manuelle'
-                                  : order.deliveryProvider === 'internal'
-                                    ? 'Livreur FasoFree'
-                                    : order.deliveryProvider}
-                              {order.deliveryProviderStatus === 'ESCALATED' && (
-                                <span className="ml-2 text-status-error">· escaladée</span>
-                              )}
+                            <p className="text-xs text-text-secondary">
+                              Livraison confiée à
                             </p>
+                            {/* 🏢 Lot 1 : quand une société de livraison a pris
+                                la course, on affiche SON nom (et son logo), pas
+                                le générique « Agence partenaire ». Le marchand
+                                sait ainsi à qui attribuer la livraison. */}
+                            {order.agency ? (
+                              <div className="mt-1 flex items-center gap-2">
+                                {order.agency.logoUrl ? (
+                                  <img
+                                    src={order.agency.logoUrl}
+                                    alt={order.agency.name}
+                                    className="w-7 h-7 rounded-lg object-cover shrink-0"
+                                  />
+                                ) : (
+                                  <div
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                                    style={{
+                                      backgroundColor:
+                                        order.agency.brandColor || '#C1652E',
+                                    }}
+                                  >
+                                    {String(order.agency.name || '?')
+                                      .charAt(0)
+                                      .toUpperCase()}
+                                  </div>
+                                )}
+                                <p className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                                  <span className="truncate">
+                                    {order.agency.name}
+                                  </span>
+                                  {order.agency.isVerified && (
+                                    <BadgeCheck
+                                      size={13}
+                                      className="text-status-success shrink-0"
+                                      aria-label="Société vérifiée"
+                                    />
+                                  )}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-sm font-semibold text-text-primary">
+                                {order.deliveryProvider === 'agency'
+                                  ? 'Agence partenaire'
+                                  : order.deliveryProvider === 'manual'
+                                    ? 'File manuelle'
+                                    : order.deliveryProvider === 'internal'
+                                      ? 'Livreur FasoFree'
+                                      : order.deliveryProvider}
+                              </p>
+                            )}
+                            {order.deliveryProviderStatus === 'ESCALATED' && (
+                              <span className="text-xs text-status-error">
+                                · escaladée
+                              </span>
+                            )}
                           </div>
                         )}
 

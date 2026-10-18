@@ -39,6 +39,17 @@ export class AgenciesService {
 
   // ─── SUPER_ADMIN : gestion des agences ─────────────────────────
 
+  /**
+   * 🧹 Normalise un champ texte optionnel : `undefined` (non fourni) reste
+   * `undefined` pour ne pas écraser une valeur en mise à jour partielle, mais
+   * une chaîne vide devient `null` (champ effacé).
+   */
+  private cleanText(value?: string | null): string | null {
+    if (value === undefined || value === null) return null;
+    const trimmed = String(value).trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
   async listAll(): Promise<DeliveryAgency[]> {
     return this.agencyRepository.find({ order: { createdAt: 'DESC' } });
   }
@@ -48,6 +59,13 @@ export class AgenciesService {
       name: dto.name,
       phone: dto.phone ?? null,
       email: dto.email ?? null,
+      // 🎨 Identité visuelle : une chaîne vide vaut « non renseigné » (null),
+      // sinon un logo effacé réapparaîtrait sous forme d'URL vide.
+      logoUrl: this.cleanText(dto.logoUrl),
+      description: this.cleanText(dto.description),
+      brandColor: this.cleanText(dto.brandColor),
+      website: this.cleanText(dto.website),
+      isVerified: dto.isVerified ?? false,
       zones: dto.zones ?? null,
       commissionPct: dto.commissionPct ?? 10,
       maxConcurrentDeliveries: dto.maxConcurrentDeliveries ?? 0,
@@ -70,6 +88,14 @@ export class AgenciesService {
     if (dto.name !== undefined) agency.name = dto.name;
     if (dto.phone !== undefined) agency.phone = dto.phone;
     if (dto.email !== undefined) agency.email = dto.email;
+    // 🎨 Identité visuelle : `null` explicite (via chaîne vide) efface le champ.
+    if (dto.logoUrl !== undefined) agency.logoUrl = this.cleanText(dto.logoUrl);
+    if (dto.description !== undefined)
+      agency.description = this.cleanText(dto.description);
+    if (dto.brandColor !== undefined)
+      agency.brandColor = this.cleanText(dto.brandColor);
+    if (dto.website !== undefined) agency.website = this.cleanText(dto.website);
+    if (dto.isVerified !== undefined) agency.isVerified = dto.isVerified;
     if (dto.zones !== undefined) agency.zones = dto.zones;
     if (dto.commissionPct !== undefined)
       agency.commissionPct = dto.commissionPct;

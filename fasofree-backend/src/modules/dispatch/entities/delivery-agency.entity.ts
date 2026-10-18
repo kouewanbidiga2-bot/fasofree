@@ -35,6 +35,31 @@ export class DeliveryAgency {
   @Column({ type: 'varchar', length: 150, nullable: true })
   email: string | null;
 
+  // ─── 🎨 Identité visuelle (Lot 1) ──────────────────────────────
+  // Ces champs servent à faire RECONNAÎTRE la société par le client et le
+  // marchand : sans eux, une course livrée par une société tierce apparaissait
+  // comme « une agence partenaire » anonyme, et FasoFree en récoltait le mérite.
+
+  /** Logo de la société (URL). Affiché au client et au marchand. */
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  logoUrl: string | null;
+
+  /** Présentation libre de la société (services, zone, engagement…). */
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
+
+  /** Couleur de marque au format #RRGGBB (habillage des écrans d'attribution). */
+  @Column({ type: 'varchar', length: 9, nullable: true })
+  brandColor: string | null;
+
+  /** Site web / vitrine de la société. */
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  website: string | null;
+
+  /** Société vérifiée par FasoFree — badge de confiance côté client. */
+  @Column({ type: 'boolean', default: false })
+  isVerified: boolean;
+
   /**
    * Villes couvertes (ex. ['Ouagadougou']).
    * null / tableau vide = couverture nationale.

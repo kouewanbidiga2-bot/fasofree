@@ -1,16 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Building2, RefreshCw, Plus, Save } from 'lucide-react';
+import { Building2, RefreshCw, Plus, Save, BadgeCheck } from 'lucide-react';
 import {
   getAgencies,
   createAgency,
   updateAgency,
 } from '../../services/agencyService';
+import ImageUpload from '../../components/ImageUpload';
 import { LoadingSkeleton, EmptyState } from './StatCard';
 
 const emptyForm = {
   name: '',
   phone: '',
   email: '',
+  // 🎨 Identité visuelle (Lot 1)
+  logoUrl: '',
+  description: '',
+  brandColor: '',
+  website: '',
+  isVerified: false,
   zones: '',
   commissionPct: 10,
   maxConcurrentDeliveries: 0,
@@ -59,6 +66,11 @@ const AgenciesTab = ({ canManage = false }) => {
       name: agency.name || '',
       phone: agency.phone || '',
       email: agency.email || '',
+      logoUrl: agency.logoUrl || '',
+      description: agency.description || '',
+      brandColor: agency.brandColor || '',
+      website: agency.website || '',
+      isVerified: agency.isVerified === true,
       zones: Array.isArray(agency.zones) ? agency.zones.join(', ') : '',
       commissionPct: Number(agency.commissionPct ?? 10),
       maxConcurrentDeliveries: Number(agency.maxConcurrentDeliveries ?? 0),
@@ -88,6 +100,12 @@ const AgenciesTab = ({ canManage = false }) => {
         name: form.name.trim(),
         phone: form.phone.trim() || undefined,
         email: form.email.trim() || undefined,
+        // 🎨 Une chaîne vide efface le champ côté serveur (cleanText → null).
+        logoUrl: form.logoUrl.trim(),
+        description: form.description.trim(),
+        brandColor: form.brandColor.trim(),
+        website: form.website.trim(),
+        isVerified: form.isVerified,
         zones: form.zones
           .split(',')
           .map((z) => z.trim())
@@ -182,10 +200,39 @@ const AgenciesTab = ({ canManage = false }) => {
                 agencies.map((a) => (
                   <tr key={a.id} className="border-t border-border-light">
                     <td className="px-4 py-3 text-text-primary font-medium">
-                      {a.name}
-                      {a.email && (
-                        <div className="text-xs text-text-secondary">{a.email}</div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {a.logoUrl ? (
+                          <img
+                            src={a.logoUrl}
+                            alt={a.name}
+                            className="w-8 h-8 rounded-lg object-cover shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white text-xs font-bold"
+                            style={{ backgroundColor: a.brandColor || '#9ca3af' }}
+                          >
+                            {String(a.name || '?').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate">{a.name}</span>
+                            {a.isVerified === true && (
+                              <BadgeCheck
+                                size={14}
+                                className="text-status-success shrink-0"
+                                aria-label="Société vérifiée"
+                              />
+                            )}
+                          </div>
+                          {a.email && (
+                            <div className="text-xs text-text-secondary">
+                              {a.email}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-text-secondary">
                       {Array.isArray(a.zones) && a.zones.length
@@ -258,6 +305,48 @@ const AgenciesTab = ({ canManage = false }) => {
               placeholder="Email"
               className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
             />
+
+            {/* 🎨 Identité visuelle (Lot 1) — ce que le client verra */}
+            <ImageUpload
+              value={form.logoUrl}
+              onChange={(url) => setForm((prev) => ({ ...prev, logoUrl: url }))}
+              folder="agencies"
+              label="Logo de la société"
+            />
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Présentation de la société (services, zone, engagement…)"
+              rows={3}
+              maxLength={2000}
+              className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                value={form.brandColor}
+                onChange={(e) => setForm({ ...form, brandColor: e.target.value })}
+                placeholder="Couleur #C1652E"
+                className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+              />
+              <input
+                value={form.website}
+                onChange={(e) => setForm({ ...form, website: e.target.value })}
+                placeholder="Site web"
+                maxLength={255}
+                className="w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-text-secondary">
+              <input
+                type="checkbox"
+                checked={form.isVerified}
+                onChange={(e) =>
+                  setForm({ ...form, isVerified: e.target.checked })
+                }
+              />
+              Société vérifiée (badge de confiance)
+            </label>
+
             <input
               value={form.zones}
               onChange={(e) => setForm({ ...form, zones: e.target.value })}

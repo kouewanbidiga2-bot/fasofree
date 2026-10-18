@@ -32,6 +32,7 @@ import { QuoteOrderDto } from './dto/quote-order.dto';
 import { DispatchGateway } from '../dispatch/dispatch.gateway';
 import { DispatchService } from '../dispatch/dispatch.service';
 import { DeliverySlaService } from '../dispatch/services/delivery-sla.service';
+import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
 import { PenaltiesService } from '../penalties/penalties.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { PayoutsService } from '../payments/payouts.service';
@@ -193,6 +194,25 @@ export interface ClientInvoiceResponse {
 }
 
 /**
+ * 🏢 Badge d'identité d'une société de livraison (Lot 1).
+ *
+ * Objet volontairement minimal et SANS donnée sensible : c'est ce qui est
+ * exposé au client et au marchand pour qu'ils sachent QUELLE société a livré.
+ * `id` peut être null si la société a été supprimée après la course — dans ce
+ * cas seul le nom figé sur la commande subsiste.
+ */
+export interface AgencyBadge {
+  id: string | null;
+  name: string;
+  logoUrl: string | null;
+  description: string | null;
+  brandColor: string | null;
+  website: string | null;
+  isVerified: boolean;
+  phone: string | null;
+}
+
+/**
  * 🗺️ Payload de suivi live d'une commande (GPS + ETA).
  */
 export interface OrderTrackingPayload {
@@ -209,6 +229,8 @@ export interface OrderTrackingPayload {
   // 🧭 Provider de livraison (dispatch multi-niveaux) — Phase 0/1
   deliveryProvider: string | null;
   deliveryProviderStatus: string | null;
+  // 🏢 Lot 1 : société de livraison identifiée (null si livraison interne).
+  agency: AgencyBadge | null;
   eta: {
     preparationMinutes: number;
     remainingPreparationMinutes: number;
@@ -256,6 +278,9 @@ export class OrdersService {
     private readonly notificationStore: NotificationStoreService,
     private readonly deliverySlaService: DeliverySlaService,
     private readonly penaltiesService: PenaltiesService,
+    // 🏢 Lot 1 : lecture du badge société (logo, nom, vérification) sur les commandes.
+    @InjectRepository(DeliveryAgency)
+    private readonly deliveryAgencyRepository: Repository<DeliveryAgency>,
   ) {}
 
   /**
@@ -1366,6 +1391,8 @@ export class OrdersService {
     const clientIds = [
       ...new Set(orders.map((o) => o.clientId).filter(Boolean)),
     ];
+    // 🏢 Lot 1 : le marchand doit savoir QUELLE société a livré (une requête).
+    const agencyMap = await this.loadAgencyBadges(orders);
     if (clientIds.length > 0) {
       const clients = await this.dataSource.query(
         `SELECT id, "fullName", phone FROM users WHERE id IN (${clientIds.map((_, i) => `$${i + 1}`).join(',')})`,
@@ -1384,6 +1411,9 @@ export class OrdersService {
           clientPhone: phone,
           customerName: name,
           customerPhone: phone,
+          agency: o.deliveryProviderId
+            ? (agencyMap.get(o.deliveryProviderId) ?? null)
+            : null,
         };
       });
     }
@@ -1393,6 +1423,9 @@ export class OrdersService {
       clientPhone: 'Non disponible',
       customerName: 'Client inconnu',
       customerPhone: 'Non disponible',
+      agency: o.deliveryProviderId
+        ? (agencyMap.get(o.deliveryProviderId) ?? null)
+        : null,
     }));
   }
 
@@ -1404,6 +1437,9 @@ export class OrdersService {
       .where('o."businessId" IN (:...businessIds)', { businessIds })
       .orderBy('o."createdAt"', 'DESC')
       .getMany();
+
+    // 🏢 Lot 1 : identifie la société de livraison de chaque commande.
+    const agencyMap = await this.loadAgencyBadges(orders);
 
     const clientIds = [
       ...new Set(orders.map((o) => o.clientId).filter(Boolean)),
@@ -1426,6 +1462,9 @@ export class OrdersService {
           clientPhone: phone,
           customerName: name,
           customerPhone: phone,
+          agency: o.deliveryProviderId
+            ? (agencyMap.get(o.deliveryProviderId) ?? null)
+            : null,
         };
       });
     }
@@ -1435,6 +1474,9 @@ export class OrdersService {
       clientPhone: 'Non disponible',
       customerName: 'Client inconnu',
       customerPhone: 'Non disponible',
+      agency: o.deliveryProviderId
+        ? (agencyMap.get(o.deliveryProviderId) ?? null)
+        : null,
     }));
   }
 
@@ -1452,6 +1494,10 @@ export class OrdersService {
       take: 200,
     });
 
+    // 🏢 Lot 1 : une seule requête pour identifier les sociétés de livraison
+    // (le tour de contrôle doit voir QUI livre, pas « Agence partenaire »).
+    const agencyMap = await this.loadAgencyBadges(orders);
+
     for (const order of orders) {
       if (order.driverId) {
         const loc = await this.geoDispatchService.getDriverLocation(
@@ -1461,6 +1507,11 @@ export class OrdersService {
           order as Order & { driverLocation?: DriverLocation | null }
         ).driverLocation = loc;
       }
+      (
+        order as Order & { agency?: AgencyBadge | null }
+      ).agency = order.deliveryProviderId
+        ? (agencyMap.get(order.deliveryProviderId) ?? null)
+        : null;
     }
 
     return orders;
@@ -1509,6 +1560,117 @@ export class OrdersService {
     return order;
   }
 
+  // ========================================================================
+  // 🏢 Lot 1 — Identité des sociétés de livraison.
+  //
+  // Une course confiée à une société partenaire était tracée sur la commande
+  // (`deliveryProviderId` + `deliveryProviderDetails.agencyName`) mais jamais
+  // présentée comme telle : le client voyait « une agence partenaire ».
+  // Ces helpers exposent un badge d'identité minimal (nom, logo, vérification)
+  // sans jamais divulguer de donnée sensible.
+  // ========================================================================
+
+  /** Convertit une agence (ou son nom figé) en badge exposable au client. */
+  private toAgencyBadge(
+    agency: DeliveryAgency | null | undefined,
+    fallbackName?: string | null,
+  ): AgencyBadge | null {
+    if (!agency) {
+      // La société a pu être supprimée après la course : on conserve au moins
+      // le nom figé sur la commande, sinon on n'affiche rien (mieux que mentir).
+      if (!fallbackName) return null;
+      return {
+        id: null,
+        name: fallbackName,
+        logoUrl: null,
+        description: null,
+        brandColor: null,
+        website: null,
+        isVerified: false,
+        phone: null,
+      };
+    }
+    return {
+      id: agency.id,
+      name: agency.name,
+      logoUrl: agency.logoUrl ?? null,
+      description: agency.description ?? null,
+      brandColor: agency.brandColor ?? null,
+      website: agency.website ?? null,
+      isVerified: agency.isVerified === true,
+      phone: agency.phone ?? null,
+    };
+  }
+
+  /**
+   * Badge de la société ayant livré la commande (`null` si livraison interne).
+   * Ne lève jamais : une erreur de lecture ne doit pas casser le suivi.
+   */
+  private async getOrderAgencyBadge(order: Order): Promise<AgencyBadge | null> {
+    if (!order.deliveryProviderId) return null;
+    const fallbackName =
+      (order.deliveryProviderDetails?.agencyName as string | undefined) ?? null;
+    try {
+      const agency = await this.deliveryAgencyRepository.findOne({
+        where: { id: order.deliveryProviderId },
+      });
+      return this.toAgencyBadge(agency, fallbackName);
+    } catch {
+      this.logger.warn(
+        `Agence ${order.deliveryProviderId} introuvable pour la commande ${order.id}`,
+      );
+      return this.toAgencyBadge(null, fallbackName);
+    }
+  }
+
+  /**
+   * Charge en UNE requête les badges des agences de plusieurs commandes
+   * (évite le N+1 sur les listes marchand).
+   */
+  private async loadAgencyBadges(
+    orders: Order[],
+  ): Promise<Map<string, AgencyBadge>> {
+    const ids = [
+      ...new Set(
+        orders
+          .map((o) => o.deliveryProviderId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    const map = new Map<string, AgencyBadge>();
+    if (ids.length === 0) return map;
+
+    try {
+      const agencies = await this.deliveryAgencyRepository.find({
+        where: { id: In(ids) },
+      });
+      for (const agency of agencies) {
+        const badge = this.toAgencyBadge(agency);
+        if (badge) map.set(agency.id, badge);
+      }
+    } catch {
+      this.logger.warn(
+        `Impossible de charger les badges des agences (${ids.length})`,
+      );
+    }
+    return map;
+  }
+
+  /**
+   * 🔍 Détail d'une commande enrichi du badge société (client / marchand).
+   * On l'expose via une méthode dédiée plutôt que dans `findOneForUser` pour
+   * ne pas ajouter de requête aux appelants qui n'en ont pas besoin (chat).
+   */
+  async findOneForUserWithAgency(
+    id: string,
+    userId: string,
+    role: UserRole,
+  ): Promise<Order & { agency: AgencyBadge | null }> {
+    const order = await this.findOneForUser(id, userId, role);
+    const agency = await this.getOrderAgencyBadge(order);
+    return Object.assign(order, { agency });
+  }
+
   /**
    * 🗺️ Suivi live de la commande : statut + dernière position GPS + tracé + ETA.
    */
@@ -1518,6 +1680,9 @@ export class OrdersService {
     role: UserRole,
   ): Promise<OrderTrackingPayload> {
     const order = await this.findOneForUser(id, userId, role);
+
+    // 🏢 Lot 1 : la société de livraison est identifiée, jamais anonymisée.
+    const agency = await this.getOrderAgencyBadge(order);
 
     let driverLocation: DriverLocation | null = null;
     if (order.driverId) {
@@ -1585,6 +1750,7 @@ export class OrdersService {
       deliveryLocation: order.deliveryLocation ?? null,
       deliveryProvider: order.deliveryProvider ?? null,
       deliveryProviderStatus: order.deliveryProviderStatus ?? null,
+      agency,
       eta,
     };
   }
@@ -2545,6 +2711,13 @@ export class OrdersService {
       // 📨 Notifications in-app + push FCM uniquement (jamais d'e-mail /
       // SMS / WhatsApp) : `notificationStore.create` dépose la notification
       // en base et pousse le FCM si l'utilisateur a un token.
+      //
+      // 🏢 Lot 1 : quand une société de livraison a pris la course, on la
+      // NOMME dans les messages. Sans cela le client ne saurait jamais que
+      // c'est « Transport X » qui a livré, et FasoFree en récolterait le mérite.
+      const agency = await this.getOrderAgencyBadge(order);
+      const agencySuffix = agency ? ` de ${agency.name}` : '';
+
       switch (order.status) {
         case OrderStatus.PAID: {
           // Client: "Paiement confirmé, en attente de préparation"
@@ -2578,7 +2751,9 @@ export class OrdersService {
             userId: order.clientId,
             type: NotificationType.ORDER_UPDATE,
             title: 'Livreur assigné',
-            body: 'Un livreur a été assigné à votre commande.',
+            body: agency
+              ? `Un livreur${agencySuffix} a été assigné à votre commande.`
+              : 'Un livreur a été assigné à votre commande.',
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });
@@ -2605,7 +2780,9 @@ export class OrdersService {
             userId: order.clientId,
             type: NotificationType.DELIVERY,
             title: 'Livreur en route',
-            body: 'Le livreur est en route avec votre repas.',
+            body: agency
+              ? `Un livreur${agencySuffix} est en route avec votre commande.`
+              : 'Le livreur est en route avec votre repas.',
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });
@@ -2618,7 +2795,9 @@ export class OrdersService {
             userId: order.clientId,
             type: NotificationType.DELIVERY,
             title: 'Livreur arrivé',
-            body: 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
+            body: agency
+              ? `Le livreur${agencySuffix} est arrivé avec votre commande. Confirmez la réception!`
+              : 'Le livreur est arrivé avec votre commande. Confirmez la réception!',
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });
@@ -2631,7 +2810,9 @@ export class OrdersService {
             userId: order.clientId,
             type: NotificationType.DELIVERY,
             title: 'Livraison validée',
-            body: 'Le livreur a validé la livraison. Confirmez la réception!',
+            body: agency
+              ? `${agency.name} a validé la livraison. Confirmez la réception!`
+              : 'Le livreur a validé la livraison. Confirmez la réception!',
             orderId: order.id,
             actionUrl: `/order-tracking?orderId=${order.id}`,
           });
