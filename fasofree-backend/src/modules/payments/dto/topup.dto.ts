@@ -34,9 +34,14 @@ export class TopupDto {
    */
   @ApiPropertyOptional({
     description:
-      'ID de l\'agence à créditer (portefeuille par agence). Si omis, crédite le portefeuille global.',
+      "ID de l'agence à créditer (portefeuille par agence). Si omis, crédite le portefeuille global.",
   })
   @IsString()
   @IsOptional()
   branchId?: string;
+
+  @ApiPropertyOptional({ example: 'paydunya', enum: ['geniuspay', 'paydunya'], description: 'Provider de paiement (défaut: auto)' })
+  @IsOptional()
+  @IsString()
+  provider?: 'geniuspay' | 'paydunya';
 }

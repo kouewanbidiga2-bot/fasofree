@@ -7,6 +7,7 @@ import { WebhooksService } from './webhooks.service';
 import { PaymentsController } from './payments.controller';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { GeniusPayController } from './geniuspay.controller';
+import { PaydunyaModule } from './providers/paydunya.module';
 
 import { MerchantPayout } from './entities/merchant-payout.entity';
 import { Transaction } from './entities/transaction.entity';
@@ -25,6 +26,8 @@ import { RedisModule } from '../../core/redis/redis.module';
     // une recharge ne crée pas de commande, c'est WalletService.creditWallet qui
     // applique le crédit (idempotent par référence).
     WalletModule,
+    // 💳 PayDunya (Payin + Payout PER) — Lot 4
+    PaydunyaModule,
     TypeOrmModule.forFeature([
       MerchantPayout,
       Transaction,
@@ -35,6 +38,6 @@ import { RedisModule } from '../../core/redis/redis.module';
   ],
   controllers: [PaymentsController, GeniusPayController],
   providers: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, TypeOrmModule],
+  exports: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, TypeOrmModule, PaydunyaModule],
 })
 export class PaymentsModule {}

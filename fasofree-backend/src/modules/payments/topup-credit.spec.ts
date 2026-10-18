@@ -1,5 +1,6 @@
 import { GeniusPayController } from './geniuspay.controller';
 import { PaymentsService } from './payments.service';
+import { PaydunyaService } from './providers/paydunya.service';
 import {
   TransactionReason,
   TransactionType,
@@ -21,6 +22,13 @@ const buildPaymentsService = () => {
       .fn()
       .mockResolvedValue({ wallet: {}, transaction: {} }),
   };
+  const paydunyaService = {
+    isConfigured: jest.fn().mockReturnValue(false),
+    createCheckoutInvoice: jest.fn(),
+    confirmInvoiceStatus: jest.fn(),
+    verifyIpnSignature: jest.fn(),
+    executePayout: jest.fn(),
+  };
 
   const svc = new PaymentsService(
     {} as any, // transactionRepository
@@ -28,10 +36,11 @@ const buildPaymentsService = () => {
     {} as any, // configService
     {} as any, // ordersService
     {} as any, // geniusPayService
+    paydunyaService as any,
     walletService as any,
   );
 
-  return { svc, walletService };
+  return { svc, walletService, paydunyaService };
 };
 
 describe('PaymentsService — crédit d’une recharge (top-up) via webhook', () => {

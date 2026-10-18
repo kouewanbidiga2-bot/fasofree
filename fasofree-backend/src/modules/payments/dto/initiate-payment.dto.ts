@@ -17,4 +17,19 @@ export class InitiatePaymentDto {
   @IsOptional()
   @IsString()
   phoneNumber?: string;
+
+  @ApiPropertyOptional({ example: 'paydunya', enum: ['geniuspay', 'paydunya'], description: 'Provider de paiement (défaut: auto)' })
+  @IsOptional()
+  @IsString()
+  provider?: 'geniuspay' | 'paydunya';
+
+  @ApiPropertyOptional({ example: 'https://app.com/success' })
+  @IsOptional()
+  @IsString()
+  successUrl?: string;
+
+  @ApiPropertyOptional({ example: 'https://app.com/cancel' })
+  @IsOptional()
+  @IsString()
+  errorUrl?: string;
 }
