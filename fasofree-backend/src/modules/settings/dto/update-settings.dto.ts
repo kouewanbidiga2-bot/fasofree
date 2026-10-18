@@ -24,6 +24,42 @@ export class DeliveryTierDto {
   label?: string;
 }
 
+/**
+ * 💳 Grille tarifaire des campagnes push auto-service (FCFA PAR ENVOI).
+ *
+ * `ALL_CLIENTS` vise toute la base client FasoFree : volontairement bien plus
+ * cher que les audiences de proximité, pour que le spam ne soit pas rentable.
+ * Géré par le Super Admin depuis « Paramètres de la plateforme ».
+ */
+export class PushCampaignPricingDto {
+  @ApiPropertyOptional({
+    example: 100,
+    description: 'Campagne vers MES clients (FCFA par envoi)',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  OWN_CLIENTS?: number;
+
+  @ApiPropertyOptional({
+    example: 100,
+    description: 'Campagne vers MES livreurs (FCFA par envoi)',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  OWN_DRIVERS?: number;
+
+  @ApiPropertyOptional({
+    example: 2500,
+    description: 'Campagne vers TOUS les clients FasoFree (FCFA par envoi)',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  ALL_CLIENTS?: number;
+}
+
 export class UpdateSettingsDto {
   @ApiPropertyOptional({ example: 100, description: 'Frais de plateforme (FCFA)' })
   @IsOptional()
@@ -95,4 +131,14 @@ export class UpdateSettingsDto {
   @IsArray()
   @IsIn(ALL_CATEGORY_VALUES, { each: true })
   enabledBusinessCategories?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Tarifs des campagnes push auto-service (FCFA par envoi), par audience. ALL_CLIENTS (toute la base) doit rester nettement plus cher que les audiences de proximité.',
+    type: PushCampaignPricingDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PushCampaignPricingDto)
+  pushCampaignPricing?: PushCampaignPricingDto;
 }

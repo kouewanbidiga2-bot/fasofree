@@ -4,18 +4,19 @@ import { selfServicePushCampaignService } from '../../services/selfServicePushCa
 import { LoadingSkeleton, EmptyState } from './StatCard';
 
 /**
- * 💳 Campagnes push AUTO-SERVICE (marchand / agence) — Lot 3.
+ * 💳 Campagnes push AUTO-SERVICE (marchand / agence) — Lots 3 et 3.1.
  *
  * Composant PARTAGÉ : `role="merchant"` (espace commerçant) ou
- * `role="agency"` (espace agence). Les deux diffèrent uniquement par
- * l'audience autorisée et le préfixe d'API.
+ * `role="agency"` (espace agence). Les deux diffèrent par l'audience
+ * autorisée et le préfixe d'API.
  *
  * Règles produit reflétées ici :
- *  - le prix est PAR ENVOI, pas par destinataire ;
+ *  - le prix est PAR ENVOI, pas par destinataire, et dépend de l'AUDIENCE
+ *    (grille réglée par le Super Admin, donc lue depuis l'API) ;
  *  - une campagne récurrente est facturée à CHAQUE diffusion ;
  *  - le ciblage anti-spam interdit de viser toute la base : un marchand
- *    n'atteint que ses clients (ou tous les clients), une agence que ses
- *    livreurs (ou tous les clients).
+ *    atteint ses clients (ou tous les clients, au tarif premium), une agence
+ *    ses livreurs, les clients qu'elle a livrés, ou tous les clients (premium).
  *
  * ⚠️ `timeOfDay` est interprété dans le fuseau de la campagne
  * (Africa/Ouagadougou par défaut = heure locale du Burkina).
@@ -24,11 +25,12 @@ import { LoadingSkeleton, EmptyState } from './StatCard';
 const AUDIENCES = {
   merchant: [
     { value: 'OWN_CLIENTS', label: 'Mes clients (ceux qui ont commandé)' },
-    { value: 'ALL_CLIENTS', label: 'Tous les clients FasoFree' },
+    { value: 'ALL_CLIENTS', label: 'Tous les clients FasoFree (premium)' },
   ],
   agency: [
     { value: 'OWN_DRIVERS', label: 'Mes livreurs' },
-    { value: 'ALL_CLIENTS', label: 'Tous les clients FasoFree' },
+    { value: 'OWN_CLIENTS', label: 'Les clients que j’ai livrés' },
+    { value: 'ALL_CLIENTS', label: 'Tous les clients FasoFree (premium)' },
   ],
 };
 
@@ -68,6 +70,8 @@ const formatDateTime = (value) =>
 
 const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
   const [campaigns, setCampaigns] = useState([]);
+  /** Grille { audience: prixFCFA } renvoyée par l'API (réglée par le Super Admin). */
+  const [pricing, setPricing] = useState(null);
   const [unitPrice, setUnitPrice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -91,13 +95,19 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
     setLoading(true);
     setError('');
     try {
-      const [data, pricing] = await Promise.all([
+      const [data, pricingPayload] = await Promise.all([
         selfServicePushCampaignService.list(role, 100),
         selfServicePushCampaignService.pricing(role).catch(() => null),
       ]);
       setCampaigns(Array.isArray(data) ? data : []);
-      if (pricing && Number.isFinite(Number(pricing.unitPriceXof))) {
-        setUnitPrice(Number(pricing.unitPriceXof));
+      if (
+        pricingPayload &&
+        Number.isFinite(Number(pricingPayload.unitPriceXof))
+      ) {
+        setUnitPrice(Number(pricingPayload.unitPriceXof));
+      }
+      if (pricingPayload?.pricing && typeof pricingPayload.pricing === 'object') {
+        setPricing(pricingPayload.pricing);
       }
     } catch (err) {
       setCampaigns([]);
@@ -203,7 +213,17 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
   };
 
   const canStop = (c) => c.status === 'ACTIVE' || c.status === 'SCHEDULED';
-  const priceLabel = unitPrice === null ? '—' : `${unitPrice} FCFA`;
+
+  /** Prix d'un envoi pour une audience : grille du dashboard, sinon prix de base. */
+  const priceForAudience = (audience) => {
+    const fromGrid = pricing?.[audience];
+    if (Number.isFinite(Number(fromGrid))) return Number(fromGrid);
+    return unitPrice;
+  };
+  const selectedPrice = priceForAudience(form.audience);
+  const priceLabel = Number.isFinite(Number(selectedPrice))
+    ? `${selectedPrice} FCFA`
+    : '—';
 
   return (
     <div className="space-y-6">
@@ -231,8 +251,10 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
           <strong className="text-text-primary">
             {priceLabel} par campagne envoyée
           </strong>{' '}
-          — débité de votre portefeuille, jamais par destinataire. Une campagne
-          récurrente est facturée à chaque diffusion.
+          pour l'audience choisie — débité de votre portefeuille, jamais par
+          destinataire. Une campagne récurrente est facturée à chaque diffusion.
+          {form.audience === 'ALL_CLIENTS' &&
+            " L'audience « tous les clients » est facturée au tarif premium : réservez-la aux annonces importantes."}
         </span>
       </div>
 
@@ -277,11 +299,16 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
               onChange={(e) => setForm({ ...form, audience: e.target.value })}
               className="mt-1 w-full px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm text-text-primary"
             >
-              {(AUDIENCES[role] ?? AUDIENCES.merchant).map((a) => (
-                <option key={a.value} value={a.value}>
-                  {a.label}
-                </option>
-              ))}
+              {(AUDIENCES[role] ?? AUDIENCES.merchant).map((a) => {
+                const price = priceForAudience(a.value);
+                return (
+                  <option key={a.value} value={a.value}>
+                    {Number.isFinite(Number(price))
+                      ? `${a.label} — ${price} F`
+                      : a.label}
+                  </option>
+                );
+              })}
             </select>
           </label>
 

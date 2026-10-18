@@ -225,6 +225,14 @@ const SuperAdminDashboard = () => {
     enableBulkOrders: true,
     storiesPassEnabled: false,
     enabledBusinessCategories: [],
+    // 💳 Tarifs des campagnes push auto-service (FCFA PAR ENVOI), par audience.
+    // ALL_CLIENTS (toute la base) reste volontairement bien au-dessus des
+    // audiences de proximité : c'est l'anti-spam économique.
+    pushCampaignPricing: {
+      OWN_CLIENTS: 100,
+      OWN_DRIVERS: 100,
+      ALL_CLIENTS: 2500,
+    },
   });
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -299,6 +307,11 @@ const SuperAdminDashboard = () => {
         enableBulkOrders: data.enableBulkOrders ?? true,
         storiesPassEnabled: data.storiesPassEnabled ?? false,
         enabledBusinessCategories: data.enabledBusinessCategories ?? [],
+        pushCampaignPricing: {
+          OWN_CLIENTS: data.pushCampaignPricing?.OWN_CLIENTS ?? 100,
+          OWN_DRIVERS: data.pushCampaignPricing?.OWN_DRIVERS ?? 100,
+          ALL_CLIENTS: data.pushCampaignPricing?.ALL_CLIENTS ?? 2500,
+        },
       });
     } catch {
       // Keep defaults on error
@@ -988,6 +1001,7 @@ const SuperAdminDashboard = () => {
         enableBulkOrders: platformSettings.enableBulkOrders,
         storiesPassEnabled: platformSettings.storiesPassEnabled,
         enabledBusinessCategories: platformSettings.enabledBusinessCategories,
+        pushCampaignPricing: platformSettings.pushCampaignPricing,
       });
       setSettingsSuccess('Paramètres enregistrés avec succès.');
       setTimeout(() => setSettingsSuccess(''), 3000);
@@ -3134,6 +3148,62 @@ const SuperAdminDashboard = () => {
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${platformSettings.storiesPassEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
+              </div>
+            </div>
+
+            {/* 💳 Tarifs des campagnes push auto-service (Lot 3.1) */}
+            <div className="card p-6">
+              <h3 className="font-bold text-text-primary mb-1 flex items-center gap-2">
+                <Megaphone size={16} className="text-accent-primary" />
+                Tarifs des campagnes push
+              </h3>
+              <p className="text-xs text-text-secondary mb-4">
+                Prix par campagne ENVOYÉE (jamais par destinataire) pour les
+                marchands et les agences. « Tous les clients » vise toute la base
+                FasoFree : gardez-le nettement plus cher pour décourager le spam.
+                Appliqué dès le prochain envoi, y compris aux campagnes
+                récurrentes.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Mes clients (FCFA)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-field"
+                    value={platformSettings.pushCampaignPricing?.OWN_CLIENTS ?? 0}
+                    onChange={(e) => setPlatformSettings(prev => ({
+                      ...prev,
+                      pushCampaignPricing: { ...prev.pushCampaignPricing, OWN_CLIENTS: Number(e.target.value) },
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Mes livreurs (FCFA)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-field"
+                    value={platformSettings.pushCampaignPricing?.OWN_DRIVERS ?? 0}
+                    onChange={(e) => setPlatformSettings(prev => ({
+                      ...prev,
+                      pushCampaignPricing: { ...prev.pushCampaignPricing, OWN_DRIVERS: Number(e.target.value) },
+                    }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Tous les clients (FCFA)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input-field"
+                    value={platformSettings.pushCampaignPricing?.ALL_CLIENTS ?? 0}
+                    onChange={(e) => setPlatformSettings(prev => ({
+                      ...prev,
+                      pushCampaignPricing: { ...prev.pushCampaignPricing, ALL_CLIENTS: Number(e.target.value) },
+                    }))}
+                  />
+                </div>
               </div>
             </div>
 

@@ -31,6 +31,17 @@ const makeRepo = () => ({
   update: jest.fn(),
   delete: jest.fn(),
   createQueryBuilder: jest.fn(),
+  // Requêtes BRUTES : `findClientsOfAgency` lit la table `orders` via
+  // `userRepo.manager` (même motif que NotificationStoreService).
+  manager: {
+    createQueryBuilder: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    }),
+  },
 });
 
 describe('PushCampaignService', () => {
@@ -64,6 +75,17 @@ describe('PushCampaignService', () => {
       orderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       getMany: jest.fn(async () => batches[call++] ?? []),
+    });
+  };
+
+  /** QueryBuilder factice pour une lecture brute (`getRawMany`). */
+  const mockRawQuery = (rows: unknown[]) => {
+    userRepo.manager.createQueryBuilder = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      from: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn(async () => rows),
     });
   };
 
@@ -374,13 +396,21 @@ describe('PushCampaignService', () => {
 
       await service.sendDueCampaigns();
 
-      expect(walletService.debitWallet).toHaveBeenCalled();
+      expect(walletService.debitWallet).toHaveBeenCalledWith(
+        'op-1',
+        WalletUserRole.MERCHANT,
+        2500,
+        'PUSH_CAMPAIGN_FEE',
+        expect.any(String),
+        expect.any(String),
+        undefined,
+      );
       expect(notificationStore.sendToUsers).toHaveBeenCalled();
       expect(campaignRepo.update).toHaveBeenCalledWith(
         'camp-paid',
         expect.objectContaining({
           status: 'SENT',
-          billedXof: 100,
+          billedXof: 2500,
           walletTransactionId: 'tx-1',
         }),
       );
@@ -404,12 +434,12 @@ describe('PushCampaignService', () => {
       expect(campaignRepo.save).not.toHaveBeenCalled();
     });
 
-    it('refuse OWN_CLIENTS à une agence', async () => {
+    it('refuse ALL (toute la base) à une agence', async () => {
       await expect(
         service.createSelfServiceCampaign('op-1', UserRole.AGENCY, 'Agence', {
           title: 'Promo',
           body: 'Corps',
-          audience: PushCampaignAudience.OWN_CLIENTS,
+          audience: PushCampaignAudience.ALL,
         }),
       ).rejects.toThrow(/non autorisée/);
     });
@@ -443,6 +473,42 @@ describe('PushCampaignService', () => {
       // Aucune requête sur la table users : l'audience est strictement
       // limitée aux clients ayant commandé chez ce marchand.
       expect(userRepo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('OWN_CLIENTS (agence) cible les clients qu’elle a livrés', async () => {
+      // Une agence ne possède aucune boutique : sa source de clients est
+      // `orders.deliveryProviderId`.
+      businessRepo.find = jest.fn().mockResolvedValue([]);
+      agencyRepo.findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 'ag-1', userId: 'op-1' });
+      mockRawQuery([{ clientId: 'c1' }, { clientId: 'c2' }]);
+
+      const res = await resolveAudience(
+        PushCampaignAudience.OWN_CLIENTS,
+        'op-1',
+      );
+
+      expect(res.userIds).toEqual(['c1', 'c2']);
+    });
+
+    it('OWN_CLIENTS fusionne clients du marchand et clients livrés, sans doublon', async () => {
+      businessRepo.find = jest.fn().mockResolvedValue([{ id: 'biz-1' }]);
+      notificationStore.findClientsOfBusinesses = jest
+        .fn()
+        .mockResolvedValue(['c1', 'c2']);
+      agencyRepo.findOne = jest
+        .fn()
+        .mockResolvedValue({ id: 'ag-1', userId: 'op-1' });
+      // `c2` est à la fois client du marchand ET livré par l'agence.
+      mockRawQuery([{ clientId: 'c2' }, { clientId: 'c3' }]);
+
+      const res = await resolveAudience(
+        PushCampaignAudience.OWN_CLIENTS,
+        'op-1',
+      );
+
+      expect([...res.userIds].sort()).toEqual(['c1', 'c2', 'c3']);
     });
 
     it('OWN_DRIVERS ne cible QUE les livreurs rattachés à l’agence', async () => {
@@ -524,6 +590,24 @@ describe('PushCampaignService', () => {
       );
     });
 
+    it('ALL_CLIENTS est facturé au tarif « premium » (2500 F), pas 100 F', async () => {
+      mockUserQuery([[{ id: 'u1' }, { id: 'u2' }]]);
+
+      await service.createSelfServiceCampaign(
+        'op-1',
+        UserRole.BUSINESS_ADMIN,
+        'Boutique',
+        { ...merchantInput, audience: PushCampaignAudience.ALL_CLIENTS },
+      );
+
+      const amounts = walletService.debitWallet.mock.calls.map((c) => c[2]);
+      expect(amounts).toContain(2500);
+      expect(amounts).not.toContain(100);
+      expect(campaignRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ audience: 'ALL_CLIENTS', billedXof: 2500 }),
+      );
+    });
+
     it('solde insuffisant → 400, AUCUN envoi, aucune campagne fantôme', async () => {
       ownClients();
       walletService.debitWallet.mockRejectedValue(
@@ -593,6 +677,33 @@ describe('PushCampaignService', () => {
     it('retombe sur 100 si la variable est invalide', () => {
       configService.get = jest.fn().mockReturnValue('pas-un-nombre');
       expect(service.unitPriceXof).toBe(100);
+    });
+
+    it('grille par audience : ALL_CLIENTS est « premium » (anti-spam)', () => {
+      expect(service.priceForAudience(PushCampaignAudience.OWN_CLIENTS)).toBe(
+        100,
+      );
+      expect(service.priceForAudience(PushCampaignAudience.OWN_DRIVERS)).toBe(
+        100,
+      );
+      expect(service.priceForAudience(PushCampaignAudience.ALL_CLIENTS)).toBe(
+        2500,
+      );
+    });
+
+    it('expose la grille complète à l’interface', () => {
+      expect(service.pricingTable()).toEqual({
+        OWN_CLIENTS: 100,
+        OWN_DRIVERS: 100,
+        ALL_CLIENTS: 2500,
+      });
+    });
+
+    it('la grille du dashboard prime sur PUSH_CAMPAIGN_UNIT_PRICE_FCFA', () => {
+      configService.get = jest.fn().mockReturnValue('250');
+      expect(service.priceForAudience(PushCampaignAudience.ALL_CLIENTS)).toBe(
+        2500,
+      );
     });
   });
 

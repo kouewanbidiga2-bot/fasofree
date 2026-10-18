@@ -39,13 +39,14 @@ const clampLimit = (limit: number) => Math.min(Math.max(limit, 1), 200);
 /**
  * 📣 Campagnes push AUTO-SERVICE d'un MARCHAND (Lot 3).
  *
- * Facturation : 100 FCFA par exécution (`PUSH_CAMPAIGN_UNIT_PRICE_FCFA`),
- * jamais par destinataire. Le débit a lieu AVANT la diffusion, depuis le
- * portefeuille du compte.
+ * Facturation : tarif PAR ENVOI de la grille `system_settings.pushCampaignPricing`
+ * (réglée par le Super Admin ; 100 FCFA par défaut), jamais par destinataire.
+ * Le débit a lieu AVANT la diffusion, depuis le portefeuille du compte.
  *
  * Ciblage anti-spam : un marchand ne peut viser que ses propres clients
- * (OWN_CLIENTS) ou tous les clients de la plateforme (ALL_CLIENTS) — jamais
- * les livreurs, jamais les admins, jamais « toute la base ».
+ * (OWN_CLIENTS) ou tous les clients de la plateforme (ALL_CLIENTS, facturé au
+ * tarif « premium ») — jamais les livreurs, jamais les admins, jamais « toute
+ * la base » (réservé aux campagnes admin).
  *
  * L'endpoint admin existe toujours et reste inchangé : `admin/push-campaigns`.
  */
@@ -85,9 +86,17 @@ export class MerchantPushCampaignController {
   }
 
   @Get('pricing')
-  @ApiOperation({ summary: "Prix d'une campagne auto-service (FCFA)" })
+  @ApiOperation({
+    summary: "Tarifs d'une campagne auto-service (FCFA par envoi)",
+  })
   pricing() {
-    return { unitPriceXof: this.service.unitPriceXof };
+    return {
+      currency: 'XOF',
+      unitPriceXof: this.service.unitPriceXof,
+      // Grille par audience — pilotée par le SUPER_ADMIN (Lot 3.1) :
+      // ALL_CLIENTS est volontairement « premium » pour décourager le spam.
+      pricing: this.service.pricingTable(),
+    };
   }
 
   @Get()
@@ -128,8 +137,10 @@ export class MerchantPushCampaignController {
  * 📣 Campagnes push AUTO-SERVICE d'une SOCIÉTÉ DE LIVRAISON (Lot 3).
  *
  * Ciblage anti-spam : une agence ne peut viser que ses propres livreurs
- * (OWN_DRIVERS, via `users.agencyId`) ou tous les clients de la plateforme
- * (ALL_CLIENTS). Facturation identique au marchand.
+ * (OWN_DRIVERS, via `users.agencyId`), les clients qu'elle a livrés
+ * (OWN_CLIENTS, via `orders.deliveryProviderId`) ou tous les clients de la
+ * plateforme (ALL_CLIENTS, tarif « premium »). Facturation identique au
+ * marchand.
  */
 @ApiTags('Campagnes push — agence')
 @Controller('agency/push-campaigns')
@@ -167,9 +178,17 @@ export class AgencyPushCampaignController {
   }
 
   @Get('pricing')
-  @ApiOperation({ summary: "Prix d'une campagne auto-service (FCFA)" })
+  @ApiOperation({
+    summary: "Tarifs d'une campagne auto-service (FCFA par envoi)",
+  })
   pricing() {
-    return { unitPriceXof: this.service.unitPriceXof };
+    return {
+      currency: 'XOF',
+      unitPriceXof: this.service.unitPriceXof,
+      // Grille par audience — pilotée par le SUPER_ADMIN (Lot 3.1) :
+      // ALL_CLIENTS est volontairement « premium » pour décourager le spam.
+      pricing: this.service.pricingTable(),
+    };
   }
 
   @Get()

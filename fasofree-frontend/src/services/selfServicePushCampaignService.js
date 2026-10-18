@@ -7,9 +7,13 @@ import api from './api';
  *   marchand : /merchant/push-campaigns
  *   agence   : /agency/push-campaigns
  *
- * Chaque campagne envoyée coûte un montant fixe (100 FCFA par défaut),
- * débité du portefeuille du compte — JAMAIS par destinataire. Une campagne
- * récurrente est débitée à chaque exécution.
+ * Chaque campagne envoyée coûte un montant FIXE par envoi (jamais par
+ * destinataire), débité du portefeuille du compte. Depuis le Lot 3.1 ce prix
+ * dépend de l'AUDIENCE et est réglé par le Super Admin :
+ *   GET …/pricing → { unitPriceXof, pricing: { OWN_CLIENTS, OWN_DRIVERS,
+ *                                             ALL_CLIENTS } }
+ * `ALL_CLIENTS` (toute la base) est volontairement « premium » (anti-spam).
+ * Une campagne récurrente est débitée à chaque exécution.
  */
 
 const BASE_PATHS = {
@@ -22,9 +26,9 @@ const basePath = (role) => BASE_PATHS[role] ?? BASE_PATHS.merchant;
 
 export const selfServicePushCampaignService = {
   /**
-   * Prix d'un envoi (FCFA) pour ce rôle.
+   * Tarifs d'un envoi (FCFA) pour ce rôle.
    * @param {'merchant'|'agency'} role
-   * @returns {Promise<{ unitPriceXof: number }>}
+   * @returns {Promise<{ unitPriceXof: number, pricing: Record<string, number> }>}
    */
   async pricing(role) {
     const res = await api.get(`${basePath(role)}/pricing`);

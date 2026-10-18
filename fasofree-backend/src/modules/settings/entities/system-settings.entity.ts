@@ -89,6 +89,22 @@ export class SystemSettings {
   })
   enabledBusinessCategories: string[];
 
+  // 💳 Tarifs des campagnes push AUTO-SERVICE, en FCFA PAR ENVOI (jamais par
+  // destinataire), indexés par audience (`OWN_CLIENTS` / `OWN_DRIVERS` /
+  // `ALL_CLIENTS`). Le Super Admin les ajuste depuis « Paramètres de la
+  // plateforme » ; `PushCampaignService` les lit via le cache statique
+  // `pushCampaignPriceCache` (alimenté par SettingsService.syncStaticCaches).
+  //
+  // ALL_CLIENTS est volontairement très au-dessus (2500 F vs 100 F) : viser
+  // toute la base client FasoFree doit coûter cher, sinon le spam devient
+  // rentable. C'est un réglage métier, pas une constante de code.
+  @Column({
+    type: 'jsonb',
+    default: () =>
+      `'{ "OWN_CLIENTS": 100, "OWN_DRIVERS": 100, "ALL_CLIENTS": 2500 }'::jsonb`,
+  })
+  pushCampaignPricing: Record<string, number>;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

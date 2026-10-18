@@ -59,9 +59,12 @@ export const DEFAULT_CAMPAIGN_TIMEZONE = 'Africa/Ouagadougou';
  * Depuis Lot 3, un marchand (BUSINESS_ADMIN) ou une société de livraison
  * (AGENCY) peut acheter une campagne push. Pour éviter le spam et protéger la
  * base clients, chacun est limité à SA propre audience :
- *  - OWN_CLIENTS : clients ayant déjà commandé chez ce marchand ;
+ *  - OWN_CLIENTS : clients du compte — ceux ayant commandé chez ce marchand
+ *                  (`orders.businessId`) ET/OU ceux livrés par cette agence
+ *                  (`orders.deliveryProviderId`) ;
  *  - OWN_DRIVERS : livreurs rattachés à cette agence (`users.agencyId`) ;
- *  - ALL_CLIENTS : tous les clients de la plateforme (jamais livreurs/admin).
+ *  - ALL_CLIENTS : tous les clients de la plateforme (jamais livreurs/admin),
+ *                  facturé au tarif « premium » de la grille super-admin.
  *
  * `ALL` (toute la base, tous rôles) reste réservé aux campagnes admin
  * (`audience` NULL) : c'est l'audience historique, non facturée.

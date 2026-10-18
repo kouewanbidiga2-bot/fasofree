@@ -11,6 +11,10 @@ import {
   BusinessCatalogCache,
   getActiveCategoryValues,
 } from '../businesses/constants/business-catalog';
+import {
+  applyPushCampaignPricing,
+  pushCampaignPriceCache,
+} from '../push-campaigns/push-campaign-pricing';
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
@@ -68,6 +72,15 @@ export class SettingsService implements OnModuleInit {
         : null;
       this.logger.log(
         `[Settings] Verticales commerces actives : ${getActiveCategoryValues().join(', ')}`,
+      );
+
+      // 💳 Tarifs des campagnes push auto-service (lot 3.1) : lus par
+      // PushCampaignService via un cache statique (aucune requête par envoi ni
+      // par tick de cron). On ne peut pas injecter SettingsService dans le
+      // service de campagnes sans créer un cycle de dépendances.
+      applyPushCampaignPricing(settings.pushCampaignPricing);
+      this.logger.log(
+        `[Settings] Tarifs campagnes push synchronisés : ${JSON.stringify(pushCampaignPriceCache)}`,
       );
     } catch (err) {
       this.logger.warn(`[Settings] Échec sync caches: ${(err as Error).message}`);

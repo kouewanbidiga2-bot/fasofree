@@ -23,6 +23,11 @@ import {
   DEFAULT_CAMPAIGN_TIMEZONE,
 } from './entities/push-campaign.entity';
 import { computeNextRunAt, RecurrenceSpec } from './push-campaign-recurrence';
+import {
+  PUSH_CAMPAIGN_BASE_PRICE_XOF,
+  pushCampaignPricingTable,
+  resolvePushCampaignPrice,
+} from './push-campaign-pricing';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { Business } from '../businesses/entities/business.entity';
@@ -34,11 +39,16 @@ import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 
 /**
- * 💳 Prix par défaut d'une campagne AUTO-SERVICE, en FCFA — PAR EXÉCUTION
- * (et non par destinataire). Surchargeable par la variable d'environnement
- * `PUSH_CAMPAIGN_UNIT_PRICE_FCFA`.
+ * 💳 Prix de repli d'une campagne AUTO-SERVICE, en FCFA — PAR EXÉCUTION
+ * (et non par destinataire).
+ *
+ * ⚠️ Depuis le Lot 3.1, la grille réelle est fixée par le SUPER_ADMIN dans
+ * « Paramètres de la plateforme » (`system_settings.pushCampaignPricing`) et
+ * lue via `pushCampaignPriceCache`. Cette constante n'est plus qu'un défaut de
+ * dernier recours ; `PUSH_CAMPAIGN_UNIT_PRICE_FCFA` sert de repli (dev/tests).
  */
-export const DEFAULT_PUSH_CAMPAIGN_UNIT_PRICE_XOF = 100;
+export const DEFAULT_PUSH_CAMPAIGN_UNIT_PRICE_XOF =
+  PUSH_CAMPAIGN_BASE_PRICE_XOF;
 
 /**
  * 🔁 Options de `createCampaign`.
@@ -108,21 +118,43 @@ export class PushCampaignService {
   ) {}
 
   /**
-   * 💳 Prix d'une campagne auto-service, en FCFA, PAR EXÉCUTION.
+   * 💳 Prix de BASE d'une campagne auto-service, en FCFA, PAR EXÉCUTION.
    *
    * Le prix ne dépend PAS du nombre de destinataires : envoyer à 10 clients ou
    * à 5 000 coûte le même montant. Une campagne récurrente est débitée à
-   * chaque exécution du cron (100 F par diffusion, pas par abonnement).
+   * chaque exécution du cron (pas par abonnement).
+   *
+   * ⚠️ La grille dépend de l'AUDIENCE depuis le Lot 3.1 (voir
+   * `priceForAudience`) ; ce getter ne renvoie que le tarif de base, sans
+   * audience, conservé pour la rétro-compatibilité.
    */
   get unitPriceXof(): number {
-    const raw = this.configService?.get?.('PUSH_CAMPAIGN_UNIT_PRICE_FCFA');
-    if (raw === undefined || raw === null || raw === '') {
-      return DEFAULT_PUSH_CAMPAIGN_UNIT_PRICE_XOF;
-    }
-    const parsed = Number(raw);
-    return Number.isFinite(parsed) && parsed >= 0
-      ? parsed
-      : DEFAULT_PUSH_CAMPAIGN_UNIT_PRICE_XOF;
+    return resolvePushCampaignPrice(
+      null,
+      this.configService?.get?.('PUSH_CAMPAIGN_UNIT_PRICE_FCFA'),
+    );
+  }
+
+  /**
+   * 💳 Prix d'un envoi (FCFA) pour une audience donnée.
+   *
+   * Précédence : grille du dashboard super-admin → `PUSH_CAMPAIGN_UNIT_PRICE_FCFA`
+   * (repli dev/tests) → défaut de l'audience → 100 F. `ALL_CLIENTS` est
+   * volontairement très au-dessus par défaut : viser toute la base doit coûter
+   * cher, sinon le spam est rentable.
+   */
+  priceForAudience(
+    audience: PushCampaignAudience | string | null | undefined,
+  ): number {
+    return resolvePushCampaignPrice(
+      audience,
+      this.configService?.get?.('PUSH_CAMPAIGN_UNIT_PRICE_FCFA'),
+    );
+  }
+
+  /** 💳 Grille complète { audience: prixFCFA }, exposée avant création. */
+  pricingTable(): Record<string, number> {
+    return pushCampaignPricingTable();
   }
 
   /**
@@ -401,9 +433,13 @@ export class PushCampaignService {
     audience: PushCampaignAudience | null;
     ownerUserId: string;
   }): Promise<PushCampaign> {
+    // Audience normalisée UNE SEULE FOIS : la résolution des destinataires et
+    // la facturation doivent porter sur la MÊME audience — sinon on pourrait
+    // débiter 100 F (tarif de base) un envoi résolu comme ALL_CLIENTS.
+    const audience = params.audience ?? PushCampaignAudience.ALL_CLIENTS;
     const spec: AudienceSpec = {
       kind: 'AUDIENCE',
-      audience: params.audience ?? PushCampaignAudience.ALL_CLIENTS,
+      audience,
       ownerUserId: params.ownerUserId,
     };
 
@@ -416,7 +452,7 @@ export class PushCampaignService {
 
     const charge = await this.chargeOwner(
       params.ownerUserId,
-      this.unitPriceXof,
+      this.priceForAudience(audience),
       `PUSHCAMP-${randomUUID()}`,
       params.title,
     );
@@ -432,7 +468,7 @@ export class PushCampaignService {
         sentBy: params.sentBy || null,
         status: PushCampaignStatus.SENT,
         scheduledAt: null,
-        audience: params.audience,
+        audience,
         ownerUserId: params.ownerUserId,
         billedXof: charge.amount,
         walletTransactionId: charge.walletTransactionId,
@@ -720,10 +756,17 @@ export class PushCampaignService {
   /**
    * 🎯 Résolution des audiences auto-service.
    *
-   * Anti-spam : un marchand ne voit QUE les clients qui lui ont réellement
-   * commandé (via `orders.businessId`) ; une agence ne voit QUE les livreurs
-   * rattachés à elle (`users.agencyId`). `ALL_CLIENTS` reste limité au rôle
-   * CLIENT — jamais les livreurs, jamais les admins.
+   * Anti-spam, côté marchand :
+   *  - OWN_CLIENTS : uniquement les clients qui lui ont réellement commandé
+   *    (via `orders.businessId`) ;
+   *  - ALL_CLIENTS : tous les clients de la plateforme (jamais livreurs/admins).
+   *
+   * Anti-spam, côté agence :
+   *  - OWN_DRIVERS : uniquement les livreurs rattachés à elle (`users.agencyId`) ;
+   *  - OWN_CLIENTS : les clients qu'ELLE a livrés (`orders.deliveryProviderId`).
+   *
+   * `ALL_CLIENTS` reste limité au rôle CLIENT — jamais les livreurs, jamais les
+   * admins, jamais « toute la base » (réservé aux campagnes admin).
    */
   private async resolveAudienceUserIds(
     audience: PushCampaignAudience,
@@ -731,10 +774,28 @@ export class PushCampaignService {
   ): Promise<{ userIds: string[]; label: string }> {
     switch (audience) {
       case PushCampaignAudience.OWN_CLIENTS: {
-        const businessIds = await this.findOwnedBusinessIds(ownerUserId);
-        const userIds = businessIds.length
-          ? await this.notificationStore.findClientsOfBusinesses(businessIds)
-          : [];
+        // Deux sources d'« propres clients », volontairement fusionnées :
+        // les clients des commerces de l'opérateur (marchand) ET ceux livrés
+        // par son agence (le cas échéant). On ne connaît PAS le rôle ici — le
+        // cron ne dispose que de `ownerUserId` — on résout donc les deux et on
+        // dédoublonne : un compte qui serait les deux ne compterait qu'une fois.
+        const [businessIds, agency] = await Promise.all([
+          this.findOwnedBusinessIds(ownerUserId),
+          this.agencyRepo.findOne({ where: { userId: ownerUserId } }),
+        ]);
+
+        const unique = new Set<string>();
+        if (businessIds.length) {
+          const clients =
+            await this.notificationStore.findClientsOfBusinesses(businessIds);
+          for (const id of clients) unique.add(id);
+        }
+        if (agency) {
+          const clients = await this.findClientsOfAgency(agency.id);
+          for (const id of clients) unique.add(id);
+        }
+
+        const userIds = [...unique];
         return {
           userIds,
           label: `audience=OWN_CLIENTS (${userIds.length})`,
@@ -832,6 +893,37 @@ export class PushCampaignService {
     }
   }
 
+  /**
+   * 📄 Clients livrés par une agence (`orders.deliveryProviderId`).
+   *
+   * Même motif que `NotificationStoreService.findClientsOfBusinesses` (requête
+   * brute sur `orders` via le manager du repo users) : on évite d'injecter un
+   * `Repository<Order>` dans ce module pour une simple lecture.
+   *
+   * Toute erreur renvoie [] : une audience vide étant refusée AVANT débit, elle
+   * ne peut jamais facturer un envoi sans destinataire.
+   */
+  private async findClientsOfAgency(agencyId: string): Promise<string[]> {
+    try {
+      const rows = await this.userRepo.manager
+        .createQueryBuilder()
+        .select('DISTINCT o."clientId"', 'clientId')
+        .from('orders', 'o')
+        .where('o."deliveryProviderId" = :agencyId', { agencyId })
+        .andWhere('o."clientId" IS NOT NULL')
+        .andWhere('o.status NOT IN (:...excluded)', {
+          excluded: ['CANCELLED', 'FAILED'],
+        })
+        .getRawMany();
+      return rows.map((r: any) => r.clientId).filter(Boolean);
+    } catch (err) {
+      this.logger.warn(
+        `[PushCampaign] Lecture des clients livrés par l'agence ${agencyId} impossible: ${(err as Error).message}`,
+      );
+      return [];
+    }
+  }
+
   /** Bannit les audiences non autorisées pour ce rôle (anti-spam). */
   private assertAudienceAllowed(
     role: UserRole,
@@ -844,6 +936,7 @@ export class PushCampaignService {
       ],
       [UserRole.AGENCY]: [
         PushCampaignAudience.OWN_DRIVERS,
+        PushCampaignAudience.OWN_CLIENTS,
         PushCampaignAudience.ALL_CLIENTS,
       ],
     };
@@ -876,7 +969,7 @@ export class PushCampaignService {
 
     return this.chargeOwner(
       campaign.ownerUserId,
-      this.unitPriceXof,
+      this.priceForAudience(campaign.audience),
       // Référence stable par exécution : une éventuelle double exécution du
       // cron sur le même run est dédupliquée par `debitWallet`.
       `PUSHCAMP-${campaign.id}-${campaign.runCount ?? 0}`,
