@@ -1,9 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" width="140" height="140">
-  <defs></defs><rect width="140" height="140" rx="28" fill="#C1652E"/>
-    <ellipse cx="70" cy="70" rx="44" ry="52" fill="none" stroke="#D4AF37" stroke-width="4.5"/>
-    <path d="M38 50 Q70 22 102 50" fill="none" stroke="#8B7500" stroke-width="3.2" opacity="0.7"/>
-    <path d="M50 62 Q58 55.5 66 62 Q58 68.5 50 62Z" fill="#F4D06A"/>
-    <path d="M74 62 Q82 55.5 90 62 Q82 68.5 74 62Z" fill="#F4D06A"/>
-    <path d="M70 61 L63.5 84 L76.5 84 Z" fill="#8B7500"/>
-    <path d="M55 96 Q70 105 85 96" fill="none" stroke="#F4D06A" stroke-width="4.5" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="bgr" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D9A3A6"/><stop offset="100%" stop-color="#A85A67"/>
+    </linearGradient>
+    <linearGradient id="str" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDECEC"/><stop offset="50%" stop-color="#FFFFFF"/><stop offset="100%" stop-color="#E8B3B6"/>
+    </linearGradient>
+    <linearGradient id="glr" x1="0%" y1="0%" x2="55%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.5"/>
+      <stop offset="38%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient></defs>
+    <rect width="140" height="140" rx="28" fill="url(#bgr)"/>
+    
+    <ellipse cx="70" cy="70" rx="44" ry="52" fill="none" stroke="url(#str)" stroke-width="4.5"/>
+    <path d="M38 50 Q70 22 102 50" fill="none" stroke="#F7D6D8" stroke-width="3.2" opacity="0.75"/>
+    <path d="M50 62 Q58 55.5 66 62 Q58 68.5 50 62Z" fill="#FFFFFF"/>
+    <path d="M74 62 Q82 55.5 90 62 Q82 68.5 74 62Z" fill="#FFFFFF"/>
+    <path d="M70 61 L63.5 84 L76.5 84 Z" fill="#F0C4C6"/>
+    <path d="M55 96 Q70 105 85 96" fill="none" stroke="url(#str)" stroke-width="4.5" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="3" fill="#FFFFFF" opacity="0.5"/>
+    <rect width="140" height="140" rx="28" fill="url(#glr)"/>
+    <rect x="4" y="4" width="132" height="132" rx="24" fill="none" stroke="#FFFFFF" stroke-width="1" opacity="0.35"/>
 </svg>
