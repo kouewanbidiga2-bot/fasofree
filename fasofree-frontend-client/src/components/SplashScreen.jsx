@@ -52,7 +52,7 @@ export default function SplashScreen({ children }) {
           style={{
             width: 36,
             height: 36,
-            border: '3px solid rgba(185,91,43,0.15)',
+            border: '3px solid rgba(193,101,46,0.15)',
             borderTopColor: '#C1652E',
             borderRadius: '50%',
             animation: 'fasofree-spin 0.75s linear infinite',

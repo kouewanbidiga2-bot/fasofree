@@ -228,7 +228,7 @@ const Home = () => {
                   type="button"
                   aria-label={t('loginAria')}
                   onClick={() => navigate('/auth')}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-background-card px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-background-card px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#C1652E]"
                 >
                   <LogIn size={16} strokeWidth={1.8} />
                   <span className="hidden sm:inline">{t('login')}</span>
@@ -237,11 +237,11 @@ const Home = () => {
               <button
                 aria-label={t('notificationsAria')}
                 onClick={() => setNotifOpen(true)}
-                className="relative rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#B95B2B]"
+                className="relative rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#C1652E]"
               >
                 <Bell size={17} strokeWidth={1.8} />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#B95B2B] text-white text-[9px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C1652E] text-white text-[9px] font-bold flex items-center justify-center">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -257,8 +257,8 @@ const Home = () => {
               onClick={() => handleCategoryChange('all')}
               className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
                 selectedCategory === 'all'
-                  ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
-                  : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
+                  ? 'bg-[#C1652E] border-[#C1652E] text-white shadow-subtle'
+                  : 'bg-background-card border-border-light text-text-secondary hover:border-[#C1652E] hover:text-text-primary'
               }`}
             >
               {t('allRestaurants')}
@@ -271,8 +271,8 @@ const Home = () => {
                   onClick={() => handleCategoryChange(cat.value)}
                   className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
                     isActive
-                      ? 'bg-[#B95B2B] border-[#B95B2B] text-white shadow-subtle'
-                      : 'bg-background-card border-border-light text-text-secondary hover:border-[#B95B2B] hover:text-text-primary'
+                      ? 'bg-[#C1652E] border-[#C1652E] text-white shadow-subtle'
+                      : 'bg-background-card border-border-light text-text-secondary hover:border-[#C1652E] hover:text-text-primary'
                   }`}
                 >
                   {cat.label}
@@ -288,7 +288,7 @@ const Home = () => {
                 onClick={() => handleSubCategoryChange('all')}
                 className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
                   selectedSubCategory === 'all'
-                    ? 'bg-[#B95B2B]/10 border-[#B95B2B] text-[#B95B2B]'
+                    ? 'bg-[#C1652E]/10 border-[#C1652E] text-[#C1652E]'
                     : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
                 }`}
               >
@@ -300,7 +300,7 @@ const Home = () => {
                   onClick={() => handleSubCategoryChange(sub)}
                   className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
                     selectedSubCategory === sub
-                      ? 'bg-[#B95B2B]/10 border-[#B95B2B] text-[#B95B2B]'
+                      ? 'bg-[#C1652E]/10 border-[#C1652E] text-[#C1652E]'
                       : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
                   }`}
                 >
@@ -324,7 +324,7 @@ const Home = () => {
                     navigate(`/search?q=${encodeURIComponent(e.target.value.trim())}`);
                   }
                 }}
-                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#C1652E] focus:outline-none focus:shadow-medium"
               />
               <button
                 type="button"
@@ -351,7 +351,7 @@ const Home = () => {
                       navigate(`/order-tracking?orderId=${e.target.value.trim()}`);
                     }
                   }}
-                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#B95B2B] focus:outline-none focus:shadow-medium"
+                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#C1652E] focus:outline-none focus:shadow-medium"
                 />
               </div>
             </div>
@@ -381,7 +381,7 @@ const Home = () => {
             <button
               type="button"
               onClick={() => navigate('/ride')}
-              className="inline-flex items-center gap-2 bg-[#B95B2B] hover:bg-[#D17843] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+              className="inline-flex items-center gap-2 bg-[#C1652E] hover:bg-[#D17843] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <Car size={16} strokeWidth={2} />
               FasoFree Ride
@@ -390,7 +390,7 @@ const Home = () => {
             <button
               type="button"
               onClick={() => navigate('/p2p-delivery')}
-              className="inline-flex items-center gap-2 bg-[#D17843] hover:bg-[#B95B2B] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
+              className="inline-flex items-center gap-2 bg-[#D17843] hover:bg-[#C1652E] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
             >
               <Package size={16} strokeWidth={2} />
               {t('sendPackage')}

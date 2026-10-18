@@ -28,7 +28,7 @@ export default {
         },
         // Global accent - terracotta
         accent: {
-          primary: '#B95B2B',
+          primary: '#C1652E',
           secondary: '#D17843',
           muted: '#91461F',
         },

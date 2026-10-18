@@ -20,7 +20,7 @@ export default function HeroBanner() {
             <circle cx="2" cy="2" r="1" fill="#C1652E" opacity="0.12" />
           </pattern>
           <pattern id="hero-lines" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1="0" y1="0" x2="0" y2="40" stroke="#B95B2B" strokeWidth="0.5" opacity="0.07" />
+            <line x1="0" y1="0" x2="0" y2="40" stroke="#C1652E" strokeWidth="0.5" opacity="0.07" />
           </pattern>
           <pattern id="hero-zigzag" x="0" y="0" width="32" height="16" patternUnits="userSpaceOnUse">
             <polyline points="0,12 8,4 16,12 24,4 32,12" fill="none" stroke="#C1652E" strokeWidth="0.6" opacity="0.08" />

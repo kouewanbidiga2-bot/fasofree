@@ -60,7 +60,7 @@ const PackageStep = ({ value, onUpdate }) => (
         type="checkbox"
         checked={value.isFragile}
         onChange={(e) => onUpdate('isFragile', e.target.checked)}
-        className="h-4 w-4 rounded border-border-light accent-[#B95B2B]"
+        className="h-4 w-4 rounded border-border-light accent-[#C1652E]"
       />
       <span className="text-sm text-text-secondary">Colis fragile</span>
     </label>

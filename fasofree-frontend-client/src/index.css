@@ -44,7 +44,7 @@
   }
 
   button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-    outline: 2px solid #B95B2B;
+    outline: 2px solid #C1652E;
     outline-offset: 3px;
   }
 
@@ -201,7 +201,7 @@
 /* Overflows de couleurs accent */
 .dark .bg-\[\#C1652E\]\/10 { background-color: rgba(193,101,46,0.15) !important; }
 .dark .bg-\[\#C1652E\]\/5 { background-color: rgba(193,101,46,0.1) !important; }
-.dark .bg-\[\#B95B2B\]\/15 { background-color: rgba(185,91,43,0.2) !important; }
+.dark .bg-\[\#C1652E\]\/15 { background-color: rgba(193,101,46,0.2) !important; }
 
 /* Story strip / viewer */
 .dark .bg-\[\#fbf8f3\] { background-color: #121212 !important; }
@@ -273,10 +273,10 @@
 .restaurant-grid > :nth-child(4) .restaurant-image-wrap { height: 180px; }
 
 @media (hover: hover) and (pointer: fine) {
-  .hero-cta:hover { transform: translateY(-2px); background: #b95b2b; }
+  .hero-cta:hover { transform: translateY(-2px); background: #C1652E; }
   .restaurant-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px rgba(77, 53, 35, 0.15); }
   .restaurant-card:hover .restaurant-image { transform: scale(1.05); }
-  .restaurant-card:hover .restaurant-arrow { transform: scale(1.1); background: #b95b2b; }
+  .restaurant-card:hover .restaurant-arrow { transform: scale(1.1); background: #C1652E; }
 }
 
 @media (max-width: 1023px) {
@@ -332,7 +332,7 @@
 
   .app-page {
     @apply min-h-screen bg-background-primary;
-    background-image: radial-gradient(circle at 100% 0%, rgba(185, 91, 43, 0.06), transparent 30rem);
+    background-image: radial-gradient(circle at 100% 0%, rgba(193, 101, 46, 0.06), transparent 30rem);
   }
 
   .app-header {

@@ -51,7 +51,7 @@ export default function UserMenu() {
       >
         <span
           className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
-          style={{ background: '#B95B2B' }}
+          style={{ background: '#C1652E' }}
         >
           {initials}
         </span>
@@ -69,7 +69,7 @@ export default function UserMenu() {
             <p className="text-xs text-text-secondary mt-0.5">{user.email}</p>
             <span
               className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
-              style={{ background: '#B95B2B' }}
+              style={{ background: '#C1652E' }}
             >
               {ROLE_LABELS[currentRole] || currentRole}
             </span>

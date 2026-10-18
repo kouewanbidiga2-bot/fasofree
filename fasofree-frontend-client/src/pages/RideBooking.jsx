@@ -18,7 +18,7 @@ import { api } from '../services/api';
 import useAuthStore from '../store/authStore';
 
 const RIDE_OPTIONS = [
-  { key: 'ECONOMY', label: 'Économique', desc: 'Moto standard', icon: Bike, multiplier: '1×', color: '#B95B2B' },
+  { key: 'ECONOMY', label: 'Économique', desc: 'Moto standard', icon: Bike, multiplier: '1×', color: '#C1652E' },
   { key: 'COMFORT', label: 'Confort', desc: 'Moto premium', icon: Snowflake, multiplier: '1.4×', color: '#2563EB' },
   { key: 'PREMIUM', label: 'Premium', desc: 'VTC / Berline', icon: Crown, multiplier: '2×', color: '#9333EA' },
 ];
@@ -398,7 +398,7 @@ const RideBooking = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-text-secondary">
                   <span>Type de course</span>
-                  <span className="font-semibold" style={{ color: RIDE_OPTIONS.find(o => o.key === rideOption)?.color || '#B95B2B' }}>
+                  <span className="font-semibold" style={{ color: RIDE_OPTIONS.find(o => o.key === rideOption)?.color || '#C1652E' }}>
                     {RIDE_OPTIONS.find(o => o.key === rideOption)?.label || 'Économique'}
                   </span>
                 </div>

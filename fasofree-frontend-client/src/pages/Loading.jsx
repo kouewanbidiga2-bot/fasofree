@@ -54,7 +54,7 @@ const Loading = () => {
         opacity: 0.9,
         textAlign: 'center',
       }}>
-        L'art de la table
+        Commande &amp; livraison au Burkina
       </div>
 
       <style>{`
