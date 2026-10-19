@@ -194,7 +194,7 @@ const UsersBackofficeTab = ({
         <select
           value={role}
           onChange={(e) => setRole(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+          className="select-field !w-auto !py-2 !pl-3 !pr-8 !text-sm !rounded-lg"
         >
           {ROLE_OPTIONS.map((opt) => (
             <option key={opt.value || 'all'} value={opt.value}>
@@ -206,7 +206,7 @@ const UsersBackofficeTab = ({
         <select
           value={applicationStatus}
           onChange={(e) => setApplicationStatus(e.target.value)}
-          className="px-3 py-2 rounded-lg bg-background-secondary border border-border-light text-sm"
+          className="select-field !w-auto !py-2 !pl-3 !pr-8 !text-sm !rounded-lg"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value || 'all-status'} value={opt.value}>

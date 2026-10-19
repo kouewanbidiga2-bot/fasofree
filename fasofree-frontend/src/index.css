@@ -72,37 +72,72 @@
 
   /* ===== BUTTONS ===== */
   .btn-primary {
-    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
     background: #C1652E;
+    box-shadow: 0 1px 2px rgba(41, 35, 30, 0.08);
   }
   .btn-primary:hover:not(:disabled) {
     background: #A85526;
+    box-shadow: 0 4px 12px rgba(193, 101, 46, 0.25);
   }
 
   .btn-secondary {
-    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-text-primary border border-border-medium rounded-md transition-colors duration-200 hover:bg-background-secondary hover:border-border-dark;
+    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-text-primary border border-border-medium rounded-xl transition-all duration-200 hover:bg-background-secondary hover:border-border-dark active:scale-[0.98];
     background: #FFFFFF;
   }
 
   .btn-ghost {
-    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-text-secondary rounded-md transition-colors duration-200 hover:text-text-primary hover:bg-background-tertiary;
+    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-text-secondary rounded-xl transition-all duration-200 hover:text-text-primary hover:bg-background-tertiary active:scale-[0.98];
   }
 
   .btn-danger {
-    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-status-error border border-status-error/30 rounded-md transition-colors duration-200 hover:bg-status-errorBg;
+    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-status-error border border-status-error/30 rounded-xl transition-all duration-200 hover:bg-status-errorBg active:scale-[0.98];
   }
 
   .btn-icon {
-    @apply flex items-center justify-center w-9 h-9 rounded-md border border-border-light bg-background-card transition-colors duration-200 hover:border-border-medium hover:bg-background-secondary;
+    @apply flex items-center justify-center w-9 h-9 rounded-lg border border-border-light bg-background-card transition-all duration-150 hover:border-border-medium hover:bg-background-secondary active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-primary/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   /* ===== FORM INPUTS ===== */
   .input-field {
-    @apply w-full px-4 py-3 bg-background-secondary border border-border-light rounded-md text-sm text-text-primary placeholder:text-text-tertiary transition-colors duration-200;
+    @apply w-full px-4 py-3 bg-background-secondary border border-border-light rounded-lg text-sm text-text-primary placeholder:text-text-tertiary transition-colors duration-200;
   }
   .input-field:focus {
-    @apply border-accent-primary;
+    @apply border-accent-primary outline-none;
     box-shadow: 0 0 0 3px rgba(193, 101, 46, 0.12);
+  }
+
+  /* Select natif habillé : chevron SVG, coins arrondis, focus terracotta
+     (remplace le chevron brut du navigateur sur les tableaux/back-office) */
+  .select-field {
+    @apply w-full cursor-pointer appearance-none px-4 py-3 pr-10 bg-background-secondary border border-border-light rounded-lg text-sm text-text-primary transition-colors duration-200;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236E6559' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 14px;
+  }
+  .select-field:focus {
+    @apply border-accent-primary outline-none;
+    box-shadow: 0 0 0 3px rgba(193, 101, 46, 0.12);
+  }
+  .select-field:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  /* Toute la base : les <select> qui héritent de .input-field (toutes les
+     tables/filtres du back-office) reçoivent le même chevron habillé. */
+  select.input-field,
+  .select-field {
+    @apply cursor-pointer appearance-none pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236E6559' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 14px;
+  }
+  select.input-field option,
+  .select-field option {
+    color: #29231E;
+    background: #FFFFFF;
   }
 
   .input-group {

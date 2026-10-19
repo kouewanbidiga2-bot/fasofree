@@ -1273,6 +1273,43 @@ const SuperAdminDashboard = () => {
   const clientUsers = users.filter((u) => ['client', 'customer'].includes(normRole(u)));
   const otherUsers = users.filter((u) => normRole(u) !== 'business_admin' && !['client', 'customer'].includes(normRole(u)));
 
+  // ── Widgets KPI uniques (vue globale) : données dérivées ──────────────────
+  // Sparkline du CA : 14 derniers points de la série réelle (revenue/jour).
+  const caSparkline = useMemo(() => {
+    const rows = (financialOverview?.chartData || []).slice(-14);
+    const vals = rows.map((d) => Number(d.revenue) || 0);
+    if (vals.length < 2 || !vals.some((v) => v > 0)) return null;
+    const max = Math.max(...vals);
+    const min = Math.min(...vals);
+    const W = 400;
+    const H = 46;
+    const pts = vals.map((v, i) => [
+      (i / (vals.length - 1)) * W,
+      H - 4 - ((v - min) / (max - min || 1)) * (H - 12),
+    ]);
+    const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+    return { line, area: `${line} L${W} ${H} L0 ${H} Z`, W, H };
+  }, [financialOverview]);
+
+  // Histogramme des commandes : 7 derniers jours réels (orderCount/jour).
+  const orderBars = useMemo(() => {
+    const rows = (financialOverview?.chartData || []).slice(-7);
+    return rows.map((d) => Number(d.orderCount) || 0);
+  }, [financialOverview]);
+
+  // Part du CA transformée en commission (anneau du widget Commissions).
+  const commissionRatio = financialStats.totalRevenue > 0
+    ? Math.min(financialStats.totalCommission / financialStats.totalRevenue, 1)
+    : 0;
+  // Part des commissions encore non réglées (barre segmentée des paiements).
+  const pendingShare = financialStats.totalCommission > 0
+    ? Math.min(financialStats.pendingPayouts / financialStats.totalCommission, 1)
+    : 0;
+  // Litiges ouverts depuis plus de 48 h (calculés sur la liste détaillée).
+  const oldDisputes = pendingDisputes.filter((d) => (
+    d.createdAt && Date.now() - new Date(d.createdAt).getTime() > 48 * 3600 * 1000
+  )).length;
+
   const renderUserRow = (u) => {
     const isSelf = u.id === user?.id;
     const isSuperAdminTarget = normRole(u) === 'super_admin';
@@ -1294,7 +1331,7 @@ const SuperAdminDashboard = () => {
           <p className="text-text-secondary text-xs">{u.phone || '—'}</p>
         </td>
         <td>
-          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-background-secondary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-text-secondary">
             {roleLabel(u.role)}
           </span>
         </td>
@@ -1307,7 +1344,7 @@ const SuperAdminDashboard = () => {
         <td>
           <div className="flex items-center gap-2">
             <select
-              className="input-field !py-1.5 !text-xs"
+              className="select-field !w-auto !rounded-lg !py-1.5 !pl-3 !pr-8 !text-xs"
               value={u.role}
               disabled={usersBusy === u.id || isSelf || isProtected}
               onChange={(e) => handleChangeUserRole(u.id, e.target.value)}
@@ -1316,10 +1353,13 @@ const SuperAdminDashboard = () => {
                 <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
+            {/* Ban/réactivation : réversible → ambre/vert ; suppression : définitif → rouge */}
             <button
               onClick={() => handleToggleUserStatus(u.id, !u.isActive)}
               disabled={usersBusy === u.id || isSelf || isProtected}
-              className={`btn-icon disabled:opacity-40 disabled:cursor-not-allowed ${u.isActive ? 'text-status-error hover:bg-status-errorBg' : 'text-status-success hover:bg-status-successBg'}`}
+              className={`btn-icon ${u.isActive
+                ? 'border-status-warning/30 text-status-warning hover:bg-status-warningBg hover:border-status-warning/50'
+                : 'border-status-success/30 text-status-success hover:bg-status-successBg hover:border-status-success/50'}`}
               title={
                 isSelf
                   ? 'Impossible sur votre propre compte'
@@ -1335,7 +1375,7 @@ const SuperAdminDashboard = () => {
             <button
               onClick={() => handleDeleteUser(u.id, u.email)}
               disabled={usersBusy === u.id || isSelf || isProtected}
-              className="btn-icon text-status-error hover:bg-status-errorBg disabled:opacity-40 disabled:cursor-not-allowed"
+              className="btn-icon border-status-error/30 text-status-error hover:bg-status-errorBg hover:border-status-error/50"
               title={
                 isSelf
                   ? 'Impossible sur votre propre compte'
@@ -1597,45 +1637,155 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-slide-up">
-            {/* Bandeau KPI unifié */}
+            {/* Bandeau KPI : 5 widgets structurellement uniques (pas de gabarit
+                "icône en couleur + chiffre" répété — chacun a sa forme propre) */}
             <div>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-                <StatCard
-                  label="Chiffre d'affaires"
-                  value={`${(financialStats.totalRevenue / 1000000).toFixed(1)}M FCFA`}
-                  icon={TrendingUp}
-                  color="#C1652E"
-                  trend={financialStats.revenueGrowth}
-                  loading={loading.financial}
-                />
-                <StatCard
-                  label="Transactions"
-                  value={financialStats.totalTransactions.toLocaleString()}
-                  icon={Activity}
-                  color="#3B82F6"
-                  loading={loading.financial}
-                />
-                <StatCard
-                  label="Commissions"
-                  value={`${(financialStats.totalCommission / 1000000).toFixed(1)}M FCFA`}
-                  icon={Wallet}
-                  color="#22C55E"
-                  loading={loading.financial}
-                />
-                <StatCard
-                  label="Paiements en attente"
-                  value={`${(financialStats.pendingPayouts / 1000000).toFixed(1)}M FCFA`}
-                  icon={CreditCard}
-                  color="#F59E0B"
-                  loading={loading.financial}
-                />
-                <StatCard
-                  label="Litiges ouverts"
-                  value={financialStats.pendingDisputes}
-                  icon={AlertCircle}
-                  color="#EF4444"
-                  loading={loading.financial}
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
+                {/* 1 · Hero CA (2 col) : bloc terracotta plein, pilule croissance, sparkline */}
+                <div className="relative overflow-hidden rounded-2xl bg-accent-primary p-5 text-white sm:col-span-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">Chiffre d'affaires · 30 j</p>
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white/90">30 derniers jours</span>
+                  </div>
+                  <div className="mt-2 flex items-end gap-2">
+                    <span className="text-[36px] font-extrabold leading-none tracking-tight">
+                      {loading.financial ? '—' : `${(financialStats.totalRevenue / 1000000).toFixed(1)}M`}
+                    </span>
+                    <span className="pb-1 text-sm font-semibold text-white/80">FCFA</span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">
+                      {financialStats.revenueGrowth >= 0 ? '↑' : '↓'} {Math.abs(financialStats.revenueGrowth)}%
+                    </span>
+                    <span className="text-xs text-white/70">vs mois dernier</span>
+                  </div>
+                  {caSparkline && (
+                    <svg
+                      viewBox={`0 0 ${caSparkline.W} ${caSparkline.H}`}
+                      preserveAspectRatio="none"
+                      className="pointer-events-none absolute bottom-0 left-5 h-11 w-[calc(100%-2.5rem)]"
+                      aria-hidden="true"
+                    >
+                      <path d={caSparkline.area} fill="rgba(255,255,255,0.16)" />
+                      <path
+                        d={caSparkline.line}
+                        fill="none"
+                        stroke="#FFFFFF"
+                        strokeOpacity="0.85"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </svg>
+                  )}
+                </div>
+
+                {/* 2 · Transactions : histogramme 7 barres (commandes réelles/jour) */}
+                <div className="card flex flex-col p-5 xl:col-span-1">
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(59,130,246,0.10)' }}>
+                      <Activity size={17} className="text-[#3B82F6]" />
+                    </span>
+                    <span className="rounded-full bg-background-tertiary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-text-secondary">7 derniers j</span>
+                  </div>
+                  <p className="mt-3 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
+                    {financialStats.totalTransactions.toLocaleString('fr-FR')}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Transactions · 30 j</p>
+                  <div className="mt-auto flex h-9 items-end gap-1.5 pt-3">
+                    {orderBars.length > 0 ? orderBars.map((v, i) => {
+                      const maxBar = Math.max(...orderBars, 1);
+                      return (
+                        <span
+                          key={i}
+                          className="flex-1 rounded-t-[3px]"
+                          style={{
+                            height: `${Math.max((v / maxBar) * 100, 8)}%`,
+                            backgroundColor: '#3B82F6',
+                            opacity: 0.35 + (i / Math.max(orderBars.length - 1, 1)) * 0.65,
+                          }}
+                          title={`${v} commande${v > 1 ? 's' : ''}`}
+                        />
+                      );
+                    }) : (
+                      Array.from({ length: 7 }).map((_, i) => (
+                        <span key={i} className="h-2 flex-1 rounded-t-[3px] bg-border-light" />
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* 3 · Commissions : anneau SVG (part du CA) + montant */}
+                <div className="card flex flex-col p-5 xl:col-span-1">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Commissions</p>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.10)' }}>
+                      <Wallet size={17} className="text-[#22C55E]" />
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-1 items-center gap-4">
+                    <svg width="84" height="84" viewBox="0 0 84 84" className="shrink-0" aria-hidden="true">
+                      <circle cx="42" cy="42" r="34" fill="none" stroke="#ECE6DD" strokeWidth="9" />
+                      <circle
+                        cx="42"
+                        cy="42"
+                        r="34"
+                        fill="none"
+                        stroke="#22C55E"
+                        strokeWidth="9"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(2 * Math.PI * 34 * commissionRatio).toFixed(1)} ${(2 * Math.PI * 34).toFixed(1)}`}
+                        transform="rotate(-90 42 42)"
+                      />
+                      <text x="42" y="41" textAnchor="middle" fontSize="15" fontWeight="800" fill="#29231E">{Math.round(commissionRatio * 100)}%</text>
+                      <text x="42" y="54" textAnchor="middle" fontSize="7" fontWeight="700" fill="#9B9286" letterSpacing="0.6">DU CA</text>
+                    </svg>
+                    <div>
+                      <p className="text-2xl font-extrabold leading-none tracking-tight text-text-primary">
+                        {(financialStats.totalCommission / 1000000).toFixed(1)}M
+                      </p>
+                      <p className="mt-1.5 text-xs font-semibold text-text-secondary">FCFA encaissés</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4 · Paiements en attente : barre segmentée (part non réglée) */}
+                <div className="card flex flex-col p-5 xl:col-span-1">
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)' }}>
+                      <CreditCard size={17} className="text-[#F59E0B]" />
+                    </span>
+                    <span className="rounded-full bg-status-warningBg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-status-warning">En attente</span>
+                  </div>
+                  <p className="mt-3 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
+                    {(financialStats.pendingPayouts / 1000000).toFixed(1)}
+                    <span className="ml-1.5 text-sm font-semibold text-text-secondary">M FCFA</span>
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Paiements en attente</p>
+                  <div className="mt-auto pt-3">
+                    <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-border-light">
+                      <span className="h-full rounded-l-full bg-status-warning" style={{ width: `${Math.round(pendingShare * 100)}%` }} />
+                      <span className="h-full rounded-r-full bg-status-warning/40" style={{ width: `${Math.round(Math.max((1 - pendingShare) * 0.3, 0.12) * 100)}%` }} />
+                    </div>
+                    <p className="mt-2 text-[11px] text-text-tertiary">Soit {Math.round(pendingShare * 100)}% des commissions à régler</p>
+                  </div>
+                </div>
+
+                {/* 5 · Litiges : carte teintée rouge, gros chiffre, alerte >48 h */}
+                <div className="relative flex flex-col overflow-hidden rounded-2xl border border-[#F6D9D3] bg-[#FDF0EE] p-5 sm:col-span-2 xl:col-span-1">
+                  <span className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-status-error">
+                    <AlertCircle size={17} className="text-white" />
+                  </span>
+                  <p className="mt-5 text-[44px] font-extrabold leading-none tracking-tight text-status-error">
+                    {loading.financial ? '—' : financialStats.pendingDisputes}
+                  </p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#A85539]">Litiges ouverts</p>
+                  <div className="mt-auto flex items-center gap-2 border-t border-[#F0CEC6] pt-3 text-[11.5px] font-medium text-[#8A4A3A]">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-error" />
+                    {oldDisputes > 0 ? `${oldDisputes} depuis plus de 48 h` : 'Aucun litige de plus de 48 h'}
+                  </div>
+                </div>
               </div>
 
               {/* Compteurs plateforme conservés, en ligne compacte */}
