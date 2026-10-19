@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Package, Clock, Calendar, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 import Loading from './Loading';
 import Footer from '../components/Footer';
 import { api } from '../services/api';
+import useAuthStore from '../store/authStore';
 import CallSupportButton from '../components/CallSupportButton';
 
 const STATUS_CONFIG = {
@@ -25,25 +27,32 @@ const STATUS_CONFIG = {
 
 const Orders = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { user } = useAuthStore();
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => { loadOrders(); }, []);
+  // Cache TanStack Query : la page « Mes Commandes » s'affiche instantanément
+  // au retour arrière (données en cache) puis se resynchronise en arrière-plan.
+  // La queryKey inclut l'id utilisateur : jamais de commandes d'un autre compte
+  // dans le cache (le store purge aussi tout le cache au login/logout).
+  const {
+    data: orders = [],
+    isLoading,
+    isError,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['orders', 'my', user?.id || null],
+    queryFn: async () => {
+      const res = await api.getMyOrders();
+      return res.data || res;
+    },
+    staleTime: 15_000, // commandes fraîches 15 s (statut suivi par push/realtime)
+  });
 
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      const data = await api.getMyOrders();
-      setOrders(data.data || data);
-      setError(null);
-    } catch (err) {
-      setError('Impossible de charger vos commandes');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Spinner visible UNIQUEMENT au 1er chargement ou sur « Réessayer » — jamais
+  // lors d'une resync d'arrière-plan (les cartes restent affichées).
+  const loading = isLoading || (isError && isFetching);
+  const error = isError ? 'Impossible de charger vos commandes' : null;
 
   const filteredOrders = orders.filter((o) => filter === 'all' || o.status === filter);
 
@@ -87,7 +96,7 @@ const Orders = () => {
         ) : error ? (
           <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">
             <p className="text-text-secondary mb-4">{error}</p>
-            <button onClick={loadOrders} className="px-6 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium">Reessayer</button>
+            <button onClick={refetch} className="px-6 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium">Reessayer</button>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">

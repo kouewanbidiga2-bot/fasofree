@@ -13,6 +13,9 @@ import useNotificationStore from '../store/notificationStore';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 import { useLanguage } from '../contexts/LanguageContext';
 import { FasoFreeMask } from '../components/FasoFreeLogo';
+import { useQuery } from '@tanstack/react-query';
+import queryClient from '../services/queryClient';
+import { getUserLocation } from '../utils/userLocation';
 
 const mapBusinessToRestaurant = (b) => {
   const category = b.category || 'Fast Food';
@@ -57,79 +60,50 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState('all');
-  const [categoryCatalog, setCategoryCatalog] = useState([]);
-  const [allRestaurants, setAllRestaurants] = useState([]);
-  const [loadingBusinesses, setLoadingBusinesses] = useState(true);
   const [notifOpen, setNotifOpen] = useState(false);
   const { unreadCount } = useNotificationStore();
 
-  // Refetch businesses when selectedCategory changes OR when returning via browser back button
-  const [refreshKey, setRefreshKey] = useState(0);
-
+  // Retour navigateur → resynchronisation en ARRIÈRE-PLAN (invalidate) : le
+  // cache affiche l'ancien résultat instantanément, aucune page blanche.
   useEffect(() => {
-    const handlePopState = () => setRefreshKey((k) => k + 1);
+    const handlePopState = () =>
+      queryClient.invalidateQueries({ queryKey: ['businesses', 'grouped'] });
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const getUserLocation = () => {
-      return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-          resolve({ lat: 12.37, lng: -1.52 });
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-          () => resolve({ lat: 12.37, lng: -1.52 }),
-          { timeout: 5000, maximumAge: 300000 }
-        );
-      });
-    };
+  // Commerces groupés, mis en cache par couple (catégorie, sous-catégorie) :
+  // re-sélectionner un filtre déjà vu est instantané ; le premier chargement
+  // d'un filtre nouveau montre exactement le même spinner qu'avant.
+  const { data: allRestaurants = [], isLoading: loadingBusinesses } = useQuery({
+    queryKey: ['businesses', 'grouped', selectedCategory, selectedSubCategory],
+    queryFn: async () => {
+      const { lat, lng } = await getUserLocation();
+      const data = await api.getGroupedBusinesses(
+        lat,
+        lng,
+        selectedCategory,
+        selectedSubCategory,
+      );
+      return Array.isArray(data) ? data.map(mapBusinessToRestaurant) : [];
+    },
+  });
 
-    const loadBusinesses = async () => {
-      setLoadingBusinesses(true);
-      try {
-        const { lat, lng } = await getUserLocation();
-        const data = await api.getGroupedBusinesses(
-          lat,
-          lng,
-          selectedCategory,
-          selectedSubCategory,
-        );
-        if (!cancelled && Array.isArray(data)) {
-          setAllRestaurants(data.map(mapBusinessToRestaurant));
-        }
-      } catch {
-        if (!cancelled) setAllRestaurants([]);
-      } finally {
-        if (!cancelled) setLoadingBusinesses(false);
-      }
-    };
-    loadBusinesses();
-    return () => { cancelled = true; };
-  }, [selectedCategory, selectedSubCategory, refreshKey]);
+  // Catalogue des catégories : quasi statique côté serveur → cache long,
+  // rechargé discrètement en arrière-plan.
+  const { data: categoryCatalog = [] } = useQuery({
+    queryKey: ['business-categories'],
+    queryFn: async () => {
+      const data = await api.getBusinessCategories();
+      return data?.categories || [];
+    },
+    staleTime: 5 * 60_000,
+  });
 
   // 🏷️ Catalogue chargé depuis l'API (source unique de vérité).
   // L'ancienne liste codée en dur (« Fast-Food », « Cuisine Locale »…) ne
   // correspondait à AUCUNE valeur stockée en base : le filtre était donc
   // sans effet — d'où « les mêmes restaurants quel que soit le type choisi ».
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getBusinessCategories()
-      .then((data) => {
-        if (!cancelled) setCategoryCatalog(data?.categories || []);
-      })
-      .catch(() => {
-        if (!cancelled) setCategoryCatalog([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   // Sous-catégories de la verticale sélectionnée (niveau 2)
   const activeSubCategories = useMemo(() => {
     const found = categoryCatalog.find((c) => c.value === selectedCategory);

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Star, Clock, MapPin, Check, ChevronDown, Navigation, Mic, MicOff } from 'lucide-react';
 import Footer from '../components/Footer';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -44,17 +45,86 @@ const RESTAURANT_DAYS = [
 const Restaurant = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [restaurant, setRestaurant] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isFavorited, setIsFavorited] = useState(false);
-  const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const { addItem, getTotalItems } = useCartStore();
   const { isAuthenticated } = useAuthStore();
   const location = useLocation();
+
+  // Fiche commerce + menu : cache par identifiant — le retour arrière depuis
+  // le panier réaffiche la boutique instantanément (aucun écran blanc).
+  const { data: business, isLoading: loading } = useQuery({
+    queryKey: ['business', id],
+    queryFn: () => api.getBusiness(id),
+    staleTime: 60_000, // menu/prix rafraîchis en tâche de fond après 60 s
+  });
+
+  // Succursales de la marque : requête séparée, dépendante de la position —
+  // le tri par proximité s'applique sans recharger la fiche (avant, tout le
+  // loadBusiness relançait au changement de position).
+  const brandId = business?.brandId;
+  const { data: branchesData } = useQuery({
+    queryKey: ['brand', brandId, 'branches', userLocation?.lat ?? null, userLocation?.lng ?? null],
+    queryFn: () => api.getBrandBranches(brandId, userLocation?.lat, userLocation?.lng),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const branches = branchesData || [];
+
+  // La succursale par défaut reste la boutique affichée (comportement historique).
+  useEffect(() => {
+    if (business?.id) setSelectedBranchId(business.id);
+  }, [business?.id]);
+
+  // Mapping de la fiche → objet « restaurant » consommé par le rendu.
+  // Inchangé point par point par rapport à l'ancien loadBusiness (mêmes
+  // champs, mêmes fallbacks) : aucun changement visuel.
+  const restaurant = useMemo(() => {
+    if (!business) return null;
+    const menuItems = (business.products || []).map((p) => {
+      const itemImage = p.imageUrl || p.image_url || p.image || p.photo || p.photoUrl || p.photo_url;
+      const category = p.category || 'Général';
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        price: p.price,
+        category,
+        image: itemImage ? getAbsoluteImageUrl(itemImage) : getCategoryFallbackImage(category),
+        available: p.isAvailable !== false,
+      };
+    });
+    const signatureField = business.signatureImage || business.signature_image;
+    const signatureImage = signatureField ? getAbsoluteImageUrl(signatureField) : null;
+
+    return {
+      id: business.id,
+      name: getBrandName(business.name) || business.name,
+      tagline: business.category || 'Restaurant',
+      description: business.name,
+      logo: business.logo || business.logoUrl || business.logo_url || getBrandImage(business.name),
+      coverImage: getAbsoluteImageUrl(business.coverImage || business.coverUrl || business.cover_url || business.banner || business.cover_image) || getCategoryFallbackImage(business.category || 'default'),
+      signatureImage,
+      rating: business.rating ?? 4.0,
+      deliveryTime: business.deliveryTime || '25-40 min',
+      deliveryFee: business.deliveryFee ?? 500,
+      minOrder: business.minOrder ?? 1500,
+      latitude: business.latitude ?? business.location?.coordinates?.[1] ?? 12.37,
+      longitude: business.longitude ?? business.location?.coordinates?.[0] ?? -1.52,
+      location: business.address || 'Ouagadougou',
+      phone: business.phone || '',
+      cuisineType: business.category || 'Fast Food',
+      promo: business.promo || null,
+      categories: [...new Set(menuItems.map((m) => m.category))],
+      menu: menuItems,
+      brandId: business.brandId,
+      openingHours: business.openingHours ?? null,
+      isOpen: business.isOpen ?? true,
+    };
+  }, [business]);
 
   const menu = restaurant?.menu || [];
 
@@ -108,80 +178,7 @@ const Restaurant = () => {
     }).catch(() => {});
   }, [id, isAuthenticated]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadBusiness = async () => {
-      try {
-        if (!restaurant) setLoading(true);
-        const business = await api.getBusiness(id);
-        if (cancelled) return;
-        const menu = (business.products || []).map((p) => {
-          const itemImage = p.imageUrl || p.image_url || p.image || p.photo || p.photoUrl || p.photo_url;
-          const category = p.category || 'Général';
-          return {
-            id: p.id,
-            name: p.name,
-            description: p.description || '',
-            price: p.price,
-            category,
-            image: itemImage ? getAbsoluteImageUrl(itemImage) : getCategoryFallbackImage(category),
-            available: p.isAvailable !== false,
-          };
-        });
-        const signatureField = business.signatureImage || business.signature_image;
-        const signatureImage = signatureField ? getAbsoluteImageUrl(signatureField) : null;
-        
-        setRestaurant({
-          id: business.id,
-          name: getBrandName(business.name) || business.name,
-          tagline: business.category || 'Restaurant',
-          description: business.name,
-          logo: business.logo || business.logoUrl || business.logo_url || getBrandImage(business.name),
-          coverImage: getAbsoluteImageUrl(business.coverImage || business.coverUrl || business.cover_url || business.banner || business.cover_image) || getCategoryFallbackImage(business.category || 'default'),
-          signatureImage,
-          rating: business.rating ?? 4.0,
-          deliveryTime: business.deliveryTime || '25-40 min',
-          deliveryFee: business.deliveryFee ?? 500,
-          minOrder: business.minOrder ?? 1500,
-          latitude: business.latitude ?? business.location?.coordinates?.[1] ?? 12.37,
-          longitude: business.longitude ?? business.location?.coordinates?.[0] ?? -1.52,
-          location: business.address || 'Ouagadougou',
-          phone: business.phone || '',
-          cuisineType: business.category || 'Fast Food',
-          promo: business.promo || null,
-          categories: [...new Set(menu.map((m) => m.category))],
-          menu,
-          brandId: business.brandId,
-          // 🕐 Bloc H — horaires récurrents + état d'ouverture actuel.
-          openingHours: business.openingHours ?? null,
-          isOpen: business.isOpen ?? true,
-        });
-
-        // Load branches if this restaurant has a brand
-        if (business.brandId) {
-          try {
-            const branchesData = await api.getBrandBranches(
-              business.brandId,
-              userLocation?.lat,
-              userLocation?.lng
-            );
-            if (!cancelled && Array.isArray(branchesData)) {
-              setBranches(branchesData);
-              setSelectedBranchId(business.id);
-            }
-          } catch {
-            // Silently fail - branch selector won't show
-          }
-        }
-      } catch {
-        if (!cancelled) setRestaurant(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    loadBusiness();
-    return () => { cancelled = true; };
-  }, [id, userLocation]);
+  // (ancien loadBusiness migré vers les requêtes `business` / `brand branches`)
 
   const getRestaurantColor = (name) => {
     const lowerName = name.toLowerCase();

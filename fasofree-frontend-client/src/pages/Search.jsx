@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Search as SearchIcon, X, Mic, Loader2 } from 'lucide-react';
 import RestaurantCard from '../components/RestaurantCard';
 import api from '../services/api';
+import { getUserLocation } from '../utils/userLocation';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 import { tokenize, matchTokens } from '../utils/searchMatch';
 
@@ -112,41 +114,22 @@ const SearchPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [query, setQuery] = useState(() => searchParams.get('q') || '');
-  const [allRestaurants, setAllRestaurants] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [dishLoading, setDishLoading] = useState(false);
   const [dishReady, setDishReady] = useState(false);
   // Incrémenté quand l'index des menus est complet → force le recalcul des résultats
   const [dishVersion, setDishVersion] = useState(0);
 
-  const getUserLocation = () => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        resolve({ lat: 12.37, lng: -1.52 }); // Fallback Ouaga
-        return;
-      }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => resolve({ lat: 12.37, lng: -1.52 }), // Fallback Ouaga
-        { timeout: 5000, maximumAge: 300000 }
-      );
-    });
-  };
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const { lat, lng } = await getUserLocation();
-        const data = await api.getGroupedBusinesses(lat, lng);
-        if (Array.isArray(data)) setAllRestaurants(data.map(mapBusinessToRestaurant));
-      } catch {
-        setAllRestaurants([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  // Catalogue des commerces en cache TanStack Query : le retour arrière sur la
+  // page de recherche affiche les résultats instantanément (aucun écran blanc),
+  // la position GPS n'est sollicitée qu'une fois par session (utils/userLocation).
+  const { data: allRestaurants = [], isLoading: loading } = useQuery({
+    queryKey: ['businesses', 'grouped'],
+    queryFn: async () => {
+      const { lat, lng } = await getUserLocation();
+      const data = await api.getGroupedBusinesses(lat, lng);
+      return Array.isArray(data) ? data.map(mapBusinessToRestaurant) : [];
+    },
+  });
 
   // 🔍 Préchauffe l'index des menus dès l'ouverture de la page (au lieu d'attendre
   //    2 lettres tapées) : la première recherche est déjà prête/ses résultats s'affichent.

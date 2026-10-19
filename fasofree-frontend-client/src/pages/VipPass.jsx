@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Crown, Wallet, Check, RefreshCw, Zap } from 'lucide-react';
 import Footer from '../components/Footer';
 import useAuthStore from '../store/authStore';
@@ -10,66 +11,102 @@ const VipPass = () => {
   const navigate = useNavigate();
   const { user, setPremium } = useAuthStore();
   const { t } = useLanguage();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [plans, setPlans] = useState([]);
-  const [vipStatus, setVipStatus] = useState(null);
-  const [wallet, setWallet] = useState(null);
+  const userId = user?.id;
+  const queryClient = useQueryClient();
+  const [actionError, setActionError] = useState('');
   const [subscribing, setSubscribing] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState(5000);
   const [topupBusy, setTopupBusy] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [plansData, statusData, walletData] = await Promise.all([
-        api.getPlans('CUSTOMER'),
-        api.getVipStatus(),
-        user?.id ? api.getWallet(user.id) : Promise.resolve(null),
-      ]);
-      setPlans(Array.isArray(plansData) ? plansData : []);
-      setVipStatus(statusData);
-      setWallet(walletData);
-      setPremium(!!statusData?.isPremium);
-    } catch (err) {
-      setError(err.message || 'Impossible de charger le pass');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.id, setPremium]);
+  // ⚙️ Les 3 lectures de la page (offres, statut VIP, wallet) passent par le
+  // cache TanStack Query : le retour arrière sur FasoFree Pass réaffiche tout
+  // instantanément puis resynchronise en tâche de fond. `enabled: !!userId`
+  // reproduit l'ancien comportement au pixel : visiteur non connecté → aucune
+  // requête, aucun chargement, aucun écran d'erreur. Les queryKey portent
+  // l'id utilisateur → aucun wallet/statut d'un autre compte en cache.
+  const {
+    data: plans = [],
+    isLoading: plansLoading,
+    error: plansError,
+  } = useQuery({
+    queryKey: ['plans', 'CUSTOMER', userId ?? null],
+    queryFn: async () => {
+      const d = await api.getPlans('CUSTOMER');
+      return Array.isArray(d) ? d : [];
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60_000, // catalogue d'offres quasi statique
+  });
 
+  const {
+    data: vipStatus,
+    isLoading: statusLoading,
+    error: statusError,
+  } = useQuery({
+    queryKey: ['vip-status', userId ?? null],
+    queryFn: () => api.getVipStatus(),
+    enabled: !!userId,
+    staleTime: 30_000,
+  });
+
+  const {
+    data: wallet,
+    isLoading: walletLoading,
+    error: walletError,
+  } = useQuery({
+    queryKey: ['wallet', 'CUSTOMER', userId ?? null],
+    queryFn: () => api.getWallet(userId),
+    enabled: !!userId,
+    staleTime: 15_000, // solde sensible : fraîcheur 15 s + re-sync de fond
+  });
+
+  // Un seul indicateur « chargement » comme avant (Promise.all historique).
+  const loading = plansLoading || statusLoading || walletLoading;
+  // Bandeau d'erreur : échec d'une des 3 lectures, ou erreur d'action
+  // (abonnement / recharge) — même rendu que l'ancien state `error`.
+  const queryError = plansError || statusError || walletError;
+  const error = actionError || queryError?.message || '';
+
+  // Synchronisation du flag premium du store (comportement historique de
+  // loadData) : uniquement quand un statut réel est disponible.
   useEffect(() => {
-    if (user?.id) loadData();
-    else setLoading(false);
-  }, [loadData, user?.id]);
+    if (vipStatus) setPremium(!!vipStatus.isPremium);
+  }, [vipStatus, setPremium]);
+
+  // Bouton « Rafraîchir » : relance les 3 lectures en arrière-plan.
+  const refreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['plans'] });
+    queryClient.invalidateQueries({ queryKey: ['vip-status'] });
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+  };
 
   const handleSubscribe = async (plan) => {
-    setError('');
+    setActionError('');
     setSubscribing(true);
     try {
       const result = await api.subscribeVip(plan.code, true);
-      setVipStatus({
+      // Statut optimiste immédiat + invalidation : la vérification serveur
+      // confirme en tâche de fond (même UX que l'ancien setVipStatus direct).
+      queryClient.setQueryData(['vip-status', userId ?? null], {
         isPremium: true,
         planCode: result.subscription?.plan,
         planName: plan.name,
         expiresAt: result.expiresAt,
       });
       setPremium(true);
-      if (user?.id) {
-        const walletData = await api.getWallet(user.id);
-        setWallet(walletData);
-      }
+      // Le wallet a bougé (prélèvement) : relecture en arrière-plan.
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
+      queryClient.invalidateQueries({ queryKey: ['vip-status'] });
     } catch (err) {
-      setError(err.message || "Échec de l'abonnement");
+      setActionError(err.message || "Échec de l'abonnement");
     } finally {
       setSubscribing(false);
     }
   };
 
   const handleTopup = async () => {
-    setError('');
+    setActionError('');
     setTopupBusy(true);
     try {
       const data = await api.topupWallet({
@@ -88,12 +125,10 @@ const VipPass = () => {
         window.location.href = checkoutUrl;
         return;
       }
-      if (user?.id) {
-        const walletData = await api.getWallet(user.id);
-        setWallet(walletData);
-      }
+      // Pas de redirection : relecture du wallet en arrière-plan.
+      queryClient.invalidateQueries({ queryKey: ['wallet'] });
     } catch (err) {
-      setError(err.message || 'Échec de la recharge');
+      setActionError(err.message || 'Échec de la recharge');
     } finally {
       setTopupBusy(false);
     }
@@ -166,7 +201,7 @@ const VipPass = () => {
                 >
                   {t('recharge')}
                 </button>
-                <button onClick={loadData} className="px-3 py-2 text-xs font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors">
+                <button onClick={refreshAll} className="px-3 py-2 text-xs font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors">
                   <RefreshCw size={12} className="inline mr-1" />
                   {t('refresh')}
                 </button>

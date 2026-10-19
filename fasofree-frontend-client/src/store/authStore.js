@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { disconnectRealtime } from '../services/realtime';
+// Cache TanStack Query : purgé à chaque login/logout — sinon un autre compte
+// sur le même onglet verrait instantanément les données mises en cache du
+// compte précédent (commandes, wallet, statut VIP…).
+import queryClient from '../services/queryClient';
 
 const loadInitial = () => {
   try {
@@ -39,6 +43,7 @@ const useAuthStore = create((set) => ({
     };
     localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
+    queryClient.clear();
   },
 
   loginWithToken: (token, userData = {}) => {
@@ -57,6 +62,7 @@ const useAuthStore = create((set) => ({
     };
     localStorage.setItem('fasofree_user', JSON.stringify(user));
     set({ user, isAuthenticated: true });
+    queryClient.clear();
   },
 
   setPremium: (isPremium) => set((state) => ({
@@ -83,6 +89,9 @@ const useAuthStore = create((set) => ({
     // Purge des brouillons locaux (ex. course P2P) : un autre compte sur le
     // même onglet ne doit pas voir les données du compte précédent.
     try { sessionStorage.removeItem('fasofree_p2p_draft'); } catch { /* RAS */ }
+    // Purge du cache de données : pas de commandes/wallet du compte précédent
+    // visibles par le prochain utilisateur de cet onglet.
+    queryClient.clear();
     set({ user: null, isAuthenticated: false, orders: [], receipts: [] });
   },
 

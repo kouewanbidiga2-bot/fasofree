@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CallSupportButton from '../components/CallSupportButton';
 import {
@@ -114,8 +115,22 @@ const OrderTracking = () => {
     new URLSearchParams(location.search).get('id') ||
     new URLSearchParams(location.search).get('orderId');
 
-  const [tracking, setTracking] = useState(null);
-  const [error, setError] = useState(null);
+  // Suivi de commande en cache TanStack Query : le retour arrière depuis le
+  // détail d'une commande réaffiche le suivi instantanément, puis la requête
+  // se resynchronise en tâche de fond (le statut temps réel reste porté par
+  // les websockets /dispatch ci-dessous). L'id utilisateur fait partie de la
+  // clé : pas de suivi d'une commande d'un autre compte dans le cache.
+  const {
+    data: tracking,
+    refetch,
+    error: trackingError,
+  } = useQuery({
+    queryKey: ['order-tracking', myUserId ?? null, orderId],
+    queryFn: () => api.getOrderTracking(orderId),
+    enabled: !!orderId,
+    staleTime: 10_000, // le reste du statut arrive déjà par websocket
+  });
+
   const [driverPos, setDriverPos] = useState(null);
   const [liveTrace, setLiveTrace] = useState([]);
 
@@ -160,17 +175,13 @@ const OrderTracking = () => {
     }
   }
 
-  // 1. Chargement initial du suivi (statut + trace + ETA)
-  useEffect(() => {
-    if (!orderId) {
-      setError('Aucune commande à suivre.');
-      return;
-    }
-    api
-      .getOrderTracking(orderId)
-      .then(setTracking)
-      .catch((e) => setError(e.message || 'Erreur de chargement du suivi'));
-  }, [orderId]);
+  // 1. Chargement initial du suivi → fait par la requête `order-tracking`
+  // ci-dessus ; on restitue ici exactement les mêmes messages d'erreur.
+  const error = !orderId
+    ? 'Aucune commande à suivre.'
+    : trackingError
+      ? trackingError.message || 'Erreur de chargement du suivi'
+      : null;
 
   // 2. Initialisation de la position live depuis le serveur
   useEffect(() => {
@@ -237,8 +248,9 @@ const OrderTracking = () => {
           body: data.message || 'Votre livreur est arrive. Confirmez la reception.',
         });
       }
-      // Rafraichir le suivi
-      api.getOrderTracking(orderId).then(setTracking).catch(() => {});
+      // Rafraichir le suivi (invalidation TanStack Query : la requête se
+      // relance et l'UI se met à jour sans recharger la page)
+      refetch();
     };
 
     dispatchSocket.on('deliveryPendingConfirmation', onDeliveryPending);

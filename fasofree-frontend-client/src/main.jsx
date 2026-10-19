@@ -8,6 +8,8 @@ import './services/pwaInstall'
 import { ThemeProvider } from './theme/ThemeContext.jsx'
 import { DarkModeProvider } from './contexts/DarkModeContext.jsx'
 import { LanguageProvider } from './contexts/LanguageContext.jsx'
+import { QueryClientProvider } from '@tanstack/react-query'
+import queryClient from './services/queryClient'
 import SplashScreen from './components/SplashScreen.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -15,9 +17,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <DarkModeProvider>
       <LanguageProvider>
         <ThemeProvider>
-          <SplashScreen>
-            <App />
-          </SplashScreen>
+          <QueryClientProvider client={queryClient}>
+            <SplashScreen>
+              <App />
+            </SplashScreen>
+          </QueryClientProvider>
         </ThemeProvider>
       </LanguageProvider>
     </DarkModeProvider>
