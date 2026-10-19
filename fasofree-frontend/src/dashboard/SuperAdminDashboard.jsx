@@ -11,7 +11,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Layout, Shield, Users, Store, Settings, LogOut,
+  Layout, Shield, Users, Store, Settings,
   TrendingUp, Wallet, CheckCircle, XCircle, RefreshCw, AlertCircle,
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
@@ -55,6 +55,8 @@ import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
 import PWAInstallButton from '../components/PWAInstallButton';
 import NotificationBell from '../components/NotificationBell';
+import AppSidebar from './components/AppSidebar';
+import PageHero from './components/PageHero';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 
@@ -1271,135 +1273,91 @@ const SuperAdminDashboard = () => {
     );
   };
 
-  const tabs = [
-    { id: 'overview', label: 'Vue Globale', icon: Layout },
-    { id: 'businesses', label: 'Commerces', icon: Store },
-    { id: 'brands', label: 'Marques & Agences', icon: Store },
-    { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
-    { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
-    { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
-    { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
-    { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
-    { id: 'financial', label: 'Finance', icon: DollarSign },
-    { id: 'traceability', label: 'Traçabilité', icon: ScrollText },
-    { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
-    { id: 'quality', label: 'Qualité livraisons', icon: Gavel },
-    { id: 'subscriptions', label: 'Abonnements', icon: Crown },
-    { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
-    { id: 'push-campaigns', label: 'Campagnes Push', icon: Megaphone },
-    { id: 'affiliate', label: 'Affiliation Globale', icon: BarChart2 },
-    { id: 'settings', label: 'Paramètres', icon: Settings },
+  // Structure en sections de la sidebar (refonte) : les 21 entrées historiques
+  // sont toutes conservées, simplement regroupées par thème.
+  const sidebarSections = [
+    {
+      label: 'Pilotage',
+      items: [
+        { id: 'overview', label: 'Vue globale', icon: Layout },
+        { id: 'financial', label: 'Finance', icon: DollarSign },
+        { id: 'traceability', label: 'Traçabilité', icon: ScrollText },
+        { id: 'subscriptions', label: 'Abonnements', icon: Crown },
+      ],
+    },
+    {
+      label: 'Opérations',
+      items: [
+        { id: 'businesses', label: 'Commerces', icon: Store },
+        { id: 'brands', label: 'Marques & Agences', icon: Store },
+        { id: 'kyc', label: 'Validation KYC', icon: BadgeCheck, badge: kycPending.length },
+        { id: 'disputes', label: 'Litiges', icon: Shield, badge: pendingDisputes.length },
+        { id: 'ban-requests', label: 'Demandes de Ban', icon: Ban, badge: banRequests.filter(b => b.status === 'PENDING').length },
+        { id: 'quality', label: 'Qualité livraisons', icon: Gavel },
+        { id: 'agencies', label: 'Agences Livraison', icon: Building2 },
+        { id: 'push-campaigns', label: 'Campagnes Push', icon: Megaphone },
+      ],
+    },
+    {
+      label: 'Équipe & gestion',
+      items: [
+        { id: 'team-chat', label: 'Discussion Équipe', icon: MessageSquare },
+        { id: 'chat-inbox', label: 'Messagerie', icon: MessageSquare },
+        { id: 'users', label: 'Gestion Utilisateurs', icon: Users },
+        { id: 'affiliate', label: 'Affiliation Globale', icon: BarChart2 },
+      ],
+    },
+    {
+      label: 'Accès & système',
+      items: [
+        { id: 'applications', label: 'Candidatures (Onboarding)', icon: ClipboardList, badge: kycPending.length, onClick: () => navigate('/dashboard/applications') },
+        { id: 'live-orders', label: 'Tour de contrôle (Live)', icon: Radio, dot: true, onClick: () => navigate('/dashboard/live-orders') },
+        { id: 'settings', label: 'Paramètres', icon: Settings },
+        { id: 'espace-admin', label: 'Espace Admin', icon: Layout, onClick: () => navigate('/admin/manager') },
+        { id: 'espace-support', label: 'Espace Support', icon: MessageSquare, onClick: () => navigate('/admin/support') },
+      ],
+    },
   ];
 
   return (
     <div className="min-h-screen bg-background-primary flex">
-      {/* ─── SIDEBAR SUPER ADMIN ─────────────────────────────────── */}
-      <aside className="hidden lg:flex flex-col w-64 bg-background-card border-r border-border-light fixed h-full z-20 overflow-y-auto">
-        <div className="p-5 border-b border-border-light">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-accent-primary">
-              <span className="text-white font-bold text-sm">SA</span>
-            </div>
-            <div>
-              <p className="text-text-primary font-bold text-sm">FasoFree</p>
-              <p className="text-text-tertiary text-xs font-semibold">
-                {isSuperAdmin ? 'Super Administration' : 'Administration'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4 border-b border-border-light">
-          <div className="flex items-center gap-3">
-            <div className="avatar w-9 h-9 bg-accent-primary text-white text-sm font-bold flex items-center justify-center rounded-full">
-              {(user?.fullName || 'S').charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="text-text-primary text-xs font-semibold truncate">{user?.fullName || 'Super Admin'}</p>
-              <p className="text-text-tertiary text-xs truncate">{user?.email}</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-3 space-y-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === tab.id ? 'bg-background-tertiary text-text-primary font-semibold' : 'text-text-secondary hover:bg-background-secondary'
-                }`}
-              >
-                <Icon size={18} strokeWidth={1.5} />
-                <span className="flex-1 text-left">{tab.label}</span>
-                {tab.badge > 0 && (
-                  <span className="w-5 h-5 bg-status-error text-white text-xs rounded-full flex items-center justify-center font-bold">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-
-          <button
-            onClick={() => navigate('/dashboard/applications')}
-            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-status-info border border-status-info/30 mt-2 hover:bg-background-secondary"
-          >
-            <ClipboardList size={18} strokeWidth={1.5} />
-            <span className="flex-1 text-left">Candidatures (Onboarding)</span>
-            {kycPending.length > 0 && (
-              <span className="w-5 h-5 bg-status-error text-white text-xs rounded-full flex items-center justify-center font-bold">
-                {kycPending.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => navigate('/dashboard/live-orders')}
-            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-status-success border border-status-success/30 mt-2 hover:bg-status-successBg"
-          >
-            <Radio size={18} strokeWidth={1.5} />
-            <span className="flex-1 text-left">Tour de contrôle (Live)</span>
-          </button>
-
-          {/* ── Accès rapide aux espaces Admin & Support (Super Admin) ── */}
-          <p className="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">
-            Espaces d&apos;équipe
-          </p>
-          <button
-            onClick={() => navigate('/admin/manager')}
-            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-text-secondary hover:bg-background-secondary"
-          >
-            <Layout size={18} strokeWidth={1.5} />
-            <span className="flex-1 text-left">Espace Admin</span>
-          </button>
-          <button
-            onClick={() => navigate('/admin/support')}
-            className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-text-secondary hover:bg-background-secondary"
-          >
-            <MessageSquare size={18} strokeWidth={1.5} />
-            <span className="flex-1 text-left">Espace Support</span>
-          </button>
-        </nav>
-
-        <div className="p-3 border-t border-border-light">
-          <button onClick={handleLogout} className="nav-item w-full flex items-center gap-3 px-3 py-2.5 text-status-error hover:bg-status-errorBg rounded-lg text-sm font-medium">
-            <LogOut size={18} strokeWidth={1.5} />
-            Déconnexion
-          </button>
-        </div>
-      </aside>
+      {/* ─── SIDEBAR SUPER ADMIN (refonte : sections + identité) ─── */}
+      <AppSidebar
+        sections={sidebarSections}
+        user={user}
+        roleLabel={isSuperAdmin ? 'Super Administration' : 'Administration'}
+        onSelect={setActiveTab}
+        onLogout={handleLogout}
+      />
 
       {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
       <main className="flex-1 lg:ml-64 min-h-screen p-6 lg:p-8">
+        {/* Hero d'accueil (uniquement sur la vue globale) */}
+        {activeTab === 'overview' && (
+          <PageHero
+            name={String(user?.fullName || '').trim().split(' ')[0] || 'Admin'}
+            subtitle="Voici l’état de la plateforme"
+            widgets={[
+              { value: (platformStats.onlineUsers ?? 0).toLocaleString('fr-FR'), label: 'utilisateurs en ligne', dot: '#22C55E' },
+              { value: `${kycPending.length} KYC`, label: 'à valider aujourd’hui', dot: '#F59E0B' },
+              { value: `${(financialStats.totalRevenue / 1000000).toFixed(1)} M FCFA`, label: 'revenus cumulés', delta: financialStats.revenueGrowth },
+              { value: (platformStats.totalUsers ?? 0).toLocaleString('fr-FR'), label: 'utilisateurs inscrits' },
+            ]}
+            actions={[
+              { label: 'Nouvelle campagne', onClick: () => setActiveTab('push-campaigns') },
+              { label: 'Voir les litiges', onClick: () => setActiveTab('disputes'), variant: 'secondary' },
+            ]}
+          />
+        )}
+
         <header className="flex items-center justify-between mb-8 pb-4 border-b border-border-light">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
-            <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
-          </div>
-          <div className="flex items-center gap-3">
+          {activeTab !== 'overview' && (
+            <div>
+              <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
+              <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
+            </div>
+          )}
+          <div className={`flex items-center gap-3 ${activeTab === 'overview' ? 'ml-auto' : ''}`}>
             <PWAInstallButton className="hidden sm:inline-flex" />
             <NotificationBell />
             <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
