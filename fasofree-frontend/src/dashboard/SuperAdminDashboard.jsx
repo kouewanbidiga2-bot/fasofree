@@ -51,6 +51,7 @@ import {
   getPlatformStats,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
+import { getAdminOrders } from '../services/ordersService';
 import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
 import PWAInstallButton from '../components/PWAInstallButton';
@@ -59,6 +60,26 @@ import AppSidebar from './components/AppSidebar';
 import PageHero from './components/PageHero';
 import { getActiveConversations, getChatHistory } from '../services/usersService';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
+
+// Badges de statut de « Dernières commandes » (vue globale).
+const ORDER_STATUS_CONFIG = {
+  PENDING: { label: 'En attente', color: 'warning', dot: '#F59E0B' },
+  PAID: { label: 'Payée', color: 'info', dot: '#3B82F6' },
+  IN_PREPARATION: { label: 'Préparation', color: 'info', dot: '#3B82F6' },
+  ACCEPTED: { label: 'Acceptée', color: 'info', dot: '#3B82F6' },
+  IN_TRANSIT: { label: 'En route', color: 'warning', dot: '#F59E0B' },
+  COMPLETED: { label: 'Terminée', color: 'success', dot: '#22C55E' },
+  DELIVERED: { label: 'Livrée', color: 'success', dot: '#22C55E' },
+  CANCELLED: { label: 'Annulée', color: 'gray', dot: '#A09890' },
+};
+
+// Widget « santé float » du hero : financialStats.floatHealth → libellé + point.
+const FLOAT_HEALTH_META = {
+  healthy: { label: 'Float sain', dot: '#22C55E' },
+  warning: { label: 'Float attention', dot: '#F59E0B' },
+  critical: { label: 'Float critique', dot: '#EF4444' },
+  unknown: { label: 'Float inconnu', dot: '#9B9286' },
+};
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
@@ -91,6 +112,9 @@ const SuperAdminDashboard = () => {
   const [financialOverview, setFinancialOverview] = useState(null);
   const [overviewPeriod, setOverviewPeriod] = useState('30d');
   const [overviewLoading, setOverviewLoading] = useState(false);
+
+  // Aperçu « dernières commandes » de la vue globale (pas de poll : simple aperçu).
+  const [recentOrders, setRecentOrders] = useState([]);
 
   // Product analytics
   const [productAnalytics, setProductAnalytics] = useState(null);
@@ -692,6 +716,17 @@ const SuperAdminDashboard = () => {
     setPendingBanCount(await getBanRequestPendingCount());
   }, []);
 
+  // Dernières commandes (aperçu de la vue globale) : 6 plus récentes suffisent.
+  const loadRecentOrders = useCallback(async () => {
+    try {
+      const data = await getAdminOrders();
+      const list = Array.isArray(data) ? data : data?.data || [];
+      setRecentOrders(list.slice(0, 6));
+    } catch {
+      setRecentOrders([]);
+    }
+  }, []);
+
   // 🔄 Polling : rafraîchir la vue globale, les utilisateurs et les demandes
   // de bannissement toutes les 30 s. (déclaré APRÈS les callbacks ci-dessus
   // pour éviter toute référence avant initialisation.)
@@ -731,7 +766,8 @@ const SuperAdminDashboard = () => {
     loadConversations();
     loadPushCampaigns();
     loadAffiliateGlobal();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal]);
+    loadRecentOrders();
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal, loadRecentOrders]);
 
   // 🏢 Charger les agences quand l'onglet est ouvert
   useEffect(() => {
@@ -1342,6 +1378,11 @@ const SuperAdminDashboard = () => {
               { value: `${kycPending.length} KYC`, label: 'à valider aujourd’hui', dot: '#F59E0B' },
               { value: `${(financialStats.totalRevenue / 1000000).toFixed(1)} M FCFA`, label: 'revenus cumulés', delta: financialStats.revenueGrowth },
               { value: (platformStats.totalUsers ?? 0).toLocaleString('fr-FR'), label: 'utilisateurs inscrits' },
+              {
+                value: FLOAT_HEALTH_META[financialStats.floatHealth]?.label || FLOAT_HEALTH_META.unknown.label,
+                label: 'Santé float du système',
+                dot: FLOAT_HEALTH_META[financialStats.floatHealth]?.dot || FLOAT_HEALTH_META.unknown.dot,
+              },
             ]}
             actions={[
               { label: 'Nouvelle campagne', onClick: () => setActiveTab('push-campaigns') },
@@ -1502,6 +1543,58 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
             )}
+
+            {/* Activité récente + dernières commandes */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="lg:col-span-3">
+                <FinancialChart
+                  data={financialOverview?.chartData || []}
+                  series={[
+                    { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
+                    { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
+                  ]}
+                  title="Activité récente"
+                  height={300}
+                />
+              </div>
+              <div className="card overflow-hidden flex flex-col lg:col-span-2">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
+                  <h2 className="text-sm font-bold text-text-primary">Dernières commandes</h2>
+                  <button
+                    onClick={() => navigate('/dashboard/live-orders')}
+                    className="text-accent-primary text-xs font-semibold hover:underline"
+                  >
+                    Tour de contrôle
+                  </button>
+                </div>
+                <div className="divide-y divide-border-light flex-1">
+                  {recentOrders.length === 0 ? (
+                    <EmptyState
+                      icon={ShoppingBag}
+                      title="Aucune commande"
+                      description="Les commandes apparaîtront ici dès la première activité."
+                    />
+                  ) : (
+                    recentOrders.map((o) => (
+                      <div key={o.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                        <div className="min-w-0">
+                          <p className="font-mono text-xs font-bold text-text-primary">#{String(o.id).slice(0, 8)}</p>
+                          <p className="text-[11px] text-text-tertiary">
+                            {o.createdAt
+                              ? new Date(o.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                              : '—'}
+                          </p>
+                        </div>
+                        <StatusBadge status={o.status || 'PENDING'} statusConfig={ORDER_STATUS_CONFIG} />
+                        <span className="shrink-0 text-xs font-semibold text-text-primary">
+                          {Number(o.totalAmount || 0).toLocaleString('fr-FR')} F
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* System Health */}
             <div className="card p-6">
