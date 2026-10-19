@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { getMessaging } from 'firebase-admin/messaging';
 import { getApps } from 'firebase-admin/app';
 import { SmsService } from './sms.service';
@@ -22,6 +23,7 @@ export class NotificationsService {
     private readonly emailService: EmailService,
     private readonly whatsappService: WhatsAppService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
   ) {}
 
   // ─── NOTIFICATIONS (PUSH FCM UNIQUEMENT) ────────────────────────────────────
@@ -214,7 +216,7 @@ export class NotificationsService {
         notification: { title: payload.title, body: payload.body },
         data: payload.data || {},
         webpush: {
-          fcmOptions: { link: payload.data?.orderId ? `/order-tracking?id=${payload.data.orderId}` : '/' },
+          fcmOptions: { link: this.buildWebpushLink(payload.data?.orderId) },
         },
       });
 
@@ -231,6 +233,22 @@ export class NotificationsService {
       }
       return false;
     }
+  }
+
+  /**
+   * 🔗 Construit le lien de clic d'une notification webpush.
+   *
+   * `webpush.fcmOptions.link` DOIT être une URL absolue en HTTPS — doc FCM
+   * officielle (projects.messages, WebpushFcmOptions) : « For all URL values,
+   * HTTPS is required ». On envoyait auparavant un lien RELATIF ("/",
+   * "/order-tracking?id=…") : valeur invalide rejetée/neutralisée par FCM.
+   * On construit donc depuis `CLIENT_URL` (défaut : domaine client canonique).
+   */
+  private buildWebpushLink(orderId?: string): string {
+    const base = (
+      this.configService.get<string>('CLIENT_URL') || 'https://www.fasofree.site'
+    ).replace(/\/+$/, '');
+    return orderId ? `${base}/order-tracking?id=${orderId}` : `${base}/`;
   }
 
   async sendToTopic(topic: string, payload: PushPayload): Promise<boolean> {

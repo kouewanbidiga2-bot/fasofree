@@ -21,12 +21,15 @@ describe('NotificationsService — pas d’e-mail pour les notifications', () =>
       sendRejectionMessage: jest.fn(),
     };
     const usersService = { clearFcmToken: jest.fn() };
+    // ConfigService : sert uniquement à construire le lien webpush (CLIENT_URL).
+    const configService = { get: jest.fn().mockReturnValue(undefined) };
 
     const service = new NotificationsService(
       smsService as never,
       emailService as never,
       whatsappService as never,
       usersService as never,
+      configService as never,
     );
     // sendToDevice dépend de Firebase Admin : on l'observationne.
     (service as unknown as { sendToDevice: jest.Mock }).sendToDevice =
