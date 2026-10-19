@@ -16,7 +16,7 @@ import {
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
   Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2,
-  Gavel, Link2, ExternalLink, ShoppingBag, Menu
+  Gavel, Link2, ExternalLink, ShoppingBag, Menu, Search
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -81,6 +81,10 @@ const FLOAT_HEALTH_META = {
   unknown: { label: 'Float inconnu', dot: '#9B9286' },
 };
 
+// Compteur live « Session active depuis » (HH:MM:SS) de la carte Santé du Système.
+const formatSession = (s) =>
+  [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map((n) => String(n).padStart(2, '0')).join(':');
+
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
@@ -95,6 +99,14 @@ const SuperAdminDashboard = () => {
   useEffect(() => {
     try { localStorage.setItem('ff-sidebar-collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* stockage indisponible */ }
   }, [sidebarCollapsed]);
+
+  // ── Recherche globale (header) + compteur live de session ──
+  const [globalQuery, setGlobalQuery] = useState('');
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSessionSeconds((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   const userRole = String(user?.role || '').toLowerCase().replace('-', '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(userRole);
@@ -1364,6 +1376,85 @@ const SuperAdminDashboard = () => {
     },
   ];
 
+  // Alertes récentes de la vue globale (sources déjà chargées, sans nouvel appel).
+  const alertItems = [
+    kycPending.length > 0 && {
+      key: 'kyc', icon: BadgeCheck, color: '#F59E0B',
+      title: 'KYC à valider',
+      desc: `${kycPending.length} document(s) en attente de vérification`,
+      count: kycPending.length, tab: 'kyc',
+    },
+    pendingDisputes.length > 0 && {
+      key: 'disputes', icon: Shield, color: '#EF4444',
+      title: 'Litiges ouverts',
+      desc: `${pendingDisputes.length} litige(s) en attente d'arbitrage`,
+      count: pendingDisputes.length, tab: 'disputes',
+    },
+    (pendingBanCount ?? 0) > 0 && {
+      key: 'bans', icon: Ban, color: '#8B5CF6',
+      title: 'Demandes de bannissement',
+      desc: `${pendingBanCount} demande(s) à examiner`,
+      count: pendingBanCount, tab: 'ban-requests',
+    },
+  ].filter(Boolean);
+
+  // Actions rapides de la vue globale.
+  const quickActions = [
+    { label: 'Valider KYC', icon: BadgeCheck, color: '#F59E0B', onClick: () => setActiveTab('kyc') },
+    { label: 'Nouvelle campagne', icon: Megaphone, color: '#C1652E', onClick: () => setActiveTab('push-campaigns') },
+    { label: 'Litiges', icon: Shield, color: '#EF4444', onClick: () => setActiveTab('disputes') },
+    { label: 'Utilisateurs', icon: Users, color: '#3B82F6', onClick: () => setActiveTab('users') },
+  ];
+
+  // Recherche globale locale (≥2 caractères) sur utilisateurs, commerces,
+  // KYC et commandes déjà chargés — pas d'appel API supplémentaire.
+  const globalResults = useMemo(() => {
+    const q = globalQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const out = [];
+    users
+      .filter((u) =>
+        (u.fullName || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.phone || '').includes(q))
+      .slice(0, 3)
+      .forEach((u) => out.push({
+        key: `u-${u.id}`, icon: Users, label: u.fullName || u.email || 'Utilisateur',
+        sub: `${roleLabel(u.role)}${u.email ? ` · ${u.email}` : ''}`, tab: 'users',
+      }));
+    businesses
+      .filter((b) =>
+        (b.businessName || b.name || '').toLowerCase().includes(q))
+      .slice(0, 3)
+      .forEach((b) => out.push({
+        key: `b-${b.id}`, icon: Store, label: b.businessName || b.name || 'Commerce',
+        sub: 'Commerce', tab: 'businesses',
+      }));
+    kycPending
+      .filter((k) =>
+        (k.businessName || k.fullName || k.applicationData?.businessName || k.user?.fullName || '').toLowerCase().includes(q))
+      .slice(0, 2)
+      .forEach((k) => out.push({
+        key: `k-${k.id}`, icon: BadgeCheck,
+        label: k.businessName || k.fullName || k.applicationData?.businessName || k.user?.fullName || 'Dossier KYC',
+        sub: 'Dossier KYC en attente', tab: 'kyc',
+      }));
+    recentOrders
+      .filter((o) => String(o.id).toLowerCase().includes(q))
+      .slice(0, 2)
+      .forEach((o) => out.push({
+        key: `o-${o.id}`, icon: ShoppingBag, label: `Commande #${String(o.id).slice(0, 8)}`,
+        sub: `${Number(o.totalAmount || 0).toLocaleString('fr-FR')} FCFA · ${o.status || 'PENDING'}`, nav: '/dashboard/live-orders',
+      }));
+    return out.slice(0, 8);
+  }, [globalQuery, users, businesses, kycPending, recentOrders]);
+
+  const openSearchResult = (r) => {
+    setGlobalQuery('');
+    if (r.nav) navigate(r.nav);
+    else if (r.tab) setActiveTab(r.tab);
+  };
+
   return (
     <div className="min-h-screen bg-background-primary flex">
       {/* ─── SIDEBAR SUPER ADMIN (refonte : sections + identité) ─── */}
@@ -1421,6 +1512,41 @@ const SuperAdminDashboard = () => {
             )}
           </div>
           <div className="flex items-center gap-3">
+            {/* Recherche globale (utilisateurs, commerces, KYC, commandes) */}
+            <div className="relative hidden md:block">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+              <input
+                value={globalQuery}
+                onChange={(e) => setGlobalQuery(e.target.value)}
+                placeholder="Rechercher commande, client, commerce…"
+                aria-label="Recherche globale"
+                className="w-64 rounded-lg border border-border-light bg-background-card py-2 pl-9 pr-3 text-[13px] text-text-primary placeholder:text-text-tertiary focus:border-accent-primary/40 focus:outline-none lg:w-80"
+              />
+              {globalQuery.trim().length >= 2 && (
+                <div className="absolute right-0 top-full z-30 mt-2 w-96 max-w-[80vw] overflow-hidden rounded-xl border border-border-light bg-background-card shadow-xl">
+                  {globalResults.length === 0 ? (
+                    <p className="px-4 py-3 text-xs text-text-tertiary">Aucun résultat pour « {globalQuery} »</p>
+                  ) : (
+                    globalResults.map((r) => (
+                      <button
+                        key={r.key}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => openSearchResult(r)}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-background-secondary"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-background-tertiary">
+                          <r.icon size={15} className="text-text-secondary" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[13px] font-bold text-text-primary">{r.label}</span>
+                          <span className="block truncate text-xs text-text-tertiary">{r.sub}</span>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <PWAInstallButton className="hidden sm:inline-flex" />
             <NotificationBell />
             <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
@@ -1618,6 +1744,71 @@ const SuperAdminDashboard = () => {
               </div>
             </div>
 
+            {/* Alertes récentes + actions rapides */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="card overflow-hidden lg:col-span-3">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
+                  <h2 className="text-sm font-bold text-text-primary">Alertes récentes</h2>
+                  <span className="text-xs text-text-tertiary">{alertItems.length} à traiter</span>
+                </div>
+                <div className="divide-y divide-border-light">
+                  {alertItems.length === 0 ? (
+                    <EmptyState
+                      icon={CheckCircle}
+                      title="Tout est calme"
+                      description="Aucune alerte en attente : KYC, litiges et bannissements sont à jour."
+                    />
+                  ) : (
+                    alertItems.map((a) => (
+                      <button
+                        key={a.key}
+                        onClick={() => setActiveTab(a.tab)}
+                        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-background-secondary"
+                      >
+                        <span
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                          style={{ background: `${a.color}1A` }}
+                        >
+                          <a.icon size={16} style={{ color: a.color }} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[13px] font-bold text-text-primary">{a.title}</span>
+                          <span className="block truncate text-xs text-text-secondary">{a.desc}</span>
+                        </span>
+                        <span
+                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                          style={{ background: a.color }}
+                        >
+                          {a.count}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="card p-5 lg:col-span-2">
+                <h2 className="mb-3 text-sm font-bold text-text-primary">Actions rapides</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {quickActions.map((a) => (
+                    <button
+                      key={a.label}
+                      onClick={a.onClick}
+                      className="flex flex-col items-center gap-2 rounded-xl border border-border-light bg-background-secondary px-3 py-4 transition-colors hover:bg-background-tertiary"
+                    >
+                      <span
+                        className="flex h-9 w-9 items-center justify-center rounded-full"
+                        style={{ background: `${a.color}1A` }}
+                      >
+                        <a.icon size={16} style={{ color: a.color }} />
+                      </span>
+                      <span className="text-center text-xs font-bold text-text-primary">{a.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             {/* System Health */}
             <div className="card p-6">
               <h2 className="text-base font-bold text-text-primary mb-4">Santé du Système</h2>
@@ -1643,7 +1834,10 @@ const SuperAdminDashboard = () => {
                     {financialStats.floatHealth === 'unknown' && 'État du système inconnu'}
                   </span>
                 </div>
-                <span className="text-xs text-text-secondary">Uptime: 99.9%</span>
+                <span className="flex items-center gap-2 text-xs text-text-secondary">
+                  Session active depuis
+                  <span className="font-mono text-sm font-bold text-text-primary">{formatSession(sessionSeconds)}</span>
+                </span>
               </div>
             </div>
           </div>

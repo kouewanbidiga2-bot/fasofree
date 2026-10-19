@@ -6,34 +6,34 @@ import React from 'react';
 export const StatCard = ({ label, value, icon: Icon, trend, color = '#3B82F6', loading = false, className = '' }) => {
   return (
     <div className={`stat-card bg-background-card border border-border-light rounded-xl p-5 hover:shadow-lg transition-shadow ${className}`}>
-      <div className="flex items-start justify-between mb-3">
-        <div 
-          className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ background: '#F2ECE2', border: `1px solid ${color}33` }}
+      <div className="flex items-center gap-3 mb-3">
+        <span
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+          style={{ background: `${color}1A` }}
         >
-          {Icon && <Icon size={18} style={{ color: '#6B6359' }} strokeWidth={1.6} />}
-        </div>
-        
+          {Icon && <Icon size={19} strokeWidth={1.9} style={{ color }} />}
+        </span>
+
         {trend !== undefined && (
-          <span className={`text-xs font-semibold flex items-center gap-0.5 ${
+          <span className={`ml-auto text-xs font-bold flex items-center gap-0.5 ${
             trend >= 0 ? 'text-status-success' : 'text-status-error'
           }`}>
             {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
           </span>
         )}
       </div>
-      
-      <p className="text-text-secondary text-xs font-semibold uppercase tracking-wider mb-1">
+
+      <p className="text-2xl font-extrabold tracking-tight text-text-primary">
+        {loading ? (
+          <span className="inline-block h-7 w-24 rounded bg-background-secondary animate-pulse" />
+        ) : (
+          value ?? '—'
+        )}
+      </p>
+
+      <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
         {label}
       </p>
-      
-      {loading ? (
-        <div className="h-7 w-24 bg-background-secondary rounded animate-pulse" />
-      ) : (
-        <p className="text-xl font-bold text-text-primary">
-          {value ?? '—'}
-        </p>
-      )}
     </div>
   );
 };
