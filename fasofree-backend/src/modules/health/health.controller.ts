@@ -19,7 +19,9 @@ export class HealthController {
   @ApiOperation({ summary: 'Health check global (liveness + database)' })
   checkAll() {
     return this.health.check([
-      () => ({ uptime: { status: 'up' } }),
+      // seconds = uptime du process Node : un redéploiement (Render) le remet à zéro,
+      // le front en déduit la date du dernier démarrage / déploiement.
+      () => ({ uptime: { status: 'up', seconds: Math.round(process.uptime()) } }),
       () => this.db.pingCheck('database', { timeout: 5000 }),
     ]);
   }
@@ -31,7 +33,7 @@ export class HealthController {
   })
   live() {
     return this.health.check([
-      () => ({ uptime: { status: 'up' } }),
+      () => ({ uptime: { status: 'up', seconds: Math.round(process.uptime()) } }),
     ]);
   }
 

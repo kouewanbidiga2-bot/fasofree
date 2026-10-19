@@ -27,7 +27,7 @@ import DisputesTab from './components/DisputesTab';
 import TraceabilityTab from './TraceabilityTab';
 import DeliveryQualityTab from './components/DeliveryQualityTab';
 import WalletAdminCreditCard from './components/WalletAdminCreditCard';
-import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes } from '../services/financialService';
+import { getFinancialDashboard, getFinancialOverview, getProductAnalytics, getMoneyFlows, getBrandBreakdown, getPendingDisputes, getSystemHealth } from '../services/financialService';
 import { getAgencies, createAgency, updateAgency } from '../services/agencyService';
 import { approveRefund, rejectDispute } from '../services/disputeService';
 import {
@@ -107,6 +107,11 @@ const SuperAdminDashboard = () => {
     const t = setInterval(() => setSessionSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Métriques système réelles : latence mesurée sur /health + uptime du
+  // process backend (un redéploiement le remet à zéro → « dernier démarrage »).
+  const [apiLatency, setApiLatency] = useState(null);
+  const [backendStartedAt, setBackendStartedAt] = useState(null);
 
   const userRole = String(user?.role || '').toLowerCase().replace('-', '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(userRole);
@@ -748,6 +753,21 @@ const SuperAdminDashboard = () => {
     }
   }, []);
 
+  // Sonde /health : latence réellement mesurée + uptime process NestJS.
+  const probeHealth = useCallback(async () => {
+    const t0 = performance.now();
+    try {
+      const data = await getSystemHealth();
+      setApiLatency(Math.round(performance.now() - t0));
+      const secs = data?.details?.uptime?.seconds ?? data?.info?.uptime?.seconds;
+      if (Number.isFinite(Number(secs))) {
+        setBackendStartedAt(new Date(Date.now() - Number(secs) * 1000));
+      }
+    } catch {
+      setApiLatency(null);
+    }
+  }, []);
+
   // 🔄 Polling : rafraîchir la vue globale, les utilisateurs et les demandes
   // de bannissement toutes les 30 s. (déclaré APRÈS les callbacks ci-dessus
   // pour éviter toute référence avant initialisation.)
@@ -757,9 +777,10 @@ const SuperAdminDashboard = () => {
       loadUsers();
       loadBanRequests();
       loadPendingBanCount();
+      probeHealth();
     }, 30_000);
     return () => clearInterval(interval);
-  }, [loadPlatformStats, loadUsers, loadBanRequests, loadPendingBanCount]);
+  }, [loadPlatformStats, loadUsers, loadBanRequests, loadPendingBanCount, probeHealth]);
 
   // Load conversations
   const loadConversations = useCallback(async () => {
@@ -788,7 +809,8 @@ const SuperAdminDashboard = () => {
     loadPushCampaigns();
     loadAffiliateGlobal();
     loadRecentOrders();
-  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal, loadRecentOrders]);
+    probeHealth();
+  }, [loadFinancialStats, loadFinancialOverview, loadPendingValidations, loadKyc, loadUsers, loadPlatformStats, loadBanRequests, loadPendingBanCount, loadSettings, loadConversations, loadPushCampaigns, loadAffiliateGlobal, loadRecentOrders, probeHealth]);
 
   // 🏢 Charger les agences quand l'onglet est ouvert
   useEffect(() => {
@@ -1495,8 +1517,8 @@ const SuperAdminDashboard = () => {
           />
         )}
 
-        <header className="flex items-center justify-between mb-8 pb-4 border-b border-border-light">
-          <div className="flex items-center gap-3">
+        <header className="mb-6 flex items-center gap-4 pb-4 border-b border-border-light">
+          <div className="flex min-w-0 items-center gap-3 lg:w-[28%]">
             <button
               onClick={() => setSidebarOpen(true)}
               aria-label="Ouvrir le menu"
@@ -1505,25 +1527,27 @@ const SuperAdminDashboard = () => {
               <Menu size={18} />
             </button>
             {activeTab !== 'overview' && (
-              <div>
-                <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
-                <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
+                <p className="truncate text-sm text-text-secondary">Gestion globale de la plateforme FasoFree</p>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            {/* Recherche globale (utilisateurs, commerces, KYC, commandes) */}
-            <div className="relative hidden md:block">
+
+          {/* Recherche globale centrée (façon contrôle qualité logistique) */}
+          <div className="flex flex-1 justify-center">
+            <div className="relative hidden w-full max-w-xl md:block">
               <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
               <input
                 value={globalQuery}
                 onChange={(e) => setGlobalQuery(e.target.value)}
                 placeholder="Rechercher commande, client, commerce…"
                 aria-label="Recherche globale"
-                className="w-64 rounded-lg border border-border-light bg-background-card py-2 pl-9 pr-3 text-[13px] text-text-primary placeholder:text-text-tertiary focus:border-accent-primary/40 focus:outline-none lg:w-80"
+                className="w-full rounded-lg border border-border-light bg-background-card py-2.5 pl-9 pr-3 text-[13px] text-text-primary placeholder:text-text-tertiary focus:border-accent-primary/40 focus:outline-none"
               />
+              <span className="absolute left-[2px] top-1/2 h-5 w-[2px] -translate-y-1/2 rounded bg-accent-primary" />
               {globalQuery.trim().length >= 2 && (
-                <div className="absolute right-0 top-full z-30 mt-2 w-96 max-w-[80vw] overflow-hidden rounded-xl border border-border-light bg-background-card shadow-xl">
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-border-light bg-background-card shadow-xl">
                   {globalResults.length === 0 ? (
                     <p className="px-4 py-3 text-xs text-text-tertiary">Aucun résultat pour « {globalQuery} »</p>
                   ) : (
@@ -1547,9 +1571,12 @@ const SuperAdminDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 lg:w-[28%]">
             <PWAInstallButton className="hidden sm:inline-flex" />
             <NotificationBell />
-            <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
+            <span className="rounded-full bg-background-tertiary px-3 py-1 text-xs font-bold text-text-secondary">
               Mode {isSuperAdmin ? 'Super Admin' : roleLabel(userRole)}
             </span>
           </div>
@@ -1570,152 +1597,98 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-slide-up">
-            {/* Platform Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard
-                label="Commerçants Actifs"
-                value={platformStats.activeMerchants}
-                icon={Store}
-                color="#3B82F6"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Clients Inscrits"
-                value={platformStats.totalClients}
-                icon={Users}
-                color="#22C55E"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Livreurs Partenaires"
-                value={platformStats.totalDrivers}
-                icon={Activity}
-                color="#F59E0B"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Validations en attente"
-                value={kycPending.length}
-                icon={Shield}
-                color="#EF4444"
-                loading={loading.kyc}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatCard
-                label="Utilisateurs Inscrits"
-                value={platformStats.totalUsers}
-                icon={Users}
-                color="#6366F1"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Comptes Bannís"
-                value={platformStats.bannedUsers}
-                icon={Ban}
-                color="#EF4444"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="En Ligne"
-                value={platformStats.onlineUsers}
-                icon={Activity}
-                color="#22C55E"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Comptes Suspendus"
-                value={platformStats.suspendedAccounts}
-                icon={AlertCircle}
-                color="#F59E0B"
-                loading={loading.platform}
-              />
-              <StatCard
-                label="Demandes de bannissement"
-                value={pendingBanCount ?? '—'}
-                icon={Ban}
-                color="#8B5CF6"
-                loading={false}
-              />
-            </div>
-
-            {/* Financial Overview (réservé au Super Admin) */}
-            {isSuperAdmin && (
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-bold text-text-primary">Vue Financière</h2>
-                  <button onClick={loadFinancialStats} className="btn-secondary gap-2 text-xs">
-                    <RefreshCw size={12} className={loading.financial ? 'animate-spin' : ''} />
-                    Actualiser
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <StatCard
-                    label="Chiffre d'affaires Global"
-                    value={`${(financialStats.totalRevenue / 1000000).toFixed(1)}M FCFA`}
-                    icon={TrendingUp}
-                    color="#C1652E"
-                    trend={financialStats.revenueGrowth}
-                    loading={loading.financial}
-                  />
-                  <StatCard
-                    label="Transactions Totales"
-                    value={financialStats.totalTransactions.toLocaleString()}
-                    icon={Activity}
-                    color="#3B82F6"
-                    loading={loading.financial}
-                  />
-                  <StatCard
-                    label="Commissions Plateforme"
-                    value={`${(financialStats.totalCommission / 1000000).toFixed(1)}M FCFA`}
-                    icon={Wallet}
-                    color="#22C55E"
-                    loading={loading.financial}
-                  />
-                  <StatCard
-                    label="Paiements en attente"
-                    value={`${(financialStats.pendingPayouts / 1000000).toFixed(1)}M FCFA`}
-                    icon={CreditCard}
-                    color="#F59E0B"
-                    loading={loading.financial}
-                  />
-                  <StatCard
-                    label="Litiges en attente"
-                    value={financialStats.pendingDisputes}
-                    icon={AlertCircle}
-                    color="#EF4444"
-                    loading={loading.financial}
-                  />
-                </div>
+            {/* Bandeau KPI unifié */}
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+                <StatCard
+                  label="Chiffre d'affaires"
+                  value={`${(financialStats.totalRevenue / 1000000).toFixed(1)}M FCFA`}
+                  icon={TrendingUp}
+                  color="#C1652E"
+                  trend={financialStats.revenueGrowth}
+                  loading={loading.financial}
+                />
+                <StatCard
+                  label="Transactions"
+                  value={financialStats.totalTransactions.toLocaleString()}
+                  icon={Activity}
+                  color="#3B82F6"
+                  loading={loading.financial}
+                />
+                <StatCard
+                  label="Commissions"
+                  value={`${(financialStats.totalCommission / 1000000).toFixed(1)}M FCFA`}
+                  icon={Wallet}
+                  color="#22C55E"
+                  loading={loading.financial}
+                />
+                <StatCard
+                  label="Paiements en attente"
+                  value={`${(financialStats.pendingPayouts / 1000000).toFixed(1)}M FCFA`}
+                  icon={CreditCard}
+                  color="#F59E0B"
+                  loading={loading.financial}
+                />
+                <StatCard
+                  label="Litiges ouverts"
+                  value={financialStats.pendingDisputes}
+                  icon={AlertCircle}
+                  color="#EF4444"
+                  loading={loading.financial}
+                />
               </div>
-            )}
 
-            {/* Activité récente + dernières commandes */}
+              {/* Compteurs plateforme conservés, en ligne compacte */}
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border-light bg-background-card px-5 py-3.5">
+                {[
+                  ['Commerces', platformStats.totalMerchants],
+                  ['Clients', platformStats.totalClients],
+                  ['Livreurs', platformStats.totalDrivers],
+                  ['Utilisateurs', platformStats.totalUsers],
+                  ['En ligne', platformStats.onlineUsers],
+                  ['Suspendus', platformStats.suspendedAccounts],
+                  ['Bannis', platformStats.bannedUsers],
+                  ['Validations KYC', kycPending.length],
+                  ['Demandes de ban', pendingBanCount ?? '—'],
+                ].map(([label, value]) => (
+                  <span key={label} className="text-xs text-text-secondary">
+                    <b className="font-bold text-text-primary">{value}</b> {label}
+                  </span>
+                ))}
+                <button
+                  onClick={() => { loadFinancialStats(); loadPlatformStats(); }}
+                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:underline"
+                >
+                  <RefreshCw size={12} className={loading.financial || loading.platform ? 'animate-spin' : ''} />
+                  Actualiser
+                </button>
+              </div>
+            </div>
+
+            {/* Grille asymétrique : activité (gauche) + système & actions (droite) */}
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-3 space-y-6">
                 <FinancialChart
                   data={financialOverview?.chartData || []}
                   series={[
                     { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
                     { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
                   ]}
-                  title="Activité récente"
+                  title="Revenus & commissions"
                   height={300}
                 />
-              </div>
-              <div className="card overflow-hidden flex flex-col lg:col-span-2">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
-                  <h2 className="text-sm font-bold text-text-primary">Dernières commandes</h2>
-                  <button
-                    onClick={() => navigate('/dashboard/live-orders')}
-                    className="text-accent-primary text-xs font-semibold hover:underline"
-                  >
-                    Tour de contrôle
-                  </button>
-                </div>
-                <div className="divide-y divide-border-light flex-1">
+
+                {/* Tableau des dernières commandes */}
+                <div className="card overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
+                    <h2 className="text-sm font-bold text-text-primary">Dernières commandes</h2>
+                    <button
+                      onClick={() => navigate('/dashboard/live-orders')}
+                      className="text-accent-primary text-xs font-semibold hover:underline"
+                    >
+                      Tour de contrôle →
+                    </button>
+                  </div>
                   {recentOrders.length === 0 ? (
                     <EmptyState
                       icon={ShoppingBag}
@@ -1723,121 +1696,171 @@ const SuperAdminDashboard = () => {
                       description="Les commandes apparaîtront ici dès la première activité."
                     />
                   ) : (
-                    recentOrders.map((o) => (
-                      <div key={o.id} className="flex items-center justify-between gap-3 px-5 py-3">
-                        <div className="min-w-0">
-                          <p className="font-mono text-xs font-bold text-text-primary">#{String(o.id).slice(0, 8)}</p>
-                          <p className="text-[11px] text-text-tertiary">
-                            {o.createdAt
-                              ? new Date(o.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-                              : '—'}
-                          </p>
-                        </div>
-                        <StatusBadge status={o.status || 'PENDING'} statusConfig={ORDER_STATUS_CONFIG} />
-                        <span className="shrink-0 text-xs font-semibold text-text-primary">
-                          {Number(o.totalAmount || 0).toLocaleString('fr-FR')} F
-                        </span>
-                      </div>
-                    ))
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-border-light">
+                          {['Commande', 'Client', 'Commerce', 'Statut', 'Montant', 'Heure'].map((h) => (
+                            <th
+                              key={h}
+                              className="px-5 py-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-text-tertiary"
+                            >
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border-light">
+                        {recentOrders.map((o) => (
+                          <tr key={o.id} className="transition-colors hover:bg-background-secondary">
+                            <td className="px-5 py-3 font-mono text-xs font-bold text-text-primary">#{String(o.id).slice(0, 8)}</td>
+                            <td className="px-5 py-3 text-[13px] text-text-primary">{o.customerName || o.clientName || '—'}</td>
+                            <td className="px-5 py-3 text-[13px] text-text-secondary">{o.businessName || o.business?.name || '—'}</td>
+                            <td className="px-5 py-3">
+                              <StatusBadge status={o.status || 'PENDING'} statusConfig={ORDER_STATUS_CONFIG} />
+                            </td>
+                            <td className="px-5 py-3 text-[13px] font-bold text-text-primary">
+                              {Number(o.totalAmount || 0).toLocaleString('fr-FR')} F
+                            </td>
+                            <td className="px-5 py-3 font-mono text-xs text-text-tertiary">
+                              {o.createdAt
+                                ? new Date(o.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                                : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Alertes récentes + actions rapides */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-              <div className="card overflow-hidden lg:col-span-3">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
-                  <h2 className="text-sm font-bold text-text-primary">Alertes récentes</h2>
-                  <span className="text-xs text-text-tertiary">{alertItems.length} à traiter</span>
+              <div className="lg:col-span-2 space-y-6">
+                {/* Carte Système : float + session live + latence mesurée + uptime backend */}
+                <div className="card p-5">
+                  <div className="mb-4 flex items-center justify-between">
+                    <h2 className="text-sm font-bold text-text-primary">Système</h2>
+                    <span
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10.5px] font-bold tracking-wide ${
+                        apiLatency != null ? 'bg-status-successBg text-status-success' : 'bg-status-errorBg text-status-error'
+                      }`}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      {apiLatency != null ? 'OPÉRATIONNEL' : 'HORS LIGNE'}
+                    </span>
+                  </div>
+                  <dl className="space-y-3 text-[13px]">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-text-secondary">Float Mobile Money</dt>
+                      <dd
+                        className="flex items-center gap-2 font-semibold"
+                        style={{ color: FLOAT_HEALTH_META[financialStats.floatHealth]?.dot || FLOAT_HEALTH_META.unknown.dot }}
+                      >
+                        {FLOAT_HEALTH_META[financialStats.floatHealth]?.label || FLOAT_HEALTH_META.unknown.label}
+                        <span
+                          aria-hidden="true"
+                          title="Indicateur d'état"
+                          className={`inline-flex h-5 w-9 items-center rounded-full px-0.5 ${
+                            financialStats.floatHealth === 'healthy'
+                              ? 'bg-status-success'
+                              : financialStats.floatHealth === 'warning'
+                                ? 'bg-status-warning'
+                                : financialStats.floatHealth === 'critical'
+                                  ? 'bg-status-error'
+                                  : 'bg-border-light'
+                          }`}
+                        >
+                          <span
+                            className={`h-4 w-4 rounded-full bg-white shadow ${
+                              financialStats.floatHealth === 'critical' || financialStats.floatHealth === 'unknown' ? '' : 'ml-auto'
+                            }`}
+                          />
+                        </span>
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border-light pt-3">
+                      <dt className="text-text-secondary">Session active depuis</dt>
+                      <dd className="font-mono text-sm font-bold text-text-primary">{formatSession(sessionSeconds)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border-light pt-3">
+                      <dt className="text-text-secondary">Latence API</dt>
+                      <dd className="font-mono text-sm font-bold text-text-primary">
+                        {apiLatency != null ? `${apiLatency} ms` : '—'}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-border-light pt-3">
+                      <dt className="text-text-secondary">Backend démarré le</dt>
+                      <dd className="font-semibold text-text-primary">
+                        {backendStartedAt
+                          ? backendStartedAt.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </dd>
+                    </div>
+                  </dl>
                 </div>
-                <div className="divide-y divide-border-light">
-                  {alertItems.length === 0 ? (
-                    <EmptyState
-                      icon={CheckCircle}
-                      title="Tout est calme"
-                      description="Aucune alerte en attente : KYC, litiges et bannissements sont à jour."
-                    />
-                  ) : (
-                    alertItems.map((a) => (
+
+                {/* Alertes récentes */}
+                <div className="card overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
+                    <h2 className="text-sm font-bold text-text-primary">Alertes récentes</h2>
+                    <span className="text-xs text-text-tertiary">{alertItems.length} à traiter</span>
+                  </div>
+                  <div className="divide-y divide-border-light">
+                    {alertItems.length === 0 ? (
+                      <EmptyState
+                        icon={CheckCircle}
+                        title="Tout est calme"
+                        description="Aucune alerte en attente : KYC, litiges et bannissements sont à jour."
+                      />
+                    ) : (
+                      alertItems.map((a) => (
+                        <button
+                          key={a.key}
+                          onClick={() => setActiveTab(a.tab)}
+                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-background-secondary"
+                        >
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                            style={{ background: `${a.color}1A` }}
+                          >
+                            <a.icon size={16} style={{ color: a.color }} />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[13px] font-bold text-text-primary">{a.title}</span>
+                            <span className="block truncate text-xs text-text-secondary">{a.desc}</span>
+                          </span>
+                          <span
+                            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
+                            style={{ background: a.color }}
+                          >
+                            {a.count}
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions rapides */}
+                <div className="card p-5">
+                  <h2 className="mb-3 text-sm font-bold text-text-primary">Actions rapides</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {quickActions.map((a) => (
                       <button
-                        key={a.key}
-                        onClick={() => setActiveTab(a.tab)}
-                        className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-background-secondary"
+                        key={a.label}
+                        onClick={a.onClick}
+                        className="flex flex-col items-center gap-2 rounded-xl border border-border-light bg-background-secondary px-3 py-4 transition-colors hover:bg-background-tertiary"
                       >
                         <span
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                          className="flex h-9 w-9 items-center justify-center rounded-full"
                           style={{ background: `${a.color}1A` }}
                         >
                           <a.icon size={16} style={{ color: a.color }} />
                         </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[13px] font-bold text-text-primary">{a.title}</span>
-                          <span className="block truncate text-xs text-text-secondary">{a.desc}</span>
-                        </span>
-                        <span
-                          className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
-                          style={{ background: a.color }}
-                        >
-                          {a.count}
-                        </span>
+                        <span className="text-center text-xs font-bold text-text-primary">{a.label}</span>
                       </button>
-                    ))
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              <div className="card p-5 lg:col-span-2">
-                <h2 className="mb-3 text-sm font-bold text-text-primary">Actions rapides</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {quickActions.map((a) => (
-                    <button
-                      key={a.label}
-                      onClick={a.onClick}
-                      className="flex flex-col items-center gap-2 rounded-xl border border-border-light bg-background-secondary px-3 py-4 transition-colors hover:bg-background-tertiary"
-                    >
-                      <span
-                        className="flex h-9 w-9 items-center justify-center rounded-full"
-                        style={{ background: `${a.color}1A` }}
-                      >
-                        <a.icon size={16} style={{ color: a.color }} />
-                      </span>
-                      <span className="text-center text-xs font-bold text-text-primary">{a.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* System Health */}
-            <div className="card p-6">
-              <h2 className="text-base font-bold text-text-primary mb-4">Santé du Système</h2>
-              <div className={`p-4 rounded-lg flex items-center justify-between ${
-                financialStats.floatHealth === 'healthy' 
-                  ? 'bg-status-successBg border border-status-success/30' 
-                  : financialStats.floatHealth === 'warning'
-                  ? 'bg-status-warningBg border border-status-warning/30'
-                  : 'bg-status-errorBg border border-status-error/30'
-              }`}>
-                <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full animate-ping ${
-                    financialStats.floatHealth === 'healthy' 
-                      ? 'bg-status-success' 
-                      : financialStats.floatHealth === 'warning'
-                      ? 'bg-status-warning'
-                      : 'bg-status-error'
-                  }`} />
-                  <span className="text-sm font-semibold text-text-primary">
-                    {financialStats.floatHealth === 'healthy' && 'Float Mobile Money: Sain'}
-                    {financialStats.floatHealth === 'warning' && 'Float Mobile Money: Attention'}
-                    {financialStats.floatHealth === 'critical' && 'Float Mobile Money: Critique'}
-                    {financialStats.floatHealth === 'unknown' && 'État du système inconnu'}
-                  </span>
-                </div>
-                <span className="flex items-center gap-2 text-xs text-text-secondary">
-                  Session active depuis
-                  <span className="font-mono text-sm font-bold text-text-primary">{formatSession(sessionSeconds)}</span>
-                </span>
               </div>
             </div>
           </div>
