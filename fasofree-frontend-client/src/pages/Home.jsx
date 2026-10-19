@@ -16,6 +16,7 @@ import { FasoFreeMask } from '../components/FasoFreeLogo';
 import { useQuery } from '@tanstack/react-query';
 import queryClient from '../services/queryClient';
 import { getUserLocation } from '../utils/userLocation';
+import Skeleton from '../components/ui/Skeleton';
 
 const mapBusinessToRestaurant = (b) => {
   const category = b.category || 'Fast Food';
@@ -372,14 +373,17 @@ const Home = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto animate-fade-in">
           {loadingBusinesses && allRestaurants.length === 0
             ? Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="rounded-lg overflow-hidden animate-pulse">
-                  <div className="h-36 bg-gray-200" />
-                  <div className="p-3 space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-3/4" />
-                    <div className="h-3 bg-gray-200 rounded w-1/2" />
+                // Squelette aux dimensions EXACTES de RestaurantCard
+                // (visuel aspect-square + nom + temps de livraison), sur les
+                // tokens de couleur FasoFree (pas de gris générique).
+                <div key={i} className="w-full">
+                  <Skeleton className="aspect-square w-full rounded-xl" />
+                  <div className="pt-2.5 px-0.5 space-y-2">
+                    <Skeleton className="h-4 rounded w-3/4" />
+                    <Skeleton className="h-3 rounded w-1/2" />
                   </div>
                 </div>
               ))

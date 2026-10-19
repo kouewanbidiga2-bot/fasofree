@@ -50,8 +50,8 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-background-card w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in" onClick={onClose}>
+      <div className="bg-background-card w-full max-w-md mx-4 p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <AlertTriangle size={20} style={{ color: '#C1652E' }} />
@@ -138,7 +138,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm font-medium border border-[#E8E0D8] text-[#70645C] hover:border-[#C1652E] transition"
+              className="flex-1 px-4 py-2.5 text-sm font-medium border border-[#E8E0D8] text-[#70645C] hover:border-[#C1652E] transition active:scale-[0.98]"
             >
               Annuler
             </button>
@@ -150,7 +150,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
                 !password.trim() ||
                 (pickerEnabled && !finalOrderId)
               }
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white transition disabled:opacity-50"
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-50"
               style={{ backgroundColor: '#C1652E' }}
             >
               {submitting ? (

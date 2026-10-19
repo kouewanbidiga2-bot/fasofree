@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search as SearchIcon, X, Mic, Loader2 } from 'lucide-react';
 import RestaurantCard from '../components/RestaurantCard';
+import Skeleton from '../components/ui/Skeleton';
 import api from '../services/api';
 import { getUserLocation } from '../utils/userLocation';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
@@ -231,14 +232,24 @@ const SearchPage = () => {
 
       <div className="px-4 py-4">
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-[#C1652E] border-t-transparent rounded-full animate-spin" />
+          // Squelette aux dimensions exactes de RestaurantCard (au lieu du rond
+          // isolé) : la grille « apparaît » déjà à sa place finale.
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="w-full">
+                <Skeleton className="aspect-square w-full rounded-xl" />
+                <div className="pt-2.5 px-0.5 space-y-2">
+                  <Skeleton className="h-4 rounded w-3/4" />
+                  <Skeleton className="h-3 rounded w-1/2" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : query.trim() ? (
           <>
             {results.length > 0 ? (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
                   {results.map((r) => (
                     <RestaurantCard
                       key={r.id}

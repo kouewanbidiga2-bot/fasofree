@@ -21,6 +21,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import api from '../services/api';
+import Skeleton from '../components/ui/Skeleton';
 import { getAbsoluteImageUrl } from '../utils/images';
 import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import useAuthStore from '../store/authStore';
@@ -399,15 +400,20 @@ const OrderTracking = () => {
         )}
 
         {!error && !tracking && (
-          <div className="py-16 text-center text-text-secondary">
-            Chargement du suivi…
+          // Squelette reprenant la structure du panneau de suivi réel
+          // (cartouche statut + barre de progression + carte) — remplace le
+          // texte « Chargement du suivi… » isolé.
+          <div className="app-panel rounded-xl p-5 mb-6 space-y-4">
+            <Skeleton className="h-5 rounded w-2/5" />
+            <Skeleton className="h-2 w-full rounded-full" />
+            <Skeleton className="h-40 w-full rounded-xl" />
           </div>
         )}
 
         {tracking && (
           <>
             {/* Ordre + statut */}
-            <div className="app-panel rounded-xl p-5 mb-6">
+            <div className="app-panel rounded-xl p-5 mb-6 animate-fade-in">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-xs text-text-secondary">

@@ -8,6 +8,7 @@ import useCartStore from '../store/cartStore';
 import useAuthStore from '../store/authStore';
 import { useVoiceOrder } from '../hooks/useVoiceOrder';
 import { api } from '../services/api';
+import Skeleton from '../components/ui/Skeleton';
 import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
 
 const FavoriteIcon = ({ filled, color, inactiveColor = '#8C8275', size = 20 }) => (
@@ -192,9 +193,26 @@ const Restaurant = () => {
   const restaurantColor = restaurant ? getRestaurantColor(restaurant.name) : '#C1652E';
 
   if (loading) {
+    // Squelette de fiche aux dimensions du rendu réel (bandeau cover,
+    // titre, grille de produits) — remplace le texte « Chargement… » isolé.
     return (
-      <div className="min-h-screen bg-background-primary flex items-center justify-center">
-        <p className="text-text-secondary">Chargement du restaurant...</p>
+      <div className="min-h-screen bg-background-primary">
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+          <Skeleton className="h-44 w-full rounded-xl" />
+          <div className="space-y-2">
+            <Skeleton className="h-6 rounded w-2/5" />
+            <Skeleton className="h-3.5 rounded w-1/4" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="aspect-square w-full rounded-xl" />
+                <Skeleton className="h-3.5 rounded w-3/4" />
+                <Skeleton className="h-3 rounded w-1/3" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -486,7 +504,7 @@ const Restaurant = () => {
           <h2 className="text-sm font-medium text-text-secondary mb-4">
             {selectedCategory === 'all' ? 'Menu' : selectedCategory}
           </h2>
-          <div>
+          <div className="animate-fade-in">
             {filteredMenu.map((item) => (
               <MenuItemCard key={item.id} item={item} onAddToCart={handleAddToCart} restaurantColor={restaurantColor} />
             ))}

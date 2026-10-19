@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Clock, Calendar, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
-import Loading from './Loading';
 import Footer from '../components/Footer';
 import { api } from '../services/api';
 import useAuthStore from '../store/authStore';
+import Skeleton from '../components/ui/Skeleton';
 import CallSupportButton from '../components/CallSupportButton';
 
 const STATUS_CONFIG = {
@@ -80,7 +80,7 @@ const Orders = () => {
             <button
               key={s.value}
               onClick={() => setFilter(s.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition active:scale-[0.98] ${
                 filter === s.value
                   ? 'bg-accent-primary text-white'
                   : 'bg-background-card text-text-secondary border border-border-light hover:border-accent-primary'
@@ -92,11 +92,25 @@ const Orders = () => {
         </div>
 
         {loading ? (
-          <Loading text="Chargement des commandes..." />
+          // Squelette aux dimensions EXACTES des cartes de commande (cercle
+          // d'icône w-10 h-10 + libellés + montant) : la liste apparaît sans
+          // saut de mise en page, plus de texte « Chargement… » isolé.
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 bg-background-card rounded-xl border border-border-light p-4">
+                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                <div className="flex-1 min-w-0 space-y-2">
+                  <Skeleton className="h-4 rounded w-2/5" />
+                  <Skeleton className="h-3 rounded w-1/3" />
+                </div>
+                <Skeleton className="h-4 rounded w-16 shrink-0" />
+              </div>
+            ))}
+          </div>
         ) : error ? (
           <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">
             <p className="text-text-secondary mb-4">{error}</p>
-            <button onClick={refetch} className="px-6 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium">Reessayer</button>
+            <button onClick={refetch} className="px-6 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium transition active:scale-[0.98]">Reessayer</button>
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">
@@ -109,7 +123,7 @@ const Orders = () => {
             </Link>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 animate-fade-in">
             {filteredOrders.map((order) => {
               const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
               const Icon = cfg.icon;
@@ -117,7 +131,7 @@ const Orders = () => {
                 <button
                   key={order.id}
                   onClick={() => navigate('/order-tracking', { state: { orderId: order.id } })}
-                  className="w-full flex items-center gap-4 bg-background-card rounded-xl border border-border-light p-4 text-left hover:border-accent-primary transition"
+                  className="w-full flex items-center gap-4 bg-background-card rounded-xl border border-border-light p-4 text-left hover:border-accent-primary transition active:scale-[0.98]"
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>
                     <Icon size={18} className={cfg.color} />
