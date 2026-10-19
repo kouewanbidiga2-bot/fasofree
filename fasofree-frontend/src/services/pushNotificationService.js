@@ -211,8 +211,12 @@ export async function registerPushToken() {
 
     await api.post('/notifications/fcm-token', { fcmToken: token });
     return token;
-  } catch {
-    // Un échec d'enregistrement ne doit jamais casser l'application.
+  } catch (err) {
+    // Un échec d'enregistrement ne doit jamais casser l'application — mais on
+    // le TRACE : ce catch avalait tout en silence, ce qui rendait
+    // indiagnosticable en prod un push cassé (clé VAPID invalide, config
+    // Firebase absente, service worker indisponible…).
+    console.warn('[FCM Admin] Enregistrement token échoué:', err?.message);
     return null;
   }
 }
