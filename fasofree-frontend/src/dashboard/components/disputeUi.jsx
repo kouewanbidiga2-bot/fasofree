@@ -66,7 +66,7 @@ export const InfoItem = ({ icon: Icon, label, value, sub }) => (
   <div className="flex items-start gap-2">
     <Icon size={14} className="text-text-tertiary mt-0.5 shrink-0" strokeWidth={1.5} />
     <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase text-text-secondary">{label}</p>
+      <p className="text-[10px] font-bold text-text-secondary">{label}</p>
       <p className="text-text-primary font-semibold truncate">{value || '—'}</p>
       {sub && <p className="text-text-secondary truncate">{sub}</p>}
     </div>

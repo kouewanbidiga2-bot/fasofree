@@ -228,7 +228,7 @@ const MerchantDisputesTab = () => {
         </div>
 
         <div>
-          <p className="text-[10px] font-bold uppercase text-text-secondary mb-1">Motif</p>
+          <p className="text-[10px] font-bold text-text-secondary mb-1">Motif</p>
           <p className="text-sm text-text-primary">{d.reason}</p>
         </div>
 
@@ -236,7 +236,7 @@ const MerchantDisputesTab = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             {d.merchantNote && (
               <div className="bg-status-successBg/60 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase text-status-success mb-1">
+                <p className="text-[10px] font-bold text-status-success mb-1">
                   Ma note (visible de l\u2019administration)
                 </p>
                 <p className="text-text-primary">{d.merchantNote}</p>
@@ -244,19 +244,19 @@ const MerchantDisputesTab = () => {
             )}
             {d.supportNote && (
               <div className="bg-background-secondary/60 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase text-text-secondary mb-1">Note support</p>
+                <p className="text-[10px] font-bold text-text-secondary mb-1">Note support</p>
                 <p className="text-text-primary">{d.supportNote}</p>
               </div>
             )}
             {d.adminNote && (
               <div className="bg-background-secondary/60 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase text-text-secondary mb-1">Décision admin</p>
+                <p className="text-[10px] font-bold text-text-secondary mb-1">Décision admin</p>
                 <p className="text-text-primary">{d.adminNote}</p>
               </div>
             )}
             {d.refundAmount ? (
               <div className="bg-background-secondary/60 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase text-text-secondary mb-1">Montant</p>
+                <p className="text-[10px] font-bold text-text-secondary mb-1">Montant</p>
                 <p className="text-sm font-bold text-status-success">
                   {Number(d.refundAmount).toLocaleString('fr-FR')} FCFA
                 </p>
@@ -274,7 +274,7 @@ const MerchantDisputesTab = () => {
 
         {/* Chat support : communiquer pour régler (support + admin visibles) */}
         <div className="pt-1 border-t border-border-light">
-          <p className="text-[10px] font-bold uppercase text-text-secondary mb-2 flex items-center gap-1.5">
+          <p className="text-[10px] font-bold text-text-secondary mb-2 flex items-center gap-1.5">
             <MessageSquare size={12} /> Chat support (client · support · administration)
           </p>
           <DisputeChat disputeId={d.id} currentUserId={user?.id} status={d.status} />

@@ -586,7 +586,7 @@ const AdminManagerDashboard = () => {
                           <p className="font-mono text-text-primary text-xs font-bold">{doc.ownerId?.slice(0, 8)}</p>
                         </td>
                         <td>
-                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-background-secondary text-text-secondary">
                             {kycTypeLabel(doc.type)}
                           </span>
                         </td>
@@ -723,7 +723,7 @@ const AdminManagerDashboard = () => {
                           {(msg.senderRole || '?').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole || 'system'}</span>
+                          <span className="text-[11px] font-semibold text-text-secondary">{msg.senderRole || 'system'}</span>
                           <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
                           <p className="text-xs text-text-secondary">{msg.message}</p>
                         </div>

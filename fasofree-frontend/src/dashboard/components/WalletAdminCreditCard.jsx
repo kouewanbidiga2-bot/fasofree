@@ -120,7 +120,7 @@ const WalletAdminCreditCard = () => {
         <form onSubmit={submit} className="mt-4 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Identifiant utilisateur
               </label>
               <input
@@ -132,7 +132,7 @@ const WalletAdminCreditCard = () => {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Rôle du portefeuille
               </label>
               <select
@@ -148,7 +148,7 @@ const WalletAdminCreditCard = () => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Montant (FCFA)
               </label>
               <input
@@ -161,7 +161,7 @@ const WalletAdminCreditCard = () => {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Agence (optionnel)
               </label>
               <input
@@ -173,7 +173,7 @@ const WalletAdminCreditCard = () => {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Motif (optionnel)
               </label>
               <input
@@ -185,7 +185,7 @@ const WalletAdminCreditCard = () => {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-semibold text-text-secondary uppercase mb-1">
+              <label className="block text-[11px] font-semibold text-text-secondary mb-1">
                 Référence (optionnel)
               </label>
               <input

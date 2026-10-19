@@ -224,7 +224,7 @@ const UsersBackofficeTab = ({
 
       <div className="bg-background-card border border-border-light rounded-xl overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-background-secondary text-text-secondary text-xs uppercase">
+          <thead className="bg-background-secondary text-text-secondary text-xs">
             <tr>
               <th className="text-left px-4 py-3">Nom</th>
               <th className="text-left px-4 py-3">Email</th>

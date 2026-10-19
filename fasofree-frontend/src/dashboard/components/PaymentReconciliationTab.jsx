@@ -87,11 +87,11 @@ const PaymentReconciliationTab = () => {
       {result && (
         <div className="bg-background-card border border-border-light rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <p className="text-xs uppercase text-text-secondary mb-1">Statut</p>
+            <p className="text-xs text-text-secondary mb-1">Statut</p>
             <p className="text-text-primary font-semibold">{result.status}</p>
           </div>
           <div>
-            <p className="text-xs uppercase text-text-secondary mb-1">Payé</p>
+            <p className="text-xs text-text-secondary mb-1">Payé</p>
             <p
               className={
                 result.paid
@@ -103,7 +103,7 @@ const PaymentReconciliationTab = () => {
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase text-text-secondary mb-1">
+            <p className="text-xs text-text-secondary mb-1">
               Référence
             </p>
             <p className="text-text-secondary">{result.reference || '—'}</p>

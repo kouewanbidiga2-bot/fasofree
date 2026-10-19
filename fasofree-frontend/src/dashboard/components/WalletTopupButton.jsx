@@ -119,7 +119,7 @@ const WalletTopupButton = ({
               ))}
             </div>
 
-            <label className="mb-1 block text-xs font-semibold uppercase text-text-secondary">
+            <label className="mb-1 block text-xs font-semibold text-text-secondary">
               Montant (FCFA)
             </label>
             <input

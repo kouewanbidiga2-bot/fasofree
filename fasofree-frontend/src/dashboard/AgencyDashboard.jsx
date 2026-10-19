@@ -312,28 +312,28 @@ const AgencyDashboard = () => {
           <div className="card p-4">
             <div className="flex items-center gap-2 text-text-tertiary mb-1">
               <Package size={14} />
-              <p className="text-[10px] tracking-[0.2em] uppercase">En attente</p>
+              <p className="text-[11.5px]">En attente</p>
             </div>
             <p className="text-2xl font-bold text-text-primary">{stats.pending}</p>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2 text-text-tertiary mb-1">
               <Truck size={14} />
-              <p className="text-[10px] tracking-[0.2em] uppercase">En cours</p>
+              <p className="text-[11.5px]">En cours</p>
             </div>
             <p className="text-2xl font-bold text-text-primary">{stats.assigned}</p>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2 text-text-tertiary mb-1">
               <CheckCircle2 size={14} />
-              <p className="text-[10px] tracking-[0.2em] uppercase">Livrées</p>
+              <p className="text-[11.5px]">Livrées</p>
             </div>
             <p className="text-2xl font-bold text-status-success">{stats.delivered}</p>
           </div>
           <div className="card p-4">
             <div className="flex items-center gap-2 text-text-tertiary mb-1">
               <DollarSign size={14} />
-              <p className="text-[10px] tracking-[0.2em] uppercase">Commission</p>
+              <p className="text-[11.5px]">Commission</p>
             </div>
             <p className="text-2xl font-bold text-accent-primary">
               {stats.commission.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span>
@@ -345,7 +345,7 @@ const AgencyDashboard = () => {
         {offers.length > 0 && (
           <div className="card overflow-hidden border-2 border-accent-primary/40">
             <div className="px-5 py-3 border-b border-border-light flex items-center justify-between bg-accent-primary/5">
-              <h3 className="text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-2 text-accent-primary">
+              <h3 className="text-[13.5px] font-bold text-text-primary flex items-center gap-2">
                 <Megaphone size={14} />
                 Appels d'offres — premier qui accepte gagne
               </h3>
@@ -442,7 +442,7 @@ const AgencyDashboard = () => {
         {/* ── COURSES ROUTÉES ────────────────────────────────── */}
         <div className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-border-light flex items-center justify-between">
-            <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+            <h3 className="text-[13.5px] font-bold text-text-primary">
               Livraisons routées vers mon agence
             </h3>
             <span className="text-xs text-text-tertiary">{deliveries.length} course(s)</span>
@@ -530,7 +530,7 @@ const AgencyDashboard = () => {
         {/* ── CHAUFFEURS DE L'AGENCE ─────────────────────────── */}
         <div className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-border-light">
-            <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+            <h3 className="text-[13.5px] font-bold text-text-primary">
               Mes chauffeurs ({drivers.length})
             </h3>
           </div>
@@ -562,7 +562,7 @@ const AgencyDashboard = () => {
 
         {/* ── 🎚️ QUALITÉ & SLA (blocs B + C) ─────────────────── */}
         <div className="card p-5">
-          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-1">
+          <h3 className="text-[13.5px] font-bold text-text-primary mb-1">
             Qualité de livraison
           </h3>
           <p className="text-xs text-text-secondary mb-4">
@@ -572,21 +572,21 @@ const AgencyDashboard = () => {
 
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="rounded-lg bg-background-secondary p-3">
-              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Livrées</p>
+              <p className="text-[11.5px] text-text-tertiary">Livrées</p>
               <p className="text-xl font-bold text-text-primary">{quality.total}</p>
             </div>
             <div className="rounded-lg bg-background-secondary p-3">
-              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">À temps</p>
+              <p className="text-[11.5px] text-text-tertiary">À temps</p>
               <p className="text-xl font-bold text-status-success">
                 {quality.rate == null ? '—' : `${quality.rate} %`}
               </p>
             </div>
             <div className="rounded-lg bg-background-secondary p-3">
-              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">En retard</p>
+              <p className="text-[11.5px] text-text-tertiary">En retard</p>
               <p className="text-xl font-bold text-status-error">{quality.late}</p>
             </div>
             <div className="rounded-lg bg-background-secondary p-3">
-              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Durée moy.</p>
+              <p className="text-[11.5px] text-text-tertiary">Durée moy.</p>
               <p className="text-xl font-bold text-text-primary">
                 {quality.avgDuration == null
                   ? '—'
@@ -594,7 +594,7 @@ const AgencyDashboard = () => {
               </p>
             </div>
             <div className="rounded-lg bg-background-secondary p-3">
-              <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Sanctions</p>
+              <p className="text-[11.5px] text-text-tertiary">Sanctions</p>
               <p className="text-xl font-bold text-status-warning">{activePenalties.length}</p>
             </div>
           </div>
@@ -603,7 +603,7 @@ const AgencyDashboard = () => {
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left text-[10px] uppercase tracking-[0.15em] text-text-tertiary border-b border-border-light">
+                  <tr className="text-left text-[11.5px] text-text-tertiary border-b border-border-light">
                     <th className="py-2 pr-3">Niveau</th>
                     <th className="py-2 pr-3">Motif</th>
                     <th className="py-2 pr-3">Début</th>
@@ -660,7 +660,7 @@ const AgencyDashboard = () => {
         {/* ── 📍 CARTE TEMPS RÉEL (bloc E) ───────────────────── */}
         <div className="card overflow-hidden">
           <div className="px-5 py-3 border-b border-border-light flex items-center justify-between">
-            <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+            <h3 className="text-[13.5px] font-bold text-text-primary">
               Carte temps réel
             </h3>
             <span className="text-xs text-text-tertiary">

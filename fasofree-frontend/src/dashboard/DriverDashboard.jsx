@@ -1153,7 +1153,7 @@ const DriverDashboard = () => {
                                 : 'bg-background-secondary text-text-primary rounded-bl-md'
                             }`}>
                               {!isMine && (
-                                <p className="text-[10px] font-bold uppercase opacity-70 mb-0.5">
+                                <p className="text-[10px] font-bold opacity-70 mb-0.5">
                                   {msg.senderRole === 'CLIENT' ? 'Client' : msg.senderRole || 'Système'}
                                 </p>
                               )}

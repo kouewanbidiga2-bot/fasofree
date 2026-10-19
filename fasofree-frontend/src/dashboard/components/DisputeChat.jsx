@@ -161,7 +161,7 @@ const DisputeChat = ({ disputeId, currentUserId, status }) => {
                 style={mine ? { backgroundColor: '#C1652E' } : {}}
               >
                 {!mine && (
-                  <p className="text-[10px] text-text-secondary mb-0.5 font-bold uppercase">
+                  <p className="text-[10px] text-text-secondary mb-0.5 font-bold">
                     {m.senderName || roleLabel(m.senderRole)}
                   </p>
                 )}

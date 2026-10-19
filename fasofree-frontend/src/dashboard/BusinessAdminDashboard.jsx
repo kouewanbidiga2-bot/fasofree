@@ -126,27 +126,27 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
           {/* Basic Info */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Nom *</label>
+              <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Nom *</label>
               <input className="input-field" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Poulet bicyclette" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Prix (FCFA) *</label>
+              <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Prix (FCFA) *</label>
               <input className="input-field" type="number" min="0" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="2500" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Catégorie</label>
+              <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Catégorie</label>
               <input className="input-field" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="Plats" />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Description</label>
+            <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Description</label>
             <textarea className="input-field resize-none" rows={2} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Description du produit..." />
           </div>
 
           {/* Product Type */}
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Type de produit</label>
+            <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Type de produit</label>
             <select className="input-field" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>
               <option value={ProductType.RETAIL}>Retail / Boutique</option>
               <option value={ProductType.FOOD}>Restauration / Fast-Food</option>
@@ -171,7 +171,7 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
             {form.trackInventory && (
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">SKU / Code-barres (optionnel)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">SKU / Code-barres (optionnel)</label>
                   <div className="flex gap-2">
                     <input className="input-field flex-1" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Généré automatiquement" />
                     <button type="button" onClick={handleGenerateSKU} disabled={generatingSKU} className="btn-secondary">
@@ -181,11 +181,11 @@ const ProductModal = ({ product, businessId, onSave, onClose }) => {
                   <p className="text-[11px] text-text-tertiary mt-1">Laissez vide : la plateforme attribue le matricule automatiquement.</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Stock actuel</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Stock actuel</label>
                   <input className="input-field" type="number" min="0" value={form.stockQuantity} onChange={e => setForm({ ...form, stockQuantity: Number(e.target.value) })} placeholder="0" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Alerte stock bas</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Alerte stock bas</label>
                   <input className="input-field" type="number" min="0" value={form.minStockAlert} onChange={e => setForm({ ...form, minStockAlert: Number(e.target.value) })} placeholder="5" />
                 </div>
               </div>
@@ -269,7 +269,7 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Ajustement (+/-)</label>
+            <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Ajustement (+/-)</label>
             <input 
               className="input-field" 
               type="number" 
@@ -280,7 +280,7 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
             <p className="text-xs text-text-tertiary mt-1">Positif = ajout, Négatif = retrait</p>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-text-secondary mb-1.5 uppercase tracking-wider">Raison</label>
+            <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Raison</label>
             <select className="input-field" value={reason} onChange={e => setReason(e.target.value)}>
               <option value="MANUAL_ADJUSTMENT">Ajustement manuel</option>
               <option value="STOCK_TAKE">Inventaire</option>
@@ -1178,7 +1178,7 @@ const BusinessAdminDashboard = () => {
               {!selectedBranchId && brandAnalytics?.branches?.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3 ml-1">
-                    <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Agences</h3>
+                    <h3 className="text-[13.5px] font-bold text-text-primary">Agences</h3>
                     {brandWallets && (
                       <span className="text-xs text-text-secondary">
                         Total toutes agences : <strong>{(brandWallets.totalBalance || 0).toLocaleString()} FCFA</strong>
@@ -1269,23 +1269,23 @@ const BusinessAdminDashboard = () => {
                 </p>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                   <div className="rounded-lg bg-background-secondary p-3">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">À temps</p>
+                    <p className="text-[11.5px] text-text-tertiary">À temps</p>
                     <p className="text-xl font-bold text-status-success">
                       {sla.rate == null ? '—' : `${sla.rate} %`}
                     </p>
                   </div>
                   <div className="rounded-lg bg-background-secondary p-3">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">En retard</p>
+                    <p className="text-[11.5px] text-text-tertiary">En retard</p>
                     <p className="text-xl font-bold text-status-error">{sla.late}</p>
                   </div>
                   <div className="rounded-lg bg-background-secondary p-3">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Durée moyenne</p>
+                    <p className="text-[11.5px] text-text-tertiary">Durée moyenne</p>
                     <p className="text-xl font-bold text-text-primary">
                       {sla.avgDuration == null ? '—' : `${Math.round(sla.avgDuration)} min`}
                     </p>
                   </div>
                   <div className="rounded-lg bg-background-secondary p-3">
-                    <p className="text-[10px] tracking-[0.15em] uppercase text-text-tertiary">Dont livrées</p>
+                    <p className="text-[11.5px] text-text-tertiary">Dont livrées</p>
                     <p className="text-xl font-bold text-text-primary">{sla.total}</p>
                   </div>
                 </div>
@@ -1956,7 +1956,7 @@ const BusinessAdminDashboard = () => {
                             {(msg.senderRole || '?').charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole || 'system'}</span>
+                            <span className="text-[11px] font-semibold text-text-secondary">{msg.senderRole || 'system'}</span>
                             <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
                             <p className="text-xs text-text-secondary">{msg.message}</p>
                           </div>
