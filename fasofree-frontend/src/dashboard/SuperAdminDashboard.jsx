@@ -16,7 +16,7 @@ import {
   Plus, CreditCard, Activity, DollarSign, Crown, Pencil, Calendar,
   BadgeCheck, Radio, Ban, KeyRound, ClipboardList, Trash2, MessageSquare, Clock,
   Truck, Car, Eye, Building2, ScrollText, Megaphone, Send, Bell, BarChart2,
-  Gavel, Link2, ExternalLink, ShoppingBag
+  Gavel, Link2, ExternalLink, ShoppingBag, Menu
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import api from '../services/api';
@@ -86,6 +86,15 @@ const SuperAdminDashboard = () => {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // ── Sidebar : tiroir mobile + repli desktop (persisté) ──
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('ff-sidebar-collapsed') === '1'; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('ff-sidebar-collapsed', sidebarCollapsed ? '1' : '0'); } catch { /* stockage indisponible */ }
+  }, [sidebarCollapsed]);
 
   const userRole = String(user?.role || '').toLowerCase().replace('-', '_');
   const isSuperAdmin = ['super_admin', 'superadmin'].includes(userRole);
@@ -1364,10 +1373,14 @@ const SuperAdminDashboard = () => {
         roleLabel={isSuperAdmin ? 'Super Administration' : 'Administration'}
         onSelect={setActiveTab}
         onLogout={handleLogout}
+        open={sidebarOpen}
+        onOpenChange={setSidebarOpen}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
       {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
-      <main className="flex-1 lg:ml-64 min-h-screen p-6 lg:p-8">
+      <main className={`flex-1 min-h-screen p-6 lg:p-8 ${sidebarCollapsed ? 'lg:ml-[76px]' : 'lg:ml-64'}`}>
         {/* Hero d'accueil (uniquement sur la vue globale) */}
         {activeTab === 'overview' && (
           <PageHero
@@ -1392,13 +1405,22 @@ const SuperAdminDashboard = () => {
         )}
 
         <header className="flex items-center justify-between mb-8 pb-4 border-b border-border-light">
-          {activeTab !== 'overview' && (
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
-              <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
-            </div>
-          )}
-          <div className={`flex items-center gap-3 ${activeTab === 'overview' ? 'ml-auto' : ''}`}>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Ouvrir le menu"
+              className="rounded-lg border border-border-light bg-background-card p-2 text-text-secondary transition-colors hover:bg-background-secondary lg:hidden"
+            >
+              <Menu size={18} />
+            </button>
+            {activeTab !== 'overview' && (
+              <div>
+                <h1 className="text-2xl font-bold text-text-primary">Centre de Contrôle Global</h1>
+                <p className="text-text-secondary text-sm">Gestion globale de la plateforme FasoFree</p>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
             <PWAInstallButton className="hidden sm:inline-flex" />
             <NotificationBell />
             <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
