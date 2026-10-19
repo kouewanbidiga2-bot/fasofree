@@ -58,16 +58,34 @@ export class NotificationStoreService {
   ): Promise<void> {
     try {
       const users = await this.usersService.findNotificationRecipients(userIds);
-      await Promise.allSettled(
-        users
-          .filter((user) => !!user.fcmToken)
-          .map((user) =>
-            this.notificationsService.sendToDevice(user.fcmToken as string, {
-              title,
-              body,
-              data,
-            }),
-          ),
+      const recipients = users.filter((user) => !!user.fcmToken);
+
+      // 🔎 Traçabilité (niveau LOG = visible sur Render) :
+      //   • 0 token → warn explicite : le compte cible n'a JAMAIS enregistré de
+      //     token depuis cet appareil/origine → le push ne part tout simplement
+      //     pas (cas le plus fréquent, et jusqu'ici totalement muet).
+      //   • sinon récap envoyé : distingue « FCM a refusé » de « jamais parti ».
+      if (userIds.length > 0 && recipients.length === 0) {
+        this.logger.warn(
+          `[pushToUsers] ${userIds.length} destinataire(s) — 0 avec token FCM : push ignoré (compte cible jamais enregistré sur cet appareil/origine)`,
+        );
+        return;
+      }
+
+      const results = await Promise.allSettled(
+        recipients.map((user) =>
+          this.notificationsService.sendToDevice(user.fcmToken as string, {
+            title,
+            body,
+            data,
+          }),
+        ),
+      );
+      const sent = results.filter(
+        (r) => r.status === 'fulfilled' && r.value === true,
+      ).length;
+      this.logger.log(
+        `[pushToUsers] ${recipients.length}/${users.length} avec token — ${sent} accepté(s) par FCM`,
       );
     } catch (err) {
       this.logger.warn(`[pushToUsers] Échec push FCM: ${err}`);

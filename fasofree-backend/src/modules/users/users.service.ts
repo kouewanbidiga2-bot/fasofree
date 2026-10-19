@@ -175,6 +175,12 @@ export class UsersService implements OnModuleInit {
   // 👤 Obtenir un utilisateur par son ID
   async updateFcmToken(userId: string, fcmToken: string): Promise<void> {
     await this.userRepository.update(userId, { fcmToken });
+    // 🔎 Traçabilité : on doit VOIR en prod quand un appareil enregistre son
+    // token (et pour QUI). Sans cette ligne, « push jamais reçu » et « token
+    // jamais enregistré » étaient indistinguables dans les logs Render.
+    this.logger.log(
+      `[FCM] Token enregistré — user ${userId} (${fcmToken.slice(0, 12)}…)`,
+    );
   }
 
   /**
