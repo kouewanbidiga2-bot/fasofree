@@ -9,9 +9,9 @@ export const StatCard = ({ label, value, icon: Icon, trend, color = '#3B82F6', l
       <div className="flex items-start justify-between mb-3">
         <div 
           className="w-10 h-10 rounded-lg flex items-center justify-center"
-          style={{ background: `${color}20`, border: `1px solid ${color}30` }}
+          style={{ background: '#F2ECE2', border: `1px solid ${color}33` }}
         >
-          {Icon && <Icon size={18} style={{ color }} strokeWidth={1.5} />}
+          {Icon && <Icon size={18} style={{ color: '#6B6359' }} strokeWidth={1.6} />}
         </div>
         
         {trend !== undefined && (
@@ -45,7 +45,7 @@ export const StatusBadge = ({ status, statusConfig = {} }) => {
   const config = statusConfig[status] || {
     label: status,
     color: 'gray',
-    dot: '#A09890'
+    dot: '#9B9286'
   };
 
   const colorClasses = {

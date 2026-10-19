@@ -155,7 +155,7 @@ const LiveOrders = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold text-text-primary">Tour de contrôle</h1>
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-status-successBg text-status-success text-xs font-bold">
-              <Radio size={13} className="animate-pulse" />
+              <Radio size={13} />
               EN DIRECT
             </span>
           </div>

@@ -41,13 +41,13 @@ export default function SplashScreen({ children }) {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0D0D0D',
+          background: '#FAF7F1',
           transition: 'opacity 0.3s ease-out',
           opacity: fading ? 0 : 1,
           pointerEvents: fading ? 'none' : 'auto',
         }}
       >
-        <FasoFreeLockup maskSize={72} style={{ marginBottom: 28 }} />
+        <FasoFreeLockup maskSize={72} dark={false} style={{ marginBottom: 28 }} />
         <div
           style={{
             width: 40,

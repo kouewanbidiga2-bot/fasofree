@@ -6,7 +6,7 @@ const Loading = () => {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#0C0A08',
+        backgroundColor: '#FAF7F1',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -16,7 +16,7 @@ const Loading = () => {
       }}
     >
       {/* Logo FasoFree (lockup W2) */}
-      <FasoFreeLockup maskSize={96} dark />
+      <FasoFreeLockup maskSize={96} dark={false} />
 
       {/* Loading Dots */}
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', height: '12px' }}>

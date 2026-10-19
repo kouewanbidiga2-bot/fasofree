@@ -123,7 +123,7 @@ const parseBlocks = (content) => {
 const Block = ({ block, accentColor }) => {
   switch (block.type) {
     case 'hr':
-      return <hr className="my-2" style={{ borderColor: 'rgba(255,255,255,0.08)' }} />;
+      return <hr className="my-2" style={{ borderColor: 'rgba(41,35,30,0.12)' }} />;
     case 'heading': {
       const Tag = `h${block.level}`;
       const sizes = {
@@ -182,7 +182,7 @@ const Table = ({ lines, accentColor }) => {
           <tr>
             {header.map((cell, j) => (
               <th key={j} className="border px-3 py-2 text-left font-semibold"
-                  style={{ borderColor: 'rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.04)' }}>
+                  style={{ borderColor: 'rgba(41,35,30,0.12)', background: '#F5F1EA' }}>
                 {renderInline(cell, accentColor)}
               </th>
             ))}
@@ -193,7 +193,7 @@ const Table = ({ lines, accentColor }) => {
             <tr key={r}>
               {row.map((cell, c) => (
                 <td key={c} className="border px-3 py-2 align-top"
-                    style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+                    style={{ borderColor: 'rgba(41,35,30,0.1)' }}>
                   {renderInline(cell, accentColor)}
                 </td>
               ))}

@@ -35,7 +35,7 @@ const ContractGate = ({ children }) => {
       <div
         style={{
           minHeight: '100vh',
-          background: '#0D0D0D',
+          background: '#FAF7F1',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -54,7 +54,7 @@ const ContractGate = ({ children }) => {
               margin: '0 auto 12px',
             }}
           />
-          <p style={{ color: '#A09890', fontSize: 13 }}>Vérification de votre contrat…</p>
+          <p style={{ color: '#6E6559', fontSize: 13 }}>Vérification de votre contrat…</p>
         </div>
       </div>
     );

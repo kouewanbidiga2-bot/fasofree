@@ -14,12 +14,12 @@ import MarkdownView from '../components/MarkdownView';
 import { getLegalDocument } from '../services/legalService';
 
 const T = {
-  bg: '#0D0D0D',
-  bgCard: '#161616',
-  border: '#2A2520',
-  text: '#F0EDE8',
-  textSec: '#A09890',
-  textTer: '#6B6359',
+  bg: '#FAF7F1',
+  bgCard: '#FFFFFF',
+  border: '#ECE6DD',
+  text: '#29231E',
+  textSec: '#6E6559',
+  textTer: '#9B9286',
   accent: '#C1652E',
   font: "'Manrope', system-ui, sans-serif",
 };

@@ -452,12 +452,12 @@ const SupportDashboard = () => {
       <aside className="hidden lg:flex flex-col w-64 bg-background-card border-r border-border-light fixed h-full z-20 overflow-y-auto">
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-accent-primary/15">
-              <span className="text-accent-primary font-bold text-sm">SF</span>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-accent-primary">
+              <span className="text-white font-bold text-sm">SF</span>
             </div>
             <div>
               <p className="text-text-primary font-bold text-sm">FasoFree</p>
-              <p className="text-accent-primary text-xs font-semibold">
+              <p className="text-text-tertiary text-xs font-semibold">
                 Espace Support
               </p>
             </div>
@@ -484,7 +484,7 @@ const SupportDashboard = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === tab.id ? 'bg-accent-primary text-white' : 'text-text-secondary hover:bg-background-secondary'
+                  activeTab === tab.id ? 'bg-background-tertiary text-text-primary font-semibold' : 'text-text-secondary hover:bg-background-secondary'
                 }`}
               >
                 <Icon size={18} strokeWidth={1.5} />
@@ -510,7 +510,7 @@ const SupportDashboard = () => {
             onClick={() => navigate('/dashboard/live-orders')}
             className="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-status-success border border-status-success/30 mt-2 hover:bg-status-successBg"
           >
-            <Radio size={18} strokeWidth={1.5} className="animate-pulse" />
+            <Radio size={18} strokeWidth={1.5} />
             <span className="flex-1 text-left">Live Orders</span>
           </button>
         </nav>
@@ -532,7 +532,7 @@ const SupportDashboard = () => {
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
-            <span className="px-3 py-1 bg-accent-primary/10 text-accent-primary text-xs font-bold rounded-full">
+            <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
               Mode Support
             </span>
           </div>

@@ -8,32 +8,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        // FasoFree Design System — Dark Mode Premium
+        // FasoFree Design System — Clair epure : fond craie chaude, cartes blanches,
+        // terracotta dosee (CTA + data viz uniquement)
         background: {
-          primary: '#0D0D0D',
-          secondary: '#161616',
-          tertiary: '#1E1E1E',
-          card: '#1A1A1A',
-          glass: 'rgba(26,26,26,0.85)',
+          primary: '#FAF7F1',
+          secondary: '#F5F1EA',
+          tertiary: '#F2ECE2',
+          card: '#FFFFFF',
+          glass: 'rgba(255,255,255,0.85)',
         },
         text: {
-          primary: '#F0EDE8',
-          secondary: '#A09890',
-          tertiary: '#6B6359',
-          muted: '#4A4540',
+          primary: '#29231E',
+          secondary: '#6E6559',
+          tertiary: '#9B9286',
+          muted: '#B8B0A4',
         },
         border: {
-          light: '#2A2520',
-          medium: '#3A3530',
-          dark: '#4A4540',
+          light: '#ECE6DD',
+          medium: '#E0D8CB',
+          dark: '#CFC5B6',
           accent: '#C1652E',
         },
         // Accent terracotta FasoFree
         accent: {
           primary: '#C1652E',
           secondary: '#D9753E',
-          muted: '#8C4520',
-          glow: 'rgba(193,101,46,0.25)',
+          muted: '#A85526',
+          glow: 'rgba(193,101,46,0.18)',
         },
         // Statuts
         status: {
@@ -84,15 +85,16 @@ export default {
         '2xl': '20px',
         'full': '9999px',
         'photo': '8px',
-        'card': '12px',
+        'card': '14px',
       },
       boxShadow: {
-        'glow': '0 0 20px rgba(193,101,46,0.25)',
-        'glow-sm': '0 0 10px rgba(193,101,46,0.15)',
-        'card': '0 4px 24px rgba(0,0,0,0.4)',
-        'card-hover': '0 8px 40px rgba(0,0,0,0.6)',
-        'modal': '0 20px 60px rgba(0,0,0,0.8)',
-        'inner': 'inset 0 1px 0 rgba(255,255,255,0.05)',
+        // Ombres douces sur fond clair — plus de halo terracotta
+        'glow': '0 1px 2px rgba(41,35,30,0.06)',
+        'glow-sm': '0 1px 2px rgba(41,35,30,0.05)',
+        'card': '0 1px 2px rgba(41,35,30,0.04), 0 4px 16px rgba(41,35,30,0.06)',
+        'card-hover': '0 2px 4px rgba(41,35,30,0.06), 0 8px 28px rgba(41,35,30,0.10)',
+        'modal': '0 24px 64px rgba(41,35,30,0.18)',
+        'inner': 'inset 0 1px 0 rgba(255,255,255,0.6)',
       },
       backdropBlur: {
         'glass': '16px',
@@ -102,7 +104,6 @@ export default {
         'slide-up': 'slideUp 0.4s cubic-bezier(0.16,1,0.3,1)',
         'slide-down': 'slideDown 0.4s cubic-bezier(0.16,1,0.3,1)',
         'scale-in': 'scaleIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
         'spin-slow': 'spin 3s linear infinite',
         'shimmer': 'shimmer 1.5s linear infinite',
       },
@@ -122,10 +123,6 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
-        },
-        pulseGlow: {
-          '0%, 100%': { boxShadow: '0 0 10px rgba(193,101,46,0.2)' },
-          '50%': { boxShadow: '0 0 30px rgba(193,101,46,0.5)' },
         },
         shimmer: {
           '0%': { backgroundPosition: '-200% 0' },

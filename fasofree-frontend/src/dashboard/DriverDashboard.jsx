@@ -678,8 +678,8 @@ const DriverDashboard = () => {
       <aside className="hidden lg:flex flex-col w-60 bg-background-card border-r border-border-light fixed h-full z-20 overflow-y-auto">
         <div className="p-5 border-b border-border-light">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-accent-primary/15">
-              <Navigation size={16} className="text-accent-primary" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-accent-primary">
+              <Navigation size={16} className="text-white" />
             </div>
             <div>
               <p className="text-text-primary font-bold text-sm">FasoFree</p>
