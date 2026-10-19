@@ -385,7 +385,7 @@ const DeliveryQualityTab = () => {
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-background-secondary text-text-secondary text-xs uppercase">
+              <thead className="bg-background-secondary text-text-secondary text-xs">
                 <tr>
                   <th className="text-left px-4 py-3">Cible</th>
                   <th className="text-left px-4 py-3">Niveau</th>
@@ -622,7 +622,7 @@ const DeliveryQualityTab = () => {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-background-secondary text-text-secondary text-xs uppercase">
+            <thead className="bg-background-secondary text-text-secondary text-xs">
               <tr>
                 <th className="text-left px-4 py-3">Commande</th>
                 <th className="text-left px-4 py-3">Commerce</th>

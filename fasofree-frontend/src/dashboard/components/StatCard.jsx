@@ -2,44 +2,39 @@ import React from 'react';
 
 // ─────────────────────────────────────────────────────────
 // 1. COMPOSANT : STATCARD
+// Style « bloc Hanpiz » : pastille encre + titre à côté, valeur XXL.
+// Le prop `color` est conserve pour compatibilite des appelsants mais
+// n'est plus utilise visuellement (palette beige/terracotta verrouillee).
 // ─────────────────────────────────────────────────────────
-export const StatCard = ({ label, value, icon: Icon, trend, color = '#3B82F6', loading = false, className = '' }) => {
+export const StatCard = ({ label, value, icon: Icon, trend, color, loading = false, className = '' }) => {
   return (
-    <div className={`stat-card bg-background-card border border-border-light rounded-xl p-5 hover:shadow-lg transition-shadow ${className}`}>
-      <div className="flex items-center gap-3 mb-3">
-        <span
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-          style={{ background: `${color}1A` }}
-        >
-          {Icon && <Icon size={19} strokeWidth={1.9} style={{ color }} />}
+    <div className={`rounded-card border border-border-light bg-background-card p-5 ${className}`}>
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#241F1B]">
+          {Icon && <Icon size={17} strokeWidth={2} className="text-white" />}
         </span>
-
+        <p className="min-w-0 truncate text-[13.5px] font-bold text-text-primary">{label}</p>
         {trend !== undefined && (
-          <span className={`ml-auto text-xs font-bold flex items-center gap-0.5 ${
-            trend >= 0 ? 'text-status-success' : 'text-status-error'
-          }`}>
+          <span className={`ml-auto shrink-0 text-xs font-bold ${trend >= 0 ? 'text-status-success' : 'text-status-error'}`}>
             {trend >= 0 ? '↑' : '↓'} {Math.abs(trend)}%
           </span>
         )}
       </div>
 
-      <p className="text-2xl font-extrabold tracking-tight text-text-primary">
+      <p className="mt-4 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
         {loading ? (
           <span className="inline-block h-7 w-24 rounded bg-background-secondary animate-pulse" />
         ) : (
           value ?? '—'
         )}
       </p>
-
-      <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-text-secondary">
-        {label}
-      </p>
     </div>
   );
 };
 
 // ─────────────────────────────────────────────────────────
-// 2. COMPOSANT : STATUSBADGE 
+// 2. COMPOSANT : STATUSBADGE
+// Pilule arrondie teintee + pastille de statut (jamais de MAJUSCULES).
 // ─────────────────────────────────────────────────────────
 export const StatusBadge = ({ status, statusConfig = {} }) => {
   const config = statusConfig[status] || {
@@ -49,17 +44,17 @@ export const StatusBadge = ({ status, statusConfig = {} }) => {
   };
 
   const colorClasses = {
-    success: 'bg-status-successBg text-status-success border-status-success/30',
-    warning: 'bg-status-warningBg text-status-warning border-status-warning/30',
-    error: 'bg-status-errorBg text-status-error border-status-error/30',
-    info: 'bg-status-infoBg text-status-info border-status-info/30',
-    processing: 'bg-status-processingBg text-status-processing border-status-processing/30',
+    success: 'bg-status-successBg text-status-success border-status-success/25',
+    warning: 'bg-status-warningBg text-status-warning border-status-warning/25',
+    error: 'bg-status-errorBg text-status-error border-status-error/25',
+    info: 'bg-status-infoBg text-status-info border-status-info/25',
+    processing: 'bg-status-processingBg text-status-processing border-status-processing/25',
     gray: 'bg-background-secondary text-text-secondary border-border-light',
   };
 
   return (
-    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase border ${colorClasses[config.color] || colorClasses.gray}`}>
-      <span className="inline-block w-1.5 h-1.5 rounded-full mr-1" style={{ backgroundColor: config.dot }} />
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold ${colorClasses[config.color] || colorClasses.gray}`}>
+      <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: config.dot }} />
       {config.label}
     </span>
   );

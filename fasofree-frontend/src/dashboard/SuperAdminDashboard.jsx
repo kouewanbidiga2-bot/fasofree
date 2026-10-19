@@ -1309,6 +1309,13 @@ const SuperAdminDashboard = () => {
   const oldDisputes = pendingDisputes.filter((d) => (
     d.createdAt && Date.now() - new Date(d.createdAt).getTime() > 48 * 3600 * 1000
   )).length;
+  // Commandes cumulées de la période (résumé API, repli sur la série quotidienne).
+  const periodOrders = financialOverview?.summary?.totalOrders
+    ?? orderBars.reduce((sum, v) => sum + v, 0);
+  // Panier moyen formaté compact (K / M FCFA).
+  const avgOrderLabel = financialStats.averageOrderValue >= 1000000
+    ? `${(financialStats.averageOrderValue / 1000000).toFixed(1)}M FCFA`
+    : `${Math.round(financialStats.averageOrderValue / 1000)}K FCFA`;
 
   const renderUserRow = (u) => {
     const isSelf = u.id === user?.id;
@@ -1331,7 +1338,7 @@ const SuperAdminDashboard = () => {
           <p className="text-text-secondary text-xs">{u.phone || '—'}</p>
         </td>
         <td>
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-background-secondary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-text-secondary">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border-light bg-background-secondary px-2.5 py-1 text-[11.5px] font-semibold text-text-secondary">
             {roleLabel(u.role)}
           </span>
         </td>
@@ -1637,102 +1644,130 @@ const SuperAdminDashboard = () => {
         {/* ──────────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="space-y-6 animate-slide-up">
-            {/* Bandeau KPI : 5 widgets structurellement uniques (pas de gabarit
-                "icône en couleur + chiffre" répété — chacun a sa forme propre) */}
+            {/* Bandeau KPI : blocs type Hanpiz — pastille encre, titre à
+                côté, valeur XXL, sous-métriques à filets dans la même carte */}
             <div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                {/* 1 · Hero CA (2 col) : bloc terracotta plein, pilule croissance, sparkline */}
-                <div className="relative overflow-hidden rounded-2xl bg-accent-primary p-5 text-white sm:col-span-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">Chiffre d'affaires · 30 j</p>
-                    <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-bold text-white/90">30 derniers jours</span>
-                  </div>
-                  <div className="mt-2 flex items-end gap-2">
-                    <span className="text-[36px] font-extrabold leading-none tracking-tight">
-                      {loading.financial ? '—' : `${(financialStats.totalRevenue / 1000000).toFixed(1)}M`}
+                {/* 1 · Chiffre d'affaires (2 col) : valeur XXL, accent encre
+                    total (sparkline + delta), bandeau Transactions/Commandes */}
+                <div className="rounded-card border border-border-light bg-background-card p-5 sm:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#241F1B]">
+                      <TrendingUp size={17} strokeWidth={2} className="text-white" />
                     </span>
-                    <span className="pb-1 text-sm font-semibold text-white/80">FCFA</span>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-bold text-text-primary">Chiffre d'affaires</p>
+                      <p className="text-[11.5px] text-text-tertiary">30 derniers jours</p>
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-bold">
-                      {financialStats.revenueGrowth >= 0 ? '↑' : '↓'} {Math.abs(financialStats.revenueGrowth)}%
-                    </span>
-                    <span className="text-xs text-white/70">vs mois dernier</span>
-                  </div>
-                  {caSparkline && (
-                    <svg
-                      viewBox={`0 0 ${caSparkline.W} ${caSparkline.H}`}
-                      preserveAspectRatio="none"
-                      className="pointer-events-none absolute bottom-0 left-5 h-11 w-[calc(100%-2.5rem)]"
-                      aria-hidden="true"
-                    >
-                      <path d={caSparkline.area} fill="rgba(255,255,255,0.16)" />
-                      <path
-                        d={caSparkline.line}
-                        fill="none"
-                        stroke="#FFFFFF"
-                        strokeOpacity="0.85"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    </svg>
-                  )}
-                </div>
-
-                {/* 2 · Transactions : histogramme 7 barres (commandes réelles/jour) */}
-                <div className="card flex flex-col p-5 xl:col-span-1">
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(59,130,246,0.10)' }}>
-                      <Activity size={17} className="text-[#3B82F6]" />
-                    </span>
-                    <span className="rounded-full bg-background-tertiary px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-text-secondary">7 derniers j</span>
-                  </div>
-                  <p className="mt-3 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
-                    {financialStats.totalTransactions.toLocaleString('fr-FR')}
-                  </p>
-                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Transactions · 30 j</p>
-                  <div className="mt-auto flex h-9 items-end gap-1.5 pt-3">
-                    {orderBars.length > 0 ? orderBars.map((v, i) => {
-                      const maxBar = Math.max(...orderBars, 1);
-                      return (
-                        <span
-                          key={i}
-                          className="flex-1 rounded-t-[3px]"
-                          style={{
-                            height: `${Math.max((v / maxBar) * 100, 8)}%`,
-                            backgroundColor: '#3B82F6',
-                            opacity: 0.35 + (i / Math.max(orderBars.length - 1, 1)) * 0.65,
-                          }}
-                          title={`${v} commande${v > 1 ? 's' : ''}`}
+                  <div className="mt-4 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-end gap-2">
+                        <span className="text-[44px] font-extrabold leading-none tracking-tight text-text-primary">
+                          {loading.financial ? '—' : `${(financialStats.totalRevenue / 1000000).toFixed(1)}M`}
+                        </span>
+                        <span className="pb-1 text-sm font-semibold text-text-secondary">FCFA</span>
+                      </div>
+                      <p className="mt-2.5 text-[13px] font-bold text-text-primary">
+                        {financialStats.revenueGrowth >= 0 ? '+' : '−'}{Math.abs(financialStats.revenueGrowth)}%
+                        <span className="ml-1.5 font-normal text-text-secondary">vs mois dernier</span>
+                      </p>
+                    </div>
+                    {caSparkline && (
+                      <svg
+                        viewBox={`0 0 ${caSparkline.W} ${caSparkline.H}`}
+                        preserveAspectRatio="none"
+                        className="h-14 w-[46%] max-w-[240px] shrink-0"
+                        aria-hidden="true"
+                      >
+                        <path d={caSparkline.area} fill="rgba(36,31,27,0.06)" />
+                        <path
+                          d={caSparkline.line}
+                          fill="none"
+                          stroke="#241F1B"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          vectorEffect="non-scaling-stroke"
                         />
-                      );
-                    }) : (
-                      Array.from({ length: 7 }).map((_, i) => (
-                        <span key={i} className="h-2 flex-1 rounded-t-[3px] bg-border-light" />
-                      ))
+                      </svg>
                     )}
                   </div>
+                  <div className="mt-4 grid grid-cols-3 border-t border-[#EFE8DC]">
+                    <div className="pr-3 pt-3">
+                      <p className="text-[11.5px] text-text-tertiary">Transactions</p>
+                      <p className="mt-1 text-[15.5px] font-bold text-text-primary">{financialStats.totalTransactions.toLocaleString('fr-FR')}</p>
+                    </div>
+                    <div className="border-l border-[#EFE8DC] px-3 pt-3">
+                      <p className="text-[11.5px] text-text-tertiary">Commandes</p>
+                      <p className="mt-1 text-[15.5px] font-bold text-text-primary">{periodOrders.toLocaleString('fr-FR')}</p>
+                    </div>
+                    <div className="border-l border-[#EFE8DC] pl-3 pt-3">
+                      <p className="text-[11.5px] text-text-tertiary">Panier moyen</p>
+                      <p className="mt-1 text-[15.5px] font-bold text-text-primary">{avgOrderLabel}</p>
+                    </div>
+                  </div>
                 </div>
 
-                {/* 3 · Commissions : anneau SVG (part du CA) + montant */}
-                <div className="card flex flex-col p-5 xl:col-span-1">
+                {/* 2 · Plateforme : grille 3×3 à filets (remplace la ligne de
+                    compteurs-type-template) */}
+                <div className="rounded-card border border-border-light bg-background-card p-5 sm:col-span-2 xl:col-span-4">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Commissions</p>
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(34,197,94,0.10)' }}>
-                      <Wallet size={17} className="text-[#22C55E]" />
-                    </span>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-[13.5px] font-bold text-text-primary">Plateforme</p>
+                      <p className="text-[11.5px] text-text-tertiary">aujourd'hui</p>
+                    </div>
+                    <button
+                      onClick={() => { loadFinancialStats(); loadPlatformStats(); }}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:underline"
+                    >
+                      <RefreshCw size={12} className={loading.financial || loading.platform ? 'animate-spin' : ''} />
+                      Actualiser
+                    </button>
                   </div>
-                  <div className="mt-3 flex flex-1 items-center gap-4">
+                  <div className="mt-2 grid grid-cols-3">
+                    {[
+                      ['Commerces', platformStats.totalMerchants],
+                      ['Clients', platformStats.totalClients],
+                      ['Livreurs', platformStats.totalDrivers],
+                      ['Utilisateurs', platformStats.totalUsers],
+                      ['En ligne', platformStats.onlineUsers],
+                      ['Suspendus', platformStats.suspendedAccounts],
+                      ['Bannis', platformStats.bannedUsers],
+                      ['KYC à valider', kycPending.length],
+                      ['Demandes de ban', pendingBanCount ?? '—'],
+                    ].map(([label, value], i) => (
+                      <div
+                        key={label}
+                        className={`px-4 py-3 ${i % 3 !== 0 ? 'border-l border-[#EFE8DC]' : ''} ${i > 2 ? 'border-t border-[#EFE8DC]' : ''}`}
+                      >
+                        <p className="text-[11.5px] text-text-tertiary">{label}</p>
+                        <p className="mt-1 text-[17px] font-extrabold tracking-tight text-text-primary">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3 · Commissions : anneau terracotta (part du CA) + montant */}
+                <div className="rounded-card border border-border-light bg-background-card p-5 sm:col-span-2 xl:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#241F1B]">
+                      <Wallet size={17} strokeWidth={2} className="text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-bold text-text-primary">Commissions</p>
+                      <p className="text-[11.5px] text-text-tertiary">Part de la plateforme</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-4">
                     <svg width="84" height="84" viewBox="0 0 84 84" className="shrink-0" aria-hidden="true">
-                      <circle cx="42" cy="42" r="34" fill="none" stroke="#ECE6DD" strokeWidth="9" />
+                      <circle cx="42" cy="42" r="34" fill="none" stroke="#EFE8DC" strokeWidth="9" />
                       <circle
                         cx="42"
                         cy="42"
                         r="34"
                         fill="none"
-                        stroke="#22C55E"
+                        stroke="#C1652E"
                         strokeWidth="9"
                         strokeLinecap="round"
                         strokeDasharray={`${(2 * Math.PI * 34 * commissionRatio).toFixed(1)} ${(2 * Math.PI * 34).toFixed(1)}`}
@@ -1742,76 +1777,79 @@ const SuperAdminDashboard = () => {
                       <text x="42" y="54" textAnchor="middle" fontSize="7" fontWeight="700" fill="#9B9286" letterSpacing="0.6">DU CA</text>
                     </svg>
                     <div>
-                      <p className="text-2xl font-extrabold leading-none tracking-tight text-text-primary">
+                      <p className="text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
                         {(financialStats.totalCommission / 1000000).toFixed(1)}M
                       </p>
                       <p className="mt-1.5 text-xs font-semibold text-text-secondary">FCFA encaissés</p>
                     </div>
                   </div>
+                  <div className="mt-4 grid grid-cols-2 border-t border-[#EFE8DC]">
+                    <div className="pr-3 pt-3">
+                      <p className="text-[11.5px] text-text-tertiary">À régler</p>
+                      <p className="mt-1 text-[15.5px] font-bold text-text-primary">{(financialStats.pendingPayouts / 1000000).toFixed(1)}M FCFA</p>
+                    </div>
+                    <div className="border-l border-[#EFE8DC] pl-3 pt-3">
+                      <p className="text-[11.5px] text-text-tertiary">Déjà réglé</p>
+                      <p className="mt-1 text-[15.5px] font-bold text-text-primary">{(Math.max(financialStats.totalCommission - financialStats.pendingPayouts, 0) / 1000000).toFixed(1)}M FCFA</p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* 4 · Paiements en attente : barre segmentée (part non réglée) */}
-                <div className="card flex flex-col p-5 xl:col-span-1">
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(245,158,11,0.12)' }}>
-                      <CreditCard size={17} className="text-[#F59E0B]" />
+                <div className="rounded-card border border-border-light bg-background-card p-5 sm:col-span-2 xl:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#241F1B]">
+                      <CreditCard size={17} strokeWidth={2} className="text-white" />
                     </span>
-                    <span className="rounded-full bg-status-warningBg px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-status-warning">En attente</span>
-                  </div>
-                  <p className="mt-3 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
-                    {(financialStats.pendingPayouts / 1000000).toFixed(1)}
-                    <span className="ml-1.5 text-sm font-semibold text-text-secondary">M FCFA</span>
-                  </p>
-                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">Paiements en attente</p>
-                  <div className="mt-auto pt-3">
-                    <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-border-light">
-                      <span className="h-full rounded-l-full bg-status-warning" style={{ width: `${Math.round(pendingShare * 100)}%` }} />
-                      <span className="h-full rounded-r-full bg-status-warning/40" style={{ width: `${Math.round(Math.max((1 - pendingShare) * 0.3, 0.12) * 100)}%` }} />
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-bold text-text-primary">Paiements en attente</p>
+                      <p className="text-[11.5px] text-text-tertiary">Part des commissions non réglées</p>
                     </div>
-                    <p className="mt-2 text-[11px] text-text-tertiary">Soit {Math.round(pendingShare * 100)}% des commissions à régler</p>
                   </div>
-                </div>
-
-                {/* 5 · Litiges : carte teintée rouge, gros chiffre, alerte >48 h */}
-                <div className="relative flex flex-col overflow-hidden rounded-2xl border border-[#F6D9D3] bg-[#FDF0EE] p-5 sm:col-span-2 xl:col-span-1">
-                  <span className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-status-error">
-                    <AlertCircle size={17} className="text-white" />
-                  </span>
-                  <p className="mt-5 text-[44px] font-extrabold leading-none tracking-tight text-status-error">
-                    {loading.financial ? '—' : financialStats.pendingDisputes}
+                  <p className="mt-4 text-[44px] font-extrabold leading-none tracking-tight text-text-primary">
+                    {loading.financial ? '—' : `${(financialStats.pendingPayouts / 1000000).toFixed(1)}`}
+                    <span className="ml-2 text-sm font-semibold text-text-secondary">M FCFA</span>
                   </p>
-                  <p className="mt-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#A85539]">Litiges ouverts</p>
-                  <div className="mt-auto flex items-center gap-2 border-t border-[#F0CEC6] pt-3 text-[11.5px] font-medium text-[#8A4A3A]">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-status-error" />
-                    {oldDisputes > 0 ? `${oldDisputes} depuis plus de 48 h` : 'Aucun litige de plus de 48 h'}
+                  <div className="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-border-light">
+                    <span className="h-full rounded-l-full bg-status-warning" style={{ width: `${Math.round(pendingShare * 100)}%` }} />
+                    <span className="h-full rounded-r-full bg-status-warning/40" style={{ width: `${Math.round(Math.max((1 - pendingShare) * 0.3, 0.12) * 100)}%` }} />
+                  </div>
+                  <p className="mt-2 text-[11.5px] text-text-tertiary">Soit {Math.round(pendingShare * 100)}% des commissions à régler</p>
+                </div>
+
+                {/* 5 · Litiges : carte blanche, chiffre XXL encre, alerte >48 h */}
+                <div className="flex flex-col rounded-card border border-border-light bg-background-card p-5 sm:col-span-2 xl:col-span-2">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#241F1B]">
+                      <AlertCircle size={17} strokeWidth={2} className="text-white" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[13.5px] font-bold text-text-primary">Litiges ouverts</p>
+                      <p className="text-[11.5px] text-text-tertiary">En attente d'arbitrage</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex items-center gap-3">
+                    <p className="text-[44px] font-extrabold leading-none tracking-tight text-text-primary">
+                      {loading.financial ? '—' : financialStats.pendingDisputes}
+                    </p>
+                    {oldDisputes > 0 ? (
+                      <span className="rounded-full border border-status-error/25 bg-status-errorBg px-2.5 py-1 text-[11.5px] font-semibold text-status-error">
+                        {oldDisputes} depuis 48 h
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-status-success/25 bg-status-successBg px-2.5 py-1 text-[11.5px] font-semibold text-status-success">
+                        Rien d'ancien
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-auto flex items-center gap-2 border-t border-[#EFE8DC] pt-3 text-[11.5px] text-text-secondary">
+                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${oldDisputes > 0 ? 'bg-status-error' : 'bg-status-success'}`} />
+                    {oldDisputes > 0
+                      ? `${oldDisputes} dossier${oldDisputes > 1 ? 's' : ''} ouvert${oldDisputes > 1 ? 's' : ''} depuis plus de 48 h`
+                      : 'Aucun litige de plus de 48 h'}
+                    <span className="ml-auto text-text-tertiary">{pendingDisputes.length} à traiter</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Compteurs plateforme conservés, en ligne compacte */}
-              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl border border-border-light bg-background-card px-5 py-3.5">
-                {[
-                  ['Commerces', platformStats.totalMerchants],
-                  ['Clients', platformStats.totalClients],
-                  ['Livreurs', platformStats.totalDrivers],
-                  ['Utilisateurs', platformStats.totalUsers],
-                  ['En ligne', platformStats.onlineUsers],
-                  ['Suspendus', platformStats.suspendedAccounts],
-                  ['Bannis', platformStats.bannedUsers],
-                  ['Validations KYC', kycPending.length],
-                  ['Demandes de ban', pendingBanCount ?? '—'],
-                ].map(([label, value]) => (
-                  <span key={label} className="text-xs text-text-secondary">
-                    <b className="font-bold text-text-primary">{value}</b> {label}
-                  </span>
-                ))}
-                <button
-                  onClick={() => { loadFinancialStats(); loadPlatformStats(); }}
-                  className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:underline"
-                >
-                  <RefreshCw size={12} className={loading.financial || loading.platform ? 'animate-spin' : ''} />
-                  Actualiser
-                </button>
               </div>
             </div>
 
@@ -1822,7 +1860,7 @@ const SuperAdminDashboard = () => {
                   data={financialOverview?.chartData || []}
                   series={[
                     { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
-                    { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
+                    { key: 'platformCommission', name: 'Commission plateforme', color: '#241F1B' },
                   ]}
                   title="Revenus & commissions"
                   height={300}
@@ -1852,7 +1890,7 @@ const SuperAdminDashboard = () => {
                           {['Commande', 'Client', 'Commerce', 'Statut', 'Montant', 'Heure'].map((h) => (
                             <th
                               key={h}
-                              className="px-5 py-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-text-tertiary"
+                              className="px-5 py-2.5 text-[11.5px] font-semibold text-text-secondary"
                             >
                               {h}
                             </th>
@@ -1968,20 +2006,14 @@ const SuperAdminDashboard = () => {
                           onClick={() => setActiveTab(a.tab)}
                           className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-background-secondary"
                         >
-                          <span
-                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                            style={{ background: `${a.color}1A` }}
-                          >
-                            <a.icon size={16} style={{ color: a.color }} />
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0E9DD]">
+                            <a.icon size={16} className="text-[#241F1B]" />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block text-[13px] font-bold text-text-primary">{a.title}</span>
                             <span className="block truncate text-xs text-text-secondary">{a.desc}</span>
                           </span>
-                          <span
-                            className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold text-white"
-                            style={{ background: a.color }}
-                          >
+                          <span className="shrink-0 rounded-full bg-[#F0E9DD] px-2.5 py-1 text-[11.5px] font-bold text-text-primary">
                             {a.count}
                           </span>
                         </button>
@@ -1998,15 +2030,10 @@ const SuperAdminDashboard = () => {
                       <button
                         key={a.label}
                         onClick={a.onClick}
-                        className="flex flex-col items-center gap-2 rounded-xl border border-border-light bg-background-secondary px-3 py-4 transition-colors hover:bg-background-tertiary"
+                        className="flex flex-col items-center gap-2.5 rounded-xl border border-[#EFE8DC] bg-[#F7F3EB] px-3 py-4 transition-colors hover:border-border-medium hover:bg-background-secondary"
                       >
-                        <span
-                          className="flex h-9 w-9 items-center justify-center rounded-full"
-                          style={{ background: `${a.color}1A` }}
-                        >
-                          <a.icon size={16} style={{ color: a.color }} />
-                        </span>
-                        <span className="text-center text-xs font-bold text-text-primary">{a.label}</span>
+                        <a.icon size={18} className="text-[#241F1B]" strokeWidth={2} />
+                        <span className="text-center text-[13px] font-semibold text-text-primary">{a.label}</span>
                       </button>
                     ))}
                   </div>
@@ -2076,7 +2103,7 @@ const SuperAdminDashboard = () => {
                   onClick={() => setFinanceTab(t.k)}
                   className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-colors ${
                     financeTab === t.k
-                      ? 'border-accent-primary text-accent-primary'
+                      ? 'border-[#241F1B] text-[#241F1B]'
                       : 'border-transparent text-text-tertiary hover:text-text-primary'
                   }`}
                 >
@@ -2101,23 +2128,23 @@ const SuperAdminDashboard = () => {
                     {financialOverview?.summary && (
                       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                         <div className="card p-4">
-                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Chiffre d'affaires</p>
+                          <p className="text-[11.5px] text-text-tertiary mb-1">Chiffre d'affaires</p>
                           <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalRevenue?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                         </div>
                         <div className="card p-4">
-                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Commission plateforme</p>
-                          <p className="text-lg font-bold text-accent-primary">{financialOverview.summary.totalPlatformCommission?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                          <p className="text-[11.5px] text-text-tertiary mb-1">Commission plateforme</p>
+                          <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalPlatformCommission?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                         </div>
                         <div className="card p-4">
-                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais service</p>
+                          <p className="text-[11.5px] text-text-tertiary mb-1">Frais service</p>
                           <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalServiceFee?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                         </div>
                         <div className="card p-4">
-                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Frais livraison</p>
+                          <p className="text-[11.5px] text-text-tertiary mb-1">Frais livraison</p>
                           <p className="text-lg font-bold text-text-primary">{financialOverview.summary.totalDeliveryFee?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                         </div>
                         <div className="card p-4">
-                          <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Annulés / Remboursés</p>
+                          <p className="text-[11.5px] text-text-tertiary mb-1">Annulés / Remboursés</p>
                           <p className="text-lg font-bold text-status-error">{financialOverview.summary.totalCancelled} <span className="text-xs text-text-secondary">({financialOverview.summary.cancelledAmount?.toLocaleString()} FCFA)</span></p>
                         </div>
                       </div>
@@ -2128,7 +2155,7 @@ const SuperAdminDashboard = () => {
                           data={financialOverview.chartData}
                           series={[
                             { key: 'revenue', name: 'Chiffre d\'affaires', color: '#C1652E' },
-                            { key: 'platformCommission', name: 'Commission plateforme', color: '#3B82F6' },
+                            { key: 'platformCommission', name: 'Commission plateforme', color: '#241F1B' },
                           ]}
                           title="Revenus & Commissions"
                           height={320}
@@ -2137,8 +2164,8 @@ const SuperAdminDashboard = () => {
                           <FinancialChart
                             data={financialOverview.chartData}
                             series={[
-                              { key: 'serviceFee', name: 'Frais service', color: '#22C55E' },
-                              { key: 'deliveryFee', name: 'Frais livraison', color: '#F59E0B' },
+                              { key: 'serviceFee', name: 'Frais service', color: '#A08B6F' },
+                              { key: 'deliveryFee', name: 'Frais livraison', color: '#D9C6A8' },
                             ]}
                             title="Frais collectés"
                             height={260}
@@ -2146,9 +2173,9 @@ const SuperAdminDashboard = () => {
                           <FinancialChart
                             data={financialOverview.chartData}
                             series={[
-                              { key: 'merchantPayout', name: 'Paiement marchands', color: '#8B5CF6' },
-                              { key: 'merchantCommission', name: 'Commission marchand', color: '#EC4899' },
-                              { key: 'driverCommission', name: 'Commission livreur', color: '#06B6D4' },
+                              { key: 'merchantPayout', name: 'Paiement marchands', color: '#6E6559' },
+                              { key: 'merchantCommission', name: 'Commission marchand', color: '#8A5A3B' },
+                              { key: 'driverCommission', name: 'Commission livreur', color: '#3F3831' },
                             ]}
                             title="Ventilation paiements"
                             height={260}
@@ -2164,15 +2191,15 @@ const SuperAdminDashboard = () => {
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-3">
                       <div className="card p-4">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Produits vendus</p>
+                        <p className="text-[11.5px] text-text-tertiary mb-1">Produits vendus</p>
                         <p className="text-lg font-bold text-text-primary">{productAnalytics.totalProducts}</p>
                       </div>
                       <div className="card p-4">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Articles vendus</p>
-                        <p className="text-lg font-bold text-accent-primary">{productAnalytics.totalItemsSold?.toLocaleString()}</p>
+                        <p className="text-[11.5px] text-text-tertiary mb-1">Articles vendus</p>
+                        <p className="text-lg font-bold text-text-primary">{productAnalytics.totalItemsSold?.toLocaleString()}</p>
                       </div>
                       <div className="card p-4">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">CA Produits</p>
+                        <p className="text-[11.5px] text-text-tertiary mb-1">CA Produits</p>
                         <p className="text-lg font-bold text-text-primary">{productAnalytics.products?.reduce((s,p) => s + p.totalRevenue, 0)?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                       </div>
                     </div>
@@ -2181,7 +2208,7 @@ const SuperAdminDashboard = () => {
                       {/* Top produits */}
                       <div className="card overflow-hidden">
                         <div className="px-5 py-3 border-b border-border-light">
-                          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Top Produits (les plus vendus)</h3>
+                          <h3 className="text-[13.5px] font-bold text-text-primary">Top Produits (les plus vendus)</h3>
                         </div>
                         <div className="divide-y divide-border-light">
                           {productAnalytics.topProducts?.map((p, i) => (
@@ -2205,13 +2232,13 @@ const SuperAdminDashboard = () => {
                       {/* Moins vendus */}
                       <div className="card overflow-hidden">
                         <div className="px-5 py-3 border-b border-border-light">
-                          <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Moins Vendus (à améliorer)</h3>
+                          <h3 className="text-[13.5px] font-bold text-text-primary">Moins Vendus (à améliorer)</h3>
                         </div>
                         <div className="divide-y divide-border-light">
                           {productAnalytics.worstProducts?.map((p, i) => (
                             <div key={p.productId} className="px-5 py-3 flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <span className="w-6 h-6 rounded-full bg-status-error/10 flex items-center justify-center text-[10px] font-bold text-status-error">{i+1}</span>
+                                <span className="w-6 h-6 rounded-full bg-[#F0E9DD] flex items-center justify-center text-[10px] font-bold text-text-secondary">{i+1}</span>
                                 <div>
                                   <p className="text-sm font-semibold text-text-primary">{p.productName}</p>
                                   <p className="text-[10px] text-text-tertiary">Livré: {p.deliveryCount} | Sur place: {p.onsiteCount}</p>
@@ -2233,36 +2260,36 @@ const SuperAdminDashboard = () => {
                 {financeTab === 'flows' && moneyFlows && (
                   <div className="space-y-6">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="card p-4 border-l-4 border-[#22C55E]">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Entrées d'argent</p>
-                        <p className="text-lg font-bold text-[#22C55E]">{moneyFlows.summary?.totalEntries?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      <div className="card p-4 border-l-4 border-[#C1652E]">
+                        <p className="text-[11.5px] text-text-tertiary mb-1">Entrées d'argent</p>
+                        <p className="text-lg font-bold text-text-primary">{moneyFlows.summary?.totalEntries?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                       </div>
-                      <div className="card p-4 border-l-4 border-status-error">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Sorties d'argent</p>
-                        <p className="text-lg font-bold text-status-error">{moneyFlows.summary?.totalExits?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      <div className="card p-4 border-l-4 border-[#241F1B]">
+                        <p className="text-[11.5px] text-text-tertiary mb-1">Sorties d'argent</p>
+                        <p className="text-lg font-bold text-text-primary">{moneyFlows.summary?.totalExits?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                       </div>
-                      <div className="card p-4 border-l-4 border-[#F59E0B]">
-                        <p className="text-[10px] tracking-[0.2em] text-text-tertiary uppercase mb-1">Reversals / Remboursements</p>
-                        <p className="text-lg font-bold text-[#F59E0B]">{moneyFlows.summary?.totalReversals?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
+                      <div className="card p-4 border-l-4 border-[#A08B6F]">
+                        <p className="text-[11.5px] text-text-tertiary mb-1">Reversals / Remboursements</p>
+                        <p className="text-lg font-bold text-text-primary">{moneyFlows.summary?.totalReversals?.toLocaleString()} <span className="text-xs text-text-secondary">FCFA</span></p>
                       </div>
                     </div>
 
                     {/* Détail par motif */}
                     <div className="card overflow-hidden">
                       <div className="px-5 py-3 border-b border-border-light">
-                        <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Détail par motif</h3>
+                        <h3 className="text-[13.5px] font-bold text-text-primary">Détail par motif</h3>
                       </div>
                       <div className="divide-y divide-border-light">
                         {Object.entries(moneyFlows.summary?.byReason || {}).map(([reason, data]) => (
                           <div key={reason} className="px-5 py-3 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <span className={`w-2 h-2 rounded-full ${
-                                data.type === 'CREDIT' ? 'bg-[#22C55E]' : 'bg-status-error'
+                                data.type === 'CREDIT' ? 'bg-[#C1652E]' : 'bg-[#241F1B]'
                               }`} />
                               <span className="text-sm font-medium text-text-primary">{reason.replace(/_/g, ' ')}</span>
                             </div>
                             <div className="text-right">
-                              <p className={`text-sm font-bold ${data.type === 'CREDIT' ? 'text-[#22C55E]' : 'text-status-error'}`}>
+                              <p className="text-sm font-bold text-text-primary">
                                 {data.type === 'CREDIT' ? '+' : '-'}{data.amount?.toLocaleString()} FCFA
                               </p>
                               <p className="text-[10px] text-text-tertiary">{data.count} transaction(s)</p>
@@ -2277,9 +2304,9 @@ const SuperAdminDashboard = () => {
                       <FinancialChart
                         data={moneyFlows.chartData}
                         series={[
-                          { key: 'entries', name: 'Entrées', color: '#22C55E' },
-                          { key: 'exits', name: 'Sorties', color: '#EF4444' },
-                          { key: 'reversals', name: 'Reversals', color: '#F59E0B' },
+                            { key: 'entries', name: 'Entrées', color: '#C1652E' },
+                            { key: 'exits', name: 'Sorties', color: '#241F1B' },
+                            { key: 'reversals', name: 'Reversals', color: '#A08B6F' },
                         ]}
                         title="Flux d'argent par jour"
                         height={300}
@@ -2358,7 +2385,7 @@ const SuperAdminDashboard = () => {
 
             {/* ── Création ─────────────────────────────────── */}
             <form onSubmit={handleCreateAgency} className="card p-5 space-y-4">
-              <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Nouvelle agence</h3>
+              <h3 className="text-[13.5px] font-bold text-text-primary">Nouvelle agence</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <input
                   className="input"
@@ -2413,7 +2440,7 @@ const SuperAdminDashboard = () => {
             {/* ── Liste des agences ────────────────────────── */}
             <div className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-border-light">
-                <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                <h3 className="text-[13.5px] font-bold text-text-primary">
                   Agences partenaires ({agencies.length})
                 </h3>
               </div>
@@ -2500,7 +2527,7 @@ const SuperAdminDashboard = () => {
 
             {/* ── Création ─────────────────────────────────── */}
             <form onSubmit={handleCreateCampaign} className="card p-5 space-y-4">
-              <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">Nouvelle campagne</h3>
+              <h3 className="text-[13.5px] font-bold text-text-primary">Nouvelle campagne</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input
                   className="input"
@@ -2560,7 +2587,7 @@ const SuperAdminDashboard = () => {
             {/* ── Liste des campagnes ────────────────────────── */}
             <div className="card overflow-hidden">
               <div className="px-5 py-3 border-b border-border-light">
-                <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                <h3 className="text-[13.5px] font-bold text-text-primary">
                   Historique des campagnes ({pushCampaigns.length})
                 </h3>
               </div>
@@ -2655,7 +2682,7 @@ const SuperAdminDashboard = () => {
                 {/* Top commerces */}
                 <div className="card overflow-hidden">
                   <div className="px-5 py-3 border-b border-border-light">
-                    <h3 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase">
+                    <h3 className="text-[13.5px] font-bold text-text-primary">
                       Top 10 commerces par commandes
                     </h3>
                   </div>
@@ -2757,7 +2784,7 @@ const SuperAdminDashboard = () => {
                           <p className="font-mono text-text-primary text-xs font-bold">{doc.ownerId?.slice(0, 8)}</p>
                         </td>
                         <td>
-                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-background-secondary text-text-secondary">
                             {kycTypeLabel(doc.type)}
                           </span>
                         </td>
@@ -2873,7 +2900,7 @@ const SuperAdminDashboard = () => {
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-2">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${statusColors[req.status]}`}>
+                            <span className={`px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold ${statusColors[req.status]}`}>
                               {req.status}
                             </span>
                             <span className="text-[10px] text-text-tertiary">
@@ -2987,7 +3014,7 @@ const SuperAdminDashboard = () => {
                           {(msg.senderRole || '?').charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <span className="text-[10px] font-bold text-text-primary uppercase">{msg.senderRole || 'system'}</span>
+                          <span className="text-[11px] font-semibold text-text-secondary">{msg.senderRole || 'system'}</span>
                           <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
                           <p className="text-xs text-text-secondary">{msg.message}</p>
                         </div>
@@ -3050,7 +3077,7 @@ const SuperAdminDashboard = () => {
             <div className="card p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-text-primary flex items-center gap-2">
-                  <Crown size={16} className="text-accent-primary" /> Catalogue des forfaits
+                  <Crown size={16} className="text-[#241F1B]" /> Catalogue des forfaits
                 </h3>
                 <button onClick={openCreatePlan} className="btn-primary text-xs flex items-center gap-1">
                   <Plus size={14} /> Créer un forfait
@@ -3099,7 +3126,7 @@ const SuperAdminDashboard = () => {
                             )}
                           </td>
                           <td>
-                            <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-background-secondary text-text-secondary">
                               {plan.subjectType}
                             </span>
                           </td>
@@ -3157,11 +3184,11 @@ const SuperAdminDashboard = () => {
             {/* Assignation d'abonnement */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                <Calendar size={16} className="text-accent-primary" /> Assigner / Renouveler un abonnement
+                <Calendar size={16} className="text-[#241F1B]" /> Assigner / Renouveler un abonnement
               </h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Sujet</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Sujet</label>
                   <select
                     className="input-field"
                     value={assignForm.subjectType}
@@ -3173,7 +3200,7 @@ const SuperAdminDashboard = () => {
                 </div>
                 {assignForm.subjectType === 'MERCHANT' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Commerce</label>
+                    <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Commerce</label>
                     <select
                       className="input-field"
                       value={assignForm.subjectId}
@@ -3187,7 +3214,7 @@ const SuperAdminDashboard = () => {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">ID Client (UUID)</label>
+                    <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">ID Client (UUID)</label>
                     <input
                       className="input-field"
                       placeholder="UUID du client"
@@ -3197,7 +3224,7 @@ const SuperAdminDashboard = () => {
                   </div>
                 )}
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Forfait</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Forfait</label>
                   <select
                     className="input-field"
                     value={assignForm.planCode}
@@ -3211,7 +3238,7 @@ const SuperAdminDashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Durée (jours, optionnel)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Durée (jours, optionnel)</label>
                   <input
                     type="number"
                     className="input-field"
@@ -3285,7 +3312,7 @@ const SuperAdminDashboard = () => {
                       {subscriptions.map(sub => (
                         <tr key={sub.id}>
                           <td>
-                            <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-background-secondary text-text-secondary">
                               {sub.subjectType}
                             </span>
                           </td>
@@ -3293,7 +3320,7 @@ const SuperAdminDashboard = () => {
                             <p className="font-mono text-text-secondary text-xs">{sub.subjectId}</p>
                           </td>
                           <td>
-                            <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-accent-primary/10 text-accent-primary">
+                            <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-accent-primary/10 text-accent-primary">
                               {sub.plan}
                             </span>
                           </td>
@@ -3365,7 +3392,7 @@ const SuperAdminDashboard = () => {
                           </div>
                         </td>
                         <td>
-                          <span className="px-2 py-1 rounded text-[10px] font-bold uppercase bg-background-secondary text-text-secondary">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold bg-background-secondary text-text-secondary">
                             {String(b.category || '—').toLowerCase()}
                           </span>
                         </td>
@@ -3476,7 +3503,7 @@ const SuperAdminDashboard = () => {
                 <div className="card overflow-hidden">
                   <div className="px-4 py-3 border-b border-border-light flex items-center justify-between">
                     <h3 className="text-sm font-bold text-text-primary flex items-center gap-2">
-                      <Users size={14} className="text-status-info" /> Clients
+                      <Users size={14} className="text-accent-primary" /> Clients
                     </h3>
                     <span className="text-xs font-bold text-text-secondary bg-background-secondary px-2 py-1 rounded">{clientUsers.length}</span>
                   </div>
@@ -3552,12 +3579,12 @@ const SuperAdminDashboard = () => {
             {/* Frais de plateforme */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                <DollarSign size={16} className="text-accent-primary" />
+                <DollarSign size={16} className="text-[#241F1B]" />
                 Frais de Plateforme (Client)
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Frais de service (FCFA)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Frais de service (FCFA)</label>
                   <input
                     type="number"
                     className="input-field"
@@ -3566,7 +3593,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Rayon max (km)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Rayon max (km)</label>
                   <input
                     type="number"
                     className="input-field"
@@ -3599,7 +3626,7 @@ const SuperAdminDashboard = () => {
             {/* 💳 Tarifs des campagnes push auto-service (Lot 3.1) */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-1 flex items-center gap-2">
-                <Megaphone size={16} className="text-accent-primary" />
+                <Megaphone size={16} className="text-[#241F1B]" />
                 Tarifs des campagnes push
               </h3>
               <p className="text-xs text-text-secondary mb-4">
@@ -3611,7 +3638,7 @@ const SuperAdminDashboard = () => {
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Mes clients (FCFA)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Mes clients (FCFA)</label>
                   <input
                     type="number"
                     min={0}
@@ -3624,7 +3651,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Mes livreurs (FCFA)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Mes livreurs (FCFA)</label>
                   <input
                     type="number"
                     min={0}
@@ -3637,7 +3664,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Tous les clients (FCFA)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Tous les clients (FCFA)</label>
                   <input
                     type="number"
                     min={0}
@@ -3877,7 +3904,7 @@ const SuperAdminDashboard = () => {
             {/* Tranches Tarifaires Livraison */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
-                <Truck size={16} className="text-accent-primary" />
+                <Truck size={16} className="text-[#241F1B]" />
                 Tranches Tarifaires — Livraison
               </h3>
               <p className="text-xs text-text-secondary mb-4">
@@ -3888,10 +3915,10 @@ const SuperAdminDashboard = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-light">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Palier</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance min (km)</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Distance max (km)</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix (FCFA)</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary">Palier</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary">Distance min (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary">Distance max (km)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary">Prix (FCFA)</th>
                       <th className="w-10"></th>
                     </tr>
                   </thead>
@@ -3974,17 +4001,17 @@ const SuperAdminDashboard = () => {
             {/* Matrice Faso Ride */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                <Car size={16} className="text-accent-primary" />
+                <Car size={16} className="text-[#241F1B]" />
                 Matrice Tarifaire — FasoFree Ride
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border-light">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Option</th>
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Description</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Tarif Min (FCFA)</th>
-                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary uppercase">Prix/km (FCFA)</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary">Option</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-text-secondary">Description</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary">Tarif Min (FCFA)</th>
+                      <th className="text-right py-2 px-3 text-xs font-semibold text-text-secondary">Prix/km (FCFA)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4029,7 +4056,7 @@ const SuperAdminDashboard = () => {
             {/* Options */}
             <div className="card p-6">
               <h3 className="font-bold text-text-primary mb-4 flex items-center gap-2">
-                <Settings size={16} className="text-accent-primary" />
+                <Settings size={16} className="text-[#241F1B]" />
                 Options Générales
               </h3>
               <div className="space-y-3">
@@ -4073,7 +4100,7 @@ const SuperAdminDashboard = () => {
           <div className="card w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-text-primary flex items-center gap-2">
-                <KeyRound size={16} className="text-accent-primary" /> Créer un compte
+                <KeyRound size={16} className="text-[#241F1B]" /> Créer un compte
               </h3>
               <button onClick={() => setShowUserModal(false)} className="btn-icon text-text-secondary hover:bg-background-secondary">
                 <XCircle size={18} />
@@ -4088,7 +4115,7 @@ const SuperAdminDashboard = () => {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Nom complet</label>
+                <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Nom complet</label>
                 <input
                   className="input-field"
                   placeholder="Ex : Awa Diallo"
@@ -4098,7 +4125,7 @@ const SuperAdminDashboard = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Email</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Email</label>
                   <input
                     className="input-field"
                     type="email"
@@ -4108,7 +4135,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Téléphone</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Téléphone</label>
                   <input
                     className="input-field"
                     placeholder="+22670000000"
@@ -4118,7 +4145,7 @@ const SuperAdminDashboard = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Mot de passe (min. 8 caractères)</label>
+                <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Mot de passe (min. 8 caractères)</label>
                 <input
                   className="input-field"
                   type="password"
@@ -4128,7 +4155,7 @@ const SuperAdminDashboard = () => {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Rôle</label>
+                <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Rôle</label>
                 <select
                   className="input-field"
                   value={userForm.role}
@@ -4185,7 +4212,7 @@ const SuperAdminDashboard = () => {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Code</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Code</label>
                   <input
                     className="input-field"
                     value={planForm.code}
@@ -4195,7 +4222,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Nom</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Nom</label>
                   <input
                     className="input-field"
                     value={planForm.name}
@@ -4206,7 +4233,7 @@ const SuperAdminDashboard = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Description</label>
+                <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Description</label>
                 <textarea
                   className="input-field"
                   rows={2}
@@ -4217,7 +4244,7 @@ const SuperAdminDashboard = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Type de sujet</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Type de sujet</label>
                   <select
                     className="input-field"
                     value={planForm.subjectType}
@@ -4229,7 +4256,7 @@ const SuperAdminDashboard = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Prix (FCFA)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Prix (FCFA)</label>
                   <input
                     type="number"
                     min="0"
@@ -4249,7 +4276,7 @@ const SuperAdminDashboard = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Durée (jours)</label>
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Durée (jours)</label>
                   <input
                     type="number"
                     className="input-field"
@@ -4258,7 +4285,7 @@ const SuperAdminDashboard = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">
+                  <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">
                     Commission (% — min 1,5 %)
                   </label>
                   <input

@@ -462,7 +462,7 @@ const BrandsManagementTab = () => {
                 {isExpanded && (
                   <div className="border-t border-border-light p-4 bg-background-secondary/30">
                     <div className="flex justify-between items-center mb-3">
-                      <p className="text-xs font-bold text-text-secondary uppercase">Agences</p>
+                      <p className="text-[13px] font-bold text-text-primary">Agences</p>
                       <button
                         onClick={() => handleOpenBranchForm(brand.id)}
                         className="btn-secondary text-xs flex items-center gap-1"

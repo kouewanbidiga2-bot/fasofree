@@ -8,25 +8,26 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 
+// Palette monochrome terre (beige/encre/terracotta) — plus d'arc-en-ciel.
 const CHART_COLORS = [
-  '#C1652E', '#3B82F6', '#22C55E', '#F59E0B',
-  '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+  '#C1652E', '#241F1B', '#A08B6F', '#D9C6A8',
+  '#6E6559', '#8A5A3B', '#3F3831', '#CBB79A',
 ];
 
 const CHART_TYPES = [
-  { key: 'area', label: 'Courbe' },
+  { key: 'line', label: 'Courbe' },
   { key: 'bar', label: 'Barres' },
-  { key: 'line', label: 'Lignes' },
+  { key: 'area', label: 'Aires' },
   { key: 'pie', label: 'Camembert' },
 ];
 
 const CustomTooltip = ({ active, payload, label, formatValue }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-[#29231e] text-white px-3 py-2 rounded-lg text-xs shadow-lg">
-      <p className="font-bold text-[#C1652E] mb-1">{label}</p>
+    <div className="rounded-lg border border-[#EAE3D8] bg-white px-3 py-2 text-xs shadow-sm">
+      <p className="mb-1 font-bold text-text-primary">{label}</p>
       {payload.map((entry, i) => (
-        <p key={i} style={{ color: entry.color }}>
+        <p key={i} className="font-semibold" style={{ color: entry.color }}>
           {entry.name}: {formatValue ? formatValue(entry.value) : entry.value?.toLocaleString()}
         </p>
       ))}
@@ -42,7 +43,7 @@ const FinancialChart = ({
   formatValue,
   pieMode = false,
 }) => {
-  const [chartType, setChartType] = useState('area');
+  const [chartType, setChartType] = useState('line');
 
   const fmt = formatValue || ((v) => v?.toLocaleString() + ' FCFA');
   const formatXAxis = (val) => {
@@ -105,17 +106,17 @@ const FinancialChart = ({
 
     const commonAxis = (
       <>
-        <CartesianGrid strokeDasharray="3 3" stroke="rgba(193,101,46,0.08)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#EFE8DC" vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={formatXAxis}
-          tick={{ fontSize: 10, fill: '#74695F' }}
-          axisLine={{ stroke: 'rgba(193,101,46,0.1)' }}
+          tick={{ fontSize: 10, fill: '#9B9286' }}
+          axisLine={{ stroke: '#EAE3D8' }}
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 10, fill: '#74695F' }}
-          axisLine={{ stroke: 'rgba(193,101,46,0.1)' }}
+          tick={{ fontSize: 10, fill: '#9B9286' }}
+          axisLine={false}
           tickLine={false}
           width={60}
           tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
@@ -197,9 +198,9 @@ const FinancialChart = ({
             <button
               key={ct.key}
               onClick={() => setChartType(ct.key)}
-              className={`px-2.5 py-1 text-[10px] font-bold rounded transition-colors ${
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors ${
                 chartType === ct.key
-                  ? 'bg-accent-primary text-white'
+                  ? 'bg-[#241F1B] text-white'
                   : 'text-text-tertiary hover:text-text-primary hover:bg-background-secondary'
               }`}
             >

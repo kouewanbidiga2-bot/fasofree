@@ -169,7 +169,7 @@ const AgenciesTab = ({ canManage = false }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-background-card border border-border-light rounded-xl overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-background-secondary text-text-secondary text-xs uppercase">
+            <thead className="bg-background-secondary text-text-secondary text-xs">
               <tr>
                 <th className="text-left px-4 py-3">Nom</th>
                 <th className="text-left px-4 py-3">Zones</th>

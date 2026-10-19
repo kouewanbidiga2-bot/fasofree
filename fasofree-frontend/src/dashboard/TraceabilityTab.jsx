@@ -155,7 +155,7 @@ const TraceabilityTab = () => {
     `${Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 0 })} FCFA`;
 
   const card = 'bg-background-card border border-border-light rounded-xl p-4';
-  const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text-tertiary';
+  const th = 'px-3 py-2 text-left text-[11px] font-semibold text-text-secondary';
   const td = 'px-3 py-2 text-xs text-text-primary';
 
   const isActiveBlock = (b) =>
