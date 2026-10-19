@@ -22,6 +22,16 @@ import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
 //    par vite-plugin-pwa sous forme de `self.__WB_MANIFEST`.
 precacheAndRoute(self.__WB_MANIFEST);
 
+// 1bis) Auto-update (`registerType: 'autoUpdate'`) : le nouveau SW prend la
+//    main dès l'installation, SANS attendre que l'utilisateur tue la PWA.
+//    Sans ces deux lignes, un correctif restait bloqué dans l'ancien SW jusqu'à
+//    fermeture totale de l'app — on continuait d'observer l'ancien
+//    comportement (« notification reçue deux fois ») malgré le fix déployé.
+self.skipWaiting();
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // 2) Repli de navigation vers index.html (SPA), SAUF sur les appels réseau :
 //    API, WebSocket (socket.io) et tuiles OpenStreetMap. Un cache agressif
 //    casserait le temps réel et renverrait des données périmées au client.
@@ -53,12 +63,20 @@ if (firebaseConfig.projectId) {
     const messaging = getMessaging();
 
     onBackgroundMessage(messaging, (payload) => {
-      const { title, body } = payload.notification || {};
+      // ⚠️ DOUBLE AFFICHAGE CORRIGÉ (« la notification arrive deux fois ») :
+      // le SDK Firebase AFFICHE DÉJÀ lui-même les messages à bloc
+      // `notification` (onPush → showNotification) AVANT d'appeler ce handler,
+      // mais UNIQUEMENT quand aucun onglet n'est visible. Rappeler
+      // showNotification ici créait donc un 2ᵉ exemplaire identique en
+      // arrière-plan. On ne reste utile que pour les messages « data » (sans
+      // bloc notification), que le SDK n'affiche pas.
+      if (payload?.notification?.title) return;
+
       const orderId = payload.data?.orderId;
       const url = orderId ? `/order-tracking?id=${orderId}` : '/';
 
-      self.registration.showNotification(title || 'FasoFree', {
-        body: body || '',
+      self.registration.showNotification(payload?.data?.title || 'FasoFree', {
+        body: payload?.data?.body || '',
         icon: '/favicon.svg',
         data: { url },
       });
@@ -70,8 +88,15 @@ if (firebaseConfig.projectId) {
 }
 
 // 4) Clic sur une notification → ouvrir l'app sur la bonne page.
+//    Deux formes de `data` possibles :
+//      • { url } — notification affichée par NOTRE handler (messages « data ») ;
+//      • { FCM_MSG: { fcmOptions:{link}, data:{actionUrl,…} } } — affichée par
+//        le SDK Firebase (clé interne `FCM_MSG`) : on en extrait l'URL utile,
+//        sinon repli sur '/'.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const d = event.notification.data || {};
+  const msg = d.FCM_MSG;
+  const url = d.url || msg?.fcmOptions?.link || msg?.data?.actionUrl || '/';
   event.waitUntil(self.clients.openWindow(url));
 });

@@ -19,6 +19,15 @@ import { getMessaging, onBackgroundMessage } from '@firebase/messaging/sw';
 // 1) Precache des assets buildés (mode hors-ligne).
 precacheAndRoute(self.__WB_MANIFEST);
 
+// 1bis) Auto-update (`registerType: 'autoUpdate'`) : le nouveau SW prend la
+//    main dès l'installation, SANS attendre la fermeture totale de la PWA —
+//    sinon un correctif push restait bloqué dans l'ancien SW (double affichage
+//    de notification conservé malgré le fix déployé).
+self.skipWaiting();
+self.addEventListener('activate', (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 // 2) Repli de navigation vers index.html (SPA), SAUF sur les appels réseau :
 //    API, WebSocket et tuiles OpenStreetMap (le back-office vit de données
 //    fraîches).
@@ -48,11 +57,18 @@ if (firebaseConfig.projectId) {
     const messaging = getMessaging();
 
     onBackgroundMessage(messaging, (payload) => {
-      const { title, body } = payload.notification || {};
-      self.registration.showNotification(title || 'FasoFree Pro', {
-        body: body || '',
+      // ⚠️ DOUBLE AFFICHAGE CORRIGÉ (« la notification arrive deux fois ») :
+      // le SDK Firebase AFFICHE DÉJÀ lui-même les messages à bloc
+      // `notification` (onPush → showNotification) AVANT d'appeler ce handler,
+      // mais UNIQUEMENT quand aucun onglet n'est visible. Notre propre appel
+      // créait un 2ᵉ exemplaire identique en arrière-plan. On ne reste utile
+      // que pour les messages « data » (sans bloc notification).
+      if (payload?.notification?.title) return;
+
+      self.registration.showNotification(payload?.data?.title || 'FasoFree Pro', {
+        body: payload?.data?.body || '',
         icon: '/favicon.svg',
-        data: { url: '/' },
+        data: { url: payload?.data?.actionUrl || '/' },
       });
     });
   } catch (err) {
@@ -62,8 +78,14 @@ if (firebaseConfig.projectId) {
 }
 
 // 4) Clic sur une notification → ouvrir l'app.
+//    Deux formes de `data` : { url } (notre handler, messages « data ») ou
+//    { FCM_MSG: { fcmOptions:{link}, data:{actionUrl,…} } } (notification
+//    affichée par le SDK Firebase — clé interne `FCM_MSG`) d'où l'on extrait
+//    l'URL utile, sinon repli sur '/'.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/';
+  const d = event.notification.data || {};
+  const msg = d.FCM_MSG;
+  const url = d.url || msg?.fcmOptions?.link || msg?.data?.actionUrl || '/';
   event.waitUntil(self.clients.openWindow(url));
 });

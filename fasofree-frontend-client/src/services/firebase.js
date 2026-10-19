@@ -246,7 +246,9 @@ async function getFcmToken() {
 
 /**
  * Écoute les notifications push reçues quand l'app est au premier plan.
- * Affiche une notification navigateur classique.
+ * Déclenche UNIQUEMENT le callback (toast in-app via App.jsx) : le message est
+ * déjà remis à la page par le SDK Firebase, créer aussi une notification
+ * native faisait « deux notifications » en premier plan.
  * @param {(payload) => void} callback - Appelé avec le payload FCM
  * @returns {Function} Fonction de désabonnement
  */
@@ -259,14 +261,9 @@ export function onForegroundMessage(callback) {
       const { title, body } = payload.notification || {};
       if (title) {
         callback({ title, body: body || '', data: payload.data });
-        // Notification navigateur nativo en premier plan
-        if (Notification.permission === 'granted') {
-          try {
-            new Notification(title, { body: body || '', icon: '/favicon.svg' });
-          } catch {
-            // Fallback silencieux
-          }
-        }
+        // ⚠️ PLUS de `new Notification()` ici : le toast (callback App.jsx) ET
+        // une notification native = « deux notifications » quand l'app est au
+        // premier plan. Le toast est le seul retour visuel (comportement voulu).
       }
     });
   });
