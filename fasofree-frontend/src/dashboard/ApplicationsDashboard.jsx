@@ -184,7 +184,7 @@ const ApplicationsDashboard = () => {
       {/* Filtres */}
       <div className="card p-4 mb-6 flex flex-wrap gap-4 items-end">
         <div>
-          <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Profil</label>
+          <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Profil</label>
           <select
             className="input-field"
             value={filters.type}
@@ -196,7 +196,7 @@ const ApplicationsDashboard = () => {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-text-secondary uppercase mb-1">Statut</label>
+          <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Statut</label>
           <select
             className="input-field"
             value={filters.status}
@@ -269,10 +269,10 @@ const ApplicationsDashboard = () => {
                     </td>
                     <td>
                       <span
-                        className={`px-2 py-1 rounded text-[10px] font-bold uppercase inline-flex items-center gap-1 ${
+                        className={`px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold inline-flex items-center gap-1 ${
                           app.applicationType === 'MERCHANT'
                             ? 'bg-accent-primary/10 text-accent-primary'
-                            : 'bg-blue-50 text-blue-700'
+                            : 'bg-[#F0E9DD] text-[#241F1B]'
                         }`}
                       >
                         {app.applicationType === 'MERCHANT' ? <Store size={11} /> : <Bike size={11} />}
@@ -360,10 +360,10 @@ const ApplicationsDashboard = () => {
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge status={selected.applicationStatus} statusConfig={STATUS_CONFIG} />
                 <span
-                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                  className={`px-2.5 py-0.5 rounded-full text-[11.5px] font-semibold ${
                     selected.applicationType === 'MERCHANT'
                       ? 'bg-accent-primary/10 text-accent-primary'
-                      : 'bg-blue-50 text-blue-700'
+                      : 'bg-[#F0E9DD] text-[#241F1B]'
                   }`}
                 >
                   {selected.applicationType === 'MERCHANT' ? 'Marchand' : 'Livreur'}
@@ -379,14 +379,14 @@ const ApplicationsDashboard = () => {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="bg-background-secondary rounded-lg p-4">
-                  <p className="text-xs font-semibold text-text-secondary uppercase mb-2">Référence</p>
+                  <p className="text-[12px] font-semibold text-text-secondary mb-2">Référence</p>
                   <p className="font-mono text-xs text-text-primary break-all">{selected.id}</p>
-                  <p className="text-xs font-semibold text-text-secondary uppercase mb-2 mt-3">Code de parrainage</p>
+                  <p className="text-[12px] font-semibold text-text-secondary mb-2 mt-3">Code de parrainage</p>
                   <p className="font-mono text-sm font-bold text-accent-primary">{selected.referralCode || '—'}</p>
                 </div>
 
                 <div className="bg-background-secondary rounded-lg p-4">
-                  <p className="text-xs font-semibold text-text-secondary uppercase mb-2">
+                  <p className="text-[12px] font-semibold text-text-secondary mb-2">
                     {selected.applicationType === 'MERCHANT' ? 'Commerce' : 'Profil livreur'}
                   </p>
                   {selected.applicationType === 'MERCHANT' ? (
@@ -409,7 +409,7 @@ const ApplicationsDashboard = () => {
 
               {/* Documents KYC */}
               <div>
-                <p className="text-xs font-semibold text-text-secondary uppercase mb-2 flex items-center gap-1">
+                <p className="text-[12px] font-semibold text-text-secondary mb-2 flex items-center gap-1">
                   <FileText size={13} /> Documents KYC fournis
                 </p>
                 {kycLoading ? (
