@@ -7,7 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomBytes, randomInt } from 'crypto';
+import { randomBytes } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { BusinessesService } from '../businesses/businesses.service';
 import { WalletService } from '../wallets/wallet.service';
@@ -112,13 +112,12 @@ export class OnboardingService {
 
     const applicationType = user.applicationType;
 
-    // 🔑 Code d'accès temporaire :
-    // - MERCHANT → code PIN à 6 chiffres (modifiable ensuite dans les paramètres)
-    // - DRIVER   → mot de passe temporaire alphanumérique
-    const tempPassword =
-      applicationType === 'MERCHANT'
-        ? String(randomInt(100000, 999999))
-        : `FF-${randomBytes(4).toString('hex').toUpperCase()}`;
+    // 🔑 Mot de passe temporaire de première connexion (tous types) :
+    // `FF-` + 64 bits en hex majuscules (19 caractères). L'ancien PIN 6 chiffres
+    // des marchands (business admin) était trop court : sous le minimum de
+    // 8 caractères exigé par le changement de mot de passe, et trop simple à
+    // deviner. Même format pour tous → un seul comportement à transmettre.
+    const tempPassword = `FF-${randomBytes(8).toString('hex').toUpperCase()}`;
     const salt = await bcrypt.genSalt(10);
     user.passwordHash = await bcrypt.hash(tempPassword, salt);
     user.isActive = true;
