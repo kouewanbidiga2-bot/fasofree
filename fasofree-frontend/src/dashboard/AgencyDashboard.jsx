@@ -27,6 +27,7 @@ import {
 } from '../services/agencyService';
 import { getDispatchSocket } from '../services/realtime';
 import SelfServicePushCampaigns from './components/SelfServicePushCampaigns';
+import { HeroMotif } from './components/PageHero';
 
 /**
  * 🏢 Espace Agence (Niveau 2 du dispatch multi-niveaux).
@@ -261,8 +262,9 @@ const AgencyDashboard = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* ── EN-TÊTE ─────────────────────────────────────────── */}
-      <header className="bg-card border-b border-border-light sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="relative overflow-hidden bg-[#F7F3EB] border-b border-border-light sticky top-0 z-10">
+        <HeroMotif />
+        <div className="relative max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {/* 🏢 Lot 1 : logo de la société — c'est l'identité que le client
                 verra sur le suivi de sa commande. */}

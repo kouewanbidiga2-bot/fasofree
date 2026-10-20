@@ -4,8 +4,6 @@
  */
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  ArrowLeft,
-  RefreshCw,
   CheckCircle,
   XCircle,
   Eye,
@@ -18,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
+import PageHero from './components/PageHero';
 import { getApplications, approveApplication, rejectApplication } from '../services/onboardingService';
 import { getKycPending, getKycDocumentUrl } from '../services/kycService';
 
@@ -152,27 +151,14 @@ const ApplicationsDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background-primary p-6 lg:p-8">
-      <header className="flex items-center justify-between mb-6 pb-4 border-b border-border-light">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => window.history.back()}
-            className="p-2 rounded-lg hover:bg-background-secondary text-text-secondary"
-            title="Retour"
-          >
-            <ArrowLeft size={18} strokeWidth={1.5} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Candidatures</h1>
-            <p className="text-text-secondary text-sm">
-              Dossiers Marchands &amp; Livreurs en attente d’approbation.
-            </p>
-          </div>
-        </div>
-        <button onClick={load} className="btn-secondary gap-2">
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Actualiser
-        </button>
-      </header>
+      <PageHero
+        title="Candidatures"
+        subtitle="Dossiers Marchands &amp; Livreurs en attente d’approbation"
+        actions={[
+          { label: 'Retour', onClick: () => window.history.back(), variant: 'secondary' },
+          { label: 'Actualiser', onClick: load, variant: 'secondary' },
+        ]}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">

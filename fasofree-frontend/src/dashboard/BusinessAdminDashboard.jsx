@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState, OrderStatusStepper } from './components/StatCard';
+import PageHero from './components/PageHero';
 import MerchantDisputesTab from './components/MerchantDisputesTab';
 import SelfServicePushCampaigns from './components/SelfServicePushCampaigns';
 import WalletTopupButton from './components/WalletTopupButton';
@@ -1137,29 +1138,28 @@ const BusinessAdminDashboard = () => {
           {/* ──────────────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <div className="animate-slide-up">
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-                <div>
-                  <h1 className="text-xl font-bold text-text-primary">
-                    {selectedBranchId ? branches.find(b => b.id === selectedBranchId)?.name || 'Agence' : 'Vue Marque'}
-                  </h1>
-                  <p className="text-text-secondary text-sm mt-0.5">
-                    {new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {branches.length > 0 && (
-                    <BranchSelector
-                      branches={branches}
-                      selectedBranchId={selectedBranchId}
-                      onSelectBranch={handleBranchChange}
-                    />
-                  )}
-                  <CallSupportButton label="Appeler le support" />
-                  <button onClick={() => { loadAnalytics(); loadOrders(); loadProducts(); }} className="btn-secondary gap-2">
-                    <RefreshCw size={14} /> Actualiser
-                  </button>
-                </div>
-              </div>
+              <PageHero
+                title={selectedBranchId ? branches.find(b => b.id === selectedBranchId)?.name || 'Agence' : 'Vue Marque'}
+                right={
+                  <div className="flex items-center gap-3">
+                    {branches.length > 0 && (
+                      <BranchSelector
+                        branches={branches}
+                        selectedBranchId={selectedBranchId}
+                        onSelectBranch={handleBranchChange}
+                      />
+                    )}
+                    <CallSupportButton label="Appeler le support" />
+                  </div>
+                }
+                actions={[
+                  {
+                    label: 'Actualiser',
+                    onClick: () => { loadAnalytics(); loadOrders(); loadProducts(); },
+                    variant: 'secondary',
+                  },
+                ]}
+              />
 
               {/* Graphique Revenus TradingView */}
               {brandAnalytics?.salesChart?.length > 0 && (

@@ -1030,7 +1030,7 @@ const DriverDashboard = () => {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2 flex items-center gap-2">
-                    <Star size={16} className="text-yellow-500" /> Note moyenne
+                    <Star size={16} className="text-[#C1652E]" /> Note moyenne
                   </h3>
                   <p className="text-3xl font-bold text-text-primary">
                     {earnings.averageRating > 0 ? `${earnings.averageRating}/5.0` : '—'}
@@ -1243,7 +1243,7 @@ const DriverDashboard = () => {
                           <p className="text-lg font-bold text-accent-primary">{(delivery.totalEarnings || 0).toLocaleString()} FCFA</p>
                           {delivery.rating > 0 && (
                             <div className="flex items-center gap-1 mt-1">
-                              <Star size={12} className="text-yellow-500 fill-yellow-500" />
+                              <Star size={12} className="text-[#C1652E] fill-[#C1652E]" />
                               <span className="text-xs font-semibold text-text-primary">{delivery.rating}/5</span>
                             </div>
                           )}

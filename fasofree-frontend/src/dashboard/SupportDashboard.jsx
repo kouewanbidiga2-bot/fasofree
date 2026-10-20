@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
+import PageHero from './components/PageHero';
 import { getPendingDisputes } from '../services/financialService';
 import { getPlatformStats, getBanRequests, createBanRequest, reviewBanRequest, getBanRequestPendingCount, getUsers } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
@@ -525,18 +526,18 @@ const SupportDashboard = () => {
 
       {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
       <main className="flex-1 lg:ml-64 min-h-screen p-6 lg:p-8">
-        <header className="flex items-center justify-between mb-8 pb-4 border-b border-border-light">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Centre de Support</h1>
-            <p className="text-text-secondary text-sm">Gestion des validations, litiges et support</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
-              Mode Support
-            </span>
-          </div>
-        </header>
+        <PageHero
+          name={String(user?.fullName || '').trim().split(' ')[0] || 'Support'}
+          subtitle="Gestion des validations, litiges et support"
+          right={
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <span className="px-3 py-1 bg-[#F0E9DD] text-text-secondary text-xs font-bold rounded-full">
+                Mode Support
+              </span>
+            </div>
+          }
+        />
 
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET DISCUSSION ÉQUIPE */}

@@ -45,28 +45,28 @@ const BranchFinancialCard = ({
       <div className="grid grid-cols-2 gap-3">
         <div className="p-2.5 rounded-lg bg-background-secondary">
           <div className="flex items-center gap-1.5 mb-1">
-            <Wallet size={11} className="text-accent-primary" />
+            <Wallet size={11} className="text-[#241F1B]" />
             <span className="text-[10px] text-text-tertiary font-medium">Solde</span>
           </div>
           <p className="text-sm font-bold text-text-primary">{balance.toLocaleString()} <span className="text-[10px] font-normal text-text-tertiary">FCFA</span></p>
         </div>
         <div className="p-2.5 rounded-lg bg-background-secondary">
           <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={11} className="text-status-success" />
+            <TrendingUp size={11} className="text-[#241F1B]" />
             <span className="text-[10px] text-text-tertiary font-medium">Revenus</span>
           </div>
           <p className="text-sm font-bold text-text-primary">{revenue.toLocaleString()} <span className="text-[10px] font-normal text-text-tertiary">FCFA</span></p>
         </div>
         <div className="p-2.5 rounded-lg bg-background-secondary">
           <div className="flex items-center gap-1.5 mb-1">
-            <ShoppingBag size={11} className="text-blue-500" />
+            <ShoppingBag size={11} className="text-[#241F1B]" />
             <span className="text-[10px] text-text-tertiary font-medium">Commandes</span>
           </div>
           <p className="text-sm font-bold text-text-primary">{orders}</p>
         </div>
         <div className="p-2.5 rounded-lg bg-background-secondary">
           <div className="flex items-center gap-1.5 mb-1">
-            <DollarSign size={11} className="text-orange-500" />
+            <DollarSign size={11} className="text-[#241F1B]" />
             <span className="text-[10px] text-text-tertiary font-medium">Net marchand</span>
           </div>
           <p className="text-sm font-bold text-text-primary">{netEarnings.toLocaleString()} <span className="text-[10px] font-normal text-text-tertiary">FCFA</span></p>

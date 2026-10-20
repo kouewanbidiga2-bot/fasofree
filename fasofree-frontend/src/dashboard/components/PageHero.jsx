@@ -7,6 +7,8 @@
  *
  * Widget : { value, label, delta? (nombre), unit? (défaut '%') }
  * Action  : { label, onClick, variant?: 'primary' | 'secondary' }
+ * `title` : titre brut (sans « Bonjour ») pour les pages de gestion.
+ * `right`  : nœud JSX affiché à droite (cloche, badge de mode…).
  * Le champ `dot` des widgets est accepté mais ignoré : plus de pastilles
  * colorées dans les héros (palette beige/terracotta verrouillée).
  */
@@ -14,16 +16,13 @@ import React from 'react';
 
 const deltaColor = (d) => (d >= 0 ? '#2F7D4F' : '#C0453B');
 
-export function PageHero({ name = '', subtitle = '', widgets = [], actions = [] }) {
-  const dateLabel = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
+/**
+ * Fond décoratif (motif indienne + arcs) réutilisable hors du hero :
+ * à placer dans un conteneur `relative overflow-hidden`.
+ */
+export function HeroMotif() {
   return (
-    <section className="relative mb-6 overflow-hidden rounded-card border border-border-light bg-[#F7F3EB]">
+    <>
       {/* Motif indienne : points + croix, droite du héros, fondu vers la gauche */}
       <svg className="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%]" aria-hidden="true">
         <defs>
@@ -44,11 +43,26 @@ export function PageHero({ name = '', subtitle = '', widgets = [], actions = [] 
         <circle cx="50%" cy="50%" r="40%" fill="none" stroke="#C1652E" strokeOpacity="0.14" strokeWidth="1.5" />
         <circle cx="50%" cy="50%" r="62%" fill="none" stroke="#C1652E" strokeOpacity="0.10" strokeWidth="1.5" />
       </svg>
+    </>
+  );
+}
+
+export function PageHero({ name = '', title = '', subtitle = '', widgets = [], actions = [], right = null }) {
+  const dateLabel = new Date().toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <section className="relative mb-6 overflow-hidden rounded-card border border-border-light bg-[#F7F3EB]">
+      <HeroMotif />
 
       <div className="relative flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between lg:p-7">
         <div className="min-w-0">
           <h1 className="text-[23px] font-extrabold tracking-[-0.02em] text-text-primary">
-            {name ? `Bonjour ${name}` : 'Bonjour'}
+            {title || (name ? `Bonjour ${name}` : 'Bonjour')}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">
             {subtitle ? `${subtitle} — ` : ''}
@@ -98,6 +112,8 @@ export function PageHero({ name = '', subtitle = '', widgets = [], actions = [] 
             ))}
           </div>
         )}
+
+        {right && <div className="shrink-0">{right}</div>}
       </div>
     </section>
   );

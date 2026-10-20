@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components/StatCard';
+import PageHero from './components/PageHero';
 import DisputesTab from './components/DisputesTab';
 import UsersBackofficeTab from './components/UsersBackofficeTab';
 import AgenciesTab from './components/AgenciesTab';
@@ -435,18 +436,18 @@ const AdminManagerDashboard = () => {
 
       {/* ─── MAIN CONTENT ────────────────────────────────────────── */}
       <main className="flex-1 lg:ml-64 min-h-screen p-6 lg:p-8">
-        <header className="flex items-center justify-between mb-8 pb-4 border-b border-border-light">
-          <div>
-            <h1 className="text-2xl font-bold text-text-primary">Administration</h1>
-            <p className="text-text-secondary text-sm">Gestion de la plateforme FasoFree</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <NotificationBell />
-            <span className="px-3 py-1 bg-background-tertiary text-text-secondary text-xs font-bold rounded-full">
-              Mode Admin
-            </span>
-          </div>
-        </header>
+        <PageHero
+          name={String(user?.fullName || '').trim().split(' ')[0] || 'Admin'}
+          subtitle="Gestion de la plateforme FasoFree"
+          right={
+            <div className="flex items-center gap-3">
+              <NotificationBell />
+              <span className="px-3 py-1 bg-[#F0E9DD] text-text-secondary text-xs font-bold rounded-full">
+                Mode Admin
+              </span>
+            </div>
+          }
+        />
 
         {/* ──────────────────────────────────────────────────────── */}
         {/* ONGLET DISCUSSION ÉQUIPE */}
