@@ -21,7 +21,9 @@ export const StatCard = ({ label, value, icon: Icon, trend, color, loading = fal
         )}
       </div>
 
-      <p className="mt-4 text-[30px] font-extrabold leading-none tracking-tight text-text-primary">
+      {/* Valeur responsive : 30px débordait des cellules 2-col sur téléphone
+          (montants longs non cassables) — 24px + retour à la ligne maîtrisé. */}
+      <p className="mt-4 text-[24px] sm:text-[30px] font-extrabold leading-tight sm:leading-none tracking-tight text-text-primary break-words tabular-nums">
         {loading ? (
           <span className="inline-block h-7 w-24 rounded bg-background-secondary animate-pulse" />
         ) : (
@@ -76,43 +78,48 @@ export const OrderStatusStepper = ({ currentStatus, steps }) => {
   const currentStepIndex = steps.findIndex(step => step.key === currentStatus);
 
   return (
-    <div className="flex items-center justify-between py-4">
-      {steps.map((step, index) => {
-        const isCompleted = index < currentStepIndex;
-        const isCurrent = index === currentStepIndex;
-        const isPending = index > currentStepIndex;
+    // Scroll interne : jusqu'à 9 étapes (6+ sur les commandes avancées) — la
+    // largeur min-content dépassait l'écran et faisait glisser TOUTE la page.
+    // Ici seul le stepper défile, la carte reste fixe.
+    <div className="overflow-x-auto py-4">
+      <div className="flex items-center justify-between min-w-max">
+        {steps.map((step, index) => {
+          const isCompleted = index < currentStepIndex;
+          const isCurrent = index === currentStepIndex;
+          const isPending = index > currentStepIndex;
 
-        return (
-          <div key={step.key} className="flex items-center flex-1">
-            <div className="flex flex-col items-center flex-1">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
-                  isCompleted 
-                    ? 'bg-status-success border-status-success text-white' 
-                    : isCurrent 
-                      ? 'bg-accent-primary border-accent-primary text-white' 
-                      : 'bg-background-secondary border-border-light text-text-tertiary'
-                }`}
-              >
-                {isCompleted ? '✓' : index + 1}
+          return (
+            <div key={step.key} className="flex items-center flex-1">
+              <div className="flex flex-col items-center flex-1">
+                <div
+                  className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
+                    isCompleted 
+                      ? 'bg-status-success border-status-success text-white' 
+                      : isCurrent 
+                        ? 'bg-accent-primary border-accent-primary text-white' 
+                        : 'bg-background-secondary border-border-light text-text-tertiary'
+                  }`}
+                >
+                  {isCompleted ? '✓' : index + 1}
+                </div>
+                <p className={`text-[10px] font-semibold mt-2 text-center whitespace-nowrap ${
+                  isCurrent ? 'text-accent-primary' : 'text-text-secondary'
+                }`}>
+                  {step.label}
+                </p>
               </div>
-              <p className={`text-[10px] font-semibold mt-2 text-center ${
-                isCurrent ? 'text-accent-primary' : 'text-text-secondary'
-              }`}>
-                {step.label}
-              </p>
+              
+              {index < steps.length - 1 && (
+                <div 
+                  className={`h-0.5 flex-1 mx-2 transition-colors ${
+                    isCompleted ? 'bg-status-success' : 'bg-border-light'
+                  }`}
+                />
+              )}
             </div>
-            
-            {index < steps.length - 1 && (
-              <div 
-                className={`h-0.5 flex-1 mx-2 transition-colors ${
-                  isCompleted ? 'bg-status-success' : 'bg-border-light'
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 };

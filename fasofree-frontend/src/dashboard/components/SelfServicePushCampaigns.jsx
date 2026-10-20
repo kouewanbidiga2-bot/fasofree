@@ -444,7 +444,11 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
       </form>
 
       <div className="bg-background-card border border-border-light rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+        {/* Scroll interne : le wrapper overflow-hidden rognait la colonne
+            « Action » sur téléphone (7 colonnes) — désormais elle reste
+            accessible sans faire glisser la page. */}
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] text-sm">
           <thead className="bg-background-secondary text-text-secondary text-xs">
             <tr>
               <th className="text-left px-4 py-3">Titre</th>
@@ -557,6 +561,7 @@ const SelfServicePushCampaigns = ({ role = 'merchant' }) => {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -37,6 +37,10 @@ export class BusinessesService {
       phone: dto.phone,
       ownerId,
       brandId: dto.brandId ?? null,
+      // Affiche / logo posés dès la création quand fournis (formulaires admin) ;
+      // optionnels pour les autres chemins (seed, approbation de candidature).
+      coverImage: dto.coverImage || null,
+      logo: dto.logo || null,
       latitude: dto.latitude,
       longitude: dto.longitude,
       location: {

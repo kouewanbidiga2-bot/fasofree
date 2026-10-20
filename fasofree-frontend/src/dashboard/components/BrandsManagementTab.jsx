@@ -4,6 +4,7 @@ import {
   Phone, CheckCircle, XCircle, Loader2, Edit2, Navigation
 } from 'lucide-react';
 import { StatusBadge } from './StatCard';
+import ImageUpload from '../../components/ImageUpload';
 import {
   getBrands,
   createBrand,
@@ -36,6 +37,7 @@ const BrandsManagementTab = () => {
     phone: '',
     latitude: '',
     longitude: '',
+    coverImage: '',
   });
   const [editingBranch, setEditingBranch] = useState(null);
   const [activeBrandId, setActiveBrandId] = useState(null);
@@ -133,7 +135,7 @@ const BrandsManagementTab = () => {
   const handleOpenBranchForm = (brandId) => {
     setActiveBrandId(brandId);
     setEditingBranch(null);
-    setBranchForm({ name: '', address: '', phone: '', latitude: '', longitude: '' });
+    setBranchForm({ name: '', address: '', phone: '', latitude: '', longitude: '', coverImage: '' });
     setShowBranchForm(true);
   };
 
@@ -146,12 +148,19 @@ const BrandsManagementTab = () => {
       phone: branch.phone || '',
       latitude: branch.latitude?.toString() || '',
       longitude: branch.longitude?.toString() || '',
+      coverImage: branch.coverImage || '',
     });
     setShowBranchForm(true);
   };
 
   const handleCreateBranch = async (e) => {
     e.preventDefault();
+    // L'affiche est l'image du restaurant sur l'app client : obligatoire à la
+    // création (sans elle, la carte bascule sur le fallback de catégorie).
+    if (!branchForm.coverImage) {
+      setMsg({ type: 'error', text: "L'affiche du restaurant est obligatoire : c'est l'image affichée sur l'app client." });
+      return;
+    }
     setBusy('branch');
     setMsg(null);
     try {
@@ -346,6 +355,19 @@ const BrandsManagementTab = () => {
               onChange={(e) => setBranchForm((p) => ({ ...p, phone: e.target.value }))}
               className="input-field w-full"
             />
+            <div>
+              <ImageUpload
+                label="Affiche du restaurant (visible sur l'app client)"
+                folder="covers"
+                value={branchForm.coverImage}
+                onChange={(url) => setBranchForm((p) => ({ ...p, coverImage: url }))}
+              />
+              {!editingBranch && !branchForm.coverImage && (
+                <p className="mt-1 text-xs text-status-warning">
+                  Obligatoire : cette image s'affichera sur la carte du restaurant dans l'app client.
+                </p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <input
                 type="number"

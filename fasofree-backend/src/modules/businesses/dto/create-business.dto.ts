@@ -37,4 +37,17 @@ export class CreateBusinessDto {
   @IsUUID()
   @IsOptional()
   brandId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "URL de l'affiche du restaurant (image affichée sur l'app client) — obligatoire côté formulaire admin",
+  })
+  @IsString()
+  @IsOptional()
+  coverImage?: string;
+
+  @ApiPropertyOptional({ description: 'URL du logo du commerce' })
+  @IsString()
+  @IsOptional()
+  logo?: string;
 }

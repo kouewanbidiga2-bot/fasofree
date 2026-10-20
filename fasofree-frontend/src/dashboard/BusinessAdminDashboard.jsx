@@ -1141,7 +1141,7 @@ const BusinessAdminDashboard = () => {
               <PageHero
                 title={selectedBranchId ? branches.find(b => b.id === selectedBranchId)?.name || 'Agence' : 'Vue Marque'}
                 right={
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {branches.length > 0 && (
                       <BranchSelector
                         branches={branches}
@@ -1398,13 +1398,13 @@ const BusinessAdminDashboard = () => {
                         <OrderStatusStepper currentStatus={order.status} steps={getOrderSteps(order.status)} />
 
                         <div className="grid grid-cols-2 gap-4 mt-4 mb-4">
-                          <div className="p-3 bg-background-secondary rounded-lg">
+                          <div className="p-3 bg-background-secondary rounded-lg min-w-0">
                             <p className="text-[13px] text-text-secondary">Client</p>
-                            <p className="text-sm font-semibold text-text-primary">{order.customerName || 'N/A'}</p>
+                            <p className="text-sm font-semibold text-text-primary truncate">{order.customerName || 'N/A'}</p>
                           </div>
-                          <div className="p-3 bg-background-secondary rounded-lg">
+                          <div className="p-3 bg-background-secondary rounded-lg min-w-0">
                             <p className="text-[13px] text-text-secondary">Total</p>
-                            <p className="text-sm font-semibold text-text-primary">{order.totalAmount?.toLocaleString()} FCFA</p>
+                            <p className="text-sm font-semibold text-text-primary tabular-nums">{order.totalAmount?.toLocaleString()} FCFA</p>
                           </div>
                         </div>
 
@@ -1508,7 +1508,7 @@ const BusinessAdminDashboard = () => {
             <div className="animate-slide-up">
               <div className="flex flex-wrap gap-4 items-center justify-between mb-6">
                 <h1 className="text-xl font-bold text-text-primary">Stock & Catalogue</h1>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <select 
                     className="input-field py-1.5 text-[13px]"
                     value={productTypeFilter}
@@ -1565,7 +1565,8 @@ const BusinessAdminDashboard = () => {
               )}
 
               <div className="card overflow-hidden">
-                <div className="table-container">
+                {/* Desktop : tableau 7 colonnes */}
+                <div className="table-container hidden md:block">
                   <table className="table">
                     <thead>
                       <tr>
@@ -1656,6 +1657,66 @@ const BusinessAdminDashboard = () => {
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Mobile : mêmes données en cartes — pas de glissement horizontal */}
+                <div className="md:hidden divide-y divide-border-light">
+                  {loading.products ? (
+                    [1,2,3,4].map(i => (
+                      <div key={i} className="p-4"><LoadingSkeleton height="h-16" /></div>
+                    ))
+                  ) : filteredProducts.length === 0 ? (
+                    <p className="text-center py-8 text-text-secondary text-sm">Aucun produit trouvé</p>
+                  ) : (
+                    filteredProducts.map(product => (
+                      <div key={product.id} className="p-4 space-y-2">
+                        <div className="flex items-center gap-3">
+                          {product.imageUrl && (
+                            <img src={product.imageUrl.startsWith('/') ? (import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1').replace(/\/api\/v1$/, '') + product.imageUrl : product.imageUrl} alt={product.name} className="w-11 h-11 shrink-0 rounded object-cover" onError={(e) => { e.target.onerror = null; e.target.style.display = 'none'; }} />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-text-primary text-sm truncate">{product.name}</p>
+                            <p className="text-text-tertiary text-[13px] truncate">{product.category} · {product.type}</p>
+                          </div>
+                          <button
+                            onClick={() => handleToggleAvailability(product.id)}
+                            className={`shrink-0 transition-colors ${product.isAvailable ? 'text-status-success' : 'text-text-tertiary'}`}
+                            title={product.isAvailable ? 'Disponible' : 'Indisponible'}
+                          >
+                            {product.isAvailable ? <ToggleRight size={22} /> : <ToggleLeft size={22} />}
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
+                          <span className="font-semibold text-text-primary tabular-nums">{product.price?.toLocaleString()} FCFA</span>
+                          <span className="font-mono text-text-secondary">{product.sku || '—'}</span>
+                          {product.trackInventory ? (
+                            <span className={product.stockQuantity <= product.minStockAlert ? 'text-status-warning font-semibold' : 'text-text-secondary'}>
+                              Stock : {product.stockQuantity}
+                            </span>
+                          ) : (
+                            <span className="text-text-tertiary">Stock : N/A</span>
+                          )}
+                          {product.trackInventory && (
+                            <button
+                              onClick={() => setStockModal(product)}
+                              className="btn-icon text-[13px]"
+                              title="Ajuster le stock"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          )}
+                        </div>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={() => setProductModal(product)} className="btn-icon" title="Modifier">
+                            <Pencil size={14} />
+                          </button>
+                          <button onClick={() => handleDeleteProduct(product.id)} className="btn-icon text-status-error" title="Supprimer">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -1971,7 +2032,7 @@ const BusinessAdminDashboard = () => {
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
                       placeholder="Écrire un message..."
-                      className="flex-1 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                      className="flex-1 min-w-0 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
                     />
                     <button
                       onClick={handleSendChatMessage}
