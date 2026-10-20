@@ -54,6 +54,11 @@ export class NotificationsService {
 
   /**
    * Notifications d'approbation : envoie via le canal préféré + push FCM.
+   *
+   * Repli échelonné — les identifiants ne doivent JAMAIS être perdus
+   * silencieusement : si le canal préféré échoue (non configuré, numéro ou
+   * e-mail absent, erreur réseau), on retente le SMS puis l'e-mail
+   * transactionnel (autorisé par la règle plateforme).
    */
   async sendApprovalNotification(
     user: User,
@@ -63,31 +68,30 @@ export class NotificationsService {
     const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
     const userName = user.fullName || 'Utilisateur';
     const appType = user.applicationType || 'MERCHANT';
+    const phone = user.phone;
+    const email = user.email;
 
     // 📧 EMAIL de confirmation TOUJOURS envoyé (exigence plateforme) :
     // - Livreur  : email d'approbation garanti, quel que soit le canal préféré.
     // - Marchand : pas de doublon — il reçoit déjà l'email de bienvenue enrichi
     //   (avec lien vers son dashboard) dans le flux d'approbation (onboarding).
-    if (appType !== 'MERCHANT' && user.email) {
-      try {
-        await this.emailService.sendApprovalEmail(
-          user.email,
-          userName,
-          appType,
-          tempPassword,
-        );
-      } catch (err) {
-        this.logger.warn(
-          `[Notifications] Échec email approbation vers ${user.email}: ${(err as Error).message}`,
-        );
-      }
+    let emailOk = true;
+    if (appType !== 'MERCHANT' && email) {
+      emailOk = await this.sendEmailSafe(() =>
+        this.emailService.sendApprovalEmail(email, userName, appType, tempPassword),
+      );
     }
 
-    // 1. Canal préféré pour les AUTRES médiums (SMS / WhatsApp / Push)
+    const smsText =
+      `FasoFree: Bienvenue ! Votre compte ${roleLabel} est approuvé. ` +
+      `Mot de passe temporaire: ${tempPassword}. Connectez-vous et changez-le.`;
+
+    // 1. Canal préféré — chaque envoi retourne un booléen de remise.
+    let delivered = false;
     switch (channel) {
       case NotificationChannel.PUSH: {
         if (user.fcmToken) {
-          await this.sendToDevice(user.fcmToken, {
+          delivered = await this.sendToDevice(user.fcmToken, {
             title: `Compte ${roleLabel} approuvé !`,
             body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
             data: { type: 'ONBOARDING_APPROVED', role: appType },
@@ -96,27 +100,48 @@ export class NotificationsService {
         break;
       }
       case NotificationChannel.EMAIL: {
-        // Déjà couvert ci-dessus (email garanti) — rien à faire.
+        // Déjà tenté ci-dessus (email garanti / doublon marchand évité).
+        delivered = emailOk;
         break;
       }
       case NotificationChannel.WHATSAPP: {
-        const phone = user.phone;
         if (phone) {
-          await this.whatsappService.sendApprovalMessage(phone, userName, appType, tempPassword);
+          try {
+            delivered = await this.whatsappService.sendApprovalMessage(
+              phone,
+              userName,
+              appType,
+              tempPassword,
+              email || undefined,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `[Notifications] Échec WhatsApp approbation: ${(err as Error).message}`,
+            );
+          }
         }
         break;
       }
       case NotificationChannel.SMS:
       default: {
-        const phone = user.phone;
-        if (phone) {
-          await this.smsService.sendSms(
-            phone,
-            `FasoFree: Bienvenue ! Votre compte ${roleLabel} est approuvé. Mot de passe temporaire: ${tempPassword}. Connectez-vous et changez-le.`,
-          );
-        }
+        delivered = await this.sendSmsSafe(phone, smsText);
         break;
       }
+    }
+
+    // Replis : SMS d'abord (le canal choisi était un messagerie), puis e-mail.
+    if (!delivered && channel !== NotificationChannel.SMS) {
+      delivered = await this.sendSmsSafe(phone, smsText);
+    }
+    if (!delivered && channel !== NotificationChannel.EMAIL && email) {
+      delivered = await this.sendEmailSafe(() =>
+        this.emailService.sendApprovalEmail(email, userName, appType, tempPassword),
+      );
+    }
+    if (!delivered) {
+      this.logger.warn(
+        `[Notifications] Approbation ${roleLabel} de ${user.id} non remise (canal=${channel}).`,
+      );
     }
 
     // 2. Push FCM en complément — fire-and-forget (le canal principal a déjà réussi)
@@ -131,6 +156,8 @@ export class NotificationsService {
 
   /**
    * Notifications de refus : envoie via le canal préféré + push FCM.
+   * Même principe de repli que l'approbation : SMS puis e-mail si le canal
+   * préféré échoue — le refus ne doit pas rester silencieux.
    */
   async sendRejectionNotification(
     user: User,
@@ -140,11 +167,18 @@ export class NotificationsService {
     const channel = user.preferredNotificationChannel || NotificationChannel.EMAIL;
     const userName = user.fullName || 'Utilisateur';
     const appType = user.applicationType || 'MERCHANT';
+    const phone = user.phone;
+    const email = user.email;
 
+    const smsText =
+      `FasoFree: Votre candidature ${roleLabel} a été refusée. ` +
+      `Motif: ${reason}. Vous pouvez soumettre une nouvelle candidature.`;
+
+    let delivered = false;
     switch (channel) {
       case NotificationChannel.PUSH: {
         if (user.fcmToken) {
-          await this.sendToDevice(user.fcmToken, {
+          delivered = await this.sendToDevice(user.fcmToken, {
             title: `Candidature ${roleLabel} refusée`,
             body: reason,
             data: { type: 'ONBOARDING_REJECTED', role: appType, reason },
@@ -153,30 +187,49 @@ export class NotificationsService {
         break;
       }
       case NotificationChannel.EMAIL: {
-        const email = user.email;
         if (email) {
-          await this.emailService.sendRejectionEmail(email, userName, appType, reason);
+          delivered = await this.sendEmailSafe(() =>
+            this.emailService.sendRejectionEmail(email, userName, appType, reason),
+          );
         }
         break;
       }
       case NotificationChannel.WHATSAPP: {
-        const phone = user.phone;
         if (phone) {
-          await this.whatsappService.sendRejectionMessage(phone, userName, appType, reason);
+          try {
+            delivered = await this.whatsappService.sendRejectionMessage(
+              phone,
+              userName,
+              appType,
+              reason,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `[Notifications] Échec WhatsApp refus: ${(err as Error).message}`,
+            );
+          }
         }
         break;
       }
       case NotificationChannel.SMS:
       default: {
-        const phone = user.phone;
-        if (phone) {
-          await this.smsService.sendSms(
-            phone,
-            `FasoFree: Votre candidature ${roleLabel} a été refusée. Motif: ${reason}. Vous pouvez soumettre une nouvelle candidature.`,
-          );
-        }
+        delivered = await this.sendSmsSafe(phone, smsText);
         break;
       }
+    }
+
+    if (!delivered && channel !== NotificationChannel.SMS) {
+      delivered = await this.sendSmsSafe(phone, smsText);
+    }
+    if (!delivered && channel !== NotificationChannel.EMAIL && email) {
+      delivered = await this.sendEmailSafe(() =>
+        this.emailService.sendRejectionEmail(email, userName, appType, reason),
+      );
+    }
+    if (!delivered) {
+      this.logger.warn(
+        `[Notifications] Refus ${roleLabel} de ${user.id} non remis (canal=${channel}).`,
+      );
     }
 
     // Push FCM en complément — fire-and-forget
@@ -186,6 +239,34 @@ export class NotificationsService {
         body: reason,
         data: { type: 'ONBOARDING_REJECTED', role: appType },
       }).catch(() => {});
+    }
+  }
+
+  /** Envoi SMS protégé : retourne false si échec / numéro absent (repli possible). */
+  private async sendSmsSafe(
+    phone: string | null | undefined,
+    message: string,
+  ): Promise<boolean> {
+    if (!phone) return false;
+    try {
+      return await this.smsService.sendSms(phone, message);
+    } catch (err) {
+      this.logger.warn(
+        `[Notifications] Échec SMS vers ${phone}: ${(err as Error).message}`,
+      );
+      return false;
+    }
+  }
+
+  /** Envoi e-mail transactionnel protégé : retourne false si échec / rejet. */
+  private async sendEmailSafe(run: () => Promise<boolean>): Promise<boolean> {
+    try {
+      return await run();
+    } catch (err) {
+      this.logger.warn(
+        `[Notifications] Échec email transactionnel: ${(err as Error).message}`,
+      );
+      return false;
     }
   }
 

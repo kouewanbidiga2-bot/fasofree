@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException, BadRequestException, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -305,6 +305,22 @@ export class UsersService implements OnModuleInit {
   ): Promise<User> {
     const targetUser = await this.findById(targetUserId);
     await this.assertCanModify(operator, targetUser);
+
+    // Une candidature non approuvée ne peut pas être « activée » : sans
+    // approbation (POST /users/applications/:id/approve), le compte n'a pas de
+    // mot de passe temporaire, aucun identifiant n'a été envoyé (e-mail /
+    // WhatsApp / SMS) et auth.service bloque la connexion sur
+    // PENDING_APPROVAL / KYC_APPROVED. Activer ici créerait un compte zombie :
+    // « actif » en apparence mais impossible à connecter, sans notification.
+    if (
+      isActive &&
+      targetUser.applicationStatus &&
+      targetUser.applicationStatus !== 'APPROVED'
+    ) {
+      throw new BadRequestException(
+        `Ce compte provient d'une candidature non approuvée (statut : ${targetUser.applicationStatus}). Approuvez-la depuis l'onglet Candidatures (bouton Approuver) pour générer les identifiants et envoyer les notifications.`,
+      );
+    }
 
     if (!isActive) {
       this.assertNotBanTarget(targetUser);

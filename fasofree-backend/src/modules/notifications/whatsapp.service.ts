@@ -148,13 +148,15 @@ export class WhatsAppService {
     userName: string,
     role: string,
     tempPassword: string,
+    email?: string,
   ): Promise<boolean> {
     const roleLabel = role === 'DRIVER' ? 'Livreur' : 'Marchand';
+    const emailLine = email ? `📧 Email : ${email}\n` : '';
     const text =
       `🎉 *Bienvenue sur FasoFree !*\n\n` +
       `Bonjour ${userName},\n\n` +
       `Félicitations ! Votre candidature de *${roleLabel}* a été *approuvée*.\n\n` +
-      `📧 Email : (votre email)\n` +
+      emailLine +
       `🔑 Mot de passe temporaire : *${tempPassword}*\n\n` +
       `Connectez-vous dès maintenant sur votre espace admin et changez votre mot de passe.\n\n` +
       `👉 ${this.adminUrl}`;

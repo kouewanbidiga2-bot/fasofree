@@ -51,6 +51,7 @@ import {
   getPlatformStats,
 } from '../services/usersService';
 import { getKycPending, approveKyc, rejectKyc, getKycDocumentUrl } from '../services/kycService';
+import { approveApplication } from '../services/onboardingService';
 import { getAdminOrders } from '../services/ordersService';
 import { pushCampaignService } from '../services/pushCampaignService';
 import InternalChat from '../components/InternalChat';
@@ -952,6 +953,33 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // Approbation de candidature : le seul chemin qui génère les identifiants
+  // (mot de passe temporaire), active le compte ET envoie les notifications
+  // (e-mail / WhatsApp / SMS selon le canal choisi). Le simple « activer »
+  // laisserait un compte zombie : actif mais impossible à connecter.
+  const handleApproveApplicant = async (u) => {
+    const label = u.fullName || u.email;
+    if (!window.confirm(
+      `Approuver la candidature de ${label} ?\n\nLe compte sera activé, ses identifiants générés et envoyés par son canal préféré (e-mail / WhatsApp / SMS).`,
+    )) return;
+    setUsersBusy(u.id);
+    setUsersMsg(null);
+    try {
+      const res = await approveApplication(u.id);
+      setUsersMsg({
+        type: 'success',
+        text: res?.tempPassword
+          ? `Candidature de ${label} approuvée — identifiants envoyés. Mot de passe temporaire : ${res.tempPassword}`
+          : `Candidature de ${label} approuvée — identifiants envoyés.`,
+      });
+      await loadUsers();
+    } catch (err) {
+      setUsersMsg({ type: 'error', text: err.message });
+    } finally {
+      setUsersBusy(null);
+    }
+  };
+
   const handleChangeUserRole = async (id, role) => {
     setUsersBusy(id);
     setUsersMsg(null);
@@ -1321,6 +1349,12 @@ const SuperAdminDashboard = () => {
     const isSelf = u.id === user?.id;
     const isSuperAdminTarget = normRole(u) === 'super_admin';
     const isProtected = isSuperAdminTarget;
+    // Candidature non approuvée : l'activation seule est inutile (login bloqué
+    // tant que onboarding.approve n'a pas généré les identifiants) → action
+    // dédiée « Approuver » à la place du ban/réactiver.
+    const appStatus = u.applicationStatus;
+    const applicationOpen = appStatus === 'PENDING_APPROVAL' || appStatus === 'KYC_APPROVED';
+    const applicationClosed = !!appStatus && appStatus !== 'APPROVED';
     return (
       <tr key={u.id}>
         <td>
@@ -1343,10 +1377,18 @@ const SuperAdminDashboard = () => {
           </span>
         </td>
         <td>
-          <StatusBadge status={u.isActive ? 'active' : 'inactive'} statusConfig={{
-            active: { label: 'Actif', color: 'success', dot: '#22C55E' },
-            inactive: { label: 'Banni', color: 'gray', dot: '#A09890' },
-          }} />
+          {applicationClosed ? (
+            <StatusBadge status={appStatus} statusConfig={{
+              PENDING_APPROVAL: { label: 'Candidature en attente', color: 'warning', dot: '#B07C1A' },
+              KYC_APPROVED: { label: 'KYC validé', color: 'info', dot: '#3B82F6' },
+              REJECTED: { label: 'Candidature refusée', color: 'error', dot: '#C0453B' },
+            }} />
+          ) : (
+            <StatusBadge status={u.isActive ? 'active' : 'inactive'} statusConfig={{
+              active: { label: 'Actif', color: 'success', dot: '#22C55E' },
+              inactive: { label: 'Banni', color: 'gray', dot: '#A09890' },
+            }} />
+          )}
         </td>
         <td>
           <div className="flex items-center gap-2">
@@ -1360,25 +1402,39 @@ const SuperAdminDashboard = () => {
                 <option key={r} value={r}>{roleLabel(r)}</option>
               ))}
             </select>
-            {/* Ban/réactivation : réversible → ambre/vert ; suppression : définitif → rouge */}
-            <button
-              onClick={() => handleToggleUserStatus(u.id, !u.isActive)}
-              disabled={usersBusy === u.id || isSelf || isProtected}
-              className={`btn-icon ${u.isActive
-                ? 'border-status-warning/30 text-status-warning hover:bg-status-warningBg hover:border-status-warning/50'
-                : 'border-status-success/30 text-status-success hover:bg-status-successBg hover:border-status-success/50'}`}
-              title={
-                isSelf
-                  ? 'Impossible sur votre propre compte'
-                  : isProtected
-                    ? 'Super Admin protégé'
-                    : u.isActive
-                      ? 'Bannir le compte'
-                      : 'Réactiver le compte'
-              }
-            >
-              <Ban size={14} />
-            </button>
+            {/* Candidature ouverte : approuver (identifiants + notifications) */}
+            {applicationOpen && (
+              <button
+                onClick={() => handleApproveApplicant(u)}
+                disabled={usersBusy === u.id || isSelf || isProtected}
+                className="btn-icon border-status-success/30 text-status-success hover:bg-status-successBg hover:border-status-success/50"
+                title="Approuver la candidature et envoyer les identifiants"
+              >
+                <CheckCircle size={14} />
+              </button>
+            )}
+            {/* Ban/réactivation : réversible → ambre/vert ; suppression : définitif → rouge.
+                Masqué pour une candidature non approuvée (l'activation est refusée en backend). */}
+            {!applicationClosed && (
+              <button
+                onClick={() => handleToggleUserStatus(u.id, !u.isActive)}
+                disabled={usersBusy === u.id || isSelf || isProtected}
+                className={`btn-icon ${u.isActive
+                  ? 'border-status-warning/30 text-status-warning hover:bg-status-warningBg hover:border-status-warning/50'
+                  : 'border-status-success/30 text-status-success hover:bg-status-successBg hover:border-status-success/50'}`}
+                title={
+                  isSelf
+                    ? 'Impossible sur votre propre compte'
+                    : isProtected
+                      ? 'Super Admin protégé'
+                      : u.isActive
+                        ? 'Bannir le compte'
+                        : 'Réactiver le compte'
+                }
+              >
+                <Ban size={14} />
+              </button>
+            )}
             <button
               onClick={() => handleDeleteUser(u.id, u.email)}
               disabled={usersBusy === u.id || isSelf || isProtected}
