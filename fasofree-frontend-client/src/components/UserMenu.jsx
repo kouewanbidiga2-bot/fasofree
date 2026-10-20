@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { User, ShoppingBag, History, Briefcase, LogOut, ChevronDown } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
@@ -23,19 +24,13 @@ const ROLE_ROUTES = {
   SUPPORT: '/',
 };
 
+// Menu utilisateur — Radix DropdownMenu (primitif headless) : apporte la
+// navigation clavier (flèches), la fermeture Échap et le retour de focus,
+// SANS changer le visuel (classes tokens FasoFree d'origine conservées).
 export default function UserMenu() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   if (!isAuthenticated || !user) return null;
 
@@ -43,25 +38,34 @@ export default function UserMenu() {
   const displayName = user.firstName || user.fullName || user.email || 'Compte';
   const initials = displayName.slice(0, 1).toUpperCase();
 
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-full border border-border-light bg-background-card px-3 py-2 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
-      >
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
-          style={{ background: '#C1652E' }}
-        >
-          {initials}
-        </span>
-        <span className="hidden sm:inline max-w-[100px] truncate">{displayName}</span>
-        <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+  // Les classes des items sont celles des anciens <button> : on ajoute
+  // uniquement cursor-pointer (les div de Radix n'ont pas le curseur
+  // natif des boutons) et outline-none (focus clavier sans cadre).
+  const itemClass =
+    'flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors cursor-pointer outline-none';
 
-      {open && (
-        <div
-          className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border-light bg-background-card py-2 shadow-elevated"
+  return (
+    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+      <DropdownMenu.Trigger asChild>
+        <button
+          className="flex items-center gap-2 rounded-full border border-border-light bg-background-card px-3 py-2 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+        >
+          <span
+            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ background: '#C1652E' }}
+          >
+            {initials}
+          </span>
+          <span className="hidden sm:inline max-w-[100px] truncate">{displayName}</span>
+          <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      </DropdownMenu.Trigger>
+
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          sideOffset={8}
+          align="end"
+          className="z-50 w-56 rounded-xl border border-border-light bg-background-card py-2 shadow-elevated outline-none"
           style={{ animation: 'fadeIn 0.15s ease-out' }}
         >
           <div className="border-b border-border-light px-4 py-3">
@@ -75,62 +79,68 @@ export default function UserMenu() {
             </span>
           </div>
 
-          <button
-            onClick={() => { setOpen(false); navigate('/profile'); }}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
+          {/* Radix ferme le menu automatiquement après chaque sélection. */}
+          <DropdownMenu.Item
+            onSelect={() => navigate('/profile')}
+            className={itemClass}
           >
             <User size={15} /> Mon Profil
-          </button>
-          <button
-            onClick={() => { setOpen(false); navigate('/order-history'); }}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onSelect={() => navigate('/order-history')}
+            className={itemClass}
           >
             <History size={15} /> Mes Commandes
-          </button>
+          </DropdownMenu.Item>
 
           {currentRole === 'CLIENT' && (
-            <button
-              onClick={() => { setOpen(false); navigate('/register?pro=1'); }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
+            <DropdownMenu.Item
+              onSelect={() => navigate('/register?pro=1')}
+              className={itemClass}
             >
               <Briefcase size={15} /> Espace Pro
-            </button>
+            </DropdownMenu.Item>
           )}
 
           {(currentRole === 'DRIVER' || currentRole === 'COURIER') && (
-            <a
-              href="https://admin.fasofree.site/livreur"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
-            >
-              <ShoppingBag size={15} /> Espace Livreur
-            </a>
+            <DropdownMenu.Item asChild>
+              <a
+                href="https://admin.fasofree.site/livreur"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={itemClass}
+              >
+                <ShoppingBag size={15} /> Espace Livreur
+              </a>
+            </DropdownMenu.Item>
           )}
 
           {currentRole === 'BUSINESS_ADMIN' && (
-            <a
-              href="https://admin.fasofree.site"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors"
-            >
-              <Briefcase size={15} /> Espace Marchand
-            </a>
+            <DropdownMenu.Item asChild>
+              <a
+                href="https://admin.fasofree.site"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={itemClass}
+              >
+                <Briefcase size={15} /> Espace Marchand
+              </a>
+            </DropdownMenu.Item>
           )}
 
           <div className="my-1 border-t border-border-light" />
 
-          <button
-            onClick={() => { setOpen(false); logout(); navigate('/'); }}
-            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-background-secondary transition-colors"
+          <DropdownMenu.Item
+            onSelect={() => {
+              logout();
+              navigate('/');
+            }}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-error hover:bg-background-secondary transition-colors cursor-pointer outline-none"
           >
             <LogOut size={15} /> Déconnexion
-          </button>
-        </div>
-      )}
-    </div>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }

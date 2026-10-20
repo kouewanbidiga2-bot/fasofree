@@ -7,6 +7,7 @@ import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import Skeleton from '../components/ui/Skeleton';
+import { Modal, ModalTitle } from '../components/ui/Modal';
 
 const VipPass = () => {
   const navigate = useNavigate();
@@ -232,11 +233,16 @@ const VipPass = () => {
             </div>
           </div>
 
-          {/* Recharge modal */}
-          {topupOpen && (
-            <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setTopupOpen(false)}>
-              <div className="bg-white rounded-2xl p-6 w-full max-w-sm animate-scale-in" onClick={(e) => e.stopPropagation()}>
-                <h3 className="font-bold text-gray-800 mb-4">{t('rechargeWallet')}</h3>
+          {/* Recharge modal — Radix via le primitif Modal (mêmes classes) */}
+          <Modal
+            isOpen={topupOpen}
+            onClose={() => setTopupOpen(false)}
+            overlayClassName="bg-black/50"
+            panelClassName="bg-white rounded-2xl p-6 w-full max-w-sm"
+          >
+                <ModalTitle asChild>
+                  <h3 className="font-bold text-gray-800 mb-4">{t('rechargeWallet')}</h3>
+                </ModalTitle>
                 <label className="block text-sm text-gray-600 mb-2">{t('amountFcfa')}</label>
                 <input
                   type="number"
@@ -256,9 +262,7 @@ const VipPass = () => {
                     {topupBusy ? t('recharging') : t('recharge')}
                   </button>
                 </div>
-              </div>
-            </div>
-          )}
+          </Modal>
 
           {/* Offres VIP */}
           {!isPremium && (

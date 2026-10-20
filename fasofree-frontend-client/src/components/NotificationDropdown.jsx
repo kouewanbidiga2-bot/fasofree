@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, Check, CheckCheck, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useNotificationStore from '../store/notificationStore';
@@ -14,22 +15,12 @@ const TYPE_LABELS = {
 export default function NotificationDropdown({ open, onClose }) {
   const navigate = useNavigate();
   const { items, unreadCount, loading, fetch: fetchNotifs, markAsRead, markAllAsRead } = useNotificationStore();
-  const panelRef = useRef(null);
 
   useEffect(() => {
     if (open) fetchNotifs();
   }, [open, fetchNotifs]);
 
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target)) onClose();
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open, onClose]);
-
+  // Fermeture clic extérieur + Échap gérées par Radix (cf. Dialog ci-dessous).
   if (!open) return null;
 
   const handleNotifClick = (notif) => {
@@ -41,17 +32,23 @@ export default function NotificationDropdown({ open, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end items-start pt-16 px-4" onClick={onClose}>
-      <div
-        ref={panelRef}
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm bg-background-card border border-border-light rounded-xl shadow-2xl overflow-hidden fade-in"
-      >
+    // Dialog non-modal Radix : fermeture Échap + clic extérieur + ARIA,
+    // SANS verrouiller le scroll ni capturer le focus (comportement
+    // « panneau de notifications » conservé). Classes inchangées.
+    <Dialog.Root open={open} onOpenChange={(o) => { if (!o) onClose(); }} modal={false}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 flex justify-end items-start pt-16 px-4">
+          <Dialog.Content
+            className="w-full max-w-sm bg-background-card border border-border-light rounded-xl shadow-2xl overflow-hidden fade-in outline-none"
+            aria-describedby={undefined}
+          >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border-light">
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-accent-primary" />
-            <span className="text-sm font-bold text-text-primary">Notifications</span>
+            <Dialog.Title asChild>
+              <span className="text-sm font-bold text-text-primary">Notifications</span>
+            </Dialog.Title>
             {unreadCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full bg-accent-primary text-white text-[10px] font-bold">
                 {unreadCount}
@@ -123,7 +120,9 @@ export default function NotificationDropdown({ open, onClose }) {
             })
           )}
         </div>
-      </div>
-    </div>
+          </Dialog.Content>
+        </Dialog.Overlay>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

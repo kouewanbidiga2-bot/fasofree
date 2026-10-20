@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
+import { Modal, ModalTitle } from './ui/Modal';
 
 const REASONS = [
   { value: 'Commande incomplète', label: 'Commande incomplète' },
@@ -50,12 +51,15 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in" onClick={onClose}>
-      <div className="bg-background-card w-full max-w-md mx-4 p-6 animate-scale-in" onClick={(e) => e.stopPropagation()}>
+    // Mêmes classes qu'avant (overlay noir/40, panneau carte) : Radix gère
+    // Échap, focus et scroll en arrière-plan.
+    <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/40" panelClassName="bg-background-card w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <AlertTriangle size={20} style={{ color: '#C1652E' }} />
-            <h2 className="text-lg font-semibold text-[#2D2A26]">Signaler un problème</h2>
+            <ModalTitle asChild>
+              <h2 className="text-lg font-semibold text-[#2D2A26]">Signaler un problème</h2>
+            </ModalTitle>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded">
             <X size={20} className="text-gray-400" />
@@ -161,8 +165,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 
