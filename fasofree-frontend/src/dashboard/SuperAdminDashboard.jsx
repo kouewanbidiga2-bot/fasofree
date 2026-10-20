@@ -1986,34 +1986,36 @@ const SuperAdminDashboard = () => {
                   </dl>
                 </div>
 
-                {/* Alertes récentes */}
-                <div className="card overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-border-light">
-                    <h2 className="text-sm font-bold text-text-primary">Alertes récentes</h2>
-                    <span className="text-xs text-text-tertiary">{alertItems.length} à traiter</span>
+                {/* Alertes récentes — carte encre, texte blanc (choix validé) */}
+                <div className="overflow-hidden rounded-card bg-[#241F1B]">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                    <h2 className="text-sm font-bold text-white">Alertes récentes</h2>
+                    <span className="text-xs text-white/55">{alertItems.length} à traiter</span>
                   </div>
-                  <div className="divide-y divide-border-light">
+                  <div className="divide-y divide-white/10">
                     {alertItems.length === 0 ? (
-                      <EmptyState
-                        icon={CheckCircle}
-                        title="Tout est calme"
-                        description="Aucune alerte en attente : KYC, litiges et bannissements sont à jour."
-                      />
+                      <div className="px-5 py-8 text-center">
+                        <CheckCircle size={22} className="mx-auto mb-2 text-white/70" />
+                        <p className="text-sm font-bold text-white">Tout est calme</p>
+                        <p className="text-xs text-white/60">
+                          Aucune alerte en attente : KYC, litiges et bannissements sont à jour.
+                        </p>
+                      </div>
                     ) : (
                       alertItems.map((a) => (
                         <button
                           key={a.key}
                           onClick={() => setActiveTab(a.tab)}
-                          className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-background-secondary"
+                          className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-white/5"
                         >
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#F0E9DD]">
-                            <a.icon size={16} className="text-[#241F1B]" />
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-white/10">
+                            <a.icon size={16} className="text-white" />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-[13px] font-bold text-text-primary">{a.title}</span>
-                            <span className="block truncate text-xs text-text-secondary">{a.desc}</span>
+                            <span className="block text-[13px] font-bold text-white">{a.title}</span>
+                            <span className="block truncate text-xs text-white/60">{a.desc}</span>
                           </span>
-                          <span className="shrink-0 rounded-full bg-[#F0E9DD] px-2.5 py-1 text-[11.5px] font-bold text-text-primary">
+                          <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11.5px] font-bold text-[#241F1B]">
                             {a.count}
                           </span>
                         </button>
