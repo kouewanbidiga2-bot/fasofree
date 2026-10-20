@@ -70,9 +70,10 @@
     @apply rounded-card;
   }
 
-  /* ===== BUTTONS ===== */
+  /* ===== BUTTONS =====
+     Cibles tactiles ≥ 48 px (usage mobile intensif — Business/Livreur) */
   .btn-primary {
-    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply flex items-center justify-center gap-2 px-5 py-3.5 text-[15px] font-semibold text-white rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
     background: #C1652E;
   }
   .btn-primary:hover:not(:disabled) {
@@ -80,16 +81,16 @@
   }
 
   .btn-secondary {
-    @apply flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-text-primary border border-border-medium rounded-xl transition-all duration-200 hover:bg-background-secondary hover:border-border-dark active:scale-[0.98];
+    @apply flex items-center justify-center gap-2 px-5 py-3.5 text-[15px] font-semibold text-text-primary border border-border-medium rounded-xl transition-all duration-200 hover:bg-background-secondary hover:border-border-dark active:scale-[0.98];
     background: #FFFFFF;
   }
 
   .btn-ghost {
-    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-text-secondary rounded-xl transition-all duration-200 hover:text-text-primary hover:bg-background-tertiary active:scale-[0.98];
+    @apply flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-text-secondary rounded-xl transition-all duration-200 hover:text-text-primary hover:bg-background-tertiary active:scale-[0.98];
   }
 
   .btn-danger {
-    @apply flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-status-error border border-status-error/30 rounded-xl transition-all duration-200 hover:bg-status-errorBg active:scale-[0.98];
+    @apply flex items-center justify-center gap-2 px-4 py-3 text-[15px] font-medium text-status-error border border-status-error/30 rounded-xl transition-all duration-200 hover:bg-status-errorBg active:scale-[0.98];
   }
 
   .btn-icon {
@@ -216,7 +217,7 @@
     @apply flex gap-1 border-b border-border-light;
   }
   .tab-btn {
-    @apply px-4 py-2.5 text-sm font-medium text-text-secondary transition-colors duration-150 border-b-2 border-transparent -mb-px whitespace-nowrap;
+    @apply px-4 py-3 text-[13.5px] font-medium text-text-secondary transition-colors duration-150 border-b-2 border-transparent -mb-px whitespace-nowrap;
   }
   .tab-btn:hover {
     @apply text-text-primary;

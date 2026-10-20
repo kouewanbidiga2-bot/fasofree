@@ -683,7 +683,7 @@ const DriverDashboard = () => {
             </div>
             <div>
               <p className="text-text-primary font-bold text-sm">FasoFree</p>
-              <p className="text-text-tertiary text-xs">Dashboard Livreur</p>
+              <p className="text-text-tertiary text-[13px]">Dashboard Livreur</p>
             </div>
           </div>
         </div>
@@ -698,8 +698,8 @@ const DriverDashboard = () => {
               </div>
             )}
             <div className="min-w-0">
-              <p className="text-text-primary text-xs font-semibold truncate">{user?.fullName || 'Livreur'}</p>
-              <p className="text-text-tertiary text-xs truncate">{user?.phone || ''}</p>
+              <p className="text-text-primary text-[13px] font-semibold truncate">{user?.fullName || 'Livreur'}</p>
+              <p className="text-text-tertiary text-[13px] truncate">{user?.phone || ''}</p>
             </div>
           </div>
         </div>
@@ -733,7 +733,7 @@ const DriverDashboard = () => {
                 <Icon size={16} strokeWidth={1.5} />
                 <span className="flex-1 text-left">{tab.label}</span>
                 {tab.badge > 0 && (
-                  <span className="w-5 h-5 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 bg-accent-primary text-white text-[11px] rounded-full flex items-center justify-center font-bold">
                     {tab.badge}
                   </span>
                 )}
@@ -745,7 +745,7 @@ const DriverDashboard = () => {
         <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={13} className="text-accent-primary" />
-            <span className="text-text-tertiary text-xs">Portefeuille</span>
+            <span className="text-text-tertiary text-[13px]">Portefeuille</span>
           </div>
           {loading.wallet || !wallet ? (
             <div className="h-5 w-24 animate-pulse rounded bg-background-tertiary" />
@@ -774,7 +774,7 @@ const DriverDashboard = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={toggleDriverStatus}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-bold transition-colors ${
                 driverStatus === DriverStatus.ONLINE
                   ? 'bg-status-success text-white'
                   : 'bg-background-secondary text-text-secondary border border-border-light'
@@ -803,7 +803,7 @@ const DriverDashboard = () => {
               >
                 <Icon size={14} strokeWidth={1.5} />
                 {tab.label}
-                {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center">{tab.badge}</span>}
+                {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-[11px] rounded-full flex items-center justify-center">{tab.badge}</span>}
               </button>
             );
           })}
@@ -816,7 +816,7 @@ const DriverDashboard = () => {
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-xl font-bold text-text-primary">Courses Disponibles</h1>
-                <button onClick={loadAvailableJobs} className="btn-secondary gap-2 text-xs">
+                <button onClick={loadAvailableJobs} className="btn-secondary gap-2">
                   <RefreshCw size={12} className={loading.jobs ? 'animate-spin' : ''} />
                 </button>
               </div>
@@ -838,7 +838,7 @@ const DriverDashboard = () => {
                   <div className="flex items-center gap-2 mb-3">
                     <Navigation size={16} className="text-accent-primary" />
                     <h2 className="font-bold text-text-primary">Course en cours</h2>
-                    <span className="ml-auto px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-primary/20 text-accent-primary">
+                    <span className="ml-auto px-2 py-0.5 text-[13px] font-semibold rounded-full bg-accent-primary/20 text-accent-primary">
                       {STATUS_LABELS[currentJobStatus] || currentJobStatus}
                     </span>
                   </div>
@@ -847,7 +847,7 @@ const DriverDashboard = () => {
                   <div className="flex items-center gap-1 mb-4">
                     {STATUS_PROGRESS.map((status, i) => (
                       <React.Fragment key={status}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-bold ${
                           i <= currentStepIndex ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-tertiary'
                         }`}>
                           {i < currentStepIndex ? <CheckCircle size={12} /> : i + 1}
@@ -865,9 +865,9 @@ const DriverDashboard = () => {
                         <Package size={14} className="text-status-success" />
                       </div>
                       <div>
-                        <p className="text-xs text-text-secondary">Retrait</p>
+                        <p className="text-[13px] text-text-secondary">Retrait</p>
                         <p className="text-sm font-semibold text-text-primary">{currentJob.pickupAddress}</p>
-                        <p className="text-xs text-text-tertiary">{currentJob.businessName}</p>
+                        <p className="text-[13px] text-text-tertiary">{currentJob.businessName}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
@@ -875,9 +875,9 @@ const DriverDashboard = () => {
                         <MapPin size={14} className="text-accent-primary" />
                       </div>
                       <div>
-                        <p className="text-xs text-text-secondary">Livraison</p>
+                        <p className="text-[13px] text-text-secondary">Livraison</p>
                         <p className="text-sm font-semibold text-text-primary">{currentJob.deliveryAddress}</p>
-                        <p className="text-xs text-text-tertiary">{currentJob.customerName}</p>
+                        <p className="text-[13px] text-text-tertiary">{currentJob.customerName}</p>
                       </div>
                     </div>
 
@@ -963,9 +963,9 @@ const DriverDashboard = () => {
                               <Package size={14} className="text-status-success" />
                             </div>
                             <div>
-                              <p className="text-xs text-text-secondary">Retrait</p>
+                              <p className="text-[13px] text-text-secondary">Retrait</p>
                               <p className="text-sm font-semibold text-text-primary">{job.pickupAddress}</p>
-                              <p className="text-xs text-text-tertiary">{job.businessName}</p>
+                              <p className="text-[13px] text-text-tertiary">{job.businessName}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -973,7 +973,7 @@ const DriverDashboard = () => {
                               <MapPin size={14} className="text-accent-primary" />
                             </div>
                             <div>
-                              <p className="text-xs text-text-secondary">Livraison</p>
+                              <p className="text-[13px] text-text-secondary">Livraison</p>
                               <p className="text-sm font-semibold text-text-primary">{job.deliveryAddress}</p>
                             </div>
                           </div>
@@ -1015,7 +1015,7 @@ const DriverDashboard = () => {
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-xl font-bold text-text-primary">Vos Gains</h1>
-                <button onClick={loadEarnings} className="btn-secondary gap-2 text-xs">
+                <button onClick={loadEarnings} className="btn-secondary gap-2">
                   <RefreshCw size={12} className={loading.earnings ? 'animate-spin' : ''} />
                 </button>
               </div>
@@ -1056,7 +1056,7 @@ const DriverDashboard = () => {
                       <div key={tx.id || i} className="card p-4 flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-text-primary">{tx.description || tx.type || 'Transaction'}</p>
-                          <p className="text-xs text-text-tertiary">
+                          <p className="text-[13px] text-text-tertiary">
                             {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString('fr-FR') : '—'}
                           </p>
                         </div>
@@ -1077,7 +1077,7 @@ const DriverDashboard = () => {
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-xl font-bold text-text-primary">Messages</h1>
                 {currentJob && chatOpen && (
-                  <button onClick={() => setChatOpen(false)} className="btn-secondary gap-2 text-xs">
+                  <button onClick={() => setChatOpen(false)} className="btn-secondary gap-2">
                     <XCircle size={12} /> Fermer
                   </button>
                 )}
@@ -1124,13 +1124,13 @@ const DriverDashboard = () => {
                         <p className="text-sm font-bold text-text-primary">
                           Commande #{currentJob.orderId?.slice(-8)}
                         </p>
-                        <p className="text-xs text-text-tertiary">
+                        <p className="text-[13px] text-text-tertiary">
                           {currentJob.customerName || 'Client'} — {currentJob.businessName || 'Restaurant'}
                         </p>
                       </div>
                     </div>
                     {chatClosed && (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-background-secondary text-text-secondary">
+                      <span className="px-2 py-1 text-[13px] font-semibold rounded-full bg-background-secondary text-text-secondary">
                         Discussion fermée
                       </span>
                     )}
@@ -1140,7 +1140,7 @@ const DriverDashboard = () => {
                     {chatHistory.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full text-text-tertiary">
                         <MessageSquare size={24} className="mb-2 opacity-40" />
-                        <p className="text-xs">Aucun message. Commencez la conversation !</p>
+                        <p className="text-[13px]">Aucun message. Commencez la conversation !</p>
                       </div>
                     ) : (
                       chatHistory.map((msg, i) => {
@@ -1174,7 +1174,7 @@ const DriverDashboard = () => {
 
                   {chatClosed ? (
                     <div className="border-t border-border-light pt-3 text-center">
-                      <p className="text-xs text-text-tertiary">Cette discussion est fermée (commande terminée).</p>
+                      <p className="text-[13px] text-text-tertiary">Cette discussion est fermée (commande terminée).</p>
                     </div>
                   ) : (
                     <div className="flex gap-2 border-t border-border-light pt-3">
@@ -1205,7 +1205,7 @@ const DriverDashboard = () => {
             <div className="animate-slide-up">
               <div className="flex items-center justify-between mb-6">
                 <h1 className="text-xl font-bold text-text-primary">Historique des Livraisons</h1>
-                <button onClick={loadDeliveryHistory} className="btn-secondary gap-2 text-xs">
+                <button onClick={loadDeliveryHistory} className="btn-secondary gap-2">
                   <RefreshCw size={12} className={loading.history ? 'animate-spin' : ''} />
                 </button>
               </div>
@@ -1232,9 +1232,9 @@ const DriverDashboard = () => {
                       <div className="flex items-start justify-between mb-3">
                         <div>
                           <h3 className="font-bold text-text-primary text-sm">{delivery.customerName}</h3>
-                          <p className="text-xs text-text-secondary">{delivery.deliveryAddress}</p>
+                          <p className="text-[13px] text-text-secondary">{delivery.deliveryAddress}</p>
                           {delivery.deliveredAt && (
-                            <p className="text-xs text-text-tertiary mt-1">
+                            <p className="text-[13px] text-text-tertiary mt-1">
                               {new Date(delivery.deliveredAt).toLocaleDateString('fr-FR')} à {new Date(delivery.deliveredAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           )}
@@ -1244,12 +1244,12 @@ const DriverDashboard = () => {
                           {delivery.rating > 0 && (
                             <div className="flex items-center gap-1 mt-1">
                               <Star size={12} className="text-[#C1652E] fill-[#C1652E]" />
-                              <span className="text-xs font-semibold text-text-primary">{delivery.rating}/5</span>
+                              <span className="text-[13px] font-semibold text-text-primary">{delivery.rating}/5</span>
                             </div>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-text-secondary">
+                      <div className="flex items-center gap-4 text-[13px] text-text-secondary">
                         <span>Frais: {(delivery.deliveryFee || 0).toLocaleString()} FCFA</span>
                         {delivery.tip > 0 && <span>Pourboire: {delivery.tip.toLocaleString()} FCFA</span>}
                       </div>
@@ -1278,7 +1278,7 @@ const DriverDashboard = () => {
                 {suspendu && (
                   <div className="rounded-lg border border-status-error/30 bg-status-errorBg p-4 text-sm text-status-error">
                     <p className="font-semibold">Vous êtes suspendu du dispatch.</p>
-                    <p className="mt-1 text-xs">
+                    <p className="mt-1 text-[13px]">
                       Aucune nouvelle course ne vous sera proposée pendant la durée de la
                       suspension. Motif :{' '}
                       {activePenalties.find((p) => p.level === 'SUSPENSION')?.reason || 'non précisé'}.
@@ -1313,7 +1313,7 @@ const DriverDashboard = () => {
                     <h3 className="text-sm font-semibold text-text-primary">
                       Ma course en cours
                     </h3>
-                    <p className="text-xs text-text-secondary">
+                    <p className="text-[13px] text-text-secondary">
                       {currentJob
                         ? `${currentJob.pickupAddress} → ${currentJob.deliveryAddress}`
                         : 'Aucune course active.'}
@@ -1348,7 +1348,7 @@ const DriverDashboard = () => {
                         pathOptions={{ color: '#22C55E', fillColor: '#22C55E', fillOpacity: 0.85 }}
                       >
                         <Popup>
-                          <div className="text-xs">
+                          <div className="text-[13px]">
                             <p className="font-semibold">Ramassage</p>
                             <p>{currentJob.pickupAddress}</p>
                           </div>
@@ -1363,7 +1363,7 @@ const DriverDashboard = () => {
                         pathOptions={{ color: '#F59E0B', fillColor: '#F59E0B', fillOpacity: 0.85 }}
                       >
                         <Popup>
-                          <div className="text-xs">
+                          <div className="text-[13px]">
                             <p className="font-semibold">Destination</p>
                             <p>{currentJob.deliveryAddress}</p>
                           </div>
@@ -1379,7 +1379,7 @@ const DriverDashboard = () => {
                     <h3 className="text-sm font-semibold text-text-primary">
                       Mes dernières livraisons
                     </h3>
-                    <p className="text-xs text-text-secondary">
+                    <p className="text-[13px] text-text-secondary">
                       ETA estimée par FasoFree, durée réelle constatée, retard au-delà de
                       la tolérance de +25 %.
                     </p>
@@ -1413,7 +1413,7 @@ const DriverDashboard = () => {
                                   : '—'}
                               </p>
                             </div>
-                            <span className="text-xs text-text-secondary">
+                            <span className="text-[13px] text-text-secondary">
                               ETA {Math.round(d.deliveryEtaMinutes || 0)} min · réelle{' '}
                               {Math.round(d.deliveryDurationMinutes || 0)} min
                             </span>
@@ -1437,7 +1437,7 @@ const DriverDashboard = () => {
                 <div className="card overflow-hidden">
                   <div className="px-4 py-3 border-b border-border-light">
                     <h3 className="text-sm font-semibold text-text-primary">Mes sanctions</h3>
-                    <p className="text-xs text-text-secondary">
+                    <p className="text-[13px] text-text-secondary">
                       Historique conservé : une sanction se révoque ou expire, elle
                       n&apos;est jamais effacée.
                     </p>
@@ -1464,7 +1464,7 @@ const DriverDashboard = () => {
                                   ? 'Priorité baissée'
                                   : 'Avertissement'}
                             </span>
-                            <span className="text-xs text-text-tertiary">
+                            <span className="text-[13px] text-text-tertiary">
                               {p.createdAt
                                 ? new Date(p.createdAt).toLocaleDateString('fr-FR')
                                 : ''}
@@ -1476,7 +1476,7 @@ const DriverDashboard = () => {
                             )}
                           </div>
                           {p.reason && (
-                            <p className="mt-1 text-xs text-text-secondary">{p.reason}</p>
+                            <p className="mt-1 text-[13px] text-text-secondary">{p.reason}</p>
                           )}
                           {p.active && p.effectiveUntil && (
                             <p className="mt-0.5 text-[11px] text-text-tertiary">
@@ -1500,7 +1500,7 @@ const DriverDashboard = () => {
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Photo de profil</h3>
-                  <p className="text-text-secondary text-xs mb-4">Visible par les clients lors des livraisons.</p>
+                  <p className="text-text-secondary text-[13px] mb-4">Visible par les clients lors des livraisons.</p>
                   <div className="flex items-center gap-4">
                     <div className="relative">
                       {avatarUrl ? (
@@ -1522,7 +1522,7 @@ const DriverDashboard = () => {
                       <button
                         onClick={() => !avatarUploading && avatarFileRef.current?.click()}
                         disabled={avatarUploading}
-                        className="btn-secondary w-full flex items-center justify-center gap-2 text-xs py-2 disabled:opacity-50"
+                        className="btn-secondary w-full flex items-center justify-center gap-2 disabled:opacity-50"
                       >
                         {avatarUploading ? (
                           <span className="w-3.5 h-3.5 border-2 border-text-secondary/30 border-t-text-secondary rounded-full animate-spin" />
@@ -1533,11 +1533,11 @@ const DriverDashboard = () => {
                       </button>
                     </div>
                   </div>
-                  {errors.avatar && <p className="text-xs text-status-error mt-2">{errors.avatar}</p>}
+                  {errors.avatar && <p className="text-[13px] text-status-error mt-2">{errors.avatar}</p>}
                 </div>
                 <div className="card p-5">
                   <h3 className="font-bold text-text-primary mb-2">Véhicule</h3>
-                  <p className="text-text-secondary text-xs mb-4">Type de véhicule et informations.</p>
+                  <p className="text-text-secondary text-[13px] mb-4">Type de véhicule et informations.</p>
                   <button disabled className="btn-secondary w-full opacity-50">Bientôt disponible</button>
                 </div>
               </div>

@@ -264,8 +264,8 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
 
         <div className="mb-4 p-3 bg-background-secondary rounded-lg">
           <p className="text-sm font-semibold text-text-primary">{product.name}</p>
-          <p className="text-xs text-text-secondary">Stock actuel: {product.stockQuantity}</p>
-          <p className="text-xs text-text-secondary">SKU: {product.sku}</p>
+          <p className="text-[13px] text-text-secondary">Stock actuel: {product.stockQuantity}</p>
+          <p className="text-[13px] text-text-secondary">SKU: {product.sku}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -278,7 +278,7 @@ const StockAdjustmentModal = ({ product, onSave, onClose }) => {
               onChange={e => setQuantity(Number(e.target.value))} 
               placeholder="Entrez un nombre positif ou négatif"
             />
-            <p className="text-xs text-text-tertiary mt-1">Positif = ajout, Négatif = retrait</p>
+            <p className="text-[13px] text-text-tertiary mt-1">Positif = ajout, Négatif = retrait</p>
           </div>
           <div>
             <label className="block text-[12px] font-semibold text-text-secondary mb-1.5">Raison</label>
@@ -1034,7 +1034,7 @@ const BusinessAdminDashboard = () => {
             </div>
             <div>
               <p className="text-text-primary font-bold text-sm">FasoFree</p>
-              <p className="text-text-tertiary text-xs">Dashboard Commerçant</p>
+              <p className="text-text-tertiary text-[13px]">Dashboard Commerçant</p>
             </div>
           </div>
         </div>
@@ -1045,8 +1045,8 @@ const BusinessAdminDashboard = () => {
               {(user?.fullName || user?.name || 'U').charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <p className="text-text-primary text-xs font-semibold truncate">{user?.fullName || user?.name || 'Commerçant'}</p>
-              <p className="text-text-tertiary text-xs truncate">{user?.email || ''}</p>
+              <p className="text-text-primary text-[13px] font-semibold truncate">{user?.fullName || user?.name || 'Commerçant'}</p>
+              <p className="text-text-tertiary text-[13px] truncate">{user?.email || ''}</p>
             </div>
           </div>
         </div>
@@ -1063,7 +1063,7 @@ const BusinessAdminDashboard = () => {
                 <Icon size={16} strokeWidth={1.5} />
                 <span className="flex-1 text-left">{tab.label}</span>
                 {tab.badge > 0 && (
-                  <span className="w-5 h-5 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 bg-accent-primary text-white text-[11px] rounded-full flex items-center justify-center font-bold">
                     {tab.badge}
                   </span>
                 )}
@@ -1075,7 +1075,7 @@ const BusinessAdminDashboard = () => {
         <div className="p-4 mx-3 mb-3 rounded-lg" style={{ background: 'rgba(193,101,46,0.08)', border: '1px solid rgba(193,101,46,0.15)' }}>
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={13} className="text-accent-primary" />
-            <span className="text-text-tertiary text-xs">Portefeuille</span>
+            <span className="text-text-tertiary text-[13px]">Portefeuille</span>
           </div>
           <p className="text-text-primary text-sm font-bold">
             {(selectedBranchId
@@ -1083,7 +1083,7 @@ const BusinessAdminDashboard = () => {
               : (brandWallets?.totalBalance ?? wallet?.balance ?? 0)
             ).toLocaleString()} FCFA
           </p>
-          <p className="text-text-tertiary text-[10px]">
+          <p className="text-text-tertiary text-[11.5px]">
             {selectedBranchId ? 'Agence sélectionnée' : 'Total toutes agences'}
           </p>
           {/* 💳 Sans recharge possible, aucune campagne payante ne peut être
@@ -1121,11 +1121,11 @@ const BusinessAdminDashboard = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`tab-btn flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap ${activeTab === tab.id ? 'active' : ''}`}
+                className={`tab-btn flex-shrink-0 flex min-h-[44px] items-center gap-1.5 px-4 py-3 rounded-xl text-[13.5px] font-medium whitespace-nowrap ${activeTab === tab.id ? 'active' : ''}`}
               >
                 <Icon size={14} strokeWidth={1.5} />
-                <span className="text-xs">{tab.label}</span>
-                {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-xs rounded-full flex items-center justify-center">{tab.badge}</span>}
+                <span className="text-[13px]">{tab.label}</span>
+                {tab.badge > 0 && <span className="w-4 h-4 bg-accent-primary text-white text-[11px] rounded-full flex items-center justify-center">{tab.badge}</span>}
               </button>
             );
           })}
@@ -1180,7 +1180,7 @@ const BusinessAdminDashboard = () => {
                   <div className="flex items-center justify-between mb-3 ml-1">
                     <h3 className="text-[13.5px] font-bold text-text-primary">Agences</h3>
                     {brandWallets && (
-                      <span className="text-xs text-text-secondary">
+                      <span className="text-[13px] text-text-secondary">
                         Total toutes agences : <strong>{(brandWallets.totalBalance || 0).toLocaleString()} FCFA</strong>
                       </span>
                     )}
@@ -1215,7 +1215,7 @@ const BusinessAdminDashboard = () => {
                       </div>
                     ))}
                     {lowStockAlerts.length > 3 && (
-                      <button onClick={() => setActiveTab('products')} className="text-accent-primary text-xs font-semibold">
+                      <button onClick={() => setActiveTab('products')} className="text-accent-primary text-[13px] font-semibold">
                         Voir les {lowStockAlerts.length - 3} autres alertes
                       </button>
                     )}
@@ -1263,7 +1263,7 @@ const BusinessAdminDashboard = () => {
                     {sla.total} livraison(s) terminée(s)
                   </span>
                 </div>
-                <p className="text-xs text-text-secondary mb-4">
+                <p className="text-[13px] text-text-secondary mb-4">
                   Retard constaté au-delà de +25 % de l&apos;ETA estimée. Une livraison
                   en retard déclenche un avertissement automatique pour le livreur.
                 </p>
@@ -1301,7 +1301,7 @@ const BusinessAdminDashboard = () => {
               <div className="card p-5 mb-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-bold text-text-primary">Commandes récentes</h2>
-                  <button onClick={() => setActiveTab('orders')} className="text-accent-primary text-xs font-semibold">
+                  <button onClick={() => setActiveTab('orders')} className="text-accent-primary text-[13px] font-semibold">
                     Voir tout
                   </button>
                 </div>
@@ -1313,13 +1313,13 @@ const BusinessAdminDashboard = () => {
                           <ShoppingBag size={14} className="text-accent-primary" />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold text-text-primary">#{order.id?.slice(-6)}</p>
-                          <p className="text-[10px] text-text-secondary">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR') : '—'}</p>
+                          <p className="text-[13px] font-semibold text-text-primary">#{order.id?.slice(-6)}</p>
+                          <p className="text-[11.5px] text-text-secondary">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('fr-FR') : '—'}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <StatusBadge status={order.status} />
-                        <p className="text-[10px] text-text-tertiary mt-1">{order.totalAmount?.toLocaleString()} FCFA</p>
+                        <p className="text-[11.5px] text-text-tertiary mt-1">{order.totalAmount?.toLocaleString()} FCFA</p>
                       </div>
                     </div>
                   ))}
@@ -1337,7 +1337,7 @@ const BusinessAdminDashboard = () => {
                 <h1 className="text-xl font-bold text-text-primary">Gestion des Commandes</h1>
                 <div className="flex gap-2">
                   <select 
-                    className="input-field py-1.5 text-xs"
+                    className="input-field py-1.5 text-[13px]"
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                   >
@@ -1353,7 +1353,7 @@ const BusinessAdminDashboard = () => {
                     <option value="COMPLETED">Terminées</option>
                     <option value="CANCELLED">Annulées</option>
                   </select>
-                  <button onClick={loadOrders} className="btn-secondary gap-2 text-xs">
+                  <button onClick={loadOrders} className="btn-secondary gap-2">
                     <RefreshCw size={12} className={loading.orders ? 'animate-spin' : ''} />
                   </button>
                 </div>
@@ -1387,7 +1387,7 @@ const BusinessAdminDashboard = () => {
                         <div className="flex items-start justify-between mb-4">
                           <div>
                             <h3 className="font-bold text-text-primary">Commande #{order.id?.slice(-6)}</h3>
-                            <p className="text-xs text-text-secondary">
+                            <p className="text-[13px] text-text-secondary">
                               {new Date(order.createdAt).toLocaleDateString('fr-FR')} à {new Date(order.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
@@ -1399,18 +1399,18 @@ const BusinessAdminDashboard = () => {
 
                         <div className="grid grid-cols-2 gap-4 mt-4 mb-4">
                           <div className="p-3 bg-background-secondary rounded-lg">
-                            <p className="text-xs text-text-secondary">Client</p>
+                            <p className="text-[13px] text-text-secondary">Client</p>
                             <p className="text-sm font-semibold text-text-primary">{order.customerName || 'N/A'}</p>
                           </div>
                           <div className="p-3 bg-background-secondary rounded-lg">
-                            <p className="text-xs text-text-secondary">Total</p>
+                            <p className="text-[13px] text-text-secondary">Total</p>
                             <p className="text-sm font-semibold text-text-primary">{order.totalAmount?.toLocaleString()} FCFA</p>
                           </div>
                         </div>
 
                         {order.deliveryProvider && (
                           <div className="mb-4 p-3 bg-background-secondary rounded-lg">
-                            <p className="text-xs text-text-secondary">
+                            <p className="text-[13px] text-text-secondary">
                               Livraison confiée à
                             </p>
                             {/* 🏢 Lot 1 : quand une société de livraison a pris
@@ -1427,7 +1427,7 @@ const BusinessAdminDashboard = () => {
                                   />
                                 ) : (
                                   <div
-                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0"
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[13px] font-bold shrink-0"
                                     style={{
                                       backgroundColor:
                                         order.agency.brandColor || '#C1652E',
@@ -1463,7 +1463,7 @@ const BusinessAdminDashboard = () => {
                               </p>
                             )}
                             {order.deliveryProviderStatus === 'ESCALATED' && (
-                              <span className="text-xs text-status-error">
+                              <span className="text-[13px] text-status-error">
                                 · escaladée
                               </span>
                             )}
@@ -1476,7 +1476,7 @@ const BusinessAdminDashboard = () => {
                             {order.status === 'READY_FOR_PICKUP' && (
                               <button
                                 onClick={() => openDriverModal(order)}
-                                className="text-xs py-2 px-3 rounded-lg border border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10 transition-colors font-medium"
+                                className="text-[13px] py-2 px-3 rounded-lg border border-accent-primary/30 text-accent-primary hover:bg-accent-primary/10 transition-colors font-medium"
                               >
                                 Assigner un livreur
                               </button>
@@ -1486,7 +1486,7 @@ const BusinessAdminDashboard = () => {
                                 key={status}
                                 onClick={() => handleUpdateStatus(order.id, status)}
                                 disabled={updating[order.id]}
-                                className="btn-primary text-xs py-2 px-3"
+                                className="btn-primary px-3"
                               >
                                 {updating[order.id] ? '...' : getStatusInfo(status).label}
                               </button>
@@ -1510,7 +1510,7 @@ const BusinessAdminDashboard = () => {
                 <h1 className="text-xl font-bold text-text-primary">Stock & Catalogue</h1>
                 <div className="flex gap-2">
                   <select 
-                    className="input-field py-1.5 text-xs"
+                    className="input-field py-1.5 text-[13px]"
                     value={productTypeFilter}
                     onChange={(e) => setProductTypeFilter(e.target.value)}
                   >
@@ -1520,10 +1520,10 @@ const BusinessAdminDashboard = () => {
                     <option value={ProductType.PHARMACY}>Pharmacie</option>
                     <option value={ProductType.SERVICE}>Services</option>
                   </select>
-                  <button onClick={() => setProductModal('new')} className="btn-primary gap-2 text-xs">
+                  <button onClick={() => setProductModal('new')} className="btn-primary gap-2">
                     <Plus size={12} /> Nouveau produit
                   </button>
-                  <button onClick={loadProducts} className="btn-secondary gap-2 text-xs">
+                  <button onClick={loadProducts} className="btn-secondary gap-2">
                     <RefreshCw size={12} className={loading.products ? 'animate-spin' : ''} />
                   </button>
                 </div>
@@ -1553,7 +1553,7 @@ const BusinessAdminDashboard = () => {
                           <span className="text-status-warning font-semibold text-sm">{product.stockQuantity}</span>
                           <button 
                             onClick={() => setStockModal(product)}
-                            className="btn-icon text-xs"
+                            className="btn-icon text-[13px]"
                           >
                             <Plus size={12} />
                           </button>
@@ -1599,15 +1599,15 @@ const BusinessAdminDashboard = () => {
                                 )}
                                 <div>
                                   <p className="font-bold text-text-primary text-sm">{product.name}</p>
-                                  <p className="text-text-tertiary text-xs">{product.category}</p>
+                                  <p className="text-text-tertiary text-[13px]">{product.category}</p>
                                 </div>
                               </div>
                             </td>
                             <td>
-                              <span className="text-xs font-mono text-text-secondary">{product.sku || '—'}</span>
+                              <span className="text-[13px] font-mono text-text-secondary">{product.sku || '—'}</span>
                             </td>
                             <td>
-                              <span className="text-xs text-text-secondary">{product.type}</span>
+                              <span className="text-[13px] text-text-secondary">{product.type}</span>
                             </td>
                             <td>
                               <span className="text-sm font-semibold text-text-primary">{product.price?.toLocaleString()} FCFA</span>
@@ -1622,13 +1622,13 @@ const BusinessAdminDashboard = () => {
                                   </span>
                                   <button 
                                     onClick={() => setStockModal(product)}
-                                    className="btn-icon text-xs"
+                                    className="btn-icon text-[13px]"
                                   >
                                     <Plus size={10} />
                                   </button>
                                 </div>
                               ) : (
-                                <span className="text-xs text-text-tertiary">N/A</span>
+                                <span className="text-[13px] text-text-tertiary">N/A</span>
                               )}
                             </td>
                             <td>
@@ -1694,7 +1694,7 @@ const BusinessAdminDashboard = () => {
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-text-primary">Votre lien de suivi</p>
-                        <p className="text-text-tertiary text-xs">Partagez-le sur WhatsApp, TikTok, QR Code…</p>
+                        <p className="text-text-tertiary text-[13px]">Partagez-le sur WhatsApp, TikTok, QR Code…</p>
                       </div>
                     </div>
                     <div className="flex gap-2 flex-wrap">
@@ -1735,7 +1735,7 @@ const BusinessAdminDashboard = () => {
                         WhatsApp
                       </a>
                     </div>
-                    <p className="text-text-tertiary text-xs">
+                    <p className="text-text-tertiary text-[13px]">
                       Code affilié : <code className="font-mono text-text-primary">{affiliateData.link?.code || '—'}</code>
                     </p>
                   </div>
@@ -1801,10 +1801,10 @@ const BusinessAdminDashboard = () => {
                 <div className="card p-12 text-center">
                   <Share2 size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
                   <p className="text-text-secondary text-sm font-medium">Aucune donnée d'affiliation</p>
-                  <p className="text-text-tertiary text-xs mt-1">Votre lien de suivi sera généré automatiquement.</p>
+                  <p className="text-text-tertiary text-[13px] mt-1">Votre lien de suivi sera généré automatiquement.</p>
                   <button
                     onClick={() => { loadAffiliate(); }}
-                    className="btn-primary mt-4 flex items-center gap-2 mx-auto px-4 py-2"
+                    className="btn-primary mt-4 flex items-center gap-2 mx-auto px-4 py-3"
                   >
                     <RefreshCw size={14} />
                     Actualiser
@@ -1822,7 +1822,7 @@ const BusinessAdminDashboard = () => {
                 <h1 className="text-xl font-bold text-text-primary">Stories</h1>
                 <button
                   onClick={() => setStoryModal(true)}
-                  className="btn-primary flex items-center gap-2 px-4 py-2.5 text-sm"
+                  className="btn-primary flex items-center gap-2 px-4"
                 >
                   <Plus size={16} />
                   Nouvelle story
@@ -1843,7 +1843,7 @@ const BusinessAdminDashboard = () => {
                 <div className="card p-12 text-center">
                   <Camera size={40} className="mx-auto text-text-tertiary mb-4" strokeWidth={1} />
                   <p className="text-text-secondary text-sm font-medium">Aucune story active sur vos agences</p>
-                  <p className="text-text-tertiary text-xs mt-1">Vos stories durent 24 h et apparaissent sur l'accueil client.</p>
+                  <p className="text-text-tertiary text-[13px] mt-1">Vos stories durent 24 h et apparaissent sur l'accueil client.</p>
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -1854,7 +1854,7 @@ const BusinessAdminDashboard = () => {
                           <img src={group.businessImage} alt="" className="w-8 h-8 rounded-full object-cover" />
                         ) : (
                           <div className="w-8 h-8 rounded-full bg-accent-primary/15 flex items-center justify-center">
-                            <span className="text-accent-primary text-xs font-bold">
+                            <span className="text-accent-primary text-[13px] font-bold">
                               {(group.businessName || 'FF').slice(0, 2).toUpperCase()}
                             </span>
                           </div>
@@ -1866,7 +1866,7 @@ const BusinessAdminDashboard = () => {
                           <div key={story.id} className="relative aspect-[9/16] rounded-xl overflow-hidden bg-background-secondary group">
                             <img src={story.mediaUrl} alt="" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                            <div className="absolute top-2 left-2 flex items-center gap-1 text-white/90 text-[10px]">
+                            <div className="absolute top-2 left-2 flex items-center gap-1 text-white/90 text-[11.5px]">
                               <Eye size={10} />
                               <span>{story.viewsCount || 0}</span>
                             </div>
@@ -1921,7 +1921,7 @@ const BusinessAdminDashboard = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-bold text-text-primary">Commande #{conv.orderId?.slice(-8)}</p>
-                          <p className="text-xs text-text-tertiary">{conv.messageCount || 0} messages</p>
+                          <p className="text-[13px] text-text-tertiary">{conv.messageCount || 0} messages</p>
                         </div>
                         <Clock size={14} className="text-text-tertiary" />
                       </div>
@@ -1938,7 +1938,7 @@ const BusinessAdminDashboard = () => {
                         <button
                           key={ch}
                           onClick={() => { setChatChannel(ch); handleViewChatHistory(selectedChatOrder, ch); }}
-                          className={`text-[10px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
+                          className={`text-[11.5px] px-2 py-1 rounded-full font-semibold transition ${chatChannel === ch ? 'bg-accent-primary text-white' : 'bg-background-secondary text-text-secondary hover:bg-background-tertiary'}`}
                         >
                           {ch === 'merchant' ? 'Marchand' : 'Livreur'}
                         </button>
@@ -1949,16 +1949,16 @@ const BusinessAdminDashboard = () => {
                     <LoadingSkeleton height="h-4" />
                   ) : (
                     <div className="space-y-3 max-h-96 overflow-y-auto mb-4">
-                      {chatHistory.length === 0 && <p className="text-xs text-text-tertiary">Aucun message</p>}
+                      {chatHistory.length === 0 && <p className="text-[13px] text-text-tertiary">Aucun message</p>}
                       {chatHistory.map((msg, i) => (
                         <div key={msg.id || i} className="flex gap-2">
-                          <div className="w-6 h-6 rounded-full bg-accent-primary text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          <div className="w-6 h-6 rounded-full bg-accent-primary text-white text-[11.5px] font-bold flex items-center justify-center shrink-0">
                             {(msg.senderRole || '?').charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <span className="text-[11px] font-semibold text-text-secondary">{msg.senderRole || 'system'}</span>
-                            <span className="text-[10px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
-                            <p className="text-xs text-text-secondary">{msg.message}</p>
+                            <span className="text-[11.5px] text-text-tertiary ml-2">{msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString('fr-FR') : msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString('fr-FR') : ''}</span>
+                            <p className="text-[13px] text-text-secondary">{msg.message}</p>
                           </div>
                         </div>
                       ))}
@@ -1971,12 +1971,12 @@ const BusinessAdminDashboard = () => {
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
                       placeholder="Écrire un message..."
-                      className="flex-1 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-xs text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
+                      className="flex-1 bg-background-secondary border border-border-light rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-accent-primary"
                     />
                     <button
                       onClick={handleSendChatMessage}
                       disabled={!chatInput.trim()}
-                      className="px-3 py-2 bg-accent-primary text-white text-xs font-semibold rounded-lg disabled:opacity-40 hover:bg-accent-primary/90 transition"
+                      className="px-3 py-2 bg-accent-primary text-white text-[13px] font-semibold rounded-lg disabled:opacity-40 hover:bg-accent-primary/90 transition"
                     >
                       Envoyer
                     </button>
@@ -2009,7 +2009,7 @@ const BusinessAdminDashboard = () => {
                   <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">Livraison à domicile</p>
-                      <p className="text-text-tertiary text-xs">FasoFree dispatche des livreurs</p>
+                      <p className="text-text-tertiary text-[13px]">FasoFree dispatche des livreurs</p>
                     </div>
                     <button
                       onClick={() => toggleSetting('enableDelivery')}
@@ -2026,7 +2026,7 @@ const BusinessAdminDashboard = () => {
                   <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">Click & Collect (À emporter)</p>
-                      <p className="text-text-tertiary text-xs">Clients viennent récupérer</p>
+                      <p className="text-text-tertiary text-[13px]">Clients viennent récupérer</p>
                     </div>
                     <button
                       onClick={() => toggleSetting('enablePickup')}
@@ -2043,7 +2043,7 @@ const BusinessAdminDashboard = () => {
                   <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">Consommation sur place</p>
-                      <p className="text-text-tertiary text-xs">Réservations de tables</p>
+                      <p className="text-text-tertiary text-[13px]">Réservations de tables</p>
                     </div>
                     <button
                       onClick={() => toggleSetting('enableDineIn')}
@@ -2060,7 +2060,7 @@ const BusinessAdminDashboard = () => {
                   <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg">
                     <div>
                       <p className="font-semibold text-text-primary text-sm">Utiliser mes propres livreurs</p>
-                      <p className="text-text-tertiary text-xs">Pas de dispatch FasoFree</p>
+                      <p className="text-text-tertiary text-[13px]">Pas de dispatch FasoFree</p>
                     </div>
                     <button
                       onClick={() => toggleSetting('hasOwnDrivers')}
@@ -2082,7 +2082,7 @@ const BusinessAdminDashboard = () => {
                   <Clock size={16} className="text-accent-primary" />
                   Horaires d'ouverture
                 </h3>
-                <p className="text-text-tertiary text-xs mb-4">
+                <p className="text-text-tertiary text-[13px] mb-4">
                   Ces horaires affinent l'interrupteur « ouvert / fermé » : un commerce
                   ouvert mais hors de ses horaires refuse les commandes. Un jour sans
                   créneau est fermé. Laissez tout vide pour ne piloter que par
@@ -2103,7 +2103,7 @@ const BusinessAdminDashboard = () => {
                               className="input-field w-28"
                               aria-label={`Ouverture ${day.label}`}
                             />
-                            <span className="text-text-tertiary text-xs">à</span>
+                            <span className="text-text-tertiary text-[13px]">à</span>
                             <input
                               type="time"
                               value={slot.close}
@@ -2144,7 +2144,7 @@ const BusinessAdminDashboard = () => {
                   <Calendar size={16} className="text-accent-primary" />
                   Commandes à l'avance
                 </h3>
-                <p className="text-text-tertiary text-xs mb-4">
+                <p className="text-text-tertiary text-[13px] mb-4">
                   Permet au client de choisir sa date de livraison. La commande est payée
                   immédiatement mais n'est dispatchée qu'à l'heure choisie.
                 </p>
@@ -2152,7 +2152,7 @@ const BusinessAdminDashboard = () => {
                 <div className="flex items-center justify-between p-4 bg-background-secondary rounded-lg mb-4">
                   <div>
                     <p className="font-semibold text-text-primary text-sm">Accepter les commandes à l'avance</p>
-                    <p className="text-text-tertiary text-xs">Désactivé = livraison immédiate uniquement</p>
+                    <p className="text-text-tertiary text-[13px]">Désactivé = livraison immédiate uniquement</p>
                   </div>
                   <button
                     onClick={() =>
@@ -2171,7 +2171,7 @@ const BusinessAdminDashboard = () => {
                 {businessSettings.advanceOrderConfig?.enabled && (
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-text-tertiary mb-1">
+                      <label className="block text-[13px] font-semibold text-text-tertiary mb-1">
                         Délai minimum (heures)
                       </label>
                       <input
@@ -2187,7 +2187,7 @@ const BusinessAdminDashboard = () => {
                       </p>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-text-tertiary mb-1">
+                      <label className="block text-[13px] font-semibold text-text-tertiary mb-1">
                         Délai maximum (jours)
                       </label>
                       <input
@@ -2247,7 +2247,7 @@ const BusinessAdminDashboard = () => {
                   ))}
                 </select>
 
-                <label className="block text-xs font-semibold text-text-tertiary mt-4 mb-2">
+                <label className="block text-[13px] font-semibold text-text-tertiary mt-4 mb-2">
                   Sous-catégorie
                 </label>
                 <select
@@ -2283,7 +2283,7 @@ const BusinessAdminDashboard = () => {
               <button
                 onClick={handleSaveSettings}
                 disabled={settingsSaving}
-                className="btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {settingsSaving ? 'Sauvegarde...' : 'Sauvegarder les paramètres'}
               </button>
@@ -2339,8 +2339,8 @@ const BusinessAdminDashboard = () => {
                 ) : (
                   <div className="text-center">
                     <Camera size={32} className="mx-auto text-text-tertiary mb-2" strokeWidth={1} />
-                    <p className="text-xs text-text-secondary">Cliquez pour ajouter une image</p>
-                    <p className="text-[10px] text-text-tertiary mt-1">JPEG, PNG, WebP — max 5 Mo</p>
+                    <p className="text-[13px] text-text-secondary">Cliquez pour ajouter une image</p>
+                    <p className="text-[11.5px] text-text-tertiary mt-1">JPEG, PNG, WebP — max 5 Mo</p>
                   </div>
                 )}
                 <input
@@ -2359,12 +2359,12 @@ const BusinessAdminDashboard = () => {
                 className="input-field"
                 maxLength={280}
               />
-              {errors.stories && <p className="text-xs text-status-error">{errors.stories}</p>}
+              {errors.stories && <p className="text-[13px] text-status-error">{errors.stories}</p>}
               <div className="flex gap-2">
                 {storyPreview && (
                   <button
                     onClick={() => { setStoryFile(null); setStoryPreview(null); }}
-                    className="btn-secondary flex-1 py-2.5 text-sm"
+                    className="btn-secondary flex-1"
                   >
                     Changer
                   </button>
@@ -2372,7 +2372,7 @@ const BusinessAdminDashboard = () => {
                 <button
                   onClick={handleCreateStory}
                   disabled={!storyFile || storyUploading}
-                  className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50"
+                  className="btn-primary flex-1 disabled:opacity-50"
                 >
                   {storyUploading ? 'Publication...' : 'Publier'}
                 </button>
@@ -2389,7 +2389,7 @@ const BusinessAdminDashboard = () => {
             <div className="p-4 border-b border-border-light flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-text-primary">Assigner un livreur</h3>
-                <p className="text-xs text-text-secondary">Commande #{driverModal.id?.slice(-6)}</p>
+                <p className="text-[13px] text-text-secondary">Commande #{driverModal.id?.slice(-6)}</p>
               </div>
               <button onClick={() => setDriverModal(null)} className="p-1 rounded-lg hover:bg-background-secondary">
                 <XCircle size={18} className="text-text-secondary" />
@@ -2410,13 +2410,13 @@ const BusinessAdminDashboard = () => {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-text-primary">{driver.fullName || 'Livreur'}</p>
-                          <p className="text-xs text-text-secondary">{driver.phone || ''} {driver.vehicleType ? `· ${driver.vehicleType}` : ''}</p>
+                          <p className="text-[13px] text-text-secondary">{driver.phone || ''} {driver.vehicleType ? `· ${driver.vehicleType}` : ''}</p>
                         </div>
                       </div>
                       <button
                         onClick={() => handleAssignDriver(driver.id)}
                         disabled={assigningDriver === driver.id}
-                        className="btn-primary text-xs py-1.5 px-3"
+                        className="btn-primary px-3"
                       >
                         {assigningDriver === driver.id ? '...' : 'Assigner'}
                       </button>
