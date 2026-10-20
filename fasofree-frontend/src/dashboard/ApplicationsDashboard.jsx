@@ -19,6 +19,7 @@ import { StatCard, StatusBadge, LoadingSkeleton, EmptyState } from './components
 import PageHero from './components/PageHero';
 import { getApplications, approveApplication, rejectApplication } from '../services/onboardingService';
 import { getKycPending, getKycDocumentUrl } from '../services/kycService';
+import ImageUpload from '../components/ImageUpload';
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.fasofree.site/api/v1';
 const API_ORIGIN = API_URL.replace(/\/+$/, '').replace(/\/api\/v1$/i, '');
@@ -51,6 +52,9 @@ const ApplicationsDashboard = () => {
   const [kycLoading, setKycLoading] = useState(false);
   const [imageModal, setImageModal] = useState({ isOpen: false, imageUrl: null, title: '', mimeType: '' });
   const [successModal, setSuccessModal] = useState({ isOpen: false, tempPassword: '' });
+  // Affiche du restaurant saisie par l'admin dans le panneau d'examen (optionnelle) :
+  // transmise à l'approbation, sinon le business créé garde le fallback catégorie.
+  const [approveCover, setApproveCover] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -74,6 +78,7 @@ const ApplicationsDashboard = () => {
 
   const openExaminer = async (app) => {
     setSelected(app);
+    setApproveCover('');
     setKycDocs(null);
     setKycLoading(true);
     try {
@@ -97,11 +102,11 @@ const ApplicationsDashboard = () => {
     }
   };
 
-  const handleApprove = async (app) => {
+  const handleApprove = async (app, coverImage) => {
     setBusy(app.id);
     setMsg(null);
     try {
-      const response = await approveApplication(app.id);
+      const response = await approveApplication(app.id, coverImage);
       setMsg({ type: 'success', text: `Candidature de ${app.fullName} approuvée. Identifiants envoyés.` });
       
       // Show success modal with temporary password if returned
@@ -110,6 +115,7 @@ const ApplicationsDashboard = () => {
       }
       
       if (selected?.id === app.id) setSelected(null);
+      setApproveCover('');
       await load();
     } catch (err) {
       setMsg({ type: 'error', text: err.message });
@@ -424,27 +430,48 @@ const ApplicationsDashboard = () => {
               </div>
 
               {isActionable(selected.applicationStatus) && (
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={() => handleApprove(selected)}
-                    disabled={busy === selected.id}
-                    className="btn-primary flex-1 gap-2 disabled:opacity-50"
-                  >
-                    {busy === selected.id ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <CheckCircle size={16} />
-                    )}
-                    Approuver &amp; envoyer les identifiants
-                  </button>
-                  <button
-                    onClick={() => handleReject(selected)}
-                    disabled={busy === selected.id}
-                    className="btn-secondary flex-1 gap-2 text-status-error border-status-error/30 disabled:opacity-50"
-                  >
-                    <XCircle size={16} />
-                    Rejeter
-                  </button>
+                <div className="space-y-4 pt-2">
+                  {selected.applicationType === 'MERCHANT' && (
+                    <div className="bg-background-secondary rounded-lg p-4">
+                      <p className="text-[12px] font-semibold text-text-secondary mb-2">
+                        Affiche du restaurant (optionnel)
+                      </p>
+                      <ImageUpload
+                        label="Image visible sur la carte du restaurant dans l'app client"
+                        folder="covers"
+                        value={approveCover}
+                        onChange={setApproveCover}
+                      />
+                      {!approveCover && (
+                        <p className="mt-1 text-xs text-text-tertiary">
+                          Si vous la laissez vide, l'app affichera la catégorie en attendant — le marchand
+                          pourra ajouter son affiche dans Paramètres → Identité visuelle.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleApprove(selected, approveCover)}
+                      disabled={busy === selected.id}
+                      className="btn-primary flex-1 gap-2 disabled:opacity-50"
+                    >
+                      {busy === selected.id ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}
+                      Approuver &amp; envoyer les identifiants
+                    </button>
+                    <button
+                      onClick={() => handleReject(selected)}
+                      disabled={busy === selected.id}
+                      className="btn-secondary flex-1 gap-2 text-status-error border-status-error/30 disabled:opacity-50"
+                    >
+                      <XCircle size={16} />
+                      Rejeter
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

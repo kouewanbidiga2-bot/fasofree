@@ -1,11 +1,29 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class RejectApplicationDto {
   @ApiProperty({ example: 'Pièce d\'identité illisible' })
   @IsString()
   @MinLength(2)
   reason: string;
+}
+
+export class ApproveApplicationDto {
+  /**
+   * Affiche du restaurant (optionnelle) : si l'admin l'a déjà sous la main au
+   * moment d'approuver, elle est attribuée au business créé — sinon le client
+   * affiche le fallback catégorie, et le marchand pourra l'ajouter ensuite
+   * dans Paramètres → Identité visuelle. Non bloquant : l'approbation reste
+   * possible sans image.
+   */
+  @ApiPropertyOptional({
+    description: "URL de l'affiche du restaurant (optionnel)",
+    example: '/uploads/covers/restaurant.jpg',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  coverImage?: string;
 }
 
 export class ListApplicationsQueryDto {

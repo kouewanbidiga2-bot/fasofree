@@ -85,6 +85,7 @@ export class OnboardingService {
   async approve(
     applicationId: string,
     moderator: Moderator,
+    coverImage?: string,
   ): Promise<{ user: User; tempPassword: string }> {
     const user = await this.findPendingApplication(applicationId);
 
@@ -135,7 +136,7 @@ export class OnboardingService {
     let businessName: string | undefined;
 
     if (applicationType === 'MERCHANT') {
-      await this.setupMerchantProfile(user);
+      await this.setupMerchantProfile(user, coverImage);
       // Récupérer le businessId créé pour le code promo
       const business = await this.businessesService.findByOwner(user.id);
       businessId = business?.id;
@@ -234,7 +235,7 @@ export class OnboardingService {
   /**
    * 🏪 Crée le profil Business du marchand approuvé (+ portefeuille MERCHANT).
    */
-  private async setupMerchantProfile(user: User): Promise<void> {
+  private async setupMerchantProfile(user: User, coverImage?: string): Promise<void> {
     const data = user.applicationData ?? {};
     const business = await this.businessesService.create(
       {
@@ -245,6 +246,9 @@ export class OnboardingService {
           typeof data.latitude === 'number' ? data.latitude : 12.3714,
         longitude:
           typeof data.longitude === 'number' ? data.longitude : -1.5197,
+        // Affiche fournie par l'admin au moment de l'approbation (optionnelle :
+        // sans elle, le client affiche le fallback catégorie).
+        ...(coverImage ? { coverImage } : {}),
       },
       user.id,
     );

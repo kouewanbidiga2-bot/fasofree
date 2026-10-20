@@ -10,9 +10,19 @@ export const getApplications = async (params = {}) => {
   return response.data;
 };
 
-/** Approuver une candidature (crée le profil marchand/livreur + portefeuille + identifiants) */
-export const approveApplication = async (id) => {
-  const response = await api.post(`/users/applications/${id}/approve`);
+/**
+ * Approuver une candidature (crée le profil marchand/livreur + portefeuille + identifiants)
+ * @param {string} id - identifiant de la candidature
+ * @param {string} [coverImage] - affiche du restaurant (optionnel, marchands
+ *   uniquement) : transmise au business créé pour l'afficher sur l'app client.
+ *   Le corps est TOUJOURS un objet : un POST sans corps déclencherait une
+ *   erreur de validation côté serveur (class-validator sur undefined).
+ */
+export const approveApplication = async (id, coverImage) => {
+  const response = await api.post(
+    `/users/applications/${id}/approve`,
+    coverImage ? { coverImage } : {},
+  );
   return response.data;
 };
 
