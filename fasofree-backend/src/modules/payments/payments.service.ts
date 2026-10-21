@@ -171,8 +171,8 @@ export class PaymentsService {
   ) {
     // 🔗 URLS DE RETOUR — sans successUrl, le client reste bloqué sur la page
     // de l'agrégateur après paiement et ne voit jamais la confirmation.
-    // On le renvoie sur le suivi de sa commande dans l'app client (où la
-    // réconciliation et le webhook feront foi).
+    // Succès → suivi de la commande (webhook/réconciliation font foi) ;
+    // échec/annulation → page dédiée « paiement non abouti » côté client.
     const clientUrl = (
       this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'
     ).replace(/\/+$/, '');
@@ -184,7 +184,7 @@ export class PaymentsService {
     const errorUrl = this.safeReturnUrl(
       dto.errorUrl,
       clientUrl,
-      `${clientUrl}/order-tracking?orderId=${order.id}&payment=failed`,
+      `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
     );
 
     const payment = await this.geniusPayService.createPayment({
@@ -300,7 +300,7 @@ export class PaymentsService {
       cancelUrl: this.safeReturnUrl(
         dto.errorUrl,
         clientUrl,
-        `${clientUrl}/order-tracking?orderId=${order.id}&payment=failed`,
+        `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
       ),
     });
 

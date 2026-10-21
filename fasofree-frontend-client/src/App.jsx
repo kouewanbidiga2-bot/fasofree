@@ -14,6 +14,7 @@ import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Receipt from './pages/Receipt';
 import OrderTracking from './pages/OrderTracking';
+import PaymentError from './pages/PaymentError';
 import OrderHistory from './pages/Orders';
 import Profile from './pages/Profile';
 import VipPass from './pages/VipPass';
@@ -123,6 +124,9 @@ function App() {
           <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
           <Route path="/receipt" element={<ProtectedRoute><Receipt /></ProtectedRoute>} />
           <Route path="/order-tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
+          {/* Page dédiée aux échecs de paiement (retour passerelle ou
+              initiation échouée) — jamais pour les autres erreurs. */}
+          <Route path="/payment-error" element={<ProtectedRoute><PaymentError /></ProtectedRoute>} />
           <Route path="/order-history" element={<ProtectedRoute><OrderHistory /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/vip-pass" element={<ProtectedRoute><VipPass /></ProtectedRoute>} />
