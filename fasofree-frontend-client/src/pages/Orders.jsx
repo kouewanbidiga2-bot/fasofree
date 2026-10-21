@@ -41,9 +41,13 @@ const Orders = () => {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['orders', 'my', user?.id || null],
+    // Le filtre entre dans la clé : chaque pastille déclenche sa propre
+    // requête (?status=…). Sans statut, le serveur masque les commandes
+    // non payées/échouées — les « commandes fantômes » n'apparaissent plus
+    // dans « Toutes ».
+    queryKey: ['orders', 'my', user?.id || null, filter],
     queryFn: async () => {
-      const res = await api.getMyOrders();
+      const res = await api.getMyOrders(filter === 'all' ? undefined : filter);
       return res.data || res;
     },
     staleTime: 15_000, // commandes fraîches 15 s (statut suivi par push/realtime)

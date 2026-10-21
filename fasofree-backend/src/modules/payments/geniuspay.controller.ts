@@ -309,11 +309,11 @@ export class GeniusPayController {
       return;
     }
 
-    // 🔒 VÉRIFICATION DU STATUT RÉEL DU PAIEMENT CHEZ L'AGRÉGATEUR.
-    // Un événement `payment.success` ne suffit pas : on exige que le statut
-    // remonté soit bien `completed`. C'est ce contrôle qui empêche de
-    // marquer une commande payée alors que l'utilisateur n'a rien réglé
-    // (paiement en attente/autorisé/expiré).
+    // 🔒 VÉRIFICATION DU STATUT RÉEL DU PAIEMENT CHEZ L'AGRÉGATEUR —
+    // FAIL-CLOSED : un `payment.success` ne suffit pas, le statut remonté
+    // doit être EXPLICITEMENT `completed`. La version précédente
+    // (`if (gatewayStatus && ...)`) laissait passer un webhook sans champ
+    // `status` (chaîne vide = falsy) et validait la commande sans preuve.
     const gatewayStatus = String(data.status ?? '').toLowerCase();
     if (gatewayStatus !== 'completed') {
       this.logger.error(

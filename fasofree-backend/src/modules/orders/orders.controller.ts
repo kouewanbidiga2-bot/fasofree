@@ -143,8 +143,25 @@ export class OrdersController {
       const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
       return this.ordersService.findDriverOrders(userId, statuses, limit, offset);
     }
-    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
+    // 🔎 ?status= côté client : les valeurs sont validées contre l'enum avant
+    // d'atteindre Postgres (une saisie inconnue casserait la colonne enum).
+    let statuses: OrderStatus[] | undefined;
+    if (status) {
+      const requested = status
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const invalid = requested.filter(
+        (s) => !Object.values(OrderStatus).includes(s as OrderStatus),
+      );
+      if (invalid.length) {
+        throw new BadRequestException(`Statut inconnu : ${invalid.join(', ')}`);
+      }
+      statuses = requested as OrderStatus[];
+    }
     return this.ordersService.findClientOrders(userId, limit, offset, {
+      statuses,
+      // includeFailed=true remonte les commandes FAILED (masquées par défaut)
       includeFailed: includeFailed === 'true',
     });
   }
@@ -177,8 +194,10 @@ export class OrdersController {
     if (role === UserRole.BUSINESS_ADMIN) {
       await this.businessesService.assertManagedBy(businessId, userId, role);
     }
-    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
+    // `includeUnpaid` : le marchand doit consulter son filtre dédié
+    // « En attente de paiement » ; `includeFailed=true` pour l'audit.
     return this.ordersService.findAllByBusiness(businessId, {
+      includeUnpaid: true,
       includeFailed: includeFailed === 'true',
     });
   }
@@ -206,8 +225,8 @@ export class OrdersController {
         await this.businessesService.assertManagedBy(bid, userId, role);
       }
     }
-    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
     return this.ordersService.findAllByBusinesses(businessIds, {
+      includeUnpaid: true,
       includeFailed: includeFailed === true || includeFailed === 'true',
     });
   }

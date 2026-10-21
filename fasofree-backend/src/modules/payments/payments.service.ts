@@ -468,12 +468,21 @@ export class PaymentsService {
     }
 
     const expectedAmount = Number(order.totalAmount);
-    // Montant exigé : un montant absent ou illisible ne prouve RIEN — on
-    // refuse de marquer payé (ancien fail-open qui acceptait undefined).
+    // 🔒 FAIL-CLOSED : le montant doit être présent, numérique et cohérent.
+    // La version précédente considérait « pas de montant » comme un montant
+    // valide (`undefined ||` en tête), ce qui laissait un webhook/JSON
+    // incomplet marquer la commande payée.
     const amountMatches =
       gatewayAmount !== undefined &&
       Number.isFinite(gatewayAmount) &&
+      Number.isFinite(expectedAmount) &&
       Math.abs(expectedAmount - gatewayAmount) <= 1;
+
+    if (gatewayStatus === 'completed' && !amountMatches) {
+      this.logger.warn(
+        `[Reconcile] ${orderId}: statut completed mais montant agrégateur non vérifiable (reçu: ${String(gatewayAmount)}, attendu: ${expectedAmount}) — NON confirmé`,
+      );
+    }
 
     if (gatewayStatus === 'completed' && amountMatches) {
       await this.transactionRepository.update(

@@ -1003,8 +1003,11 @@ const BusinessAdminDashboard = () => {
   };
 
   // Filtrage
+  // PENDING n'est PAS une commande active : elle n'apparaît que dans son
+  // filtre dédié « En attente de paiement » (sinon un paiement abandonné
+  // s'affiche comme une commande en cours).
   const filteredOrders = statusFilter === 'ALL'
-    ? orders
+    ? orders.filter(o => o.status !== 'PENDING')
     : orders.filter(o => o.status === statusFilter);
 
   const filteredProducts = productTypeFilter === 'ALL'
@@ -1012,8 +1015,8 @@ const BusinessAdminDashboard = () => {
     : products.filter(p => p.type === productTypeFilter);
 
   // Statuts réellement actifs : PENDING (non payé) en est EXCLU — une commande
-  // sans paiement n'est jamais une commande à traiter ; le filtre « En attente »
-  // reste accessible dans l'onglet Commandes pour le suivi.
+  // sans paiement n'est jamais une commande à traiter ; il est isolé dans le
+  // filtre dédié « En attente de paiement ».
   const activeOrderStatuses = ['PAID', 'IN_PREPARATION', 'READY_FOR_PICKUP', 'DRIVER_ASSIGNED', 'IN_DELIVERY'];
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
@@ -1310,7 +1313,7 @@ const BusinessAdminDashboard = () => {
                   </button>
                 </div>
                 <div className="space-y-3">
-                  {orders.slice(0, 5).map(order => (
+                  {orders.filter(o => o.status !== 'PENDING').slice(0, 5).map(order => (
                     <div key={order.id} className="flex items-center justify-between p-3 bg-background-secondary rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-accent-primary/10 flex items-center justify-center">
@@ -1346,7 +1349,7 @@ const BusinessAdminDashboard = () => {
                     onChange={(e) => setStatusFilter(e.target.value)}
                   >
                     <option value="ALL">Tous les statuts</option>
-                    <option value="PENDING">En attente</option>
+                    <option value="PENDING">En attente de paiement</option>
                     <option value="PAID">Payées</option>
                     <option value="IN_PREPARATION">En préparation</option>
                     <option value="READY_FOR_PICKUP">Prêtes</option>

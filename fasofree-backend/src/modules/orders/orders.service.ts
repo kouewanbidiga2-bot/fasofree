@@ -9,7 +9,14 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, IsNull, Not } from 'typeorm';
+import {
+  Repository,
+  DataSource,
+  In,
+  IsNull,
+  Not,
+  FindOptionsWhere,
+} from 'typeorm';
 import { randomInt, timingSafeEqual } from 'crypto';
 
 // Entités et DTOs
@@ -177,6 +184,37 @@ const MERCHANT_TRANSITIONS: OrderStatus[] = [
  * sauf si un litige (DISPUTE) est créé avant.
  */
 const HOLDING_PERIOD_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * 🗂️ Statuts masqués PAR DÉFAUT dans les listes de commandes.
+ * - FAILED : réserve d'un paiement expiré/échoué — aucun filtre UI ne
+ *   l'attend ; c'est le résidu de « commande fantôme » après expiration.
+ * - PENDING : commande non payée (paiement abandonné ou en cours) — jamais
+ *   présentée comme une commande active. Réactivable via `includeUnpaid`
+ *   (filtre « En attente de paiement » côté marchand).
+ * CANCELLED et REFUNDED restent visibles : les filtres « Annulées » du client
+ * et du marchand en dépendent.
+ */
+const DEFAULT_HIDDEN_ORDER_STATUSES: OrderStatus[] = [
+  OrderStatus.FAILED,
+  OrderStatus.PENDING,
+];
+
+/**
+ * Options des listes de commandes (findClientOrders, findAllByBusiness*).
+ */
+export interface OrderListOptions {
+  /**
+   * Statuts explicitement demandés (?status=…) : ignore les masques par
+   * défaut, sinon le filtre utilisateur « Annulées » / « En attente »
+   * renverrait une liste vide.
+   */
+  statuses?: OrderStatus[];
+  /** Inclure les commandes en attente de paiement (PENDING). */
+  includeUnpaid?: boolean;
+  /** Inclure les commandes en échec (FAILED) — audit/debug. */
+  includeFailed?: boolean;
+}
 
 /**
  * 🧾 DTO de réponse pour l'application Mobile Client
@@ -660,23 +698,22 @@ export class OrdersService {
       clientValidatedAt: null,
     });
 
-    // 🔒 ATOMICITÉ : commande + articles + transaction de paiement sont
-    // écrits dans UNE et unique transaction DB. Auparavant chaque `save`
-    // commitait de son côté : un échec d'une étape ultérieure renvoyait un
-    // 500 au client TOUT en laissant la commande déjà insérée en base.
-    // Cette orpheline restait alors visible sur le dashboard marchand et
-    // sur l'app client comme une commande active non payée.
+    let savedOrder: Order;
+    // 🔒 Transaction englobante : commande + articles + transaction financière
+    // doivent être persistés ensemble ou pas du tout. Sans elle, un 500 après
+    // le premier save laisse une commande orpheline en base, affichée comme
+    // "active" côté dashboard marchand et app client alors que le client a
+    // abandonné le paiement.
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
-    let savedOrder: Order;
     try {
       savedOrder = await queryRunner.manager.save(order);
       savedOrder.deliveryPinCode = isDelivery
         ? this.generateDeliveryPin()
         : null;
-      // QR Click & Collect : valeur générée en mémoire (crypto pure) pour
+      // 🎫 QR Click & Collect : valeur générée en mémoire (crypto pure) pour
       // rester DANS la transaction. L'ancien appel passait par le service
       // dédié, qui faisait son propre `save` via un autre repository — hors
       // de la transaction, donc non atomique avec la commande.
@@ -704,9 +741,8 @@ export class OrdersService {
         await queryRunner.manager.save(orderItems);
       }
 
-      // Transaction de paiement créée DANS la même transaction que la
-      // commande : son échec ne peut plus laisser une commande sans trace
-      // de paiement (cause directe du « paiement fantôme » constaté).
+      // Transaction financière : doit tomber avec la commande, sinon un échec
+      // ici crée une commande sans trace de paiement (et réciproquement).
       const transaction = this.transactionRepository.create({
         orderId: savedOrder.id,
         reference: this.generateTransactionReference(savedOrder.id),
@@ -718,7 +754,11 @@ export class OrdersService {
 
       await queryRunner.commitTransaction();
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      await queryRunner.rollbackTransaction().catch(() => undefined);
+      this.logger.error(
+        `[Order] Transaction rollbackée (${clientId}): ${(error as Error).message}`,
+      );
+      // Libération du compteur de promo réservé avant la transaction.
       if (reservedPromotionId) {
         await this.promotionsService
           .release(reservedPromotionId)
@@ -732,6 +772,8 @@ export class OrdersService {
     this.logger.log(
       `[Order Created] #${savedOrder.id} - Total Client: ${savedOrder.totalAmount} FCFA (Commission: ${savedOrder.platformCommission} FCFA)`,
     );
+
+    // --- Effets de bord APRÈS commit (jamais dans la transaction) ---
 
     // 🔗 Alimente le tunnel d'affiliation (clics → clients → commandes).
     // Non bloquant : un échec ici ne doit jamais faire échouer la commande.
@@ -752,9 +794,9 @@ export class OrdersService {
 
     if (isCash) {
       // 💵 Cash : dispatch immédiat + notification marchand/livreur.
-      // Non bloquant et hors transaction : la commande est déjà committée,
-      // donc un échec de diffusion ne doit JAMAIS renvoyer un 500 au client
-      // (sinon il verrait une erreur alors que la commande existe vraiment).
+      // Non bloquant : la commande est déjà commitée, un WebSocket en échec
+      // ne doit pas renvoyer un 500 au client (qui réessaierait et
+      // dupliquerait la commande).
       try {
         this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
         this.logger.log(
@@ -762,7 +804,7 @@ export class OrdersService {
         );
       } catch (dispatchError) {
         this.logger.error(
-          `[Order Cash] #${savedOrder.id} — dispatch impossible après création: ${(dispatchError as Error).message}`,
+          `[Dispatch] Échec push WebSocket pour #${savedOrder.id}: ${(dispatchError as Error).message}`,
         );
       }
     } else {
@@ -1316,23 +1358,42 @@ export class OrdersService {
     };
   }
 
+  /**
+   * Masque de statuts d'une liste : exclusions par défaut (FAILED + PENDING),
+   * chacun réactivable via `includeFailed` / `includeUnpaid`.
+   * Un tableau vide signifie « ne rien masquer » : l'appelant doit alors
+   * omettre la clause NOT IN (syntaxe SQL invalide sinon).
+   */
+  private hiddenOrderStatuses(options?: OrderListOptions): OrderStatus[] {
+    let hidden = [...DEFAULT_HIDDEN_ORDER_STATUSES];
+    if (options?.includeFailed) {
+      hidden = hidden.filter((status) => status !== OrderStatus.FAILED);
+    }
+    if (options?.includeUnpaid) {
+      hidden = hidden.filter((status) => status !== OrderStatus.PENDING);
+    }
+    return hidden;
+  }
+
   async findClientOrders(
     clientId: string,
     limit?: number,
     offset?: number,
-    options?: { includeFailed?: boolean },
+    options?: OrderListOptions,
   ): Promise<Order[]> {
+    const where: FindOptionsWhere<Order> = { clientId };
+    if (options?.statuses?.length) {
+      // Demande explicite via ?status= : aucune exclusion (le client a choisi
+      // ce filtre, ex. « En attente » ou « Annulées »).
+      where.status = In(options.statuses);
+    } else {
+      const hidden = this.hiddenOrderStatuses(options);
+      if (hidden.length) {
+        where.status = Not(In(hidden));
+      }
+    }
     return await this.orderRepository.find({
-      where: {
-        clientId,
-        // FAILED = commande morte (paiement échoué ou expirée par le cron) :
-        // jamais une vraie commande du client. Masquée par défaut pour ne pas
-        // afficher d'orphelines dans « Mes Commandes » ; includeFailed les
-        // remonte pour le support sans retirer aucune donnée.
-        ...(options?.includeFailed
-          ? {}
-          : { status: Not(OrderStatus.FAILED) }),
-      },
+      where,
       relations: { items: true },
       order: { createdAt: 'DESC' },
       take: limit,
@@ -1415,7 +1476,7 @@ export class OrdersService {
 
   async findAllByBusiness(
     businessId: string,
-    options?: { includeFailed?: boolean },
+    options?: OrderListOptions,
   ): Promise<Order[]> {
     const query = this.orderRepository
       .createQueryBuilder('o')
@@ -1423,13 +1484,15 @@ export class OrdersService {
       .where('o."businessId" = :businessId', { businessId })
       .orderBy('o."createdAt"', 'DESC');
 
-    // FAILED = orphelines/échecs techniques, jamais traitables par le marchand :
-    // hors de sa liste par défaut (les fantômes d'un 500 polluaient la file) ;
-    // includeFailed les remonte pour l'audit, aucun endpoint n'est retiré.
-    if (!options?.includeFailed) {
-      query.andWhere('o.status != :failedStatus', {
-        failedStatus: OrderStatus.FAILED,
+    if (options?.statuses?.length) {
+      query.andWhere('o.status IN (:...statuses)', {
+        statuses: options.statuses,
       });
+    } else {
+      const hidden = this.hiddenOrderStatuses(options);
+      if (hidden.length) {
+        query.andWhere('o.status NOT IN (:...hidden)', { hidden });
+      }
     }
 
     const orders = await query.getMany();
@@ -1478,7 +1541,7 @@ export class OrdersService {
 
   async findAllByBusinesses(
     businessIds: string[],
-    options?: { includeFailed?: boolean },
+    options?: OrderListOptions,
   ): Promise<Order[]> {
     if (!businessIds.length) return [];
     const query = this.orderRepository
@@ -1487,12 +1550,15 @@ export class OrdersService {
       .where('o."businessId" IN (:...businessIds)', { businessIds })
       .orderBy('o."createdAt"', 'DESC');
 
-    // Même règle que findAllByBusiness : les FAILED restent auditables via
-    // includeFailed mais ne polluent pas la file des agences.
-    if (!options?.includeFailed) {
-      query.andWhere('o.status != :failedStatus', {
-        failedStatus: OrderStatus.FAILED,
+    if (options?.statuses?.length) {
+      query.andWhere('o.status IN (:...statuses)', {
+        statuses: options.statuses,
       });
+    } else {
+      const hidden = this.hiddenOrderStatuses(options);
+      if (hidden.length) {
+        query.andWhere('o.status NOT IN (:...hidden)', { hidden });
+      }
     }
 
     const orders = await query.getMany();

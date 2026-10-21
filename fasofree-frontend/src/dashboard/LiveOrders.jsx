@@ -386,8 +386,9 @@ const LiveOrders = () => {
                             </>
                           )}
                         </span>
-                        {/* Assignation réservée aux commandes PAYÉES : un PENDING
-                            n'a pas d'argent reçu, on ne l'assigne pas. */}
+                        {/* Assignation uniquement si la commande est PAYÉE :
+                            assigner un livreur à une commande non payée
+                            crée une livraison fantôme. */}
                         {!o.driverId && o.status === 'PAID' && (
                           <button
                             onClick={() => openAssignModal(o)}
