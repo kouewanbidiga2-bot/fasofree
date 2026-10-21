@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { Body, Controller, Get, Post, Query, UseGuards, BadRequestException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';

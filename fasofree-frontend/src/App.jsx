@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute, ContractGate } from './guards';

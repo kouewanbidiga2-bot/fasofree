@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Signature de contrat (marchands & livreurs)
  *
  * Écran bloquant affiché tant que le contrat (FR-PMERC-005 pour les

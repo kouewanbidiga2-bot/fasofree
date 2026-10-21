@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 // ─────────────────────────────────────────────────────────────
 // 🔍 Matching de recherche « intelligent » (client)
 // Utilisé par la page Recherche pour trouver un plat dans le menu

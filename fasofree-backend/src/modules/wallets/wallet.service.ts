@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { randomUUID } from 'crypto';
 import { Injectable, Logger, NotFoundException, BadRequestException, HttpException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';

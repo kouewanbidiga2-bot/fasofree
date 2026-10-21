@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Bell, Check, CheckCheck, X } from 'lucide-react';

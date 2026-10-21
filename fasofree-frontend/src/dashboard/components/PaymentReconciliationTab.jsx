@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useState } from 'react';
 import { Search, RefreshCw, BadgeCheck, AlertCircle } from 'lucide-react';
 import { reconcilePaymentAdmin } from '../../services/paymentService';

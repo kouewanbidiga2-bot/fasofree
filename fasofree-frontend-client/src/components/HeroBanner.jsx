@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { ArrowRight, MapPin } from 'lucide-react';
 import bannerBg from '../assets/banner-bg.jpg';

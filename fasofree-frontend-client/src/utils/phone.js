@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Normalise un numéro burkinabè au format E.164 (+226XXXXXXXX).
  * Accepte : "70123456", "66 10 10 01", "22670123456", "+22670123456"
  * Retourne null si le numéro est invalide.

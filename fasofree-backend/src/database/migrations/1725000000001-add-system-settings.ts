@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddSystemSettings1725000000001 implements MigrationInterface {

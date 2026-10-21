@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { useEffect } from 'react';
 import useAuthStore from '../store/authStore';
 import { registerPushToken, setupAdminPermissionRetry } from '../services/pushNotificationService';

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { Gift, Users, Copy, Check, Star, TrendingUp } from 'lucide-react';
 import { api } from '../../services/api';

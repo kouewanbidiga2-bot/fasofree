@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 export enum WsEvents {
   // Événements entrants (Client -> Serveur)
   JOIN_BUSINESS_ROOM = 'joinBusinessRoom',

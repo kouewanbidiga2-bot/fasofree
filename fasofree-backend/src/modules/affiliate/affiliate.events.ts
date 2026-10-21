@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * 📡 Événements du tunnel d'affiliation.
  *
  * Ils permettent d'alimenter le funnel SANS créer de dépendance circulaire

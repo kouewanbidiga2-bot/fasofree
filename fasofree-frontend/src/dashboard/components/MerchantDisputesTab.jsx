@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Onglet « Litiges » du gérant du commerce (Phase 2)
  *
  * - Liste des litiges de SES commerces uniquement (GET /disputes/business —

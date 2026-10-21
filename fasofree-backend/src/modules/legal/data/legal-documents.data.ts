@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * ⚖️ Contenu légal embarqué (GÉNÉRÉ — ne pas éditer à la main).
  * Source : docs/legal/*.md — régénérer avec tools/gen-legal-data.mjs
  * après chaque mise à jour des documents (bump de version inclus).

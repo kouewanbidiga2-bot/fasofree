@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 // Script TEMPORAIRE (non commité) : lit docs/legal/*.md et génère
 // fasofree-backend/src/modules/legal/data/legal-documents.data.ts
 // (le Dockerfile ne copiant pas docs/, le contenu légal est embarqué).

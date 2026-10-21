@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Service Pénalités qualité & SLA de livraison (bloc C)
  * Endpoints: /delivery-penalties
  *

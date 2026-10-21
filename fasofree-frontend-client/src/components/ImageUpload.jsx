@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { useState, useRef } from 'react';
 import { Image, Upload, X } from 'lucide-react';
 import { getAbsoluteImageUrl, onImgError, PLACEHOLDER_SVG } from '../utils/images';

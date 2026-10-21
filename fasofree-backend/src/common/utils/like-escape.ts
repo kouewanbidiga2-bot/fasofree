@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Échappe les wildcards SQL LIKE (`%`, `_`, `\`) dans un terme de recherche.
  *
  * Sans échappement, un identifiant saisi par l'utilisateur tel que "%" ou "_"

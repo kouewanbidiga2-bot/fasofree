@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * 💰 Carte « Créditer un portefeuille » — Super Admin (Lot 4, chantier B).
  *
  * Pourquoi : aucun endpoint ne permettait de créditer un portefeuille à la

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import api from './api';
 
 // Coordonnées par défaut : centre de Ouagadougou (fallback si pas de position GPS)

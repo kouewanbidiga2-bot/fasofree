@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Injection token for the storage driver.
  * Exported from a separate file to break the circular dependency
  * between upload.module.ts and upload.controller.ts.

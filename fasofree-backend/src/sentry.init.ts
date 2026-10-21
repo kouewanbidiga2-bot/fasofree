@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import * as Sentry from '@sentry/nestjs';
 
 const sentryDsn = process.env.SENTRY_DSN;

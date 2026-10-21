@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Estimation client-side du prix P2P (Haversine + tarif FasoFree).
  * Même formule que le backend distance-calculator.service.ts :
  * prix = 1000 (base : essence A/R + bénéfice livreur) + distance_km × 200

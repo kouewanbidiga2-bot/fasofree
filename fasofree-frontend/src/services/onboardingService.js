@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Service Onboarding (Candidatures Marchands & Livreurs)
  * Endpoints: /users/applications (SUPER_ADMIN, ADMIN, SUPPORT)
  */

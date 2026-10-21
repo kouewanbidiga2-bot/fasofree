@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * 💳 Bouton « Recharger » + modale de recharge du portefeuille (Lot 4).
  *
  * Pourquoi ce composant : le back-office n'exposait AUCUN moyen de recharger un

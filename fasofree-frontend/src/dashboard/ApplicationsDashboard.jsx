@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Candidatures (Onboarding Marchands & Livreurs)
  * Approbation / rejet des dossiers de candidature envoyés via POST /auth/apply.
  */

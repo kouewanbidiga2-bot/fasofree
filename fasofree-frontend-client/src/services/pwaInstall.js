@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Capture GLOBALE de l'événement `beforeinstallprompt` (installation PWA).
  *
  * ⚠️ Pourquoi un MODULE et pas un `useEffect` de composant :

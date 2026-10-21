@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { OrderStatus, OrderType, FulfillmentType } from './entities/order.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import { ORDER_STATUS_FSM } from './orders.service';

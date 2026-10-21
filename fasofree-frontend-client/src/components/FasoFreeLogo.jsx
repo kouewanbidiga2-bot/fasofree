@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Identité visuelle FasoFree — app client (source unique).
  *
  * Source unique du masque (mark) et du lockup horizontal (masque + « FasoFree »).

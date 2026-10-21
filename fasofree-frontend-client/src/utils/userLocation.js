@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 // 📍 Position de l'utilisateur : promise mémoïsée, résolue UNE fois par session.
 // Les re-fetchs TanStack Query (retour arrière, changement de catégorie, focus
 // d'onglet) réutilisent la même position au lieu de re-solliciter le GPS à chaque

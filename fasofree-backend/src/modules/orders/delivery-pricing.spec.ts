@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { DeliveryPricingService, DeliveryTier, VehicleType } from './delivery-pricing.service';
 
 const DAY_DATE = new Date('2024-01-15T14:00:00'); // 14:00 Ouaga

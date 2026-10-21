@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Client Axios centralisé
  * Toutes les requêtes passent par ce client.
  * Le JWT est automatiquement injecté depuis localStorage.

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * 📦 Types de providers de livraison (niveaux du dispatch multi-niveaux).
  * - INTERNAL   : livreurs internes FasoFree (niveau 1 — existant)
  * - AGENCY     : agences partenaires locales (niveau 2 — Phase 1)

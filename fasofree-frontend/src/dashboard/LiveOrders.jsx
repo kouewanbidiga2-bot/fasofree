@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Tour de contrôle en direct
  * Carte temps réel des commandes et positions des livreurs (SUPER_ADMIN / ADMIN / SUPPORT).
  * Rafraîchissement automatique toutes les 10 secondes.

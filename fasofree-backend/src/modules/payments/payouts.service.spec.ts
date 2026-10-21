@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { DataSource } from 'typeorm';
 import { PayoutsService } from './payouts.service';
 import { PayoutStatus } from './entities/merchant-payout.entity';

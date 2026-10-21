@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
 
 export async function apiFetch(endpoint, options = {}) {

@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle, Camera } from 'lucide-react';

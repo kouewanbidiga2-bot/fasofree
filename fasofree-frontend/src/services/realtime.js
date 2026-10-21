@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Realtime Sockets (Singleton)
  *
  * FIX CRITIQUE : le token JWT est lu depuis localStorage À CHAQUE tentative

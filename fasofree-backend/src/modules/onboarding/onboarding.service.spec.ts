@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { BadRequestException } from '@nestjs/common';
 import { OnboardingService, Moderator } from './onboarding.service';
 import { User } from '../users/entities/user.entity';

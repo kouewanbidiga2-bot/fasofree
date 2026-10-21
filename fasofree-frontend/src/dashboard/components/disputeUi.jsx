@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — UI partagée des onglets Litiges (administration + marchand).
  * Évite la duplication DisputesTab/MerchantDisputesTab : statuts, filtres,
  * formatage, InfoItem et constantes métier miroir du backend.

@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Onglet « Litiges » partagé (Support / Super Admin / Admin Manager)
  *
  * - Liste complète (GET /disputes, ouvert au SUPPORT depuis la Phase 1).

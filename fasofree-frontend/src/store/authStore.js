@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { create } from 'zustand';
 import { login as apiLogin, register as apiRegister, getMe } from '../services/authService';
 import { UserRole } from '../types/roles';

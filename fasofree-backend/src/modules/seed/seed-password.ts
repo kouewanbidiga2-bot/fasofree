@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * Configuration partagée des outils de seed (dev/test uniquement).
  *
  * SeedModule n'est jamais chargé en production (app.module.ts) et la

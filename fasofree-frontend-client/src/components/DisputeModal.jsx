@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import React, { useState } from 'react';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import { Modal, ModalTitle } from './ui/Modal';

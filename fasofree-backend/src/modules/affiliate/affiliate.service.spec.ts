@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
 import { AffiliateService } from './affiliate.service';
 import { AffiliateEventType } from './entities/affiliate-event.entity';
 import { AFFILIATE_ORDER_CREATED } from './affiliate.events';

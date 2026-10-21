@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — 💬 Chat support d'un litige (composant partagé).
  * Utilisé par l'administration (DisputesTab) et par le gérant du commerce
  * (MerchantDisputesTab).

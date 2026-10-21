@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Bouton « Appeler le support » (dashboard / administration).
  *
  * Lien `tel:` vers la hotline FasoFree, masqué totalement (null) quand

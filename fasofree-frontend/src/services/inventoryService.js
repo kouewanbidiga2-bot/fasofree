@@ -1,4 +1,9 @@
 /**
+ * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ */
+
+/**
  * FasoFree — Inventory / Products Service
  * Routes marked (⏳ NOT YET IMPLEMENTED) require backend endpoints.
  * They return null gracefully if the backend returns 404.
