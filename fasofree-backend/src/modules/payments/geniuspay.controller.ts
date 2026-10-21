@@ -315,9 +315,9 @@ export class GeniusPayController {
     // marquer une commande payée alors que l'utilisateur n'a rien réglé
     // (paiement en attente/autorisé/expiré).
     const gatewayStatus = String(data.status ?? '').toLowerCase();
-    if (gatewayStatus && gatewayStatus !== 'completed') {
+    if (gatewayStatus !== 'completed') {
       this.logger.error(
-        `Webhook GeniusPay: payment.success reçu mais statut agrégateur = "${gatewayStatus}" pour ${orderId} — NON traité comme payé`,
+        `Webhook GeniusPay: payment.success reçu mais statut agrégateur = "${gatewayStatus || '(absent)'}" pour ${orderId} — NON traité comme payé`,
       );
       return;
     }

@@ -468,9 +468,11 @@ export class PaymentsService {
     }
 
     const expectedAmount = Number(order.totalAmount);
+    // Montant exigé : un montant absent ou illisible ne prouve RIEN — on
+    // refuse de marquer payé (ancien fail-open qui acceptait undefined).
     const amountMatches =
-      gatewayAmount === undefined ||
-      !Number.isFinite(gatewayAmount) ||
+      gatewayAmount !== undefined &&
+      Number.isFinite(gatewayAmount) &&
       Math.abs(expectedAmount - gatewayAmount) <= 1;
 
     if (gatewayStatus === 'completed' && amountMatches) {

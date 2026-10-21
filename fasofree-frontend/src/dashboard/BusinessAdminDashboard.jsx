@@ -1011,9 +1011,13 @@ const BusinessAdminDashboard = () => {
     ? products
     : products.filter(p => p.type === productTypeFilter);
 
+  // Statuts réellement actifs : PENDING (non payé) en est EXCLU — une commande
+  // sans paiement n'est jamais une commande à traiter ; le filtre « En attente »
+  // reste accessible dans l'onglet Commandes pour le suivi.
+  const activeOrderStatuses = ['PAID', 'IN_PREPARATION', 'READY_FOR_PICKUP', 'DRIVER_ASSIGNED', 'IN_DELIVERY'];
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: Layout },
-    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => ['PENDING', 'PAID', 'IN_PREPARATION'].includes(o.status)).length },
+    { id: 'orders', label: 'Commandes', icon: ShoppingBag, badge: orders.filter(o => activeOrderStatuses.includes(o.status)).length },
     { id: 'products', label: 'Stock & Catalogue', icon: Package, badge: lowStockAlerts.length },
     { id: 'affiliate', label: 'Affiliation', icon: Share2 },
     { id: 'stories', label: 'Stories', icon: Camera },

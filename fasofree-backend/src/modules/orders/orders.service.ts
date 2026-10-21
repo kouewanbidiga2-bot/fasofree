@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, IsNull } from 'typeorm';
+import { Repository, DataSource, In, IsNull, Not } from 'typeorm';
 import { randomInt, timingSafeEqual } from 'crypto';
 
 // Entités et DTOs
@@ -660,13 +660,33 @@ export class OrdersService {
       clientValidatedAt: null,
     });
 
+    // 🔒 ATOMICITÉ : commande + articles + transaction de paiement sont
+    // écrits dans UNE et unique transaction DB. Auparavant chaque `save`
+    // commitait de son côté : un échec d'une étape ultérieure renvoyait un
+    // 500 au client TOUT en laissant la commande déjà insérée en base.
+    // Cette orpheline restait alors visible sur le dashboard marchand et
+    // sur l'app client comme une commande active non payée.
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     let savedOrder: Order;
     try {
-      savedOrder = await this.orderRepository.save(order);
+      savedOrder = await queryRunner.manager.save(order);
       savedOrder.deliveryPinCode = isDelivery
         ? this.generateDeliveryPin()
         : null;
-      await this.orderRepository.save(savedOrder);
+      // QR Click & Collect : valeur générée en mémoire (crypto pure) pour
+      // rester DANS la transaction. L'ancien appel passait par le service
+      // dédié, qui faisait son propre `save` via un autre repository — hors
+      // de la transaction, donc non atomique avec la commande.
+      if (
+        order.fulfillmentType === FulfillmentType.PICKUP ||
+        order.fulfillmentType === FulfillmentType.DINE_IN
+      ) {
+        savedOrder.qrCode = this.qrCodeService.generateQrCode(savedOrder.id);
+      }
+      await queryRunner.manager.save(savedOrder);
 
       // Sauvegarder les articles avec les prix vérifiés depuis la DB
       if (verifiedItems.length > 0) {
@@ -681,42 +701,37 @@ export class OrdersService {
           });
           return oi;
         });
-        await this.orderItemRepository.save(orderItems);
+        await queryRunner.manager.save(orderItems);
       }
 
-      // Générer un QR Code pour les commandes PICKUP ou DINE_IN
-      if (
-        order.fulfillmentType === FulfillmentType.PICKUP ||
-        order.fulfillmentType === FulfillmentType.DINE_IN
-      ) {
-        const qrCode = await this.qrCodeService.generateAndAssignQrCode(
-          savedOrder.id,
-        );
-        this.logger.log(
-          `[QR Code] Généré pour la commande #${savedOrder.id}: ${qrCode ?? ''}`,
-        );
-      }
+      // Transaction de paiement créée DANS la même transaction que la
+      // commande : son échec ne peut plus laisser une commande sans trace
+      // de paiement (cause directe du « paiement fantôme » constaté).
+      const transaction = this.transactionRepository.create({
+        orderId: savedOrder.id,
+        reference: this.generateTransactionReference(savedOrder.id),
+        amount: financials.totalAmount,
+        commissionAmount: financials.platformCommission,
+        status: isCash ? TransactionStatus.SUCCESS : TransactionStatus.PENDING,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       if (reservedPromotionId) {
         await this.promotionsService
           .release(reservedPromotionId)
           .catch(() => undefined);
       }
       throw error;
+    } finally {
+      await queryRunner.release();
     }
+
     this.logger.log(
       `[Order Created] #${savedOrder.id} - Total Client: ${savedOrder.totalAmount} FCFA (Commission: ${savedOrder.platformCommission} FCFA)`,
     );
-
-    const transaction = this.transactionRepository.create({
-      orderId: savedOrder.id,
-      reference: this.generateTransactionReference(savedOrder.id),
-      amount: financials.totalAmount,
-      commissionAmount: financials.platformCommission,
-      status: isCash ? TransactionStatus.SUCCESS : TransactionStatus.PENDING,
-    });
-
-    await this.transactionRepository.save(transaction);
 
     // 🔗 Alimente le tunnel d'affiliation (clics → clients → commandes).
     // Non bloquant : un échec ici ne doit jamais faire échouer la commande.
@@ -736,11 +751,20 @@ export class OrdersService {
     }
 
     if (isCash) {
-      // 💵 Cash : dispatch immédiat + notification marchand/livreur
-      this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
-      this.logger.log(
-        `[Order Cash] #${savedOrder.id} — PAID (cash) → dispatch immédiat`,
-      );
+      // 💵 Cash : dispatch immédiat + notification marchand/livreur.
+      // Non bloquant et hors transaction : la commande est déjà committée,
+      // donc un échec de diffusion ne doit JAMAIS renvoyer un 500 au client
+      // (sinon il verrait une erreur alors que la commande existe vraiment).
+      try {
+        this.dispatchGateway.dispatchOrderToDrivers(savedOrder);
+        this.logger.log(
+          `[Order Cash] #${savedOrder.id} — PAID (cash) → dispatch immédiat`,
+        );
+      } catch (dispatchError) {
+        this.logger.error(
+          `[Order Cash] #${savedOrder.id} — dispatch impossible après création: ${(dispatchError as Error).message}`,
+        );
+      }
     } else {
       // 🔒 PAS DE NOTIFICATION MARCHAND/LIVREUR ICI — uniquement après webhook PAID
       // Le dispatch et la notification se font dans markAsPaidAndDispatch()
@@ -1296,9 +1320,19 @@ export class OrdersService {
     clientId: string,
     limit?: number,
     offset?: number,
+    options?: { includeFailed?: boolean },
   ): Promise<Order[]> {
     return await this.orderRepository.find({
-      where: { clientId },
+      where: {
+        clientId,
+        // FAILED = commande morte (paiement échoué ou expirée par le cron) :
+        // jamais une vraie commande du client. Masquée par défaut pour ne pas
+        // afficher d'orphelines dans « Mes Commandes » ; includeFailed les
+        // remonte pour le support sans retirer aucune donnée.
+        ...(options?.includeFailed
+          ? {}
+          : { status: Not(OrderStatus.FAILED) }),
+      },
       relations: { items: true },
       order: { createdAt: 'DESC' },
       take: limit,
@@ -1379,13 +1413,26 @@ export class OrdersService {
     }));
   }
 
-  async findAllByBusiness(businessId: string): Promise<Order[]> {
-    const orders = await this.orderRepository
+  async findAllByBusiness(
+    businessId: string,
+    options?: { includeFailed?: boolean },
+  ): Promise<Order[]> {
+    const query = this.orderRepository
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.items', 'items')
       .where('o."businessId" = :businessId', { businessId })
-      .orderBy('o."createdAt"', 'DESC')
-      .getMany();
+      .orderBy('o."createdAt"', 'DESC');
+
+    // FAILED = orphelines/échecs techniques, jamais traitables par le marchand :
+    // hors de sa liste par défaut (les fantômes d'un 500 polluaient la file) ;
+    // includeFailed les remonte pour l'audit, aucun endpoint n'est retiré.
+    if (!options?.includeFailed) {
+      query.andWhere('o.status != :failedStatus', {
+        failedStatus: OrderStatus.FAILED,
+      });
+    }
+
+    const orders = await query.getMany();
 
     // Enrichir avec les infos client via requête séparée (é(raw joins cassés)
     const clientIds = [
@@ -1429,14 +1476,26 @@ export class OrdersService {
     }));
   }
 
-  async findAllByBusinesses(businessIds: string[]): Promise<Order[]> {
+  async findAllByBusinesses(
+    businessIds: string[],
+    options?: { includeFailed?: boolean },
+  ): Promise<Order[]> {
     if (!businessIds.length) return [];
-    const orders = await this.orderRepository
+    const query = this.orderRepository
       .createQueryBuilder('o')
       .leftJoinAndSelect('o.items', 'items')
       .where('o."businessId" IN (:...businessIds)', { businessIds })
-      .orderBy('o."createdAt"', 'DESC')
-      .getMany();
+      .orderBy('o."createdAt"', 'DESC');
+
+    // Même règle que findAllByBusiness : les FAILED restent auditables via
+    // includeFailed mais ne polluent pas la file des agences.
+    if (!options?.includeFailed) {
+      query.andWhere('o.status != :failedStatus', {
+        failedStatus: OrderStatus.FAILED,
+      });
+    }
+
+    const orders = await query.getMany();
 
     // 🏢 Lot 1 : identifie la société de livraison de chaque commande.
     const agencyMap = await this.loadAgencyBadges(orders);

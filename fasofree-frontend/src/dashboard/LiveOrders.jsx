@@ -386,7 +386,9 @@ const LiveOrders = () => {
                             </>
                           )}
                         </span>
-                        {!o.driverId && (o.status === 'PENDING' || o.status === 'PAID') && (
+                        {/* Assignation réservée aux commandes PAYÉES : un PENDING
+                            n'a pas d'argent reçu, on ne l'assigne pas. */}
+                        {!o.driverId && o.status === 'PAID' && (
                           <button
                             onClick={() => openAssignModal(o)}
                             className="flex items-center gap-1 px-2 py-1 rounded bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-colors text-[11px] font-semibold"

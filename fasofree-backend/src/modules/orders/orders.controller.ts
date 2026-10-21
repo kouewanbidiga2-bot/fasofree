@@ -131,6 +131,7 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
+    @Query('includeFailed') includeFailed?: string,
   ) {
     const userId = req.user?.userId;
     const role = req.user?.role;
@@ -142,7 +143,10 @@ export class OrdersController {
       const statuses = status ? status.split(',').map(s => s.trim()) : ['DRIVER_ASSIGNED', 'IN_DELIVERY'];
       return this.ordersService.findDriverOrders(userId, statuses, limit, offset);
     }
-    return this.ordersService.findClientOrders(userId, limit, offset);
+    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
+    return this.ordersService.findClientOrders(userId, limit, offset, {
+      includeFailed: includeFailed === 'true',
+    });
   }
 
   @Get('my-recent')
@@ -164,6 +168,7 @@ export class OrdersController {
   async getBusinessOrders(
     @NestRequest() req: RequestWithUser,
     @Param('businessId') businessId: string,
+    @Query('includeFailed') includeFailed?: string,
   ) {
     const role = req.user?.role as UserRole;
     const userId = req.user?.userId;
@@ -172,7 +177,10 @@ export class OrdersController {
     if (role === UserRole.BUSINESS_ADMIN) {
       await this.businessesService.assertManagedBy(businessId, userId, role);
     }
-    return this.ordersService.findAllByBusiness(businessId);
+    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
+    return this.ordersService.findAllByBusiness(businessId, {
+      includeFailed: includeFailed === 'true',
+    });
   }
 
   // 🏪 Commandes de toutes les branches d'une marque
@@ -184,6 +192,7 @@ export class OrdersController {
   async getBrandOrders(
     @NestRequest() req: RequestWithUser,
     @Body('businessIds') businessIds: string[],
+    @Body('includeFailed') includeFailed?: boolean | string,
   ) {
     if (!businessIds || !Array.isArray(businessIds) || businessIds.length === 0) {
       throw new UnauthorizedException('businessIds est requis');
@@ -197,7 +206,10 @@ export class OrdersController {
         await this.businessesService.assertManagedBy(bid, userId, role);
       }
     }
-    return this.ordersService.findAllByBusinesses(businessIds);
+    // includeFailed=true remonte les commandes FAILED (masquées par défaut)
+    return this.ordersService.findAllByBusinesses(businessIds, {
+      includeFailed: includeFailed === true || includeFailed === 'true',
+    });
   }
 
   // 🎯 Liste des livreurs disponibles (pour assignation manuelle)
