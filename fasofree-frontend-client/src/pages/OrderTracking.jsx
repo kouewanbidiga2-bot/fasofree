@@ -137,6 +137,26 @@ const OrderTracking = () => {
     staleTime: 10_000, // le reste du statut arrive déjà par websocket
   });
 
+  // 💳 Retour de la passerelle (successUrl) : UNE réconciliation au montage,
+  // mais uniquement si le suivi affiche encore un statut non payé (sinon
+  // inutile d'interroger l'agrégateur). Le serveur confirme la commande si
+  // le webhook n'est pas encore arrivé — le suivi se rafraîchit juste après.
+  // Échec silencieux : le webhook fera foi plus tard.
+  const reconcileCalled = useRef(false);
+  const trackedStatus = tracking?.status;
+  const unpaidLike =
+    trackedStatus === 'PENDING' ||
+    trackedStatus === 'AWAITING_PAYMENT' ||
+    trackedStatus === 'FAILED';
+  useEffect(() => {
+    if (!orderId || !tracking || !unpaidLike || reconcileCalled.current) return;
+    reconcileCalled.current = true;
+    api
+      .reconcilePayment(orderId)
+      .then(() => refetch())
+      .catch(() => undefined);
+  }, [orderId, tracking, unpaidLike, refetch]);
+
   const [driverPos, setDriverPos] = useState(null);
   const [liveTrace, setLiveTrace] = useState([]);
 

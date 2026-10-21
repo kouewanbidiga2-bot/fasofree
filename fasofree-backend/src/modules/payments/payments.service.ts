@@ -169,6 +169,24 @@ export class PaymentsService {
     reference: string,
     dto: InitiatePaymentDto,
   ) {
+    // 🔗 URLS DE RETOUR — sans successUrl, le client reste bloqué sur la page
+    // de l'agrégateur après paiement et ne voit jamais la confirmation.
+    // On le renvoie sur le suivi de sa commande dans l'app client (où la
+    // réconciliation et le webhook feront foi).
+    const clientUrl = (
+      this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'
+    ).replace(/\/+$/, '');
+    const successUrl = this.safeReturnUrl(
+      dto.successUrl,
+      clientUrl,
+      `${clientUrl}/order-tracking?orderId=${order.id}`,
+    );
+    const errorUrl = this.safeReturnUrl(
+      dto.errorUrl,
+      clientUrl,
+      `${clientUrl}/order-tracking?orderId=${order.id}&payment=failed`,
+    );
+
     const payment = await this.geniusPayService.createPayment({
       amount: Number(order.totalAmount),
       description: `Commande #${order.id.substring(0, 8)}`,
@@ -180,6 +198,8 @@ export class PaymentsService {
         order_id: order.id,
         reference,
       },
+      successUrl,
+      errorUrl,
     });
 
     const checkoutUrl = payment.checkout_url || payment.payment_url;
@@ -203,6 +223,31 @@ export class PaymentsService {
       status: payment.status,
       message: 'Paiement GeniusPay initié',
     };
+  }
+
+  /**
+   * URL de retour après paiement : seule l'origine de CLIENT_URL est
+   * acceptée (anti open-redirect — un successUrl arbitraire permettrait de
+   * diriger un client fraîchement débité vers un site hameçonneur).
+   * Toute autre valeur est ignorée avec un warning au profit du défaut sûr.
+   */
+  private safeReturnUrl(
+    candidate: string | undefined,
+    clientUrl: string,
+    fallback: string,
+  ): string {
+    if (!candidate) return fallback;
+    try {
+      if (new URL(candidate).origin === new URL(clientUrl).origin) {
+        return candidate;
+      }
+    } catch {
+      // URL illisible → repli sur le défaut
+    }
+    this.logger.warn(
+      `[Payments] URL de retour ignorée (origine non autorisée): ${candidate}`,
+    );
+    return fallback;
   }
 
   // ========================================================================
@@ -233,6 +278,11 @@ export class PaymentsService {
     reference: string,
     dto: InitiatePaymentDto,
   ) {
+    // 🔗 Mêmes URLs de retour que GeniusPay : les défauts PayDunya
+    // (`/payment/success`) n'existent pas dans l'app client.
+    const clientUrl = (
+      this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'
+    ).replace(/\/+$/, '');
     const { token, checkoutUrl } = await this.paydunyaService.createCheckoutInvoice({
       amountXof: Number(order.totalAmount),
       description: `Commande #${order.id.substring(0, 8)}`,
@@ -242,8 +292,16 @@ export class PaymentsService {
         reference,
         payment_method: dto.paymentMethod,
       },
-      returnUrl: dto.successUrl,
-      cancelUrl: dto.errorUrl,
+      returnUrl: this.safeReturnUrl(
+        dto.successUrl,
+        clientUrl,
+        `${clientUrl}/order-tracking?orderId=${order.id}`,
+      ),
+      cancelUrl: this.safeReturnUrl(
+        dto.errorUrl,
+        clientUrl,
+        `${clientUrl}/order-tracking?orderId=${order.id}&payment=failed`,
+      ),
     });
 
     // 🔒 Persister le token PayDunya pour la réconciliation / webhook

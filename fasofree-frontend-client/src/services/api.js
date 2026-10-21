@@ -154,6 +154,9 @@ export const api = {
 
   // Paiement
   initiatePayment: (data) => apiFetch('/payments/initiate', { method: 'POST', body: data }),
+  // Statut RÉEL du paiement : le serveur interroge l'agrégateur et confirme
+  // la commande si le webhook n'est pas encore arrivé (retour de checkout).
+  reconcilePayment: (orderId) => apiFetch(`/payments/status/${orderId}`, { method: 'GET' }),
 
   // Chat éphémère
   getChatHistory: (orderId, channel = 'driver') => apiFetch(`/chat/${orderId}?channel=${channel}`, { method: 'GET' }),
