@@ -1,0 +1,38 @@
+{
+  "ville_de_lancement": "Ouagadougou",
+  "pays": "Burkina Faso",
+  "devise": "FCFA",
+  "budget_marketing": 300000,
+  "date_lancement": "À définir (objectif : 30 jours)",
+  "restaurants_actuels": 0,
+  "clients_actuels": 0,
+  "objectifs_lancement": {
+    "restaurants_a_recruter": 30,
+    "clients_premiers": 500,
+    "duree_plan_jours": 30
+  },
+  "zones_prioritaires": [
+    "Centre-ville",
+    "Ouaga 2000",
+    "Koulouba",
+    "Dassasgho"
+  ],
+  "offre_restaurant": {
+    "inscription": "Gratuite pendant 30 jours",
+    "commission": "Réduite pendant le lancement (taux à définir par la direction)",
+    "visibilite": "Mise en avant gratuite dans l'application pendant 30 jours",
+    "accompagnement": "Aide à la création du menu"
+  },
+  "offre_premiers_clients": {
+    "livraison": "Gratuite sur la première commande",
+    "reduction": "1 000 FCFA",
+    "parrainage": "Bonus pour chaque ami invité",
+    "duree": "7 jours après le lancement"
+  },
+  "canaux_marketing": ["WhatsApp", "Facebook", "TikTok", "SMS"],
+  "livreurs_actuels": 0,
+  "contraintes": [
+    "Aucune dépense ni publication sans validation de la direction",
+    "Les chiffres ci-dessus sont les seules données officielles"
+  ]
+}

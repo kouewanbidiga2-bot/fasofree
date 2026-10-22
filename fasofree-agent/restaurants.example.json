@@ -1,0 +1,67 @@
+[
+  {
+    "nom": "Restaurant Le Sahel",
+    "telephone": "+226 70 00 00 01",
+    "quartier": "Ouaga 2000",
+    "type_cuisine": "Cuisine africaine",
+    "presence_reseaux": "Facebook actif",
+    "contact_effectue": false,
+    "reponse": "",
+    "statut": "À contacter",
+    "prochaine_action": "Appel de présentation + message WhatsApp",
+    "date_relance": "",
+    "notes": "Exemple fictif — plats populaires le midi"
+  },
+  {
+    "nom": "Chez Ouattara Grill",
+    "telephone": "+226 70 00 00 02",
+    "quartier": "Centre-ville",
+    "type_cuisine": "Grillades",
+    "presence_reseaux": "Instagram actif",
+    "contact_effectue": true,
+    "reponse": "Intéré par la gratuité de 30 jours",
+    "statut": "Intéressé",
+    "prochaine_action": "Envoyer l'offre commerciale et caler une démo",
+    "date_relance": "",
+    "notes": "Exemple fictif — ouvert le soir"
+  },
+  {
+    "nom": "Mama Fatimata Cuisine",
+    "telephone": "+226 70 00 00 03",
+    "quartier": "Koulouba",
+    "type_cuisine": "Poisson braisé & riz",
+    "presence_reseaux": "Aucun",
+    "contact_effectue": true,
+    "reponse": "A demandé à être rappelé lundi",
+    "statut": "À relancer",
+    "prochaine_action": "Rappel téléphonique lundi matin",
+    "date_relance": "2026-10-26",
+    "notes": "Exemple fictif"
+  },
+  {
+    "nom": "Goût d'Chez Nous",
+    "telephone": "+226 70 00 00 04",
+    "quartier": "Dassasgho",
+    "type_cuisine": "Fast-food local",
+    "presence_reseaux": "Facebook actif",
+    "contact_effectue": false,
+    "reponse": "",
+    "statut": "À contacter",
+    "prochaine_action": "Message WhatsApp avec l'offre de lancement",
+    "date_relance": "",
+    "notes": "Exemple fictif"
+  },
+  {
+    "nom": "La Terrasse du Faso",
+    "telephone": "+226 70 00 00 05",
+    "quartier": "Centre-ville",
+    "type_cuisine": "Cuisine burkinabè & pizzas",
+    "presence_reseaux": "Facebook et TikTok",
+    "contact_effectue": true,
+    "reponse": "Démo prévue avec le gérant",
+    "statut": "Démo prévue",
+    "prochaine_action": "Préparer la démo (menu + commission + visibilité)",
+    "date_relance": "2026-10-24",
+    "notes": "Exemple fictif — restaurant très fréquenté"
+  }
+]

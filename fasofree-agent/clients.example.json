@@ -1,0 +1,42 @@
+[
+  {
+    "nom": "Aminata K.",
+    "telephone": "+226 76 00 00 01",
+    "source_decouverte": "Facebook",
+    "quartier": "Ouaga 2000",
+    "inscrit_application": true,
+    "a_commande": false,
+    "a_invite_ami": false,
+    "notes": "Exemple fictif — inscrite via teaser vidéo"
+  },
+  {
+    "nom": "Boureima S.",
+    "telephone": "+226 76 00 00 02",
+    "source_decouverte": "Bouche-à-oreille",
+    "quartier": "Koulouba",
+    "inscrit_application": false,
+    "a_commande": false,
+    "a_invite_ami": false,
+    "notes": "Exemple fictif — contact WhatsApp à envoyer"
+  },
+  {
+    "nom": "Chantal O.",
+    "telephone": "+226 76 00 00 03",
+    "source_decouverte": "TikTok",
+    "quartier": "Dassasgho",
+    "inscrit_application": true,
+    "a_commande": true,
+    "a_invite_ami": true,
+    "notes": "Exemple fictif — a déjà parrainé 2 amis"
+  },
+  {
+    "nom": "Issa N.",
+    "telephone": "+226 76 00 00 04",
+    "source_decouverte": "SMS de lancement",
+    "quartier": "Centre-ville",
+    "inscrit_application": false,
+    "a_commande": false,
+    "a_invite_ami": false,
+    "notes": "Exemple fictif — à relancer avant le lancement"
+  }
+]

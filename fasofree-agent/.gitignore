@@ -1,0 +1,15 @@
+# Sécurité locale — la clé ne doit jamais être committée
+.env
+
+# Base de données locale des conversations
+data/
+
+# Données prospects locales (numéros de téléphone) : jamais versionnées
+restaurants.json
+clients.json
+fasofree-data.json
+
+# Mais on versionne les templates d'exemple
+!*.example.json
+
+node_modules/
