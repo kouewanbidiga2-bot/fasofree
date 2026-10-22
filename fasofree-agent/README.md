@@ -28,7 +28,14 @@ Puis ouvrez **http://localhost:3000**.
 
 3. Jamais de clé dans le code ni dans GitHub (`.env` est ignoré par git).
 
-Le routeur `openrouter/free` ne sélectionne **que** des modèles gratuits : aucun risque de facturation. Limite gratuite : 50 requêtes/jour (1 000/jour si vous achetez ≥ 10 crédits).
+## Modèle (gratuit)
+
+Par défaut le serveur épingle **`nvidia/nemotron-3-ultra-550b-a55b:free`** avec repli automatique sur **`nvidia/nemotron-3.5-lightning:free`** si la réponse est vide ou vient d'un classifieur de sécurité.
+
+> ⚠️ Ne pas utiliser `OPENROUTER_MODEL=openrouter/free` : ce routeur inclut des classifieurs (`content-safety`) qui renvoient « User Safety: safe » au lieu d'une réponse. La valeur est ignorée (avertissement en log) et remplacée par le modèle épinglé.
+
+- Surcharge possible : `OPENROUTER_MODEL=<nimporte quel modèle gratuit ou payant>`
+- Limite gratuite : 50 requêtes/jour (1 000/jour si vous achetez ≥ 10 crédits).
 
 ## Fichiers de données
 
@@ -47,7 +54,7 @@ copy restaurants.example.json restaurants.json
 copy clients.example.json clients.json
 ```
 
-Ces fichiers sont injectés dans le prompt système : l'agent utilise **vos** chiffres, jamais d'inventés.
+Ces fichiers sont injectés dans le prompt système : l'agent utilise **vos** chiffres, jamais d'inventés. Si un fichier réel est absent (déploiement Render : il n'est pas versionné), le serveur **retombe automatiquement sur `*.example.json`** — l'agent a ainsi toujours des données sur l'hébergement.
 
 ## Base de données : SQLite ou PostgreSQL
 

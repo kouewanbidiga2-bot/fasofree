@@ -150,14 +150,51 @@ const MAX_HISTORY_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4000;
 const MAX_TITLE_LENGTH = 60;
 
-function readJson(fileName) {
-  const filePath = path.join(__dirname, fileName);
-  if (!fs.existsSync(filePath)) return null;
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch {
-    return null;
+/* Modèle : le routeur openrouter/free inclut des classifieurs de sécurité
+   (ex. nvidia/nemotron-3.5-content-safety:free) qui renvoient « User Safety:
+   safe » au lieu d'une réponse. On épingle un modèle solide du pool gratuit
+   avec repli automatique sur un second si la réponse est inutilisable. */
+const FREE_MODEL_PRIMARY = "nvidia/nemotron-3-ultra-550b-a55b:free";
+const FREE_MODEL_FALLBACK = "nvidia/nemotron-3.5-lightning:free";
+
+function effectiveModel() {
+  const envModel = (process.env.OPENROUTER_MODEL || "").trim();
+  // « openrouter/free » (routeur, pas un modèle) est déprécié : cause directe du bug
+  if (!envModel || envModel === "openrouter/free") return FREE_MODEL_PRIMARY;
+  return envModel;
+}
+
+function modelChain() {
+  const chain = [effectiveModel()];
+  if (!chain.includes(FREE_MODEL_FALLBACK)) chain.push(FREE_MODEL_FALLBACK);
+  return chain;
+}
+
+function isUsableAnswer(answer) {
+  const t = String(answer || "").trim();
+  if (!t) return false;
+  // Sorties de classifieurs du pool gratuit (le bug « User Safety: safe »)
+  if (/^(user\s*safety|safety\s*:|content[\s-]?safety|model\s*safety|policy\s*:)/i.test(t)) {
+    return false;
   }
+  if (/^(safe|unsafe|jeopardy|flagged|benign|harmful)[.!]?$/i.test(t)) return false;
+  return true;
+}
+
+// Repli sur le template versionné (*.example.json) quand les données locales
+// sont absentes (déploiement Render : les fichiers réels ne sont pas versionnés).
+function readJson(fileName) {
+  const candidates = [fileName, fileName.replace(/\.json$/, ".example.json")];
+  for (const name of candidates) {
+    const filePath = path.join(__dirname, name);
+    if (!fs.existsSync(filePath)) continue;
+    try {
+      return JSON.parse(fs.readFileSync(filePath, "utf8"));
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 // Données réelles injectées dans le prompt système pour éviter les chiffres inventés.
@@ -404,7 +441,7 @@ app.get("/api/status", async (req, res) => {
   const row = await dbGet("SELECT COUNT(*) AS n FROM conversations");
   res.json({
     hasApiKey: Boolean(process.env.OPENROUTER_API_KEY),
-    model: process.env.OPENROUTER_MODEL || "openrouter/free",
+    model: effectiveModel(),
     hasData: readJson("fasofree-data.json") !== null,
     restaurants: (readJson("restaurants.json") || []).length,
     clients: (readJson("clients.json") || []).length,
@@ -551,59 +588,81 @@ app.post("/api/chat", async (req, res) => {
       ...historyRows.map((r) => ({ role: r.role, content: r.content }))
     ];
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:3000",
-        "X-Title": "FasoFree Launch Director"
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || "openrouter/free",
-        messages: apiMessages,
-        temperature: 0.3
-      })
-    });
+    // Chaîne de modèles : on tente le modèle principal, puis le repli si la
+    // réponse est vide ou vient d'un classifieur (« User Safety: safe »)
+    let answer = null;
+    let lastHttp = 0;
+    let lastData = null;
 
-    let data;
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
+    for (const model of modelChain()) {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "FasoFree Launch Director"
+        },
+        body: JSON.stringify({
+          model,
+          messages: apiMessages,
+          temperature: 0.3
+        })
+      });
+
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+
+      if (!response.ok) {
+        lastHttp = response.status;
+        lastData = data;
+        // Clé/crédit : erreur fatale, le modèle suivant échouerait pareil
+        if (response.status === 401 || response.status === 403 || response.status === 402) break;
+        continue;
+      }
+
+      const candidate =
+        data && data.choices && data.choices[0] && data.choices[0].message
+          ? data.choices[0].message.content
+          : null;
+
+      if (isUsableAnswer(candidate)) {
+        answer = candidate;
+        break;
+      }
+      // Réponse inutilisable → on tente le modèle suivant
+      lastHttp = 0;
+      lastData = data;
     }
 
-    if (!response.ok) {
+    if (!answer) {
       // Échec : on retire le message utilisateur pour ne pas polluer l'historique
       if (userMsgId !== null) await dbRun("DELETE FROM messages WHERE id = ?", [userMsgId]);
 
-      const errCode = data && data.error && data.error.code;
-      if (response.status === 429 || errCode === 429) {
+      const errCode = lastData && lastData.error && lastData.error.code;
+      if (lastHttp === 429 || errCode === 429) {
         return res.status(429).json({
           error:
             "Quota gratuit OpenRouter dépassé (50 requêtes/jour par défaut). Réessayez plus tard ou achetez 10 crédits OpenRouter pour passer à 1000/jour."
         });
       }
-      if (response.status === 401 || response.status === 403) {
+      if (lastHttp === 401 || lastHttp === 403) {
         return res.status(401).json({
           error: "Clé OpenRouter invalide ou expirée. Vérifiez OPENROUTER_API_KEY dans fasofree-agent/.env."
         });
       }
-      if (response.status === 402) {
+      if (lastHttp === 402) {
         return res.status(402).json({ error: "Crédit OpenRouter insuffisant pour ce modèle." });
       }
-      return res
-        .status(response.status)
-        .json({ error: `Erreur OpenRouter : ${truncateError((data && data.error && data.error.message) || "réponse invalide")}` });
-    }
-
-    const answer =
-      data && data.choices && data.choices[0] && data.choices[0].message
-        ? data.choices[0].message.content
-        : null;
-
-    if (!answer) {
-      if (userMsgId !== null) await dbRun("DELETE FROM messages WHERE id = ?", [userMsgId]);
+      if (lastHttp) {
+        return res
+          .status(lastHttp)
+          .json({ error: `Erreur OpenRouter : ${truncateError((lastData && lastData.error && lastData.error.message) || "réponse invalide")}` });
+      }
       return res.status(502).json({ error: "Réponse vide du modèle. Réessayez." });
     }
 
@@ -657,6 +716,12 @@ async function start() {
   if (!process.env.OPENROUTER_API_KEY) {
     console.warn("ATTENTION : OPENROUTER_API_KEY manquante — le chat renverra une erreur.");
   }
+  if ((process.env.OPENROUTER_MODEL || "").trim() === "openrouter/free") {
+    console.warn(
+      "OPENROUTER_MODEL=openrouter/free ignoré (routeur instable — parfois un classifieur « User Safety: safe ») → modèle épinglé utilisé."
+    );
+  }
+  console.log("Modèle OpenRouter : " + effectiveModel() + " (repli : " + FREE_MODEL_FALLBACK + ")");
   if (!APP_PASSWORD) {
     console.log("Authentification : DÉSACTIVÉE (variable APP_PASSWORD absente).");
   }
