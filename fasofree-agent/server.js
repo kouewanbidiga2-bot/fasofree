@@ -671,6 +671,26 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.error("Échec du démarrage :", err);
+  console.error("Échec du démarrage :", err.message || err);
+  if (usePg) {
+    let host = "(URL illisible)";
+    try {
+      host = new URL(process.env.DATABASE_URL).host;
+    } catch {}
+    if (err && err.code === "ENOTFOUND") {
+      console.error(
+        `→ Hôte PostgreSQL introuvable : « ${host} ».\n` +
+          "  Causes fréquentes : URL incomplète (il manque .internal ou .region.render.com), " +
+          "URL Internal depuis un autre compte/région, ou base supprimée/suspendue.\n" +
+          "  Correction : Environment → DATABASE_URL = URL EXTERNE complète (postgresql://user:pass@hote:5432/base), " +
+          "ou retirez DATABASE_URL pour repasser en SQLite local."
+      );
+    } else if (err && (err.code === "ECONNREFUSED" || err.code === "ETIMEDOUT" || err.code === "ENOTFOUND" || err.code === "28P01" || err.code === "28000")) {
+      console.error(
+        "→ PostgreSQL injoignable ou identifiants refusés. Vérifiez DATABASE_URL " +
+          "(URL EXTERNE complète) et que la base existe toujours."
+      );
+    }
+  }
   process.exit(1);
 });
