@@ -29,7 +29,7 @@ La libération des fonds (`releaseHeldPayouts`) suit une machine à états stric
 - **JWT** : secret centralisé (`resolveJwtSecret`) — HTTP et WebSocket utilisent la même clé.
 
 ## Routes sensibles
-- `/balance`, `/account`, `/payments`, `/payment/:ref`, `/paydunya/test-config` restreints à `admin`/`support` (payload relâchés, clés masquées).
+- `/balance`, `/account`, `/payments`, `/payment/:ref` restreints à `admin`/`support` (payload relâchés, clés masquées).
 - Analyse : `getBusinessOverview` vérifie la propriété du commerce (`brand.ownerId`).
 
 ## Webhook WhatsApp (Meta)

@@ -7,7 +7,6 @@ import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
-import { PaydunyaPayoutProvider } from './providers/paydunya-payout.provider';
 import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
@@ -25,7 +24,6 @@ export class PayoutsService {
 
   constructor(
     private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
-    private readonly paydunyaPayoutProvider: PaydunyaPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
     @InjectRepository(PayoutRequest)
@@ -217,27 +215,14 @@ export class PayoutsService {
       };
     }
 
-    // 4. Appeler le provider de payout actif (GeniusPay OU PayDunya)
+    // 4. Appeler GeniusPay (seul provider de payout actif)
     try {
-      const provider = this.getActivePayoutProvider();
-      let transferResult;
-
-      if (provider === 'paydunya') {
-        transferResult = await this.paydunyaPayoutProvider.executePayout(
-          payoutReference,
-          feeInfo.netAmount,
-          dto.phoneNumber,
-          dto.provider,
-          payoutReference, // withdrawId = notre référence interne
-        );
-      } else {
-        transferResult = await this.geniusPayPayoutProvider.sendTransfer(
-          payoutReference,
-          feeInfo.netAmount,
-          dto.phoneNumber,
-          dto.provider,
-        );
-      }
+      const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
+        payoutReference,
+        feeInfo.netAmount,
+        dto.phoneNumber,
+        dto.provider,
+      );
 
       if (transferResult.success) {
         await this.payoutRequestRepository.update(payoutRequest.id, {
@@ -287,23 +272,6 @@ export class PayoutsService {
       }
       throw error;
     }
-  }
-
-  // ─── DÉTERMINER LE PROVIDER DE PAYOUT ACTIF ───────────────────────────────────
-  /**
-   * Détermine le provider de payout actif.
-   * Priorité : 1. PAYMENT_PROVIDER explicite, 2. PayDunya si 4 clés présentes, 3. GeniusPay.
-   */
-  private getActivePayoutProvider(): 'geniuspay' | 'paydunya' {
-    const explicit = this.configService.get<string>('PAYMENT_PROVIDER');
-    if (explicit === 'geniuspay' || explicit === 'paydunya') {
-      return explicit;
-    }
-    // Auto : PayDunya par défaut si configuré (4 clés Render présentes)
-    if (this.paydunyaPayoutProvider.isConfigured()) {
-      return 'paydunya';
-    }
-    return 'geniuspay';
   }
 
   // ─── HANDLE FAILURE ──────────────────────────────────────────────────────

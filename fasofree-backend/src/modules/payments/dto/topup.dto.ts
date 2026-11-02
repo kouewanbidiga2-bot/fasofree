@@ -44,9 +44,4 @@ export class TopupDto {
   @IsString()
   @IsOptional()
   branchId?: string;
-
-  @ApiPropertyOptional({ example: 'paydunya', enum: ['geniuspay', 'paydunya'], description: 'Provider de paiement (défaut: auto)' })
-  @IsOptional()
-  @IsString()
-  provider?: 'geniuspay' | 'paydunya';
 }

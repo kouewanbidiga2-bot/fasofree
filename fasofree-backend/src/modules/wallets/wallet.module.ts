@@ -15,7 +15,6 @@ import { WalletService } from './wallet.service';
 import { WalletController, WalletWebhookController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
 import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
-import { PaydunyaPayoutProvider } from './providers/paydunya-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { BusinessesModule } from '../businesses/businesses.module';
@@ -29,7 +28,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
     BusinessesModule,
   ],
   controllers: [WalletController, WalletWebhookController],
-  providers: [WalletService, PayoutsService, GeniusPayPayoutProvider, PaydunyaPayoutProvider],
-  exports: [WalletService, PayoutsService, GeniusPayPayoutProvider, PaydunyaPayoutProvider, TypeOrmModule],
+  providers: [WalletService, PayoutsService, GeniusPayPayoutProvider],
+  exports: [WalletService, PayoutsService, GeniusPayPayoutProvider, TypeOrmModule],
 })
 export class WalletModule {}

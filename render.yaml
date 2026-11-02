@@ -41,8 +41,9 @@ services:
       - key: DB_MIGRATIONS_RUN
         value: "true"
       # GeniusPay est le SEUL provider de paiement (payin + payout).
+      # 'live' = URL de production ; jamais 'sandbox' en prod.
       - key: PAYMENT_ENV
-        value: sandbox
+        value: live
       - key: FASOFREE_COMMISSION_RATE
         value: "0.0085"
       - key: FASOFREE_COMMISSION_PAYER

@@ -20,8 +20,6 @@ import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { ConfigService } from '@nestjs/config';
 import { GeniusPayPayoutProvider } from '../wallets/providers/geniuspay-payout.provider';
-import { PaydunyaPayoutProvider } from '../wallets/providers/paydunya-payout.provider';
-import { PayoutTransferResult } from '../wallets/providers/geniuspay-payout.provider';
 
 @Injectable()
 export class PayoutsService {
@@ -37,7 +35,6 @@ export class PayoutsService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
-    private readonly paydunyaPayoutProvider: PaydunyaPayoutProvider,
   ) {}
 
   /**
@@ -249,54 +246,7 @@ export class PayoutsService {
   }
 
   /**
-   * Détermine le provider de payout actif.
-   * Priorité : 1. PAYMENT_PROVIDER explicite, 2. PayDunya si 4 clés présentes, 3. GeniusPay.
-   */
-  private getActivePayoutProvider(): 'geniuspay' | 'paydunya' {
-    const explicit = this.configService.get<string>('PAYMENT_PROVIDER');
-    if (explicit === 'geniuspay' || explicit === 'paydunya') {
-      return explicit;
-    }
-    // Auto : PayDunya par défaut si configuré (4 clés Render présentes)
-    if (this.paydunyaPayoutProvider.isConfigured()) {
-      return 'paydunya';
-    }
-    return 'geniuspay';
-  }
-
-  /**
-   * Mappe notre enum PayoutProvider vers le withdraw_mode PayDunya
-   * (même logique que PaydunyaPayoutProvider.mapWithdrawMode)
-   */
-  private mapPaydunyaWithdrawMode(provider: PayoutProvider): string {
-    const normalized = provider.toLowerCase().replace(/_/g, '-');
-    const map: Record<string, string> = {
-      'orange-money': 'orange-money-burkina',
-      'orange_money': 'orange-money-burkina',
-      'orange_money_burkina': 'orange-money-burkina',
-      'orange-money-burkina': 'orange-money-burkina',
-      'moov-money': 'moov-burkina-faso',
-      'moov_money': 'moov-burkina-faso',
-      'moov_money_burkina': 'moov-burkina-faso',
-      'moov-burkina-faso': 'moov-burkina-faso',
-      'wave': 'wave-burkina',
-      'wave-burkina': 'wave-burkina',
-      'paydunya': 'paydunya',
-    };
-    return map[normalized] || 'orange-money-burkina';
-  }
-
-  /**
-   * Nettoie un numéro de téléphone pour PayDunya (sans +226 ni 00226, sans espaces)
-   */
-  private cleanPhone(phone: string): string {
-    return phone
-      .replace(/\s+/g, '')
-      .replace(/^(\+226|00226)/, '');
-  }
-
-  /**
-   * 📲 Exécute un virement Mobile Money via le provider actif (GeniusPay OU PayDunya PER).
+   * 📲 Exécute un virement Mobile Money via GeniusPay (seul provider actif).
    * Remplace l'ancienne simulation.
    */
   private async executeMobileMoneyTransfer(payload: {
@@ -319,29 +269,7 @@ export class PayoutsService {
       });
     }
 
-    const activeProvider = this.getActivePayoutProvider();
-
-    if (activeProvider === 'paydunya') {
-      // PayDunya PER (Disburse v2) — URL live obligatoire
-      const withdrawMode = this.mapPaydunyaWithdrawMode(payload.provider);
-      const cleanPhone = this.cleanPhone(payload.phoneNumber);
-
-      const result = await this.paydunyaPayoutProvider.executePayout(
-        payload.reference,
-        payload.amount,
-        cleanPhone,
-        payload.provider,
-        payload.reference, // withdrawId = notre référence
-      );
-
-      return {
-        success: result.success,
-        transactionRef: result.disburseToken ?? result.providerReference ?? payload.reference,
-        providerReference: result.providerReference,
-      };
-    }
-
-    // GeniusPay (fallback)
+    // GeniusPay (seul provider actif)
     const result = await this.geniusPayPayoutProvider.sendTransfer(
       payload.reference,
       payload.amount,

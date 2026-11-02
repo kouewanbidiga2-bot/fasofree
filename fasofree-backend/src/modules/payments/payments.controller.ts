@@ -33,7 +33,6 @@ import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
 import { GeniusPayService } from './providers/geniuspay.service';
-import { PaydunyaService } from './providers/paydunya.service';
 import { OrdersService } from '../orders/orders.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -48,7 +47,6 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly geniusPayService: GeniusPayService,
-    private readonly paydunyaService: PaydunyaService,
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
     @InjectRepository(Transaction)
@@ -103,7 +101,7 @@ export class PaymentsController {
   @ApiBearerAuth('JWT-auth')
   @UseGuards(AuthGuard('jwt'))
   @Post('topup')
-  @ApiOperation({ summary: 'Recharger son portefeuille (provider actif : GeniusPay ou PayDunya)' })
+  @ApiOperation({ summary: 'Recharger son portefeuille via GeniusPay' })
   async topup(
     @Request() req: Request & { user?: { userId?: string; role?: string } },
     @Body() dto: TopupDto,
@@ -114,13 +112,7 @@ export class PaymentsController {
     }
 
     try {
-      const provider = this.paymentsService['getActiveProvider']();
-      if (provider === 'paydunya') {
-        const result = await this.paymentsService.createPaydunyaTopup(userId, dto, req.user?.role || 'BUSINESS_ADMIN');
-        return { success: true, ...result };
-      }
-
-      // GeniusPay (existant)
+      // GeniusPay (seul provider actif)
       const topupRef = `TOPUP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const metadata: Record<string, string> = {
         type: 'topup',
@@ -274,118 +266,6 @@ export class PaymentsController {
     }
 
     return { success: true };
-  }
-
-  // ========================================================================
-  // 💳 PAYDUNYA WEBHOOKS (Lot 4) — Routes EXACTES configurées dans la console PayDunya
-  // IPN Payin :     https://fasofree-3nh8.onrender.com/api/v1/paydunya/webhook
-  // Disburse Payout: https://fasofree-3nh8.onrender.com/api/v1/paydunya/disburse-webhook
-  // ========================================================================
-
-  @Post('paydunya/webhook')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Webhook IPN PayDunya (Payin) — Vérification SHA-512 Master Key' })
-  async handlePaydunyaWebhook(@Body() payload: any) {
-    this.logger.log(`🔔 PayDunya IPN reçu: ${JSON.stringify(payload).slice(0, 300)}`);
-
-    // PayDunya envoie les données sous la clé `data` (JSON ou form-urlencoded)
-    const data = payload?.data ?? payload;
-
-    // 🔒 SÉCURITÉ CRITIQUE : Vérification SHA-512 du hash (fail-closed)
-    // Le hash reçu doit être égal à SHA512(PAYDUNYA_MASTER_KEY)
-    const receivedHash = data?.hash ?? payload?.hash;
-    try {
-      this.paydunyaService.verifyIpnSignature(receivedHash);
-    } catch (err) {
-      this.logger.error(`❌ PayDunya IPN signature invalide: ${err.message}`);
-      throw new BadRequestException('Invalid IPN signature');
-    }
-
-    const invoiceToken = data?.token ?? data?.invoice?.token;
-    const status = data?.status ?? data?.invoice?.status;
-    const amount = Number(data?.amount ?? data?.invoice?.total_amount ?? 0);
-    const customData = data?.custom_data ?? data?.invoice?.custom_data ?? {};
-
-    if (!invoiceToken) {
-      this.logger.warn('PayDunya IPN: token de facture manquant');
-      return { received: true }; // On répond 200 pour éviter les retries
-    }
-
-    try {
-      const type = customData?.type;
-
-      if (type === 'ORDER') {
-        const orderId = customData?.order_id;
-        if (orderId && status === 'completed') {
-          // 🔒 Idempotence : on ne traite que si transaction PENDING
-          const tx = await this.transactionRepository.findOne({
-            where: { paymentGatewayId: invoiceToken, status: TransactionStatus.PENDING },
-          });
-          if (tx) {
-            const amountValid = await this.paymentsService.validatePaymentAmount(orderId, amount);
-            if (amountValid) {
-              await this.paymentsService.processSuccessfulPayment(orderId, invoiceToken, 'PAYDUNYA');
-              this.logger.log(`✅ Order ${orderId} payée via PayDunya (IPN)`);
-            } else {
-              this.logger.error(`❌ Montant invalide PayDunya pour ${orderId}: ${amount}`);
-              await this.transactionRepository.update({ id: tx.id }, { status: TransactionStatus.FAILED });
-              await this.ordersService.markAsPaymentFailed(orderId);
-            }
-          } else {
-            this.logger.log(`PayDunya IPN ORDER ${orderId}: déjà traité ou introuvable (idempotence)`);
-          }
-        } else if (orderId && (status === 'failed' || status === 'cancelled')) {
-          const tx = await this.transactionRepository.findOne({
-            where: { paymentGatewayId: invoiceToken, status: TransactionStatus.PENDING },
-          });
-          if (tx) {
-            await this.transactionRepository.update({ id: tx.id }, { status: TransactionStatus.FAILED });
-            await this.ordersService.markAsPaymentFailed(orderId);
-            this.logger.log(`❌ Order ${orderId} PayDunya ${status} (IPN)`);
-          }
-        }
-      } else if (type === 'WALLET_TOPUP') {
-        if (status === 'completed') {
-          await this.paymentsService.processPaydunyaTopup(data);
-        } else if (status === 'failed' || status === 'cancelled') {
-          this.logger.log(`PayDunya topup ${customData?.reference}: ${status} — aucun crédit`);
-        }
-      }
-    } catch (err) {
-      this.logger.error(`PayDunya IPN processing error: ${err.message}`);
-      // On répond 200 pour ne pas déclencher de retries infinis
-    }
-
-    return { received: true };
-  }
-
-  @Post('paydunya/disburse-webhook')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Webhook PayDunya Disburse (Payout PER)' })
-  async handlePaydunyaDisburseWebhook(@Body() payload: any) {
-    this.logger.log(`🔔 PayDunya Disburse webhook: ${JSON.stringify(payload).slice(0, 300)}`);
-    // PayDunya disburse envoie: { response_code, response_text, transaction_id, provider_ref, ... }
-    const responseCode = payload?.response_code;
-    const disburseId = payload?.disburse_id; // notre withdrawId
-    const transactionId = payload?.transaction_id;
-    const providerRef = payload?.provider_ref;
-    const failureReason = payload?.response_text;
-
-    if (disburseId) {
-      // Ce webhook mettra à jour le PayoutRequest côté wallet (Lot 2)
-      // Pour l'instant on loggue seulement
-      this.logger.log(`PayDunya Disburse ${disburseId}: ${responseCode === '00' ? 'SUCCESS' : 'FAILED'} - ${failureReason ?? ''}`);
-    }
-
-    return { received: true };
-  }
-
-  @ApiBearerAuth('JWT-auth')
-  @UseGuards(AuthGuard('jwt'))
-  @Get('paydunya/status/:token')
-  @ApiOperation({ summary: 'Vérifier le statut d\'une facture PayDunya (réconciliation)' })
-  async checkPaydunyaStatus(@Param('token') token: string) {
-    return this.paydunyaService.confirmInvoiceStatus(token);
   }
 
   @ApiBearerAuth('JWT-auth')

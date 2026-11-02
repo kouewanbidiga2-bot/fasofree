@@ -19,10 +19,8 @@ import { ConfigService } from '@nestjs/config';
 import { Transaction, TransactionStatus } from './entities/transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
-import { TopupDto } from './dto/topup.dto';
 import { OrdersService } from '../orders/orders.service';
 import { GeniusPayService } from './providers/geniuspay.service';
-import { PaydunyaService } from './providers/paydunya.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import {
@@ -43,7 +41,6 @@ export class PaymentsService {
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
     private readonly geniusPayService: GeniusPayService,
-    private readonly paydunyaService: PaydunyaService,
     private readonly walletService: WalletService,
   ) {}
 
@@ -139,10 +136,6 @@ export class PaymentsService {
     }
 
     try {
-      const provider = this.getActiveProvider();
-      if (provider === 'paydunya') {
-        return await this.initiatePaydunyaPayment(order, reference, dto);
-      }
       return await this.initiateGeniusPay(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
@@ -250,198 +243,6 @@ export class PaymentsService {
     return fallback;
   }
 
-  // ========================================================================
-  // 💳 PAYDUNYA PAYIN — Checkout & Top-up (Lot 4)
-  // ========================================================================
-
-  /**
-   * Détermine le provider de paiement actif.
-   * Priorité : 1. PAYMENT_PROVIDER explicite, 2. PayDunya si 4 clés présentes, 3. GeniusPay.
-   */
-  getActiveProvider(): 'geniuspay' | 'paydunya' {
-    const explicit = this.configService.get<string>('PAYMENT_PROVIDER');
-    if (explicit === 'geniuspay' || explicit === 'paydunya') {
-      return explicit;
-    }
-    // Auto : PayDunya par défaut si configuré (4 clés Render présentes)
-    if (this.paydunyaService.isConfigured()) {
-      return 'paydunya';
-    }
-    return 'geniuspay';
-  }
-
-  /**
-   * 💳 Initier un paiement PayDunya pour une commande (checkout).
-   */
-  async initiatePaydunyaPayment(
-    order: Order,
-    reference: string,
-    dto: InitiatePaymentDto,
-  ) {
-    // 🔗 Mêmes URLs de retour que GeniusPay : les défauts PayDunya
-    // (`/payment/success`) n'existent pas dans l'app client.
-    const clientUrl = (
-      this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'
-    ).replace(/\/+$/, '');
-    const { token, checkoutUrl } = await this.paydunyaService.createCheckoutInvoice({
-      amountXof: Number(order.totalAmount),
-      description: `Commande #${order.id.substring(0, 8)}`,
-      customData: {
-        type: 'ORDER',
-        order_id: order.id,
-        reference,
-        payment_method: dto.paymentMethod,
-      },
-      returnUrl: this.safeReturnUrl(
-        dto.successUrl,
-        clientUrl,
-        `${clientUrl}/order-tracking?orderId=${order.id}`,
-      ),
-      cancelUrl: this.safeReturnUrl(
-        dto.errorUrl,
-        clientUrl,
-        `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
-      ),
-    });
-
-    // 🔒 Persister le token PayDunya pour la réconciliation / webhook
-    await this.transactionRepository.update(
-      { reference },
-      {
-        paymentGatewayId: token,
-        gatewayCheckoutUrl: checkoutUrl ?? null,
-      },
-    );
-
-    return {
-      reference,
-      checkoutUrl,
-      paymentUrl: checkoutUrl,
-      status: 'pending',
-      message: 'Paiement PayDunya initié',
-    };
-  }
-
-  // ========================================================================
-  /**
-   * RECONCILIATION : interroger l'agregateur sur l'etat REEL d'une commande.
-   *
-   * Appele par le client au retour de GeniusPay. On interroge l'API
-   * merchant avec la reference reellement stockee (paymentGatewayId) et :
-   *  - si l'agregateur dit completed ET le montant correspond -> on applique
-   *    la MEME logique que le webhook (transaction SUCCESS + commande PAID) ;
-   *  - sinon on renvoie l'etat reel, sans jamais annoncer "paye".
-   *
-   * Cela rend l'affichage honnete meme si un webhook a ete perdu, et empeche
-   * definitivement l'interface d'afficher "paye" sans encaissement.
-   */
-  async reconcilePaydunyaPayment(
-    orderId: string,
-    clientId: string,
-  ): Promise<{ status: string; paid: boolean; reference: string | null }> {
-    const order = await this.orderRepository.findOne({ where: { id: orderId } });
-    if (!order) {
-      throw new NotFoundException('Commande introuvable');
-    }
-    if (order.clientId !== clientId) {
-      throw new BadRequestException('Cette commande ne vous appartient pas');
-    }
-
-    const transaction = await this.transactionRepository.findOne({
-      where: { orderId },
-    });
-    if (!transaction || !transaction.paymentGatewayId) {
-      return { status: order.status, paid: false, reference: transaction?.reference ?? null };
-    }
-
-    const confirm = await this.paydunyaService.confirmInvoiceStatus(transaction.paymentGatewayId);
-    if (confirm?.response_code === '00' && confirm?.status === 'completed') {
-      // Même logique que le webhook : marquer SUCCESS + dispatcher
-      await this.transactionRepository.update(
-        { id: transaction.id },
-        { status: TransactionStatus.SUCCESS },
-      );
-      await this.ordersService.markAsPaidAndDispatch(orderId, transaction.reference);
-      this.logger.log(`[Reconcile PayDunya] Commande ${orderId} confirmée payée`);
-      return { status: 'completed', paid: true, reference: transaction.reference };
-    }
-
-    return { status: order.status, paid: false, reference: transaction.reference };
-  }
-
-  /**
-   * 💳 Recharge portefeuille via PayDunya (top-up).
-   */
-  async createPaydunyaTopup(userId: string, dto: TopupDto, userRole: string): Promise<{
-    reference: string;
-    checkoutUrl: string;
-    paymentUrl: string;
-    status: string;
-    message: string;
-  }> {
-    const topupRef = `TOPUP-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-    const { token, checkoutUrl } = await this.paydunyaService.createCheckoutInvoice({
-      amountXof: dto.amount,
-      description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
-      customData: {
-        type: 'WALLET_TOPUP',
-        userId,
-        reference: topupRef,
-        walletRole: userRole,
-      },
-      returnUrl: `${this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'}/wallet/topup/success`,
-      cancelUrl: `${this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'}/wallet/topup/cancel`,
-    });
-
-    // Pas de Transaction en base pour le top-up (le webhook créditera directement)
-    // On loggue pour traçabilité
-    this.logger.log(`PayDunya topup créé: ${topupRef} → token ${token}`);
-
-    return {
-      reference: topupRef,
-      checkoutUrl,
-      paymentUrl: checkoutUrl,
-      status: 'pending',
-      message: 'Redirection vers PayDunya pour le paiement.',
-    };
-  }
-
-  /**
-   * 💳 Traiter un top-up PayDunya confirmé (appelé depuis le webhook IPN).
-   */
-  async processPaydunyaTopup(data: any): Promise<boolean> {
-    const customData = data?.custom_data ?? {};
-    const userId = customData.userId;
-    const topupRef = customData.reference;
-    const walletRole = customData.walletRole;
-    const amount = Number(data?.amount ?? 0);
-
-    if (!userId || !topupRef) {
-      this.logger.error('Webhook PayDunya topup: userId ou reference manquant dans custom_data');
-      return false;
-    }
-    if (!Number.isFinite(amount) || amount <= 0) {
-      this.logger.error(`Webhook PayDunya topup ${topupRef}: montant invalide`);
-      return false;
-    }
-
-    const resolvedRole = this.resolveWalletRole(walletRole);
-    await this.walletService.creditWallet(
-      userId,
-      resolvedRole,
-      amount,
-      TransactionReason.TOPUP,
-      topupRef,
-      `Recharge portefeuille via PayDunya (ref: ${data?.invoice?.token ?? ''})`,
-      TransactionType.DEPOSIT,
-      undefined,
-    );
-
-    this.logger.log(`✅ Recharge PayDunya ${topupRef} créditée : +${amount} XOF → ${resolvedRole} ${userId}`);
-    return true;
-  }
-
-    // ========================================================================
   /**
    * RECONCILIATION : interroger l'agregateur sur l'etat REEL d'une commande.
    *
