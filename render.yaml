@@ -78,6 +78,9 @@ services:
         sync: false
       - key: GENIUSPAY_WEBHOOK_SECRET
         sync: false
+      # Optionnel : surcharge l'URL de base de l'API marchand GenesysPay.
+      - key: GENIUSPAY_BASE_URL
+        sync: false
       # Cloudinary (uploads images)
       - key: CLOUDINARY_CLOUD_NAME
         sync: false

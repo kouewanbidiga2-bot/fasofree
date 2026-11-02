@@ -6,6 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
+import { resolveGeniusPayBaseUrl } from '../../../config/payment.config';
 
 export interface PayoutTransferResult {
   success: boolean;
@@ -32,11 +33,7 @@ export class GeniusPayPayoutProvider {
   private readonly apiSecret: string;
 
   constructor(private readonly configService: ConfigService) {
-    const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
-    this.baseUrl =
-      paymentEnv === 'sandbox'
-        ? 'https://pay.genius.ci/sandbox'
-        : 'https://pay.genius.ci/api/v1/merchant';
+    this.baseUrl = resolveGeniusPayBaseUrl(this.configService);
     this.apiKey = this.configService.get<string>('GENIUSPAY_API_KEY', '');
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
   }

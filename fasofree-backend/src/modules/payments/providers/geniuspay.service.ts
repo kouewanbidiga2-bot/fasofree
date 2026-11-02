@@ -7,6 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
+import { resolveGeniusPayBaseUrl } from '../../../config/payment.config';
 
 export interface GeniusPayPayment {
   id: number;
@@ -76,11 +77,9 @@ export class GeniusPayService {
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
 
     const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
+    this.baseUrl = resolveGeniusPayBaseUrl(this.configService);
     if (paymentEnv === 'sandbox') {
-      this.baseUrl = 'https://pay.genius.ci/sandbox';
       this.logger.log('⚠️ GeniusPay SANDBOX mode');
-    } else {
-      this.baseUrl = 'https://pay.genius.ci/api/v1/merchant';
     }
 
     if (!this.apiKey || !this.apiSecret) {

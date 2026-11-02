@@ -42,6 +42,7 @@ Référence des variables pour **staging / production**. Aucun secret n'est cod�
 | `PAYMENT_ENV` | `sandbox` \| `live`. |
 | `GENIUSPAY_API_KEY` / `GENIUSPAY_API_SECRET` | Clés GeniusPay (payin **et** payout). |
 | `GENIUSPAY_WEBHOOK_SECRET` | **Obligatoire en prod** : sans lui, les webhooks GeniusPay sont rejetés (fail-closed). |
+| `GENIUSPAY_BASE_URL` | Surcharge de l'URL de base de l'API marchand. Vide = `https://www.genesyspay.com/api/v1/merchant` (live) ou `.../sandbox`. |
 
 ## Payouts / reversements
 
