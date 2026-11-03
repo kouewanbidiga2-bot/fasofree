@@ -452,7 +452,7 @@ export class PaymentsService {
    * @returns `true` si un crédit a été appliqué, `false` si le webhook est ignoré.
    */
   async creditTopupFromGateway(data: any, payload: any): Promise<boolean> {
-    const metadata = data?.metadata ?? payload?.metadata ?? {};
+    const metadata = data?.extras ?? data?.metadata ?? payload?.metadata ?? {};
     const userId = metadata.userId != null ? String(metadata.userId) : '';
     const topupRef =
       metadata.reference != null ? String(metadata.reference) : '';
@@ -469,14 +469,14 @@ export class PaymentsService {
 
     // 🔒 On n'encaisse un crédit QUE sur un paiement réellement `completed`.
     const gatewayStatus = String(data?.status ?? '').toLowerCase();
-    if (gatewayStatus && gatewayStatus !== 'completed') {
+    if (gatewayStatus && gatewayStatus !== 'success' && gatewayStatus !== 'completed') {
       this.logger.error(
         `Webhook topup ${topupRef}: statut agrégateur = "${gatewayStatus}" — NON crédité`,
       );
       return false;
     }
 
-    const amount = Number(data?.amount ?? payload?.amount);
+    const amount = Number(data?.amount ?? data?.total_amount ?? payload?.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       this.logger.error(
         `Webhook topup ${topupRef}: montant invalide (${data?.amount}) — NON crédité`,
@@ -490,8 +490,8 @@ export class PaymentsService {
       amount,
       TransactionReason.TOPUP,
       topupRef,
-      `Recharge portefeuille via GeniusPay${
-        data?.reference ? ` (réf. ${data.reference})` : ''
+      `Recharge portefeuille via GenesysPay${
+        data?.tx_ref ? ` (réf. ${data.tx_ref})` : ''
       }`,
       TransactionType.DEPOSIT,
       branchId,

@@ -17,68 +17,62 @@ export interface PayoutTransferResult {
   providerRef?: string;
 }
 
-/**
- * Provider de retrait (payout) — GeniusPay uniquement.
- * Envoie le virement Mobile Money (Orange Money / Moov Money / Wave) vers le
- * numéro du bénéficiaire via l'API GeniusPay.
- *
- * Anciennement `CinetPayPayoutProvider` (nom historique de l'époque
- * multi-providers) : renommé et réécrit pour GeniusPay seul.
- */
+const PAYOUT_METHOD_SLUGS: Record<string, string> = {
+  orange_money: 'orange-money-bf',
+  moov_money: 'moov-money-bf',
+  wave: 'wave-bf',
+  mtn_money: 'mtn-bf',
+};
+
 @Injectable()
 export class GeniusPayPayoutProvider {
   private readonly logger = new Logger(GeniusPayPayoutProvider.name);
   private readonly baseUrl: string;
-  private readonly apiKey: string;
   private readonly apiSecret: string;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = resolveGeniusPayBaseUrl(this.configService);
-    this.apiKey = this.configService.get<string>('GENIUSPAY_API_KEY', '');
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
   }
 
   private get headers() {
     return {
-      'X-API-Key': this.apiKey,
-      'X-API-Secret': this.apiSecret,
+      Authorization: `Bearer ${this.apiSecret}`,
       'Content-Type': 'application/json',
     };
   }
 
-  /**
-   * Envoie un virement Mobile Money vers le numéro du bénéficiaire.
-   * @param reference  Référence interne (payoutReference du PayoutsService)
-   * @param amountFcfa Montant net à virer (après frais)
-   * @param phoneNumber Numéro Mobile Money du bénéficiaire
-   * @param provider   Opérateur cible (orange_money, moov_money, wave…)
-   */
   async sendTransfer(
     reference: string,
     amountFcfa: number,
     phoneNumber: string,
     provider: string,
   ): Promise<PayoutTransferResult> {
-    if (!this.apiKey || !this.apiSecret) {
-      this.logger.error(
-        '❌ Clés API GeniusPay non configurées — virement impossible (fail-closed)',
-      );
+    if (!this.apiSecret) {
+      this.logger.error('❌ Clés API GenesysPay non configurées — virement impossible (fail-closed)');
       return {
         success: false,
-        message:
-          "GeniusPay n'est pas configuré — le retrait a été annulé et le montant recrédité.",
+        message: "GenesysPay n'est pas configuré — le retrait a été annulé et le montant recrédité.",
       };
     }
+
+    const methodSlug = PAYOUT_METHOD_SLUGS[provider] ?? provider;
+    const webhookUrl = this.configService.get<string>('APP_WEBHOOK_URL');
+    const callbackUrl = webhookUrl
+      ? `${webhookUrl.replace(/\/+$/, '')}/wallets/webhook/geniuspay`
+      : undefined;
 
     try {
       const response = await axios.post(
         `${this.baseUrl}/payouts`,
         {
-          reference,
           amount: amountFcfa,
           currency: 'XOF',
-          payment_method: provider,
-          customer: { phone_number: phoneNumber },
+          channel: 'mobile_money',
+          method: methodSlug,
+          phone_number: phoneNumber,
+          tx_ref: reference,
+          callback_url: callbackUrl,
         },
         {
           headers: this.headers,
@@ -87,22 +81,24 @@ export class GeniusPayPayoutProvider {
       );
 
       const data = response.data?.data ?? response.data;
+      const status = String(data?.status ?? response.data?.status ?? '').toUpperCase();
+      const ok = response.data?.status === 'success' && status !== 'FAILED' && status !== 'CANCELLED';
+
       this.logger.log(
-        `✅ Virement GeniusPay envoyé — ref ${reference} | ${amountFcfa} FCFA → ${phoneNumber} (${provider})`,
+        `✅ Virement GenesysPay envoyé — ref ${reference} | ${amountFcfa} FCFA → ${phoneNumber} (${provider})`,
       );
 
       return {
-        success: true,
-        message: 'Virement Mobile Money initié via GeniusPay',
-        providerReference: data?.reference ?? reference,
+        success: ok,
+        message: ok ? 'Virement Mobile Money initié via GenesysPay' : (data?.message ?? 'Échec du virement'),
+        providerReference: data?.transaction_id ?? data?.tx_ref ?? reference,
+        transactionId: data?.transaction_id,
       };
     } catch (error: any) {
       const errData = error?.response?.data;
-      this.logger.error(
-        `❌ GeniusPay payout error (ref ${reference}): ${error.message}`,
-      );
+      this.logger.error(`❌ GenesysPay payout error (ref ${reference}): ${error.message}`);
       if (errData) {
-        this.logger.error(`❌ GeniusPay payout response: ${JSON.stringify(errData)}`);
+        this.logger.error(`❌ GenesysPay payout response: ${JSON.stringify(errData)}`);
       }
 
       return {
@@ -110,7 +106,7 @@ export class GeniusPayPayoutProvider {
         message:
           errData?.message ??
           error?.message ??
-          'Échec du virement GeniusPay (erreur inconnue)',
+          'Échec du virement GenesysPay (erreur inconnue)',
       };
     }
   }

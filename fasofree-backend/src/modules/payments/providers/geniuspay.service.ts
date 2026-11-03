@@ -65,41 +65,59 @@ export interface GeniusPayAccount {
   created_at: string;
 }
 
+const METHOD_SLUGS: Record<string, string> = {
+  orange_money: 'orange-money-bf',
+  moov_money: 'moov-money-bf',
+  wave: 'wave-bf',
+  mtn_money: 'mtn-bf',
+};
+
 @Injectable()
 export class GeniusPayService {
   private readonly logger = new Logger(GeniusPayService.name);
   private readonly baseUrl: string;
-  private readonly apiKey: string;
   private readonly apiSecret: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = this.configService.get<string>('GENIUSPAY_API_KEY', '');
     this.apiSecret = this.configService.get<string>('GENIUSPAY_API_SECRET', '');
-
-    const paymentEnv = this.configService.get<string>('PAYMENT_ENV', 'production');
     this.baseUrl = resolveGeniusPayBaseUrl(this.configService);
-    if (paymentEnv === 'sandbox') {
-      this.logger.log('⚠️ GeniusPay SANDBOX mode');
-    }
 
-    if (!this.apiKey || !this.apiSecret) {
-      this.logger.warn('⚠️ GeniusPay API keys not configured');
+    if (!this.apiSecret) {
+      this.logger.warn('⚠️ GeniusPay API secret (private key) not configured');
     } else {
-      this.logger.log(`✅ GeniusPay service initialized (${paymentEnv}) — URL: ${this.baseUrl}`);
+      this.logger.log(`✅ GeniusPay service initialized — URL: ${this.baseUrl}`);
     }
   }
 
   private get headers() {
     return {
-      'X-API-Key': this.apiKey,
-      'X-API-Secret': this.apiSecret,
+      Authorization: `Bearer ${this.apiSecret}`,
       'Content-Type': 'application/json',
     };
   }
 
-  /**
-   * 💳 Initier un paiement GeniusPay
-   */
+  private pickUrl(data: any): string | null {
+    return (
+      data?.payment_url ||
+      data?.checkout_url ||
+      data?.redirect_url ||
+      data?.url ||
+      null
+    );
+  }
+
+  private mapStatus(raw: any): GeniusPayPayment['status'] {
+    const s = String(raw ?? '').toUpperCase();
+    if (s === 'SUCCESS' || s === 'COMPLETED') return 'completed';
+    if (s === 'FAILED') return 'failed';
+    if (s === 'CANCELLED' || s === 'CANCELED') return 'cancelled';
+    if (s === 'PENDING') return 'pending';
+    if (s === 'PROCESSING') return 'processing';
+    if (s === 'REFUNDED') return 'refunded';
+    if (s === 'EXPIRED') return 'expired';
+    return 'pending';
+  }
+
   async createPayment(params: {
     amount: number;
     description?: string;
@@ -109,182 +127,184 @@ export class GeniusPayService {
     successUrl?: string;
     errorUrl?: string;
   }): Promise<GeniusPayPayment> {
-    // Mapper nos méthodes vers les codes GeniusPay (pas de gateway pour le BF — routing automatique)
-    const methodMap: Record<string, string> = {
-      orange_money: 'orange_money',
-      moov_money: 'moov_money',
-      wave: 'wave',
-      mtn_money: 'mtn_money',
-    };
+    const methodSlug = params.paymentMethod
+      ? METHOD_SLUGS[params.paymentMethod] ?? params.paymentMethod
+      : undefined;
+
+    const webhookUrl = this.configService.get<string>('APP_WEBHOOK_URL');
+    const callbackUrl = webhookUrl
+      ? `${webhookUrl.replace(/\/+$/, '')}/geniuspay/webhook`
+      : undefined;
 
     const body: any = {
       amount: params.amount,
       currency: 'XOF',
+      country: 'BF',
+      channel: methodSlug ? 'mobile_money' : undefined,
+      method: methodSlug,
+      phone_number: params.customer?.phone,
+      tx_ref: params.metadata?.reference ?? `FF-PAY-${Date.now()}`,
+      callback_url: callbackUrl,
+      redirect_url: params.successUrl,
+      extras: params.metadata,
     };
-
-    // Utiliser payment_method directement (GeniusPay routage automatique pour BF)
-    if (params.paymentMethod && methodMap[params.paymentMethod]) {
-      body.payment_method = methodMap[params.paymentMethod];
-    }
-    // Si pas de paymentMethod → mode checkout GeniusPay (client choisit)
-
     if (params.description) body.description = params.description;
-    if (params.customer) {
-      body.customer = { ...params.customer, country: 'BF' };
-    }
-    if (params.metadata) body.metadata = params.metadata;
-    if (params.successUrl) body.success_url = params.successUrl;
-    if (params.errorUrl) body.error_url = params.errorUrl;
+    if (params.customer?.name) body.payer_name = params.customer.name;
+    if (params.customer?.email) body.payer_email = params.customer.email;
+
+    // Nettoyage des clés undefined/null
+    Object.keys(body).forEach((k) => {
+      if (body[k] === undefined || body[k] === null) delete body[k];
+    });
 
     try {
-      const response = await axios.post<GeniusPayCreateResponse>(
-        `${this.baseUrl}/payments`,
+      const response = await axios.post(
+        `${this.baseUrl}/payins`,
         body,
         { headers: this.headers, timeout: 30000 },
       );
 
-      if (!response.data.success) {
-        throw new Error('GeniusPay payment creation failed');
+      if (response.data?.status !== 'success') {
+        throw new Error('GenesysPay payment creation failed');
       }
 
-      this.logger.log(`✅ GeniusPay payment created: ${response.data.data.reference}`);
-      return response.data.data;
+      const d = response.data?.data ?? {};
+      const url = this.pickUrl(d);
+      this.logger.log(`✅ GenesysPay payment created: ${d.tx_ref ?? d.transaction_id}`);
+      return {
+        id: Number(d.transaction_id ?? d.id ?? 0),
+        reference: String(d.tx_ref ?? d.transaction_id ?? ''),
+        amount: Number(d.amount ?? params.amount),
+        currency: String(d.currency ?? 'XOF'),
+        fees: Number(d.fee ?? 0),
+        net_amount: Number(d.amount ?? params.amount),
+        status: this.mapStatus(d.status),
+        payment_method: d.payment_method ?? methodSlug ?? null,
+        gateway: null,
+        checkout_url: url,
+        payment_url: url,
+        customer: {
+          name: params.customer?.name ?? '',
+          email: params.customer?.email ?? '',
+          phone: params.customer?.phone ?? '',
+        },
+        metadata: d.extras ?? params.metadata ?? {},
+        created_at: String(d.created_at ?? new Date().toISOString()),
+        completed_at: null,
+        expires_at: null,
+        environment: '',
+      };
     } catch (error: any) {
       const errData = error.response?.data;
-      this.logger.error(`❌ GeniusPay createPayment error: ${error.message}`);
-      this.logger.error(`❌ GeniusPay URL: ${this.baseUrl}/payments`);
+      this.logger.error(`❌ GenesysPay createPayment error: ${error.message}`);
+      this.logger.error(`❌ GenesysPay URL: ${this.baseUrl}/payins`);
       if (errData) {
-        this.logger.error(`❌ GeniusPay response body: ${JSON.stringify(errData)}`);
+        this.logger.error(`❌ GenesysPay response body: ${JSON.stringify(errData)}`);
       }
       if (error.response?.status) {
-        this.logger.error(`❌ GeniusPay HTTP status: ${error.response.status}`);
+        this.logger.error(`❌ GenesysPay HTTP status: ${error.response.status}`);
       }
-      this.logger.error(`❌ GeniusPay request body sent: ${JSON.stringify(body)}`);
+      this.logger.error(`❌ GenesysPay request body sent: ${JSON.stringify(body)}`);
       throw error;
     }
   }
 
-  /**
-   * 📋 Récupérer un paiement par référence
-   */
   async getPayment(reference: string): Promise<GeniusPayPayment> {
     try {
-      const response = await axios.get<GeniusPayCreateResponse>(
-        `${this.baseUrl}/payments/${reference}`,
+      const response = await axios.get(
+        `${this.baseUrl}/payins/${reference}`,
         { headers: this.headers, timeout: 15000 },
       );
 
-      if (!response.data.success) {
+      if (response.data?.status !== 'success') {
         throw new Error('Payment not found');
       }
 
-      return response.data.data;
+      const d = response.data?.data ?? {};
+      const url = this.pickUrl(d);
+      return {
+        id: Number(d.transaction_id ?? d.id ?? 0),
+        reference: String(d.tx_ref ?? d.transaction_id ?? reference),
+        amount: Number(d.amount ?? 0),
+        currency: String(d.currency ?? 'XOF'),
+        fees: Number(d.fee ?? 0),
+        net_amount: Number(d.amount ?? 0),
+        status: this.mapStatus(d.status),
+        payment_method: d.payment_method ?? null,
+        gateway: null,
+        checkout_url: url,
+        payment_url: url,
+        customer: { name: '', email: '', phone: '' },
+        metadata: d.extras ?? {},
+        created_at: String(d.created_at ?? ''),
+        completed_at: null,
+        expires_at: null,
+        environment: '',
+      };
     } catch (error: any) {
-      this.logger.error(`❌ GeniusPay getPayment error: ${error.message}`);
+      this.logger.error(`❌ GenesysPay getPayment error: ${error.message}`);
       throw error;
     }
   }
 
-  /**
-   * 📋 Lister les paiements
-   */
-  async listPayments(params?: {
-    status?: string;
-    paymentMethod?: string;
-    from?: string;
-    to?: string;
-    search?: string;
-    perPage?: number;
-    page?: number;
-  }): Promise<GeniusPayListResponse> {
-    const queryParams: any = {};
-    if (params?.status) queryParams.status = params.status;
-    if (params?.paymentMethod) queryParams.payment_method = params.paymentMethod;
-    if (params?.from) queryParams.from = params.from;
-    if (params?.to) queryParams.to = params.to;
-    if (params?.search) queryParams.search = params.search;
-    if (params?.perPage) queryParams.per_page = params.perPage;
-    if (params?.page) queryParams.page = params.page;
-
-    try {
-      const response = await axios.get<GeniusPayListResponse>(
-        `${this.baseUrl}/payments`,
-        { headers: this.headers, params: queryParams, timeout: 15000 },
-      );
-
-      return response.data;
-    } catch (error: any) {
-      this.logger.error(`❌ GeniusPay listPayments error: ${error.message}`);
-      throw error;
-    }
+  async listPayments(_params?: any): Promise<GeniusPayListResponse> {
+    return { success: true, data: [], meta: { current_page: 1, per_page: 0, total: 0, last_page: 1 } };
   }
 
-  /**
-   * 💰 Consulter le solde
-   */
   async getBalance(): Promise<GeniusPayBalance> {
     try {
-      const response = await axios.get<{ success: boolean; data: GeniusPayBalance }>(
-        `${this.baseUrl}/account/balance`,
+      const response = await axios.get(
+        `${this.baseUrl}/wallets/XOF`,
         { headers: this.headers, timeout: 15000 },
       );
-
-      return response.data.data;
+      const d = response.data?.data ?? {};
+      return {
+        available: Number(d.available_balance ?? 0),
+        pending: Number(d.locked_balance ?? 0),
+        total: Number(d.balance ?? 0),
+        currency: String(d.currency ?? 'XOF'),
+      };
     } catch (error: any) {
-      this.logger.error(`❌ GeniusPay getBalance error: ${error.message}`);
+      this.logger.error(`❌ GenesysPay getBalance error: ${error.message}`);
       throw error;
     }
   }
 
-  /**
-   * 🏪 Informations du compte
-   */
   async getAccount(): Promise<GeniusPayAccount> {
     try {
-      const response = await axios.get<{ success: boolean; data: GeniusPayAccount }>(
-        `${this.baseUrl}/account`,
+      const response = await axios.get(
+        `${this.baseUrl}/wallets`,
         { headers: this.headers, timeout: 15000 },
       );
-
-      return response.data.data;
+      const d = Array.isArray(response.data?.data) ? response.data.data[0] : response.data?.data ?? {};
+      return {
+        id: 0,
+        business_name: 'GenesysPay',
+        email: '',
+        status: 'active',
+        environment: '',
+        created_at: String(d?.created_at ?? ''),
+      };
     } catch (error: any) {
-      this.logger.error(`❌ GeniusPay getAccount error: ${error.message}`);
+      this.logger.error(`❌ GenesysPay getAccount error: ${error.message}`);
       throw error;
     }
   }
 
-  /**
-   * 📱 Lister les fournisseurs MMO d'un pays
-   */
-  async getProviders(country?: string): Promise<any> {
-    try {
-      const params = country ? { country } : {};
-      const response = await axios.get(
-        `${this.baseUrl}/pawapay/providers`,
-        { headers: this.headers, params, timeout: 15000 },
-      );
-
-      return response.data.data;
-    } catch (error: any) {
-      this.logger.error(`❌ GeniusPay getProviders error: ${error.message}`);
-      throw error;
-    }
+  async getProviders(_country?: string): Promise<any> {
+    return [];
   }
 
-  /**
-   * ✅ Vérifier la signature d'un webhook
-   */
   verifyWebhookSignature(
     payload: string,
     signature: string,
-    timestamp: string,
+    _timestamp: string,
     webhookSecret: string,
   ): boolean {
     try {
-      const data = `${timestamp}.${payload}`;
       const expectedSignature = crypto
         .createHmac('sha256', webhookSecret)
-        .update(data)
+        .update(payload)
         .digest('hex');
 
       const sigBuf = Buffer.from(signature, 'utf8');

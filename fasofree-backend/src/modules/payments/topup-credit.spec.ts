@@ -65,7 +65,7 @@ describe('PaymentsService — crédit d’une recharge (top-up) via webhook', ()
       5000,
       TransactionReason.TOPUP,
       'TOPUP-1',
-      expect.stringContaining('GeniusPay'),
+      expect.stringContaining('GenesysPay'),
       TransactionType.DEPOSIT,
       undefined,
     );

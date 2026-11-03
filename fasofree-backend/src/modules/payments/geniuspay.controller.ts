@@ -211,53 +211,52 @@ export class GeniusPayController {
     @Req() request: Request,
     @Body() payload: any,
     @Headers('x-webhook-signature') signature: string,
-    @Headers('x-webhook-timestamp') timestamp: string,
-    @Headers('x-webhook-event') event: string,
-    @Headers('x-webhook-environment') environment: string,
   ) {
-    this.logger.log(`🔔 GeniusPay webhook received: ${event}`);
+    this.logger.log(`🔔 GenesysPay webhook received: ${payload?.event}`);
 
-    // Vérifier la signature — obligatoire (fail-closed). Sans secret configuré,
-    // on rejette les webhooks plutôt que de les accepter silencieusement.
     const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
     if (!webhookSecret) {
       this.logger.error('❌ GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
       throw new ForbiddenException('Webhook not configured');
     }
 
-    if (!signature || !timestamp) {
-      this.logger.error('❌ Missing webhook signature or timestamp');
+    if (!signature) {
+      this.logger.error('❌ Missing webhook signature');
       throw new ForbiddenException('Missing signature');
     }
-    // Vérifier la signature sur les OCTETS BRUTS reçus (rawBody), et non
-    // une re-sérialisation JSON (ordre des clés/échappements ≠ corps reçu).
+
     const bodyStr =
       (request as any).rawBody?.toString() ?? JSON.stringify(payload);
+
     const isValid = this.geniusPayService.verifyWebhookSignature(
       bodyStr,
       signature,
-      timestamp,
+      '',
       webhookSecret,
     );
 
     if (!isValid) {
-      this.logger.error('❌ Invalid GeniusPay webhook signature');
+      this.logger.error('❌ Invalid GenesysPay webhook signature');
       throw new ForbiddenException('Invalid signature');
     }
 
-    // Traiter l'événement
+    const event = payload?.event;
+
     try {
       switch (event) {
-        case 'payment.success':
+        case 'payin.successful':
+        case 'payout.successful':
           await this.handlePaymentSuccess(payload);
           break;
-        case 'payment.failed':
+        case 'payin.failed':
+        case 'payout.failed':
           await this.handlePaymentFailed(payload);
           break;
-        case 'payment.cancelled':
+        case 'payin.cancelled':
+        case 'payout.cancelled':
           await this.handlePaymentCancelled(payload);
           break;
-        case 'payment.refunded':
+        case 'payin.refunded':
           await this.handlePaymentRefunded(payload);
           break;
         default:
@@ -277,15 +276,15 @@ export class GeniusPayController {
     // 💳 RECHARGE DE PORTEFEUILLE (top-up) : aucune commande associée, donc
     // aucun `order_id`. On route AVANT l'exigence d'`order_id` — sinon le
     // webhook levait une exception et l'argent encaissé n'était JAMAIS crédité.
-    if (data?.metadata?.type === 'topup') {
+    if (data?.extras?.type === 'topup' || data?.metadata?.type === 'topup') {
       await this.paymentsService.creditTopupFromGateway(data, payload);
       return;
     }
 
-    const orderId = data.metadata?.order_id;
+    const orderId = data?.extras?.order_id ?? data?.metadata?.order_id;
 
     if (!orderId) {
-      this.logger.warn('Webhook GeniusPay: order_id manquant dans metadata');
+      this.logger.warn('Webhook GenesysPay: order_id manquant dans extras/metadata');
       throw new BadRequestException('Webhook order_id manquant');
     }
 
@@ -320,9 +319,9 @@ export class GeniusPayController {
     // (`if (gatewayStatus && ...)`) laissait passer un webhook sans champ
     // `status` (chaîne vide = falsy) et validait la commande sans preuve.
     const gatewayStatus = String(data.status ?? '').toLowerCase();
-    if (gatewayStatus !== 'completed') {
+    if (gatewayStatus !== 'success' && gatewayStatus !== 'completed') {
       this.logger.error(
-        `Webhook GeniusPay: payment.success reçu mais statut agrégateur = "${gatewayStatus || '(absent)'}" pour ${orderId} — NON traité comme payé`,
+        `Webhook GenesysPay: payment event reçu mais statut agrégateur = "${gatewayStatus || '(absent)'}" pour ${orderId} — NON traité comme payé`,
       );
       return;
     }
@@ -342,8 +341,8 @@ export class GeniusPayController {
     }
     if (
       pendingTransaction.paymentGatewayId &&
-      data.reference &&
-      String(data.reference) !== pendingTransaction.paymentGatewayId
+      (data.tx_ref ?? data.transaction_id) &&
+      String(data.tx_ref ?? data.transaction_id) !== pendingTransaction.paymentGatewayId
     ) {
       this.logger.error(
         `Webhook GeniusPay: référence incohérente pour ${orderId} — attendu ${pendingTransaction.paymentGatewayId}, reçu ${data.reference}. Ignoré (session périmée).`,
@@ -352,7 +351,7 @@ export class GeniusPayController {
     }
 
     // 🔒 Vérification du montant — empêcher les falsifications
-    const receivedAmount = Number(data.amount ?? payload.amount);
+    const receivedAmount = Number(data.amount ?? data.total_amount ?? payload.amount);
     const expectedAmount = Number(order.totalAmount);
     if (!Number.isFinite(receivedAmount) || Math.abs(expectedAmount - receivedAmount) > 1) {
       this.logger.error(
@@ -378,7 +377,7 @@ export class GeniusPayController {
       { id: pendingTransaction.id },
       {
         status: TransactionStatus.SUCCESS,
-        paymentGatewayId: String(data.reference ?? pendingTransaction.paymentGatewayId),
+        paymentGatewayId: String(data.tx_ref ?? data.transaction_id ?? pendingTransaction.paymentGatewayId),
       },
     );
 
@@ -390,7 +389,7 @@ export class GeniusPayController {
   private async handlePaymentFailed(payload: any) {
     const data = payload.data ?? payload;
     const orderId = data.metadata?.order_id;
-    const geniusPayRef = data.reference || String(data.id);
+    const geniusPayRef = data.tx_ref || data.transaction_id || String(data.id);
 
     // 💳 Échec d'une RECHARGE : rien n'a été crédité (le crédit n'a lieu qu'au
     // succès) — on trace pour le support, sans rien modifier.
@@ -436,7 +435,7 @@ export class GeniusPayController {
   private async handlePaymentCancelled(payload: any) {
     const data = payload.data ?? payload;
     const orderId = data.metadata?.order_id;
-    const geniusPayRef = data.reference || String(data.id);
+    const geniusPayRef = data.tx_ref || data.transaction_id || String(data.id);
 
     // 💳 Annulation d'une RECHARGE : rien n'a été crédité — on trace.
     if (!orderId && data?.metadata?.type === 'topup') {
@@ -488,7 +487,7 @@ export class GeniusPayController {
     }
 
     const orderId = data.metadata?.order_id;
-    const geniusPayRef = data.reference || String(data.id);
+    const geniusPayRef = data.tx_ref || data.transaction_id || String(data.id);
 
     // 🔒 Sans `order_id`, la recherche « where » ci-dessous dégénérait en
     // `{ status: SUCCESS }` (TypeORM ignore les propriétés `undefined`) : une

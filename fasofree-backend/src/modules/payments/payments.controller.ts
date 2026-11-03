@@ -179,7 +179,7 @@ export class PaymentsController {
     // Même traitement que /geniuspay/webhook
     const event = webhookEvent || payload.event || payload.type || 'unknown';
     const data = payload.data || payload;
-    const metadata = data.metadata || payload.metadata || {};
+    const metadata = data.extras || data.metadata || payload.metadata || {};
     const orderId = metadata.order_id;
     const geniusPayRef = data.reference || String(data.id || '');
 
@@ -190,8 +190,10 @@ export class PaymentsController {
       if (metadata.type === 'topup') {
         if (
           event === 'payment.success' ||
+          event === 'payin.successful' ||
           payload.status === 'SUCCESS' ||
-          payload.status === 'success'
+          payload.status === 'success' ||
+          data.status === 'SUCCESS'
         ) {
           await this.paymentsService.creditTopupFromGateway(data, payload);
         } else if (event === 'payment.refunded') {
@@ -204,7 +206,13 @@ export class PaymentsController {
         return { success: true };
       }
 
-      if (event === 'payment.success' || payload.status === 'SUCCESS' || payload.status === 'success') {
+      if (
+        event === 'payment.success' ||
+        event === 'payin.successful' ||
+        payload.status === 'SUCCESS' ||
+        payload.status === 'success' ||
+        data.status === 'SUCCESS'
+      ) {
         if (orderId) {
           // ✅ Sécurité : montant obligatoire et valide
           const receivedAmount = Number(data.amount ?? payload.amount);
