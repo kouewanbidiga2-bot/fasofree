@@ -180,13 +180,21 @@ const P2PDelivery = () => {
     setSubmitting(true);
     try {
       const response = await api.createOrder(buildPayload());
-      // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }
-      // Rediriger vers GeniusPay pour le paiement
-      if (!response?.checkoutUrl) {
-        throw new Error('URL de paiement indisponible');
+      // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }.
+      // Rediriger vers GeniusPay pour le paiement.
+      if (response?.checkoutUrl) {
+        sessionStorage.removeItem(P2P_DRAFT_KEY);
+        window.location.href = response.checkoutUrl;
+        return;
       }
+      // Mobile money GenesysPay : pas d'URL de checkout, confirmation via téléphone + webhook.
       sessionStorage.removeItem(P2P_DRAFT_KEY);
-      window.location.href = response.checkoutUrl;
+      const orderId = response?.order?.id || response?.orderId;
+      if (orderId) {
+        window.location.href = `/order-tracking?orderId=${orderId}&pending=1`;
+        return;
+      }
+      throw new Error('URL de paiement indisponible');
     } catch (err) {
       setError(
         err?.message ||

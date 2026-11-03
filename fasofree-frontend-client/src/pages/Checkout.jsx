@@ -204,9 +204,12 @@ const Checkout = () => {
             return;
           }
 
-          // Pas de checkoutUrl et pas cash → ERREUR (ne pas confirmer localement)
+          // Paiement mobile money (GenesysPay) : pas d'URL de checkout, la
+          // confirmation se fait sur le téléphone du client puis via webhook.
+          // La commande reste en attente et est réconciliée sur la page de suivi.
           if (paymentMethod !== 'cash') {
-            throw new Error('Impossible de générer l\'URL de paiement GeniusPay. Veuillez réessayer.');
+            window.location.href = `/order-tracking?orderId=${order.id}&pending=1`;
+            return;
           }
 
         }

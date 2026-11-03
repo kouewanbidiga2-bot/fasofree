@@ -112,7 +112,7 @@ export class GeniusPayService {
     if (s === 'FAILED') return 'failed';
     if (s === 'CANCELLED' || s === 'CANCELED') return 'cancelled';
     if (s === 'PENDING') return 'pending';
-    if (s === 'PROCESSING') return 'processing';
+    if (s === 'PROCESSING' || s === 'SUBMITTED') return 'processing';
     if (s === 'REFUNDED') return 'refunded';
     if (s === 'EXPIRED') return 'expired';
     return 'pending';
@@ -152,7 +152,6 @@ export class GeniusPayService {
     if (params.customer?.name) body.payer_name = params.customer.name;
     if (params.customer?.email) body.payer_email = params.customer.email;
 
-    // Nettoyage des clés undefined/null
     Object.keys(body).forEach((k) => {
       if (body[k] === undefined || body[k] === null) delete body[k];
     });

@@ -68,9 +68,11 @@ export class GeniusPayPayoutProvider {
         {
           amount: amountFcfa,
           currency: 'XOF',
+          country: 'BF',
           channel: 'mobile_money',
           method: methodSlug,
           phone_number: phoneNumber,
+          beneficiary_name: 'Marchand FasoFree',
           tx_ref: reference,
           callback_url: callbackUrl,
         },
