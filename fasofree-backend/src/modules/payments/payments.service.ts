@@ -20,7 +20,7 @@ import { Transaction, TransactionStatus } from './entities/transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
-import { GeniusPayService } from './providers/geniuspay.service';
+import { JekoService } from './providers/jeko.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import {
@@ -40,7 +40,7 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
-    private readonly geniusPayService: GeniusPayService,
+    private readonly jekoService: JekoService,
     private readonly walletService: WalletService,
   ) {}
 
@@ -136,7 +136,7 @@ export class PaymentsService {
     }
 
     try {
-      return await this.initiateGeniusPay(order, reference, dto);
+      return await this.initiateJeko(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
       // Marquer la commande ET la transaction en FAILED
@@ -157,7 +157,7 @@ export class PaymentsService {
     }
   }
 
-  private async initiateGeniusPay(
+  private async initiateJeko(
     order: Order,
     reference: string,
     dto: InitiatePaymentDto,
@@ -180,31 +180,24 @@ export class PaymentsService {
       `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
     );
 
-    const payment = await this.geniusPayService.createPayment({
-      amount: Number(order.totalAmount),
-      description: `Commande #${order.id.substring(0, 8)}`,
+    // Jeko attend un montant en centimes (1 XOF = 100 centimes).
+    const payment = await this.jekoService.createPaymentRequest({
+      amountCents: Math.round(Number(order.totalAmount) * 100),
+      reference,
       paymentMethod: dto.paymentMethod,
-      customer: {
-        phone: dto.phoneNumber,
-      },
-      metadata: {
-        order_id: order.id,
-        reference,
-      },
       successUrl,
       errorUrl,
     });
 
-    const checkoutUrl = payment.checkout_url || payment.payment_url;
+    const checkoutUrl = payment.redirectUrl;
 
-    // 🔒 On PERSISTE la référence et l'URL de l'agrégateur. Avant ce
-    // correctif, `paymentGatewayId` restait null : les recherches de webhook
-    // par référence ne correspondaient jamais, et un second appel « Payer »
-    // créait une charge supplémentaire.
+    // 🔒 On PERSISTE l'identifiant de la demande Jeko : c'est lui que la
+    // réconciliation interroge. Sans lui, un second appel « Payer » créerait
+    // une charge supplémentaire.
     await this.transactionRepository.update(
       { reference },
       {
-        paymentGatewayId: String(payment.reference ?? payment.id),
+        paymentGatewayId: payment.id,
         gatewayCheckoutUrl: checkoutUrl ?? null,
       },
     );
@@ -212,9 +205,9 @@ export class PaymentsService {
     return {
       reference,
       checkoutUrl,
-      paymentUrl: payment.payment_url,
+      paymentUrl: checkoutUrl,
       status: payment.status,
-      message: 'Paiement GeniusPay initié',
+      message: 'Paiement Jeko initié',
     };
   }
 
@@ -319,14 +312,19 @@ export class PaymentsService {
     let gatewayStatus: string;
     let gatewayAmount: number | undefined;
     try {
-      const remote = await this.geniusPayService.getPayment(
+      const remote = await this.jekoService.getPaymentRequest(
         transaction.paymentGatewayId,
       );
-      gatewayStatus = String(remote.status ?? '').toLowerCase();
-      gatewayAmount = remote.amount === undefined ? undefined : Number(remote.amount);
+      // Jeko : success / error / pending → vocabulaire interne completed / failed / pending
+      gatewayStatus =
+        remote.status === 'success' ? 'completed'
+        : remote.status === 'error' ? 'failed'
+        : 'pending';
+      gatewayAmount =
+        remote.amountCents === undefined ? undefined : remote.amountCents / 100;
     } catch (err) {
       this.logger.warn(
-        `[Reconcile] Impossible de joindre GeniusPay pour ${orderId}: ${(err as Error).message}`,
+        `[Reconcile] Impossible de joindre Jeko pour ${orderId}: ${(err as Error).message}`,
       );
       return { status: order.status, paid: false, reference: transaction.reference };
     }
@@ -354,7 +352,7 @@ export class PaymentsService {
         { status: TransactionStatus.SUCCESS },
       );
       await this.ordersService.markAsPaidAndDispatch(orderId, transaction.reference);
-      this.logger.log(`[Reconcile] Commande ${orderId} confirmée payée via GeniusPay`);
+      this.logger.log(`[Reconcile] Commande ${orderId} confirmée payée via Jeko`);
       return { status: OrderStatus.PAID, paid: true, reference: transaction.reference };
     }
 

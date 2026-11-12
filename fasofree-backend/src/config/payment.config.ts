@@ -8,21 +8,16 @@ import { ConfigService } from '@nestjs/config';
 /**
  * Provider de paiement: GeniusPay uniquement
  */
-export type PaymentProvider = 'geniuspay' | 'jeko';
+export type PaymentProvider = 'geniuspay';
 
 export const PAYMENT_PROVIDER_KEY = 'PAYMENT_PROVIDER';
 
 /**
- * Résout le provider de paiement actif.
- * Par défaut GeniusPay; peut être basculé sur Jeko via config.
+ * Résout le provider de paiement actif — toujours GeniusPay.
  */
 export function resolvePaymentProvider(
-  configService: ConfigService,
+  _configService: ConfigService,
 ): PaymentProvider {
-  const provider = configService.get<string>('PAYMENT_PROVIDER');
-  if (provider && provider.trim()) {
-    return provider.trim() as PaymentProvider;
-  }
   return 'geniuspay';
 }
 
@@ -31,10 +26,10 @@ export function isMockProvider(_configService: ConfigService): boolean {
 }
 
 /**
- * URL de base de l'API marchand Jeko.
+ * URL de base de l'API marchand GenesysPay.
  *
- * Documentation officielle : `https://api.jeko.africa`.
- * `JEKO_BASE_URL` permet de surcharger l'URL sans redéployer le code
+ * Documentation officielle : `https://genesyspay.com/api/v2`.
+ * `GENIUSPAY_BASE_URL` permet de surcharger l'URL sans redéployer le code
  * (utile si GenesysPay change de domaine ou de version d'API).
  */
 export function resolveGeniusPayBaseUrl(configService: ConfigService): string {
@@ -43,6 +38,18 @@ export function resolveGeniusPayBaseUrl(configService: ConfigService): string {
     return explicit.trim().replace(/\/+$/, '');
   }
 
-  return 'https://api.jeko.africa';
+  return 'https://genesyspay.com/api/v2';
 }
 
+/**
+ * URL de base de l'API partenaire Jeko.
+ * `JEKO_BASE_URL` permet de surcharger l'URL sans redéployer le code.
+ */
+export function resolveJekoBaseUrl(configService: ConfigService): string {
+  const explicit = configService.get<string>('JEKO_BASE_URL');
+  if (explicit?.trim()) {
+    return explicit.trim().replace(/\/+$/, '');
+  }
+
+  return 'https://api.jeko.africa';
+}
