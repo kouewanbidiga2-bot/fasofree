@@ -29,6 +29,7 @@ import {
   ApiBearerAuth,
   ApiHeader,
 } from '@nestjs/swagger';
+import * as crypto from 'crypto';
 import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
@@ -290,5 +291,69 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Lister les méthodes de paiement GeniusPay' })
   async listProviders(@Headers('x-country') country?: string) {
     return this.geniusPayService.getProviders(country || 'BF');
+  }
+
+  // === WEBHOOK Jeko ===
+
+  @Post('webhook/jeko')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Webhook Jeko — réception des encaissements (pay-ins)' })
+  async handleJekoWebhook(
+    @Request() request: Request,
+    @Body() payload: any,
+    @Headers('x-signature') signature?: string,
+    @Headers('x-timestamp') timestamp?: string,
+  ) {
+    const webhookSecret = this.configService.get<string>('JEKO_WEBHOOK_SECRET', '');
+    if (!webhookSecret) {
+      this.logger.error('JEKO_WEBHOOK_SECRET non configuré — webhook rejeté');
+      throw new BadRequestException('Webhook not configured');
+    }
+
+    // Vérification HMAC signature
+    const canonicalString = `${payload.transactionRef}:${payload.orderId}:${payload.amount}:${payload.timestamp}`;
+    const computedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(canonicalString)
+      .digest('hex');
+
+    const expected = Buffer.from(computedSignature);
+    const received = Buffer.from(signature || '');
+    const signatureValid = expected.length === received.length &&
+      crypto.timingSafeEqual(expected, received);
+
+    if (!signatureValid) {
+      this.logger.error('Signature webhook Jeko invalide');
+      throw new BadRequestException('Invalid webhook signature');
+    }
+
+    // Traitement de l'événement
+    const event = payload.event || payload.type || 'unknown';
+    const data = payload.data || payload;
+
+    this.logger.log(`[Jeko Webhook] événement ${event} reçu pour order ${payload.orderId}`);
+
+    if (event === 'payin.successful') {
+      // Logique : marquer l'encaissement comme réussi
+      // -> Le frontend/système externe a déjà débité Jeko,
+      //    ici on crédite le wallet FasoFree
+      try {
+        const orderId = data.orderId || payload.orderId;
+        if (orderId) {
+          await this.paymentsService.processSuccessfulPayment(
+            orderId, payload.transactionRef || data.reference, 'JEKO');
+        }
+      } catch (err) {
+        this.logger.error(`Erreur traitement webhook Jeko: ${err instanceof Error ? err.message : err}`);
+      }
+    } else if (event === 'payin.failed') {
+      // Marquer l'encaissement comme échoué
+      this.logger.warn(`[Jeko Webhook] Encaissement échoué: order ${payload.orderId}`);
+    } else if (event === 'payin.pending') {
+      // Encaissement en attente
+      this.logger.log(`[Jeko Webhook] Encaissement en attente: order ${payload.orderId}`);
+    }
+
+    return { success: true };
   }
 }
