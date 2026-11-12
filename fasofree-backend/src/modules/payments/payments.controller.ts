@@ -34,6 +34,24 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { JekoService } from './providers/jeko.service';
+import { PayoutsService } from '../wallets/payouts.service';
+import { randomBytes } from 'crypto';
+
+/** Codes courts des rôles dans la référence de recharge Jeko (longueur ≤ 100). */
+const TOPUP_ROLE_CODES: Record<string, string> = {
+  BUSINESS_ADMIN: 'BA',
+  MERCHANT: 'MR',
+  AGENCY: 'AG',
+  DRIVER: 'DR',
+  COURIER: 'CO',
+  CLIENT: 'CL',
+  SUPER_ADMIN: 'SA',
+};
+const TOPUP_ROLE_FROM_CODE: Record<string, string> = Object.fromEntries(
+  Object.entries(TOPUP_ROLE_CODES).map(([role, code]) => [code, role]),
+);
+const SAFE_ID = /^[A-Za-z0-9-]{1,40}$/;
+const TOPUP_REF = /^TOPUP_([A-Z]{2})_([A-Za-z0-9-]{1,40})_(NONE|[A-Za-z0-9-]{1,40})_([A-F0-9]{8})$/;
 import { OrdersService } from '../orders/orders.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -49,6 +67,7 @@ export class PaymentsController {
     private readonly paymentsService: PaymentsService,
     private readonly geniusPayService: GeniusPayService,
     private readonly jekoService: JekoService,
+    private readonly walletPayoutsService: PayoutsService,
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
     @InjectRepository(Transaction)
@@ -114,31 +133,29 @@ export class PaymentsController {
     }
 
     try {
-      // GeniusPay (seul provider actif)
-      const topupRef = `TOPUP-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const metadata: Record<string, string> = {
-        type: 'topup',
-        userId,
-        reference: topupRef,
-      };
-      if (req.user?.role) metadata.walletRole = String(req.user.role);
-      if (dto.branchId) metadata.branchId = String(dto.branchId);
+      // La référence Jeko porte l'identité du crédit : le webhook n'a pas
+      // d'autre moyen de savoir qui recharger. Chaque segment est validé.
+      const roleCode = TOPUP_ROLE_CODES[String(req.user?.role ?? '').toUpperCase()] ?? 'XX';
+      const branch = dto.branchId ? String(dto.branchId) : 'NONE';
+      if (!SAFE_ID.test(userId) || (branch !== 'NONE' && !SAFE_ID.test(branch))) {
+        throw new BadRequestException('Identifiant invalide pour la recharge');
+      }
+      const topupRef = `TOPUP_${roleCode}_${userId}_${branch}_${randomBytes(4).toString('hex').toUpperCase()}`;
 
-      const payment = await this.geniusPayService.createPayment({
-        amount: dto.amount,
-        description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
-        customer: {
-          name: dto.customerName || 'Client FasoFree',
-          email: dto.customerEmail || 'client@fasofree.bf',
-        },
-        metadata,
+      const clientUrl = (this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site').replace(/\/+$/, '');
+      const payment = await this.jekoService.createPaymentRequest({
+        amountCents: Math.round(Number(dto.amount) * 100),
+        reference: topupRef,
+        paymentMethod: dto.paymentMethod,
+        successUrl: `${clientUrl}/?topup=success`,
+        errorUrl: `${clientUrl}/?topup=error`,
       });
       return {
         success: true,
-        transactionId: payment.reference,
-        checkoutUrl: payment.checkout_url || payment.payment_url,
-        paymentUrl: payment.payment_url,
-        message: 'Redirection vers GeniusPay pour le paiement.',
+        transactionId: payment.id,
+        checkoutUrl: payment.redirectUrl,
+        paymentUrl: payment.redirectUrl,
+        message: 'Redirection vers Jeko pour le paiement.',
       };
     } catch (err) {
       this.logger.error(`Topup failed: ${err.message}`);
@@ -318,18 +335,61 @@ export class PaymentsController {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Seul un encaissement réussi/échoué nous concerne ici ; les reversements
-    // (transactionType = transfer) sont traités ailleurs.
-    if (event !== 'TRANSACTION_COMPLETED' || payload?.transactionType !== 'payment') {
+    // Un seul webhook par magasin : encaissements et reversements arrivent ici.
+    if (event !== 'TRANSACTION_COMPLETED') {
       return { success: true };
     }
 
     const reference: string | undefined = payload.transactionDetails?.reference;
-    const transaction = reference
-      ? await this.transactionRepository.findOne({ where: { reference } })
-      : null;
+    if (!reference) {
+      this.logger.warn('[Jeko Webhook] Transaction sans référence — ignorée');
+      return { success: true };
+    }
+
+    // 🔁 Reversement (retrait) : la référence est notre payoutReference.
+    if (payload.transactionType === 'transfer') {
+      const payout = await this.walletPayoutsService.findPayoutByIdentifier(reference);
+      if (!payout) {
+        this.logger.warn(`[Jeko Webhook] Retrait introuvable pour ${reference}`);
+        return { success: true };
+      }
+      if (payload.status === 'success') {
+        await this.walletPayoutsService.confirmProviderPayout(payout.id, payload.id);
+      } else if (payload.status === 'error') {
+        await this.walletPayoutsService.failPayout(payout.id, 'Virement refusé par Jeko');
+      }
+      return { success: true };
+    }
+
+    if (payload.transactionType !== 'payment') {
+      return { success: true };
+    }
+
+    // 💳 Recharge de portefeuille : référence TOPUP_<rôle>_<userId>_<agence|NONE>_<rand>.
+    const topup = TOPUP_REF.exec(reference);
+    if (topup) {
+      if (payload.status !== 'success') return { success: true };
+      const [, roleCode, userId, branch] = topup;
+      const credited = await this.paymentsService.creditTopupFromGateway(
+        {
+          status: 'success',
+          amount: Number(payload.amount?.amount) / 100,
+          extras: {
+            userId,
+            reference,
+            walletRole: TOPUP_ROLE_FROM_CODE[roleCode] ?? roleCode,
+            ...(branch !== 'NONE' ? { branchId: branch } : {}),
+          },
+        },
+        payload,
+      );
+      this.logger.log(`[Jeko Webhook] Recharge ${reference} ${credited ? 'créditée' : 'non créditée'}`);
+      return { success: true };
+    }
+
+    const transaction = await this.transactionRepository.findOne({ where: { reference } });
     if (!transaction) {
-      this.logger.warn(`[Jeko Webhook] Aucune transaction pour la référence ${reference ?? '(vide)'}`);
+      this.logger.warn(`[Jeko Webhook] Aucune transaction pour la référence ${reference}`);
       return { success: true };
     }
 

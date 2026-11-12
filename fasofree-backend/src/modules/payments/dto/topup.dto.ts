@@ -7,6 +7,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -14,12 +15,18 @@ import {
   Min,
 } from 'class-validator';
 
+export const TOPUP_PAYMENT_METHODS = ['orange_money', 'moov_money', 'mtn_money', 'wave'] as const;
+
 export class TopupDto {
   @ApiProperty({ example: 5000, minimum: 100 })
   @Type(() => Number)
   @IsNumber()
   @Min(100)
   amount: number;
+
+  @ApiProperty({ example: 'orange_money', enum: TOPUP_PAYMENT_METHODS })
+  @IsIn(TOPUP_PAYMENT_METHODS)
+  paymentMethod: (typeof TOPUP_PAYMENT_METHODS)[number];
 
   @ApiProperty({ example: 'Aminata Ouédraogo' })
   @IsString()

@@ -9,7 +9,7 @@ import { reconcilePaymentAdmin } from '../../services/paymentService';
 
 /**
  * Réconciliation paiements (ADMIN / SUPER_ADMIN / SUPPORT).
- * Interroge GeniusPay via le backend et affiche l'état réel, sans jamais
+ * Interroge Jeko via le backend et affiche l'état réel, sans jamais
  * afficher "payé" si l'agrégateur n'a pas encaissé.
  */
 const PaymentReconciliationTab = () => {
@@ -47,7 +47,7 @@ const PaymentReconciliationTab = () => {
       <div>
         <h2 className="text-xl font-bold text-text-primary">Réconciliation paiements</h2>
         <p className="text-sm text-text-secondary">
-          Contrôle temps réel d'une commande auprès de GeniusPay
+          Contrôle temps réel d'une commande auprès de Jeko
         </p>
       </div>
 

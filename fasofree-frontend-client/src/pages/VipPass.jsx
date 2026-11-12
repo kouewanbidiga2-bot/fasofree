@@ -24,6 +24,7 @@ const VipPass = () => {
   const [subscribing, setSubscribing] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState(5000);
+  const [topupMethod, setTopupMethod] = useState('orange_money');
   const [topupBusy, setTopupBusy] = useState(false);
 
   // ⚙️ Les 3 lectures de la page (offres, statut VIP, wallet) passent par le
@@ -118,13 +119,14 @@ const VipPass = () => {
     try {
       const data = await api.topupWallet({
         amount: Number(topupAmount),
+        paymentMethod: topupMethod,
         customerName: user?.firstName && user?.lastName
           ? `${user.firstName} ${user.lastName}`.trim()
           : user?.email || 'Client FasoFree',
         customerEmail: user?.email || 'client@fasofree.bf',
       });
       setTopupOpen(false);
-      // 🔗 Redirection obligatoire vers la page de paiement GeniusPay : sans
+      // 🔗 Redirection obligatoire vers la page de paiement Jeko : sans
       // elle, aucun paiement n'est encaissé et le portefeuille n'est JAMAIS
       // crédité. Le crédit est appliqué par le webhook à la confirmation.
       const checkoutUrl = data?.checkoutUrl || data?.paymentUrl;
@@ -256,6 +258,17 @@ const VipPass = () => {
                   onChange={(e) => setTopupAmount(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-orange-400 mb-4"
                 />
+                <label className="block text-sm text-gray-600 mb-2">Moyen de paiement</label>
+                <select
+                  value={topupMethod}
+                  onChange={(e) => setTopupMethod(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-orange-400 mb-4"
+                >
+                  <option value="orange_money">Orange Money</option>
+                  <option value="moov_money">Moov Money</option>
+                  <option value="mtn_money">MTN Mobile Money</option>
+                  <option value="wave">Wave</option>
+                </select>
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setTopupOpen(false)} className="px-4 py-2 text-sm text-gray-600 transition active:scale-[0.98]">{t('cancel')}</button>
                   <button

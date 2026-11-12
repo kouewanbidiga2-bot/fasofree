@@ -19,7 +19,7 @@ import {
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { ConfigService } from '@nestjs/config';
-import { GeniusPayPayoutProvider } from '../wallets/providers/geniuspay-payout.provider';
+import { JekoPayoutProvider } from '../wallets/providers/jeko-payout.provider';
 
 @Injectable()
 export class PayoutsService {
@@ -34,7 +34,7 @@ export class PayoutsService {
     private readonly businessRepository: Repository<Business>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-    private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
+    private readonly jekoPayoutProvider: JekoPayoutProvider,
   ) {}
 
   /**
@@ -270,7 +270,7 @@ export class PayoutsService {
     }
 
     // GeniusPay (seul provider actif)
-    const result = await this.geniusPayPayoutProvider.sendTransfer(
+    const result = await this.jekoPayoutProvider.sendTransfer(
       payload.reference,
       payload.amount,
       payload.phoneNumber,

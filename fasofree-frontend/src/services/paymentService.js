@@ -6,12 +6,12 @@
 /**
  * FasoFree — Service Paiements
  * Endpoints: /payments
- * Provider: GeniusPay (Orange Money, Moov Money, Wave)
+ * Provider: Jeko (Orange Money, Moov Money, MTN, Wave)
  */
 import api from './api';
 
 /**
- * Initier un paiement pour une commande via GeniusPay
+ * Initier un paiement pour une commande via Jeko
  * @param {Object} data - { orderId, paymentMethod, phoneNumber }
  * paymentMethod: 'orange_money' | 'moov_money' | 'wave'
  */
@@ -25,8 +25,8 @@ export const initiatePayment = async (data) => {
 };
 
 /**
- * Recharger le portefeuille FasoFree via GeniusPay
- * @param {Object} data - { amount, customerName, customerEmail }
+ * Recharger le portefeuille FasoFree via Jeko
+ * @param {Object} data - { amount, paymentMethod, customerName, customerEmail }
  */
 export const topupWallet = async (data) => {
   const response = await api.post('/payments/topup', data);
@@ -34,7 +34,7 @@ export const topupWallet = async (data) => {
 };
 
 /**
- * Vérifier le statut d'un paiement GeniusPay
+ * Vérifier le statut d'un paiement (route héritée GeniusPay, non utilisée)
  * @param {string} ref - Référence du paiement
  */
 export const checkPaymentStatus = async (ref) => {

@@ -14,7 +14,7 @@ import { PayoutRequest } from '../financial/entities/payout-request.entity';
 import { WalletService } from './wallet.service';
 import { WalletController, WalletWebhookController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
-import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
+import { JekoPayoutProvider } from './providers/jeko-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { BusinessesModule } from '../businesses/businesses.module';
@@ -28,7 +28,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
     BusinessesModule,
   ],
   controllers: [WalletController, WalletWebhookController],
-  providers: [WalletService, PayoutsService, GeniusPayPayoutProvider],
-  exports: [WalletService, PayoutsService, GeniusPayPayoutProvider, TypeOrmModule],
+  providers: [WalletService, PayoutsService, JekoPayoutProvider],
+  exports: [WalletService, PayoutsService, JekoPayoutProvider, TypeOrmModule],
 })
 export class WalletModule {}

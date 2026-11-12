@@ -197,16 +197,15 @@ const Checkout = () => {
 
           if (payResult?.checkoutUrl) {
             // 🔒 PAS addOrder() ici — la commande n'est PAS payée tant que
-            // le client n'a pas complété le paiement sur GeniusPay.
-            // Le webhook /geniuspay/webhook marquera la commande PAID.
+            // le client n'a pas complété le paiement sur Jeko.
+            // Le webhook /payments/webhook/jeko marquera la commande PAID.
             // On stocke juste l'orderId pour la page de retour.
             window.location.href = payResult.checkoutUrl;
             return;
           }
 
-          // Paiement mobile money (GenesysPay) : pas d'URL de checkout, la
-          // confirmation se fait sur le téléphone du client puis via webhook.
-          // La commande reste en attente et est réconciliée sur la page de suivi.
+          // Pas d'URL de paiement renvoyée : la commande reste en attente et
+          // est réconciliée sur la page de suivi.
           if (paymentMethod !== 'cash') {
             window.location.href = `/order-tracking?orderId=${order.id}&pending=1`;
             return;
@@ -233,7 +232,7 @@ const Checkout = () => {
         console.error('Payment initiation error:', payErr);
         // Annuler la commande créée côté backend pour éviter les commandes orphelines
         try {
-          await api.cancelOrder(order.id, 'Échec du paiement GeniusPay');
+          await api.cancelOrder(order.id, 'Échec du paiement Jeko');
         } catch (cancelErr) {
           console.error('Failed to cancel order after payment error:', cancelErr);
         }

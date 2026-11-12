@@ -6,7 +6,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { GeniusPayPayoutProvider } from './providers/geniuspay-payout.provider';
+import { JekoPayoutProvider } from './providers/jeko-payout.provider';
 import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
@@ -23,7 +23,7 @@ export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
 
   constructor(
-    private readonly geniusPayPayoutProvider: GeniusPayPayoutProvider,
+    private readonly jekoPayoutProvider: JekoPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
     @InjectRepository(PayoutRequest)
@@ -217,7 +217,7 @@ export class PayoutsService {
 
     // 4. Appeler GeniusPay (seul provider de payout actif)
     try {
-      const transferResult = await this.geniusPayPayoutProvider.sendTransfer(
+      const transferResult = await this.jekoPayoutProvider.sendTransfer(
         payoutReference,
         feeInfo.netAmount,
         dto.phoneNumber,
@@ -389,6 +389,20 @@ export class PayoutsService {
     );
 
     return payoutRequest;
+  }
+
+  /**
+   * Confirmation d'un virement automatique (webhook Jeko TRANSACTION_COMPLETED).
+   * Le virement a été envoyé directement : la demande est encore PENDING, or
+   * `confirmPayout` n'accepte que APPROVED. On la fait passer en APPROVED
+   * (uniquement si elle est PENDING), puis on confirme le débit.
+   */
+  async confirmProviderPayout(payoutRequestId: string, providerReference?: string): Promise<PayoutRequest | null> {
+    await this.payoutRequestRepository.update(
+      { id: payoutRequestId, status: PayoutStatus.PENDING },
+      { status: PayoutStatus.APPROVED },
+    );
+    return this.confirmPayout(payoutRequestId, providerReference);
   }
 
   // ─── FAIL PAYOUT (webhook cashout.failed) ────────────────────────────────

@@ -14,7 +14,7 @@
  *
  * Le rôle du portefeuille (marchand / livreur / client / agence) est déduit
  * CÔTÉ SERVEUR à partir du JWT : il n'y a rien à choisir ici. Le crédit est
- * appliqué par le webhook GeniusPay dès confirmation du paiement, jamais par
+ * appliqué par le webhook Jeko dès confirmation du paiement, jamais par
  * cette interface.
  */
 import { useState } from 'react';
@@ -25,6 +25,12 @@ import { topupWallet } from '../../services/paymentService';
 /** Montants proposés par défaut (FCFA). */
 const PRESETS = [1000, 5000, 10000, 25000];
 const MIN_AMOUNT = 100;
+const METHODS = [
+  { id: 'orange_money', label: 'Orange Money' },
+  { id: 'moov_money', label: 'Moov Money' },
+  { id: 'mtn_money', label: 'MTN Mobile Money' },
+  { id: 'wave', label: 'Wave' },
+];
 
 const WalletTopupButton = ({
   label = 'Recharger le portefeuille',
@@ -34,6 +40,7 @@ const WalletTopupButton = ({
   const user = useAuthStore((state) => state.user);
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(5000);
+  const [method, setMethod] = useState(METHODS[0].id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -55,6 +62,7 @@ const WalletTopupButton = ({
     try {
       const payload = await topupWallet({
         amount: value,
+        paymentMethod: method,
         customerName: user?.fullName || user?.name || 'Compte FasoFree',
         customerEmail: user?.email || 'client@fasofree.bf',
         // 🏷️ Si une agence est sélectionnée, la recharge crédite SON
@@ -63,10 +71,10 @@ const WalletTopupButton = ({
       });
 
       // 🔗 Sans redirection, aucun paiement n'est encaissé : le portefeuille
-      // ne serait jamais crédité. On suit l'URL renvoyée par GeniusPay.
+      // ne serait jamais crédité. On suit l'URL renvoyée par Jeko.
       const checkoutUrl = payload?.checkoutUrl || payload?.paymentUrl;
       if (!checkoutUrl) {
-        throw new Error("GeniusPay n'a pas renvoyé d'URL de paiement");
+        throw new Error("Jeko n'a pas renvoyé d'URL de paiement");
       }
       window.location.href = checkoutUrl;
     } catch (err) {
@@ -103,9 +111,21 @@ const WalletTopupButton = ({
               Recharger le portefeuille
             </h3>
             <p className="mb-4 text-xs text-text-secondary">
-              Paiement sécurisé via GeniusPay (Orange Money, Moov Money, Wave).
-              Le solde est crédité dès la confirmation du paiement.
+              Paiement sécurisé via Jeko. Le solde est crédité dès la confirmation du paiement.
             </p>
+
+            <label className="mb-1 block text-xs font-semibold text-text-secondary">
+              Moyen de paiement
+            </label>
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              className="input-field mb-3"
+            >
+              {METHODS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
 
             <div className="mb-3 flex flex-wrap gap-2">
               {PRESETS.map((preset) => (
