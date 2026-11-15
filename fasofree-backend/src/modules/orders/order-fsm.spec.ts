@@ -70,7 +70,7 @@ describe('FSM des statuts de commande', () => {
       expect(ORDER_STATUS_FSM[OrderStatus.DISPUTED]).toContain(OrderStatus.REFUNDED);
     });
 
-    it('AWAITING_PAYMENT → PAID (webhook GeniusPay confirmé)', () => {
+    it('AWAITING_PAYMENT → PAID (webhook SasPay confirmé)', () => {
       expect(ORDER_STATUS_FSM[OrderStatus.AWAITING_PAYMENT]).toContain(OrderStatus.PAID);
     });
 

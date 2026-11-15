@@ -113,7 +113,7 @@ export class PayoutsService {
 
   /**
    * Recherche un PayoutRequest par id, transactionReference ou providerReference.
-   * Le webhook GeniusPay peut renvoyer n'importe lequel de ces identifiants.
+   * Le webhook SasPay peut renvoyer n'importe lequel de ces identifiants.
    */
   async findPayoutByIdentifier(identifier: string): Promise<PayoutRequest | null> {
     // 1. Essayer par ID interne
@@ -126,7 +126,7 @@ export class PayoutsService {
     });
     if (byTxRef) return byTxRef;
 
-    // 3. Essayer par providerReference (ref GeniusPay)
+    // 3. Essayer par providerReference (ref SasPay)
     const byProviderRef = await this.payoutRequestRepository.findOne({
       where: { providerReference: identifier },
     });
@@ -165,7 +165,7 @@ export class PayoutsService {
       payoutReference,
     );
 
-    // 2. Créer le PayoutRequest AVANT d'appeler GeniusPay
+    // 2. Créer le PayoutRequest AVANT d'appeler SasPay
     let payoutRequest: PayoutRequest;
     try {
       payoutRequest = this.payoutRequestRepository.create({
@@ -215,7 +215,7 @@ export class PayoutsService {
       };
     }
 
-    // 4. Appeler GeniusPay (seul provider de payout actif)
+    // 4. Appeler SasPay (seul provider de payout actif)
     try {
       const transferResult = await this.sasPayPayoutProvider.sendTransfer(
         payoutReference,

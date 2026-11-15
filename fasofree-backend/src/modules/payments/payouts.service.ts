@@ -246,7 +246,7 @@ export class PayoutsService {
   }
 
   /**
-   * 📲 Exécute un virement Mobile Money via GeniusPay (seul provider actif).
+   * 📲 Exécute un virement Mobile Money via SasPay (seul provider actif).
    * Remplace l'ancienne simulation.
    */
   private async executeMobileMoneyTransfer(payload: {
@@ -269,7 +269,7 @@ export class PayoutsService {
       });
     }
 
-    // GeniusPay (seul provider actif)
+    // SasPay (seul provider actif)
     const result = await this.sasPayPayoutProvider.sendTransfer(
       payload.reference,
       payload.amount,

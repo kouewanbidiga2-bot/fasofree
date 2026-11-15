@@ -99,7 +99,7 @@ export class WalletController {
    * POST /wallets/admin/credit
    *
    * Débloque les comptes qui ne peuvent pas encore se recharger seuls
-   * (recharge GeniusPay en échec, encaissement hors plateforme) sans passer
+   * (recharge SasPay en échec, encaissement hors plateforme) sans passer
    * par un script SQL. Une `reference` fournie rend le crédit idempotent.
    */
   @Post('admin/credit')
@@ -140,7 +140,7 @@ export class WalletController {
 
   @Post('withdrawals')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true }))
-  @ApiOperation({ summary: 'Demander un retrait Mobile Money (via GeniusPay)' })
+  @ApiOperation({ summary: 'Demander un retrait Mobile Money (via SasPay)' })
   async requestWithdrawal(
     @Request()
     req: ExpressRequest & { user?: { userId?: string; role?: AppUserRole } },
@@ -323,95 +323,6 @@ export class WalletController {
       : UserRole.DRIVER;
 
     return this.walletService.getOrCreateWallet(userId, walletRole, branchId);
-  }
-
-  // ========================================================================
-  // 💰 WEBHOOK GeniusPay — cashout.completed / cashout.failed
-  // (déplacé dans WalletWebhookController — ci-dessous)
-  // ========================================================================
-}
-
-// ============================================================================
-// Webhook GeniusPay — SANS garde JWT (authentifié par signature HMAC)
-// ============================================================================
-@ApiTags('Wallets Webhooks')
-@Controller('wallets/webhook')
-export class WalletWebhookController {
-  private readonly logger = new Logger(WalletWebhookController.name);
-
-  constructor(
-    private readonly payoutsService: PayoutsService,
-    private readonly configService: ConfigService,
-  ) {}
-
-  @Post('geniuspay')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Webhook GeniusPay pour cashout (retraits)' })
-  async handleCashoutWebhook(
-    @Body() body: any,
-    @Headers('x-geniuspay-signature') signature: string,
-  ) {
-    this.logger.log(`[Cashout Webhook] Reçu: ${JSON.stringify(body).slice(0, 200)}`);
-
-    // FIX #2 : Signature obligatoire
-    const webhookSecret = this.configService.get<string>('GENIUSPAY_WEBHOOK_SECRET', '');
-    if (!webhookSecret) {
-      this.logger.error('[Cashout Webhook] GENIUSPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
-      return { received: false };
-    }
-    if (!signature) {
-      this.logger.warn('[Cashout Webhook] Signature absente — rejeté');
-      return { received: false };
-    }
-
-    const crypto = await import('crypto');
-    const expected = crypto.createHmac('sha256', webhookSecret)
-      .update(JSON.stringify(body))
-      .digest('hex');
-    if (expected !== signature) {
-      this.logger.warn('[Cashout Webhook] Signature invalide — rejeté');
-      return { received: false };
-    }
-
-    const event = body?.event ?? body?.type;
-    const data = body?.data ?? body;
-
-    if (!event) {
-      this.logger.warn('[Cashout Webhook] Pas d\'event dans le payload');
-      return { received: false };
-    }
-
-    // FIX #1 : Lookup par id OU transactionReference OU providerReference
-    const rawId = data?.payout_id ?? data?.reference ?? data?.id;
-    if (!rawId) {
-      this.logger.warn(`[Cashout Webhook] Pas de payout_id pour event ${event}`);
-      return { received: false };
-    }
-
-    const payoutRequest = await this.payoutsService.findPayoutByIdentifier(rawId);
-    if (!payoutRequest) {
-      this.logger.warn(`[Cashout Webhook] PayoutRequest introuvable pour identifiant: ${rawId}`);
-      return { received: false };
-    }
-
-    switch (event) {
-      case 'cashout.completed': {
-        this.logger.log(`[Cashout Webhook] cashout.completed — ${payoutRequest.id} (ref: ${rawId})`);
-        await this.payoutsService.confirmPayout(payoutRequest.id);
-        break;
-      }
-      case 'cashout.failed':
-      case 'cashout.cancelled': {
-        const reason = data?.failure_reason ?? data?.message ?? `Event: ${event}`;
-        this.logger.log(`[Cashout Webhook] ${event} — ${payoutRequest.id}: ${reason}`);
-        await this.payoutsService.failPayout(payoutRequest.id, reason);
-        break;
-      }
-      default:
-        this.logger.log(`[Cashout Webhook] Event non géré: ${event}`);
-    }
-
-    return { received: true };
   }
 
 }

@@ -28,7 +28,6 @@ import { PaymentLogo } from '../components/PaymentLogos';
 const RETRY_METHODS = [
   { id: 'orange_money', label: 'Orange Money', logo: 'orange' },
   { id: 'moov_money', label: 'Moov Money', logo: 'moov' },
-  { id: 'wave', label: 'Wave', logo: 'wave' },
 ];
 
 const COPY = {

@@ -50,7 +50,7 @@ export class RequestWithdrawalDto {
   @ApiProperty({
     enum: PayoutProviderEnum,
     example: PayoutProviderEnum.ORANGE_MONEY,
-    description: 'Opérateur Mobile Money de réception (virement exécuté via GeniusPay)',
+    description: 'Opérateur Mobile Money de réception (virement exécuté via SasPay)',
   })
   @IsEnum(PayoutProviderEnum)
   provider: PayoutProviderEnum;

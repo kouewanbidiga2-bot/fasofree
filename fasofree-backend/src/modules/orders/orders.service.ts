@@ -72,7 +72,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { RidePricingService } from './services/ride-pricing.service';
 import { WalletService } from '../wallets/wallet.service';
-import { GeniusPayService } from '../payments/providers/geniuspay.service';
+import { SasPayService } from '../payments/providers/saspay.service';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
@@ -317,7 +317,7 @@ export class OrdersService {
     private readonly geoDispatchService: GeoDispatchService,
     private readonly ridePricingService: RidePricingService,
     private readonly walletService: WalletService,
-    private readonly geniusPayService: GeniusPayService,
+    private readonly sasPayService: SasPayService,
     private readonly notificationStore: NotificationStoreService,
     private readonly deliverySlaService: DeliverySlaService,
     private readonly penaltiesService: PenaltiesService,
@@ -464,7 +464,7 @@ export class OrdersService {
 
   /**
    * 🛍️ 1. Création d'une commande (BROUILLON) — invisible jusqu'au paiement confirmé
-   * Pour P2P_DELIVERY et RIDE, retourne { order, checkoutUrl } pour redirection GeniusPay
+   * Pour P2P_DELIVERY et RIDE, retourne { order, checkoutUrl } pour redirection SasPay
    */
   async createOrder(
     clientId: string,
@@ -1058,8 +1058,8 @@ export class OrdersService {
 
   /**
    * 🚚 Création d'une commande P2P (FasoColis)
-   * Flux : validation → commande AWAITING_PAYMENT → GeniusPay → redirect
-   * En cas d'échec GeniusPay, la commande et la transaction sont nettoyées.
+   * Flux : validation → commande AWAITING_PAYMENT → SasPay → redirect
+   * En cas d'échec SasPay, la commande et la transaction sont nettoyées.
    */
   private async createP2POrder(
     clientId: string,
@@ -1159,54 +1159,50 @@ export class OrdersService {
       `[P2P Order] #${savedOrder.id} créée (AWAITING_PAYMENT) — Total: ${totalAmount} FCFA`,
     );
 
-    // ─── 4. INITIER GENIUSPAY (avec cleanup en cas d'échec) ──────────────
+    // ─── 4. INITIER LE PAIEMENT SASPAY (session de checkout hébergé) ─────
+    // Le client choisit son opérateur sur la page SasPay : aucun moyen n'est
+    // demandé à l'avance pour une livraison P2P.
     try {
-      const payment = await this.geniusPayService.createPayment({
+      const successUrl =
+        this.configService.get<string>('P2P_SUCCESS_URL') ||
+        'https://fasofree.site/p2p/success';
+      const session = await this.sasPayService.createCheckoutSession({
         amount: totalAmount,
         description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
-        paymentMethod: undefined,
-        customer: {
-          email: client.email,
-          phone: normalizedPhone,
-        },
+        customerEmail: client.email,
+        customerName: client.fullName || 'Client FasoFree',
+        customerPhone: normalizedPhone ?? undefined,
+        returnUrl: successUrl,
         metadata: {
           order_id: savedOrder.id,
           user_id: clientId,
           order_type: OrderType.P2P_DELIVERY,
         },
-        successUrl:
-          this.configService.get<string>('P2P_SUCCESS_URL') ||
-          'https://fasofree.site/p2p/success',
-        errorUrl:
-          this.configService.get<string>('P2P_ERROR_URL') ||
-          'https://fasofree.site/p2p/error',
       });
 
-      const checkoutUrl = payment.checkout_url ?? payment.payment_url;
+      const checkoutUrl = session.checkoutUrl;
       if (!checkoutUrl) {
-        throw new BadRequestException(
-          "GeniusPay n'a retourné aucune URL de paiement.",
-        );
+        throw new BadRequestException("SasPay n'a retourné aucune URL de paiement.");
       }
 
-      // Enregistrer la référence GeniusPay sur la transaction
+      // Enregistrer l'identifiant SasPay sur la transaction (réconciliation).
       await this.transactionRepository.update(transaction.id, {
-        paymentGatewayId: String(payment.id),
+        paymentGatewayId: session.id,
+        gatewayCheckoutUrl: checkoutUrl,
       });
 
       this.logger.log(
-        `[P2P Order] #${savedOrder.id} — GeniusPay initialisé, redirect vers checkout`,
+        `[P2P Order] #${savedOrder.id} — session SasPay créée, redirect vers checkout`,
       );
 
       return { order: savedOrder, checkoutUrl };
     } catch (payError) {
       // ╔══════════════════════════════════════════════════════════════════╗
-      // ║ CLEANUP : annuler la commande + la transaction si GeniusPay     ║
-      // ║ échoue. On passe la commande en FAILED pour qu'elle soit        ║
-      // ║ nettoyée par le cron cleanupExpiredPendingOrders.               ║
+      // ║ CLEANUP : si SasPay échoue, la commande et la transaction passent║
+      // ║ en FAILED ; le cron cleanupExpiredPendingOrders les nettoie.    ║
       // ╚══════════════════════════════════════════════════════════════════╝
       this.logger.error(
-        `[P2P Order] GeniusPay échoué pour #${savedOrder.id}: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}`,
+        `[P2P Order] SasPay échoué pour #${savedOrder.id}: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}`,
       );
 
       // Marquer transaction comme FAILED
@@ -1220,7 +1216,7 @@ export class OrdersService {
       });
 
       throw new BadRequestException(
-        `Le paiement GeniusPay a échoué: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}. La commande a été annulée.`,
+        `Le paiement SasPay a échoué: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}. La commande a été annulée.`,
       );
     }
   }
@@ -2015,7 +2011,7 @@ export class OrdersService {
       ];
       if (deadStatuses.includes(order.status)) {
         this.logger.error(
-          `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement GeniusPay ignoré (commande morte)`,
+          `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement SasPay ignoré (commande morte)`,
         );
         await queryRunner.rollbackTransaction();
         return;
@@ -2196,7 +2192,7 @@ export class OrdersService {
     // comme payée sans avoir payé (commandes mobiles/livraison).
     //
     // PAID est un état FINANCIAL : il ne peut venir que de
-    //   - OrdersService.markAsPaidAndDispatch() (webhook GeniusPay signé)
+    //   - OrdersService.markAsPaidAndDispatch() (webhook SasPay signé)
     //   - la création d'une commande CASH (déjà payée à la création)
     if (status === OrderStatus.PAID) {
       throw new ForbiddenException(

@@ -15,10 +15,30 @@ export interface SasPayPaymentResult {
   id: string;
   status: SasPayPaymentStatus;
   checkoutUrl: string | null;
-  bankTransfer: any | null;
   message: string;
   amount?: number;
 }
+
+export interface SasPayMerchantBalance {
+  country: string;
+  currency: string;
+  available: number;
+  pending: number;
+  isFrozen: boolean;
+}
+
+/** Moyen de paiement FasoFree → code réseau SasPay (Burkina Faso). */
+const NETWORKS_BF: Record<string, string> = {
+  orange_money: 'orange_bf',
+  moov_money: 'moov_bf',
+};
+
+/** Retourne le code réseau SasPay, ou null si le moyen n'est pas disponible au Burkina Faso. */
+export function toSasPayNetwork(method: string): string | null {
+  return NETWORKS_BF[String(method).toLowerCase()] ?? null;
+}
+
+export const SASPAY_PAYOUT_NETWORKS = NETWORKS_BF;
 
 @Injectable()
 export class SasPayService {
@@ -39,6 +59,10 @@ export class SasPayService {
     }
   }
 
+  get defaultCountry(): string {
+    return this.country;
+  }
+
   private get headers() {
     return {
       Authorization: `Bearer ${this.apiKey}`,
@@ -47,9 +71,8 @@ export class SasPayService {
   }
 
   /**
-   * Crée un paiement softpay. Selon le réseau, soit une demande USSD est
-   * poussée sur le téléphone, soit une checkout_url est renvoyée (Wave, Orange
-   * Money, Djamo, cartes). Il faut toujours tester checkout_url.
+   * Crée un paiement softpay. Selon le réseau, SasPay renvoie soit une
+   * checkout_url (page à rediriger le client), soit pousse une demande USSD.
    */
   async createPayment(params: {
     amount: number;
@@ -82,30 +105,69 @@ export class SasPayService {
     if (params.idempotencyKey) headers['Idempotency-Key'] = params.idempotencyKey;
 
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/payments/softpay/`,
-        body,
-        { headers, timeout: 30000 },
-      );
+      const response = await axios.post(`${this.baseUrl}/payments/softpay/`, body, {
+        headers,
+        timeout: 30000,
+      });
       const d = response.data ?? {};
-      this.logger.log(`✅ SasPay payment créé: ${d.id} (${d.status})`);
+      this.logger.log(`✅ SasPay paiement créé: ${d.id} (${d.status})`);
       return {
         id: String(d.id ?? ''),
         status: d.status ?? 'PENDING',
         checkoutUrl: d.checkout_url || null,
-        bankTransfer: d.bank_transfer || null,
         message: d.message ?? 'Paiement initié',
       };
     } catch (error: any) {
-      const errData = error.response?.data;
       this.logger.error(
-        `❌ SasPay createPayment HTTP ${error.response?.status}: ${JSON.stringify(errData ?? error.message)}`,
+        `❌ SasPay createPayment HTTP ${error.response?.status}: ${JSON.stringify(error.response?.data ?? error.message)}`,
       );
       throw error;
     }
   }
 
-  /** Vérifie le statut réel d'un paiement côté gateway. */
+  /**
+   * Session de checkout hébergé : le client choisit lui-même son opérateur sur
+   * la page SasPay (utilisé quand le moyen de paiement n'est pas connu d'avance).
+   */
+  async createCheckoutSession(params: {
+    amount: number;
+    currency?: string;
+    description?: string;
+    customerEmail: string;
+    customerName: string;
+    customerPhone?: string;
+    returnUrl?: string;
+    metadata?: Record<string, any>;
+  }): Promise<{ id: string; checkoutUrl: string | null }> {
+    const body: any = {
+      amount: params.amount.toFixed(2),
+      currency: params.currency ?? 'XOF',
+      country: this.country,
+      customer_email: params.customerEmail,
+      customer_name: params.customerName,
+    };
+    if (params.customerPhone) body.customer_phone = params.customerPhone;
+    if (params.description) body.description = params.description;
+    if (params.returnUrl) body.return_url = params.returnUrl;
+    if (params.metadata) body.metadata = params.metadata;
+
+    try {
+      const response = await axios.post(`${this.baseUrl}/checkout-sessions/`, body, {
+        headers: this.headers,
+        timeout: 30000,
+      });
+      const d = response.data ?? {};
+      this.logger.log(`✅ SasPay session de checkout créée: ${d.id}`);
+      return { id: String(d.id ?? ''), checkoutUrl: d.checkout_url || null };
+    } catch (error: any) {
+      this.logger.error(
+        `❌ SasPay createCheckoutSession HTTP ${error.response?.status}: ${JSON.stringify(error.response?.data ?? error.message)}`,
+      );
+      throw error;
+    }
+  }
+
+  /** Statut réel d'un paiement côté SasPay (réconciliation). */
   async verifyPayment(paymentId: string): Promise<SasPayPaymentResult> {
     try {
       const response = await axios.get(
@@ -117,9 +179,8 @@ export class SasPayService {
         id: String(d.id ?? paymentId),
         status: d.status ?? 'PENDING',
         checkoutUrl: null,
-        bankTransfer: null,
         message: d.message ?? '',
-        amount: d.net_amount ? Number(d.net_amount) : d.requested_amount ? Number(d.requested_amount) : undefined,
+        amount: d.net_amount !== undefined ? Number(d.net_amount) : undefined,
       };
     } catch (error: any) {
       this.logger.error(`❌ SasPay verifyPayment ${paymentId}: ${error.message}`);
@@ -127,20 +188,44 @@ export class SasPayService {
     }
   }
 
+  /** Soldes du marchand, un par pays (lecture seule). */
+  async getMerchantBalances(): Promise<SasPayMerchantBalance[]> {
+    const balances: SasPayMerchantBalance[] = [];
+    let page = 1;
+    for (;;) {
+      const response = await axios.get(`${this.baseUrl}/merchant-balances/`, {
+        headers: this.headers,
+        params: { page, page_size: 100 },
+        timeout: 15000,
+      });
+      const results: any[] = response.data?.results ?? [];
+      for (const r of results) {
+        balances.push({
+          country: String(r.country),
+          currency: String(r.currency),
+          available: Number(r.available_amount ?? 0),
+          pending: Number(r.pending_amount ?? 0),
+          isFrozen: Boolean(r.is_frozen),
+        });
+      }
+      if (!response.data?.next || results.length === 0) break;
+      page += 1;
+    }
+    return balances;
+  }
+
   /**
-   * Vérifie la signature webhook SasPay.
-   * signed = `${timestamp}.${rawBody}` → HMAC-SHA256 hexadécimal minuscule.
-   * Fail-closed : tout écart ou secret absent renvoie false.
-   * Contrôle d'âge : ±5 minutes.
+   * Vérifie la signature webhook SasPay : HMAC-SHA256 hexadécimal de
+   * `${timestamp}.${rawBody}`, avec contrôle d'âge ±5 minutes.
+   * Fail-closed : toute absence ou tout écart renvoie false.
    */
   verifyWebhookSignature(rawBody: string, signature: string, timestamp: string, secret: string): boolean {
     if (!secret || !signature || !timestamp) return false;
 
     const now = Math.floor(Date.now() / 1000);
-    if (Math.abs(now - Number(timestamp)) > 300) return false;
+    if (!Number.isFinite(Number(timestamp)) || Math.abs(now - Number(timestamp)) > 300) return false;
 
-    const signed = `${timestamp}.${rawBody}`;
-    const expected = crypto.createHmac('sha256', secret).update(signed).digest('hex');
+    const expected = crypto.createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
     const expectedBuf = Buffer.from(expected, 'utf8');
     const receivedBuf = Buffer.from(signature.trim().toLowerCase(), 'utf8');
     if (expectedBuf.length !== receivedBuf.length) return false;

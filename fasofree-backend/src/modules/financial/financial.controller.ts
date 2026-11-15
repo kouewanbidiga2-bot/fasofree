@@ -37,7 +37,7 @@ export class FinancialController {
   ) {}
 
   @Get('dashboard')
-  @ApiOperation({ summary: 'Résumé financier global (GeniusPay + passifs)' })
+  @ApiOperation({ summary: 'Résumé financier global (SasPay + passifs)' })
   async getDashboardSummary() {
     return this.financialMonitoringService.getDashboardSummary();
   }

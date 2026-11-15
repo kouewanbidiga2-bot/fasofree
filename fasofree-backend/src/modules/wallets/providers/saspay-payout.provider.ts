@@ -7,15 +7,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { resolveSasPayBaseUrl } from '../../../config/payment.config';
-import type { PayoutTransferResult } from './geniuspay-payout.provider';
+import { toSasPayNetwork } from '../../payments/providers/saspay.service';
 
-const SASPAY_NETWORKS: Record<string, string> = {
-  orange_money: 'orange_bf',
-  moov_money: 'moov_bf',
-  mtn_money: 'mtn_bf',
-  wave: 'wave_bf',
-};
+export interface PayoutTransferResult {
+  success: boolean;
+  message: string;
+  providerReference?: string;
+  transactionId?: string;
+}
 
+/**
+ * Virement Mobile Money via SasPay (`POST /payouts/initialize/`).
+ * La réponse confirme l'acceptation ; le résultat réel arrive par le webhook
+ * `transaction.success` / `transaction.failed` (type RETRAIT), réconcilié sur
+ * `providerReference` = id du payout SasPay.
+ */
 @Injectable()
 export class SasPayPayoutProvider {
   private readonly logger = new Logger(SasPayPayoutProvider.name);
@@ -27,13 +33,6 @@ export class SasPayPayoutProvider {
     this.baseUrl = resolveSasPayBaseUrl(this.configService);
     this.apiKey = this.configService.get<string>('SASPAY_API_KEY', '');
     this.country = this.configService.get<string>('SASPAY_COUNTRY', 'BF');
-  }
-
-  private get headers() {
-    return {
-      Authorization: `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-    };
   }
 
   async sendTransfer(
@@ -50,13 +49,10 @@ export class SasPayPayoutProvider {
       };
     }
 
-    const method = SASPAY_NETWORKS[String(provider).toLowerCase()];
+    const method = toSasPayNetwork(provider);
     if (!method) {
-      return { success: false, message: `Opérateur non supporté pour le virement: ${provider}` };
+      return { success: false, message: `Opérateur non supporté au Burkina Faso : ${provider}` };
     }
-
-    // Normaliser le numéro de téléphone (sans +)
-    const msisdn = phoneNumber.replace(/^\+/, '');
 
     try {
       const response = await axios.post(
@@ -67,12 +63,14 @@ export class SasPayPayoutProvider {
           country: this.country,
           customer: { phone: phoneNumber },
           method,
-          recipient: { msisdn },
+          recipient: { msisdn: phoneNumber.replace(/^\+/, '') },
           description: 'Retrait FasoFree',
         },
         {
+          // Idempotency-Key = notre référence : un retry réseau ne crée pas un second virement.
           headers: {
-            ...this.headers,
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
             'Idempotency-Key': reference,
           },
           timeout: 30000,
@@ -80,12 +78,15 @@ export class SasPayPayoutProvider {
       );
 
       const d = response.data ?? {};
+      if (!d.id) {
+        return { success: false, message: 'Réponse SasPay sans identifiant de virement' };
+      }
       this.logger.log(`✅ Virement SasPay accepté — ref ${reference} | ${amountFcfa} FCFA → ${phoneNumber} (${method})`);
       return {
         success: true,
         message: d.message ?? 'Virement Mobile Money initié via SasPay',
-        providerReference: d.id ?? reference,
-        transactionId: d.id,
+        providerReference: String(d.id),
+        transactionId: String(d.id),
       };
     } catch (error: any) {
       const errData = error?.response?.data;
@@ -94,7 +95,7 @@ export class SasPayPayoutProvider {
       );
       return {
         success: false,
-        message: errData?.message ?? errData?.error?.message ?? error?.message ?? 'Échec du virement SasPay',
+        message: errData?.error?.message ?? errData?.message ?? error?.message ?? 'Échec du virement SasPay',
       };
     }
   }

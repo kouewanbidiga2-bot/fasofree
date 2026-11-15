@@ -79,7 +79,7 @@ export class Wallet {
   availableBalance: number;
 
   /**
-   * Fonds en attente de confirmation (retrait en cours GeniusPay).
+   * Fonds en attente de confirmation (retrait en cours SasPay).
    * Bloqués jusqu'au webhook cashout.completed ou cashout.failed.
    */
   @Column({

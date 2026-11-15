@@ -35,8 +35,8 @@ export class FinancialAlertsCron {
 
       if (status === 'RED') {
         const message = `🚨 ALERTE CRITIQUE FASOFREE 🚨
-Ratio de couverture GeniusPay en baisse: ${coverageRatio ?? 'N/A'}. 
-Solde Payout disponible: ${summary.geniusPay?.payoutBalance ?? 'N/A'} FCFA. 
+Ratio de couverture SasPay en baisse: ${coverageRatio ?? 'N/A'}. 
+Solde en attente SasPay: ${summary.saspay?.payoutBalance ?? 'N/A'} FCFA. 
 Passif virtuel total: ${summary.internalLiabilities?.totalVirtualLiabilities ?? 'N/A'} FCFA. 
 Veuillez approvisionner le compte Payout !`;
 

@@ -15,7 +15,8 @@ import {
   Min,
 } from 'class-validator';
 
-export const TOPUP_PAYMENT_METHODS = ['orange_money', 'moov_money', 'mtn_money', 'wave'] as const;
+/** Opérateurs disponibles au Burkina Faso via SasPay. */
+export const TOPUP_PAYMENT_METHODS = ['orange_money', 'moov_money'] as const;
 
 export class TopupDto {
   @ApiProperty({ example: 5000, minimum: 100 })

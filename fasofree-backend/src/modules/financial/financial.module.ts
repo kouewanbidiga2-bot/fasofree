@@ -19,7 +19,7 @@ import { Business } from '../businesses/entities/business.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Product } from '../products/entities/product.entity';
 
-// Modules fournissant GeniusPayService et WalletService
+// Modules fournissant SasPayService et WalletService
 import { WalletModule } from '../wallets/wallet.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ReceiptsModule } from '../receipts/receipts.module';

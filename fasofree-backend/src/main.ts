@@ -195,7 +195,7 @@ async function bootstrap() {
         '| **Products** | Catalogue produits par commerce, gestion stock, disponibilité |',
         '| **Orders** | Création, suivi FSM (PENDING → PROCESSING → IN_DELIVERY → DELIVERED), annulation |',
         '| **Dispatch** | Attribution automatique livreur, cascade, timeout 10 min, refus |',
-        '| **Payments** | GeniusPay (Orange Money, Moov Money, Wave), webhooks, escrow |',
+        '| **Payments** | SasPay (Orange Money, Moov Money, Wave), webhooks, escrow |',
         '| **Wallets** | Portefeuille marchand/agence, crédits automatiques, retraits Mobile Money |',
         '| **Financial** | Settlement marchand, commission plateforme, rapports financiers |',
         '| **Analytics** | Statistiques par agence/marque, graphiques de ventes, comparaison branches |',
@@ -253,7 +253,7 @@ async function bootstrap() {
     .addTag('Products', 'Catalogue produits, stock, disponibilité')
     .addTag('Orders', 'Commandes clients, suivi FSM, historique')
     .addTag('Dispatch', 'Attribution livreur, cascade, timeout, refus')
-    .addTag('Payments', 'Paiements GeniusPay, Orange Money, Moov Money, Wave')
+    .addTag('Payments', 'Paiements SasPay, Orange Money, Moov Money, Wave')
     .addTag('Wallets', 'Portefeuilles marchand/livreur, crédits, retraits')
     .addTag('Financial', 'Settlement marchand, commission, rapports financiers')
     .addTag(
@@ -280,7 +280,7 @@ async function bootstrap() {
     .addTag('OTP Verification', 'Vérification OTP par email')
     .addTag('KYC', 'Vérification identité marchands/livreurs')
     .addTag('Onboarding', 'Candidature marchand/livreur')
-    .addTag('GeniusPay', 'Intégration paiement GeniusPay')
+    .addTag('SasPay', 'Intégration paiement SasPay')
     .addTag('Webhooks', 'Webhooks paiement, WhatsApp')
     .build();
 

@@ -26,7 +26,7 @@ describe('PayoutsService — un escrow ne peut jamais produire deux paiements', 
   const configService: any = { get: jest.fn().mockReturnValue('true') };
 
   const makeService = () => {
-    const geniusPayPayoutProvider = {
+    const sasPayPayoutProvider = {
       isConfigured: jest.fn().mockReturnValue(false),
       sendTransfer: jest.fn(),
       executePayout: jest.fn(),
@@ -37,7 +37,7 @@ describe('PayoutsService — un escrow ne peut jamais produire deux paiements', 
       businessRepo,
       dataSource,
       configService,
-      geniusPayPayoutProvider,
+      sasPayPayoutProvider,
     );
     let transfers = 0;
     (service as any).executeMobileMoneyTransfer = jest

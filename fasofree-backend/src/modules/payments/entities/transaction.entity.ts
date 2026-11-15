@@ -39,7 +39,7 @@ export class Transaction {
   @Column({ type: 'varchar', unique: true })
   reference: string;
 
-  // 🆔 Identifiant fourni en retour par l'agrégateur de paiement (GeniusPay)
+  // 🆔 Identifiant fourni en retour par l'agrégateur de paiement (SasPay)
   @Column({ type: 'varchar', nullable: true })
   paymentGatewayId?: string | null;
 

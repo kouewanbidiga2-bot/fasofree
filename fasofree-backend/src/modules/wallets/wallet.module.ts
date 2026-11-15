@@ -12,7 +12,7 @@ import { Order } from '../orders/entities/order.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { PayoutRequest } from '../financial/entities/payout-request.entity';
 import { WalletService } from './wallet.service';
-import { WalletController, WalletWebhookController } from './wallet.controller';
+import { WalletController } from './wallet.controller';
 import { PayoutsService } from './payouts.service';
 import { SasPayPayoutProvider } from './providers/saspay-payout.provider';
 import { SettingsModule } from '../settings/settings.module';
@@ -27,7 +27,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
     NotificationsModule,
     BusinessesModule,
   ],
-  controllers: [WalletController, WalletWebhookController],
+  controllers: [WalletController],
   providers: [WalletService, PayoutsService, SasPayPayoutProvider],
   exports: [WalletService, PayoutsService, SasPayPayoutProvider, TypeOrmModule],
 })

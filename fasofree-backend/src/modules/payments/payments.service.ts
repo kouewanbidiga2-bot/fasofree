@@ -17,10 +17,11 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 
 import { Transaction, TransactionStatus } from './entities/transaction.entity';
+import { TopupRequest, TopupStatus } from './entities/topup-request.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
-import { SasPayService } from './providers/saspay.service';
+import { SasPayService, toSasPayNetwork } from './providers/saspay.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import {
@@ -37,6 +38,8 @@ export class PaymentsService {
     private readonly transactionRepository: Repository<Transaction>,
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(TopupRequest)
+    private readonly topupRepository: Repository<TopupRequest>,
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
@@ -78,6 +81,10 @@ export class PaymentsService {
       this.logger.log(`Order ${order.id} remise en AWAITING_PAYMENT pour retry`);
     }
 
+    if (!toSasPayNetwork(dto.paymentMethod)) {
+      throw new BadRequestException('Moyen de paiement indisponible au Burkina Faso');
+    }
+
     const reference = `FF-PAY-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
     const commissionAmount = Number(
       order.merchantCommissionAmount ?? order.platformCommission ?? 0,
@@ -89,7 +96,7 @@ export class PaymentsService {
 
     // 🔒 ANTI DOUBLE-PAIEMENT
     // Si une tentative est DÉJÀ en cours, on ne crée surtout pas une seconde
-    // charge GeniusPay : on renvoie la session existante pour reprendre le
+    // charge SasPay : on renvoie la session existante pour reprendre le
     // paiement au même endroit. Avant ce correctif, un double clic sur
     // « Payer » créait deux paiements chez l'agrégateur, et le client pouvait
     // être débité deux fois sur la même commande.
@@ -146,7 +153,7 @@ export class PaymentsService {
         if (tx && tx.status === TransactionStatus.PENDING) {
           await this.transactionRepository.update(tx.id, { status: TransactionStatus.FAILED });
         }
-        this.logger.log(`Order ${order.id} + transaction marked FAILED after GeniusPay error`);
+        this.logger.log(`Order ${order.id} + transaction marked FAILED after SasPay error`);
       } catch (updateErr) {
         this.logger.error(`Failed to mark order ${order.id} as FAILED: ${updateErr.message}`);
       }
@@ -180,21 +187,19 @@ export class PaymentsService {
       `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
     );
 
-    const networkMap: Record<string, string> = {
-      orange_money: 'orange_bf',
-      moov_money: 'moov_bf',
-      mtn_money: 'mtn_bf',
-      wave: 'wave_bf',
-    };
+    const network = toSasPayNetwork(dto.paymentMethod);
+    if (!network) {
+      throw new BadRequestException('Moyen de paiement indisponible au Burkina Faso');
+    }
 
     const payment = await this.sasPayService.createPayment({
       amount: Number(order.totalAmount),
       currency: 'XOF',
-      country: 'BF',
+      country: this.sasPayService.defaultCountry,
       customer: {
         phone: dto.phoneNumber,
       },
-      network: networkMap[dto.paymentMethod] ?? dto.paymentMethod,
+      network,
       description: `Commande #${order.id.substring(0, 8)}`,
       metadata: {
         order_id: order.id,
@@ -254,7 +259,7 @@ export class PaymentsService {
   /**
    * RECONCILIATION : interroger l'agregateur sur l'etat REEL d'une commande.
    *
-   * Appele par le client au retour de GeniusPay. On interroge l'API
+   * Appele par le client au retour de SasPay. On interroge l'API
    * merchant avec la reference reellement stockee (paymentGatewayId) et :
    *  - si l'agregateur dit completed ET le montant correspond -> on applique
    *    la MEME logique que le webhook (transaction SUCCESS + commande PAID) ;
@@ -444,147 +449,122 @@ export class PaymentsService {
   }
 
   // ========================================================================
-  // 💳 RECHARGE DE PORTEFEUILLE (top-up) — chemin dédié au webhook GeniusPay
+  // 💳 RECHARGE DE PORTEFEUILLE (top-up) — via SasPay
   // ========================================================================
 
   /**
-   * Crédite le portefeuille d'un utilisateur après un encaissement GeniusPay.
-   *
-   * Pourquoi un chemin dédié : une recharge n'a AUCUNE commande associée, donc
-   * `metadata.order_id` est absent. Avant ce correctif, `handlePaymentSuccess`
-   * exigeait un `order_id` et levait une exception : l'argent réellement
-   * encaissé n'était JAMAIS crédité (bug bloquant pour financer une campagne).
-   *
-   * Idempotence : le crédit porte la référence `TOPUP-...` générée à
-   * l'initiation. `WalletService.creditWallet` ignore tout doublon
-   * (walletId + reference + reason), donc un webhook rejoué ne crédite pas 2×.
-   *
-   * @returns `true` si un crédit a été appliqué, `false` si le webhook est ignoré.
+   * Crée une demande de recharge et renvoie l'URL de paiement SasPay.
+   * La ligne `topup_requests` est écrite AVANT l'appel SasPay : si l'appel échoue,
+   * elle passe en FAILED ; sinon l'id du paiement SasPay est enregistré pour
+   * retrouver la recharge au webhook (SasPay ne renvoie pas notre référence).
    */
-  async creditTopupFromGateway(data: any, payload: any): Promise<boolean> {
-    const metadata = data?.extras ?? data?.metadata ?? payload?.metadata ?? {};
-    const userId = metadata.userId != null ? String(metadata.userId) : '';
-    const topupRef =
-      metadata.reference != null ? String(metadata.reference) : '';
-    const branchId = metadata.branchId ? String(metadata.branchId) : undefined;
-    // Le rôle vient du JWT de l'appelant, transmis dans le metadata signé.
-    const walletRole = this.resolveWalletRole(metadata.walletRole);
-
-    if (!userId || !topupRef) {
-      this.logger.error(
-        'Webhook topup: userId ou reference manquant dans metadata — crédit refusé',
-      );
-      return false;
+  async createTopup(params: {
+    userId: string;
+    role: string;
+    branchId?: string;
+    amount: number;
+    paymentMethod: string;
+    customerName?: string;
+    customerEmail?: string;
+  }): Promise<{ reference: string; checkoutUrl: string | null }> {
+    const network = toSasPayNetwork(params.paymentMethod);
+    if (!network) {
+      throw new BadRequestException('Moyen de paiement indisponible au Burkina Faso');
     }
 
-    // 🔒 On n'encaisse un crédit QUE sur un paiement réellement `completed`.
-    const gatewayStatus = String(data?.status ?? '').toLowerCase();
-    if (gatewayStatus && gatewayStatus !== 'success' && gatewayStatus !== 'completed') {
-      this.logger.error(
-        `Webhook topup ${topupRef}: statut agrégateur = "${gatewayStatus}" — NON crédité`,
-      );
-      return false;
-    }
+    const clientUrl = (
+      this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site'
+    ).replace(/\/+$/, '');
+    const reference = `TOPUP-${crypto.randomUUID()}`;
 
-    const amount = Number(data?.amount ?? data?.total_amount ?? payload?.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      this.logger.error(
-        `Webhook topup ${topupRef}: montant invalide (${data?.amount}) — NON crédité`,
-      );
-      return false;
-    }
-
-    await this.walletService.creditWallet(
-      userId,
-      walletRole,
-      amount,
-      TransactionReason.TOPUP,
-      topupRef,
-      `Recharge portefeuille via GenesysPay${
-        data?.tx_ref ? ` (réf. ${data.tx_ref})` : ''
-      }`,
-      TransactionType.DEPOSIT,
-      branchId,
+    const row = await this.topupRepository.save(
+      this.topupRepository.create({
+        reference,
+        userId: params.userId,
+        walletRole: this.resolveWalletRole(params.role),
+        branchId: params.branchId ?? null,
+        amount: params.amount,
+        status: TopupStatus.PENDING,
+      }),
     );
 
-    this.logger.log(
-      `✅ Recharge ${topupRef} créditée : +${amount} XOF → ${walletRole} ${userId}`,
-    );
-    return true;
+    try {
+      const payment = await this.sasPayService.createPayment({
+        amount: params.amount,
+        currency: 'XOF',
+        country: this.sasPayService.defaultCountry,
+        customer: {
+          email: params.customerEmail,
+          firstName: params.customerName ?? 'Client',
+          lastName: 'FasoFree',
+        },
+        network,
+        description: `Recharge portefeuille FasoFree - ${params.customerName ?? params.userId}`,
+        metadata: { type: 'topup', reference },
+        returnUrl: `${clientUrl}/?topup=success`,
+        idempotencyKey: reference,
+      });
+      await this.topupRepository.update(row.id, { providerPaymentId: payment.id });
+      return { reference, checkoutUrl: payment.checkoutUrl };
+    } catch (err) {
+      await this.topupRepository.update(row.id, { status: TopupStatus.FAILED });
+      this.logger.error(`Recharge ${reference} : échec SasPay — ${(err as Error).message}`);
+      throw new BadRequestException(
+        'Impossible de contacter la passerelle de paiement. Veuillez réessayer.',
+      );
+    }
   }
 
   /**
-   * Reprend le montant d'une recharge remboursée par GeniusPay.
+   * Applique le résultat SasPay à une recharge.
+   * @returns `false` si le paiement n'est pas une recharge (il appartient alors à une commande).
    *
-   * Le débit est autorisé EN NÉGATIF : si l'utilisateur a déjà dépensé l'argent,
-   * le portefeuille passe en dette — FasoFree doit récupérer des fonds qu'elle
-   * n'a plus. Idempotent via la référence `TOPUP-REFUND-<référence de recharge>`.
-   *
-   * On ne fait jamais échouer le webhook (sinon retries inutiles côté GeniusPay) :
-   * en cas de problème, on trace pour une reprise manuelle par le Super Admin.
+   * Idempotence : le passage PENDING → CREDITED est conditionnel ; un webhook
+   * rejoué ne crédite donc jamais deux fois. Le montant crédité est celui de la
+   * demande enregistrée, jamais celui annoncé par le webhook.
    */
-  async reverseTopupFromGateway(data: any, payload: any): Promise<boolean> {
-    const metadata = data?.metadata ?? payload?.metadata ?? {};
-    const userId = metadata.userId != null ? String(metadata.userId) : '';
-    const topupRef =
-      metadata.reference != null ? String(metadata.reference) : '';
-    const branchId = metadata.branchId ? String(metadata.branchId) : undefined;
-    const walletRole = this.resolveWalletRole(metadata.walletRole);
+  async settleTopupFromSasPay(providerPaymentId: string, outcome: 'SUCCESS' | 'FAILED'): Promise<boolean> {
+    const topup = await this.topupRepository.findOne({ where: { providerPaymentId } });
+    if (!topup) return false;
 
-    if (!userId || !topupRef) {
-      this.logger.error(
-        'Webhook topup refund: metadata incomplète — annulation ignorée',
+    if (outcome === 'FAILED') {
+      await this.topupRepository.update(
+        { id: topup.id, status: TopupStatus.PENDING },
+        { status: TopupStatus.FAILED },
       );
-      return false;
+      return true;
     }
 
-    const amount = Number(data?.amount ?? payload?.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      this.logger.error(
-        `Webhook topup refund ${topupRef}: montant invalide — annulation ignorée`,
-      );
-      return false;
-    }
-
-    const reference = `TOPUP-REFUND-${topupRef}`;
-
-    // Garde-fou : ne jamais reprendre deux fois le même montant.
-    const already = await this.walletService.hasLedgerEntry(
-      userId,
-      walletRole,
-      reference,
-      TransactionReason.REFUND,
-      branchId,
+    const claimed = await this.topupRepository.update(
+      { id: topup.id, status: TopupStatus.PENDING },
+      { status: TopupStatus.CREDITED },
     );
-    if (already) {
-      this.logger.warn(
-        `Webhook topup refund ${topupRef}: déjà annulé — ignoré`,
-      );
-      return false;
+    if (!claimed.affected) {
+      this.logger.warn(`Recharge ${topup.reference} déjà traitée — ignorée`);
+      return true;
     }
 
     try {
-      await this.walletService.debitWalletAllowNegative(
-        userId,
-        walletRole,
-        amount,
-        TransactionReason.REFUND,
-        reference,
-        `Reprise de la recharge ${topupRef} (remboursement GeniusPay)`,
-        branchId,
+      await this.walletService.creditWallet(
+        topup.userId,
+        this.resolveWalletRole(topup.walletRole),
+        Number(topup.amount),
+        TransactionReason.TOPUP,
+        topup.reference,
+        `Recharge portefeuille via SasPay (réf. ${topup.reference})`,
+        TransactionType.DEPOSIT,
+        topup.branchId ?? undefined,
       );
-      this.logger.log(
-        `↩️ Recharge ${topupRef} annulée : -${amount} XOF ← ${walletRole} ${userId}`,
-      );
-      return true;
     } catch (err) {
-      this.logger.error(
-        `❌ Échec de l'annulation de la recharge ${topupRef}: ${
-          (err as Error).message
-        }. Reprise manuelle requise.`,
-      );
-      return false;
+      // Crédit non appliqué : on remet la recharge en attente pour qu'un nouveau webhook réessaie.
+      await this.topupRepository.update(topup.id, { status: TopupStatus.PENDING });
+      throw err;
     }
+
+    this.logger.log(
+      `✅ Recharge ${topup.reference} créditée : +${topup.amount} XOF → ${topup.walletRole} ${topup.userId}`,
+    );
+    return true;
   }
 
   /**

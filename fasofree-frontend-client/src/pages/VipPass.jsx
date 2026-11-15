@@ -266,8 +266,6 @@ const VipPass = () => {
                 >
                   <option value="orange_money">Orange Money</option>
                   <option value="moov_money">Moov Money</option>
-                  <option value="mtn_money">MTN Mobile Money</option>
-                  <option value="wave">Wave</option>
                 </select>
                 <div className="flex gap-2 justify-end">
                   <button onClick={() => setTopupOpen(false)} className="px-4 py-2 text-sm text-gray-600 transition active:scale-[0.98]">{t('cancel')}</button>

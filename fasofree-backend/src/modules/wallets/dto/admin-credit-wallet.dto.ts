@@ -20,7 +20,7 @@ import { UserRole } from '../entities/wallet.entity';
  * 💰 Crédit MANUEL d'un portefeuille par le Super Admin.
  *
  * Cas d'usage : régulariser un encaissement fait hors plateforme (virement,
- * espèces, recharge GeniusPay en échec) ou débloquer un compte qui ne peut pas
+ * espèces, recharge SasPay en échec) ou débloquer un compte qui ne peut pas
  * encore se recharger seul. L'écriture est tracée au grand livre.
  *
  * ⚠️ `userRole` est le rôle du PORTEFEUILLE (`wallets_userrole_enum`), pas le

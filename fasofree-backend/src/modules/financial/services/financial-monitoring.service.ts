@@ -13,10 +13,10 @@ import { Order, OrderStatus, FulfillmentType } from '../../orders/entities/order
 import { OrderItem } from '../../orders/entities/order-item.entity';
 import { Business } from '../../businesses/entities/business.entity';
 import { Brand } from '../../brands/entities/brand.entity';
-import { GeniusPayService } from '../../payments/providers/geniuspay.service';
+import { SasPayService } from '../../payments/providers/saspay.service';
 import { WalletService } from '../../wallets/wallet.service';
 export interface FinancialDashboardSummary {
-  geniusPay: {
+  saspay: {
     payinBalance: number;
     payoutBalance: number;
     totalRealCash: number;
@@ -53,26 +53,24 @@ export class FinancialMonitoringService {
     private readonly businessRepository: Repository<Business>,
     @InjectRepository(Brand)
     private readonly brandRepository: Repository<Brand>,
-    private readonly geniusPayService: GeniusPayService,
+    private readonly sasPayService: SasPayService,
     private readonly walletService: WalletService,
   ) {}
 
   async getDashboardSummary(): Promise<FinancialDashboardSummary> {
     try {
-      // 1. Solde réel chez GeniusPay (Appel API)
-      const geniusPayBalance = await this.geniusPayService
-        .getBalance()
+      // 1. Soldes réels chez SasPay (XOF uniquement : seule devise comparable aux passifs internes)
+      const saspayBalances = await this.sasPayService
+        .getMerchantBalances()
         .catch((err) => {
-          this.logger.error(
-            'Échec récupération solde GeniusPay',
-            err?.stack ?? err,
-          );
+          this.logger.error('Échec récupération soldes SasPay', err?.stack ?? err);
           return null;
         });
 
+      const xofBalances = (saspayBalances ?? []).filter((b) => b.currency === 'XOF');
       const balances = {
-        available: Number(geniusPayBalance?.available ?? 0),
-        pending: Number(geniusPayBalance?.pending ?? 0),
+        available: xofBalances.reduce((sum, b) => sum + b.available, 0),
+        pending: xofBalances.reduce((sum, b) => sum + b.pending, 0),
       };
 
       // 2. Passifs virtuels (Dette interne envers les livreurs et marchands)
@@ -121,7 +119,7 @@ export class FinancialMonitoringService {
       }
 
       return {
-        geniusPay: {
+        saspay: {
           payinBalance: balances.available,
           payoutBalance: balances.pending,
           totalRealCash: balances.available + balances.pending,
@@ -145,7 +143,7 @@ export class FinancialMonitoringService {
       );
       // Retourne un résumé sûr par défaut pour éviter crashs en aval
       return {
-        geniusPay: { payinBalance: 0, payoutBalance: 0, totalRealCash: 0 },
+        saspay: { payinBalance: 0, payoutBalance: 0, totalRealCash: 0 },
         internalLiabilities: {
           driversTotalBalance: 0,
           merchantsTotalBalance: 0,

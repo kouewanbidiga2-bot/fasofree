@@ -6,14 +6,14 @@
 /**
  * FasoFree — Service Paiements
  * Endpoints: /payments
- * Provider: SasPay (Orange Money, Moov Money)
+ * Provider: SasPay (Orange Money, Moov Money — Burkina Faso)
  */
 import api from './api';
 
 /**
- * Initier un paiement pour une commande via Jeko
+ * Initier un paiement pour une commande via SasPay.
  * @param {Object} data - { orderId, paymentMethod, phoneNumber }
- * paymentMethod: 'orange_money' | 'moov_money' | 'wave'
+ * paymentMethod: 'orange_money' | 'moov_money'
  */
 export const initiatePayment = async (data) => {
   const response = await api.post('/payments/initiate', {
@@ -25,7 +25,7 @@ export const initiatePayment = async (data) => {
 };
 
 /**
- * Recharger le portefeuille FasoFree via Jeko
+ * Recharger le portefeuille FasoFree via SasPay.
  * @param {Object} data - { amount, paymentMethod, customerName, customerEmail }
  */
 export const topupWallet = async (data) => {
@@ -34,18 +34,8 @@ export const topupWallet = async (data) => {
 };
 
 /**
- * Vérifier le statut d'un paiement (route héritée GeniusPay, non utilisée)
- * @param {string} ref - Référence du paiement
- */
-export const checkPaymentStatus = async (ref) => {
-  const response = await api.get(`/payments/geniuspay/status/${ref}`);
-  return response.data;
-};
-
-// ─── Méthodes de paiement disponibles (via GeniusPay) ──────────────────
-/**
- * RÃ©conciliation ADMIN d'un paiement (mÃªme logique que le client,
- * sans contrÃ´le d'appartenance). RÃ´les : SUPER_ADMIN / ADMIN / SUPPORT.
+ * Réconciliation ADMIN d'un paiement (même logique que le client,
+ * sans contrôle d'appartenance). Rôles : SUPER_ADMIN / ADMIN / SUPPORT.
  * @param {string} orderId
  * @returns {Promise<{status:string, paid:boolean, reference:string|null}>}
  */
@@ -69,14 +59,6 @@ export const PAYMENT_METHODS = [
     description: 'Paiement mobile Moov',
     color: '#0095D9',
     icon: '🔵',
-    requiresPhone: true,
-  },
-  {
-    id: 'wave',
-    label: 'Wave',
-    description: 'Paiement mobile Wave',
-    color: '#1DC3F0',
-    icon: '🌊',
     requiresPhone: true,
   },
   {

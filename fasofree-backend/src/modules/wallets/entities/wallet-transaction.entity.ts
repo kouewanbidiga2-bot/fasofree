@@ -95,7 +95,7 @@ export class WalletTransaction {
 
   @Column({ type: 'varchar', nullable: true })
   @Index()
-  reference: string | null; // ID de commande ou référence de transaction GeniusPay
+  reference: string | null; // ID de commande ou référence de transaction SasPay
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
