@@ -42,14 +42,14 @@ export function resolveGeniusPayBaseUrl(configService: ConfigService): string {
 }
 
 /**
- * URL de base de l'API partenaire Jeko.
- * `JEKO_BASE_URL` permet de surcharger l'URL sans redéployer le code.
+ * URL de base de l'API partenaire SasPay.
+ * `SASPAY_BASE_URL` permet de surcharger l'URL sans redéployer le code.
  */
-export function resolveJekoBaseUrl(configService: ConfigService): string {
-  const explicit = configService.get<string>('JEKO_BASE_URL');
+export function resolveSasPayBaseUrl(configService: ConfigService): string {
+  const explicit = configService.get<string>('SASPAY_BASE_URL');
   if (explicit?.trim()) {
     return explicit.trim().replace(/\/+$/, '');
   }
 
-  return 'https://api.jeko.africa';
+  return 'https://api.saspay.me/api/v1';
 }

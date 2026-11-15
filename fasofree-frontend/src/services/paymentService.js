@@ -6,7 +6,7 @@
 /**
  * FasoFree — Service Paiements
  * Endpoints: /payments
- * Provider: Jeko (Orange Money, Moov Money, MTN, Wave)
+ * Provider: SasPay (Orange Money, Moov Money)
  */
 import api from './api';
 

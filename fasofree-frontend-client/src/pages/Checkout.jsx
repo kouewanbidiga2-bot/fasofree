@@ -197,8 +197,8 @@ const Checkout = () => {
 
           if (payResult?.checkoutUrl) {
             // 🔒 PAS addOrder() ici — la commande n'est PAS payée tant que
-            // le client n'a pas complété le paiement sur Jeko.
-            // Le webhook /payments/webhook/jeko marquera la commande PAID.
+            // le client n'a pas complété le paiement sur SasPay.
+            // Le webhook /payments/webhook/saspay marquera la commande PAID.
             // On stocke juste l'orderId pour la page de retour.
             window.location.href = payResult.checkoutUrl;
             return;
@@ -232,7 +232,7 @@ const Checkout = () => {
         console.error('Payment initiation error:', payErr);
         // Annuler la commande créée côté backend pour éviter les commandes orphelines
         try {
-          await api.cancelOrder(order.id, 'Échec du paiement Jeko');
+          await api.cancelOrder(order.id, 'Échec du paiement SasPay');
         } catch (cancelErr) {
           console.error('Failed to cancel order after payment error:', cancelErr);
         }

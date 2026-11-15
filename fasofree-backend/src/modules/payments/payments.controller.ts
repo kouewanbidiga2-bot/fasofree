@@ -33,7 +33,7 @@ import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { TopupDto } from './dto/topup.dto';
 import { GeniusPayService } from './providers/geniuspay.service';
-import { JekoService } from './providers/jeko.service';
+import { SasPayService } from './providers/saspay.service';
 import { PayoutsService } from '../wallets/payouts.service';
 import { randomBytes } from 'crypto';
 
@@ -66,7 +66,7 @@ export class PaymentsController {
   constructor(
     private readonly paymentsService: PaymentsService,
     private readonly geniusPayService: GeniusPayService,
-    private readonly jekoService: JekoService,
+    private readonly sasPayService: SasPayService,
     private readonly walletPayoutsService: PayoutsService,
     private readonly configService: ConfigService,
     private readonly ordersService: OrdersService,
@@ -143,19 +143,40 @@ export class PaymentsController {
       const topupRef = `TOPUP_${roleCode}_${userId}_${branch}_${randomBytes(4).toString('hex').toUpperCase()}`;
 
       const clientUrl = (this.configService.get<string>('CLIENT_URL') || 'https://fasofree.site').replace(/\/+$/, '');
-      const payment = await this.jekoService.createPaymentRequest({
-        amountCents: Math.round(Number(dto.amount) * 100),
-        reference: topupRef,
-        paymentMethod: dto.paymentMethod,
-        successUrl: `${clientUrl}/?topup=success`,
-        errorUrl: `${clientUrl}/?topup=error`,
+      const networkMap: Record<string, string> = {
+        orange_money: 'orange_bf',
+        moov_money: 'moov_bf',
+        mtn_money: 'mtn_bf',
+        wave: 'wave_bf',
+      };
+      const payment = await this.sasPayService.createPayment({
+        amount: Number(dto.amount),
+        currency: 'XOF',
+        country: 'BF',
+        customer: {
+          email: dto.customerEmail || 'client@fasofree.bf',
+          firstName: dto.customerName || 'Client',
+          lastName: 'FasoFree',
+          phone: '22670000000',
+        },
+        network: networkMap[dto.paymentMethod] ?? dto.paymentMethod,
+        description: `Recharge portefeuille FasoFree - ${dto.customerName || userId}`,
+        metadata: {
+          type: 'topup',
+          userId,
+          reference: topupRef,
+          walletRole: req.user?.role ? String(req.user.role) : undefined,
+          branchId: dto.branchId ? String(dto.branchId) : undefined,
+        },
+        returnUrl: `${clientUrl}/?topup=success`,
+        idempotencyKey: topupRef,
       });
       return {
         success: true,
         transactionId: payment.id,
-        checkoutUrl: payment.redirectUrl,
-        paymentUrl: payment.redirectUrl,
-        message: 'Redirection vers Jeko pour le paiement.',
+        checkoutUrl: payment.checkoutUrl,
+        paymentUrl: payment.checkoutUrl,
+        message: 'Redirection vers SasPay pour le paiement.',
       };
     } catch (err) {
       this.logger.error(`Topup failed: ${err.message}`);
@@ -313,109 +334,108 @@ export class PaymentsController {
 
   // === WEBHOOK Jeko ===
 
-  @Post('webhook/jeko')
+  @Post('webhook/saspay')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Webhook Jeko — TRANSACTION_COMPLETED (encaissements)' })
-  async handleJekoWebhook(
+  @ApiOperation({ summary: 'Webhook SasPay — transaction.success / settlement.success' })
+  async handleSasPayWebhook(
     @Request() request: Request,
     @Body() payload: any,
-    @Headers('jeko-signature') signature?: string,
-    @Headers('jeko-event') event?: string,
+    @Headers('x-webhook-signature') signature?: string,
+    @Headers('x-webhook-timestamp') timestamp?: string,
+    @Headers('x-webhook-event') event?: string,
   ) {
-    const secret = this.jekoService.webhookSecret;
+    const secret = this.sasPayService.webhookSecret;
     if (!secret) {
-      this.logger.error('JEKO_WEBHOOK_SECRET non configuré — webhook rejeté');
+      this.logger.error('SASPAY_WEBHOOK_SECRET non configuré — webhook rejeté');
       throw new BadRequestException('Webhook not configured');
     }
 
-    // 🔒 Signature calculée sur le corps BRUT (pas le JSON reparsé).
     const rawBody = (request as any).rawBody?.toString();
-    if (!rawBody || !this.jekoService.verifyWebhookSignature(rawBody, signature ?? '', secret)) {
-      this.logger.error('Signature webhook Jeko invalide');
+    if (!rawBody || !this.sasPayService.verifyWebhookSignature(rawBody, signature ?? '', timestamp ?? '', secret)) {
+      this.logger.error('Signature webhook SasPay invalide');
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    // Un seul webhook par magasin : encaissements et reversements arrivent ici.
-    if (event !== 'TRANSACTION_COMPLETED') {
-      return { success: true };
-    }
+    this.logger.log(`[SasPay Webhook] événement ${event} reçu`);
 
-    const reference: string | undefined = payload.transactionDetails?.reference;
-    if (!reference) {
-      this.logger.warn('[Jeko Webhook] Transaction sans référence — ignorée');
-      return { success: true };
-    }
-
-    // 🔁 Reversement (retrait) : la référence est notre payoutReference.
-    if (payload.transactionType === 'transfer') {
-      const payout = await this.walletPayoutsService.findPayoutByIdentifier(reference);
-      if (!payout) {
-        this.logger.warn(`[Jeko Webhook] Retrait introuvable pour ${reference}`);
+    // transaction.success → encaissement réussi
+    if (event === 'transaction.success' && payload?.data?.type === 'PAIEMENT') {
+      const reference: string | undefined = payload.data.reference;
+      if (!reference) {
+        this.logger.warn('[SasPay Webhook] Transaction sans référence — ignorée');
         return { success: true };
       }
-      if (payload.status === 'success') {
-        await this.walletPayoutsService.confirmProviderPayout(payout.id, payload.id);
-      } else if (payload.status === 'error') {
-        await this.walletPayoutsService.failPayout(payout.id, 'Virement refusé par Jeko');
-      }
-      return { success: true };
-    }
 
-    if (payload.transactionType !== 'payment') {
-      return { success: true };
-    }
-
-    // 💳 Recharge de portefeuille : référence TOPUP_<rôle>_<userId>_<agence|NONE>_<rand>.
-    const topup = TOPUP_REF.exec(reference);
-    if (topup) {
-      if (payload.status !== 'success') return { success: true };
-      const [, roleCode, userId, branch] = topup;
-      const credited = await this.paymentsService.creditTopupFromGateway(
-        {
-          status: 'success',
-          amount: Number(payload.amount?.amount) / 100,
-          extras: {
-            userId,
-            reference,
-            walletRole: TOPUP_ROLE_FROM_CODE[roleCode] ?? roleCode,
-            ...(branch !== 'NONE' ? { branchId: branch } : {}),
+      // Recharge de portefeuille
+      const topup = TOPUP_REF.exec(reference);
+      if (topup) {
+        const [, roleCode, userId, branch] = topup;
+        const credited = await this.paymentsService.creditTopupFromGateway(
+          {
+            status: 'SUCCESS',
+            amount: Number(payload.data.net_amount ?? payload.data.amount),
+            extras: {
+              userId,
+              reference,
+              walletRole: TOPUP_ROLE_FROM_CODE[roleCode] ?? roleCode,
+              ...(branch !== 'NONE' ? { branchId: branch } : {}),
+            },
           },
-        },
-        payload,
-      );
-      this.logger.log(`[Jeko Webhook] Recharge ${reference} ${credited ? 'créditée' : 'non créditée'}`);
-      return { success: true };
-    }
-
-    const transaction = await this.transactionRepository.findOne({ where: { reference } });
-    if (!transaction) {
-      this.logger.warn(`[Jeko Webhook] Aucune transaction pour la référence ${reference}`);
-      return { success: true };
-    }
-
-    try {
-      if (payload.status === 'success') {
-        // Montant reçu en centimes → XOF pour comparaison avec la commande.
-        const receivedXof = Number(payload.amount?.amount) / 100;
-        const amountValid = await this.paymentsService.validatePaymentAmount(
-          transaction.orderId,
-          receivedXof,
+          payload,
         );
-        if (!amountValid) {
-          await this.transactionRepository.update(transaction.id, { status: TransactionStatus.FAILED });
-          await this.ordersService.markAsPaymentFailed(transaction.orderId);
-          this.logger.error(`❌ Montant Jeko invalide pour commande ${transaction.orderId}: ${receivedXof}`);
-          throw new BadRequestException('Amount mismatch');
-        }
-        await this.paymentsService.processSuccessfulPayment(transaction.orderId, reference!, 'JEKO');
-      } else if (payload.status === 'error') {
+        this.logger.log(`[SasPay Webhook] Recharge ${reference} ${credited ? 'créditée' : 'non créditée'}`);
+        return { success: true };
+      }
+
+      const transaction = await this.transactionRepository.findOne({ where: { reference } });
+      if (!transaction) {
+        this.logger.warn(`[SasPay Webhook] Aucune transaction pour la référence ${reference}`);
+        return { success: true };
+      }
+
+      const receivedAmount = Number(payload.data.net_amount ?? payload.data.amount);
+      const amountValid = await this.paymentsService.validatePaymentAmount(transaction.orderId, receivedAmount);
+      if (!amountValid) {
         await this.transactionRepository.update(transaction.id, { status: TransactionStatus.FAILED });
         await this.ordersService.markAsPaymentFailed(transaction.orderId);
+        this.logger.error(`❌ Montant SasPay invalide pour commande ${transaction.orderId}: ${receivedAmount}`);
+        throw new BadRequestException('Amount mismatch');
       }
-    } catch (error) {
-      this.logger.error(`Webhook Jeko error: ${error instanceof Error ? error.message : error}`);
-      if (error instanceof BadRequestException) throw error;
-      return { success: false };
+      await this.paymentsService.processSuccessfulPayment(transaction.orderId, reference, 'SASPAY');
+    }
+
+    // transaction.failed → échec d'encaissement
+    if (event === 'transaction.failed') {
+      const reference: string | undefined = payload.data?.reference;
+      if (reference) {
+        const transaction = await this.transactionRepository.findOne({ where: { reference } });
+        if (transaction) {
+          await this.transactionRepository.update(transaction.id, { status: TransactionStatus.FAILED });
+          await this.ordersService.markAsPaymentFailed(transaction.orderId);
+        }
+      }
+    }
+
+    // settlement.success → retrait réussi
+    if (event === 'settlement.success') {
+      const reference: string | undefined = payload.data?.reference;
+      if (reference) {
+        const payout = await this.walletPayoutsService.findPayoutByIdentifier(reference);
+        if (payout) {
+          await this.walletPayoutsService.confirmProviderPayout(payout.id, payload.data?.id);
+        }
+      }
+    }
+
+    // settlement.failed → retrait échoué
+    if (event === 'settlement.failed') {
+      const reference: string | undefined = payload.data?.reference;
+      if (reference) {
+        const payout = await this.walletPayoutsService.findPayoutByIdentifier(reference);
+        if (payout) {
+          await this.walletPayoutsService.failPayout(payout.id, 'Virement refusé par SasPay');
+        }
+      }
     }
 
     return { success: true };

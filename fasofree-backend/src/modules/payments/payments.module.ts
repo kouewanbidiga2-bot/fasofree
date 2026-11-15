@@ -12,7 +12,7 @@ import { WebhooksService } from './webhooks.service';
 import { PaymentsController } from './payments.controller';
 import { GeniusPayService } from './providers/geniuspay.service';
 import { GeniusPayController } from './geniuspay.controller';
-import { JekoService } from './providers/jeko.service';
+import { SasPayService } from './providers/saspay.service';
 
 import { MerchantPayout } from './entities/merchant-payout.entity';
 import { Transaction } from './entities/transaction.entity';
@@ -40,7 +40,7 @@ import { RedisModule } from '../../core/redis/redis.module';
     ]),
   ],
   controllers: [PaymentsController, GeniusPayController],
-  providers: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, JekoService],
-  exports: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, JekoService, TypeOrmModule],
+  providers: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, SasPayService],
+  exports: [PaymentsService, PayoutsService, WebhooksService, GeniusPayService, SasPayService, TypeOrmModule],
 })
 export class PaymentsModule {}

@@ -181,7 +181,7 @@ const P2PDelivery = () => {
     try {
       const response = await api.createOrder(buildPayload());
       // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }.
-      // Rediriger vers Jeko pour le paiement.
+      // Rediriger vers SasPay pour le paiement.
       if (response?.checkoutUrl) {
         sessionStorage.removeItem(P2P_DRAFT_KEY);
         window.location.href = response.checkoutUrl;

@@ -6,7 +6,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { JekoPayoutProvider } from './providers/jeko-payout.provider';
+import { SasPayPayoutProvider } from './providers/saspay-payout.provider';
 import { RequestWithdrawalDto, PayoutProviderEnum } from './dto/request-withdrawal.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { WalletService } from './wallet.service';
@@ -23,7 +23,7 @@ export class PayoutsService {
   private readonly logger = new Logger(PayoutsService.name);
 
   constructor(
-    private readonly jekoPayoutProvider: JekoPayoutProvider,
+    private readonly sasPayPayoutProvider: SasPayPayoutProvider,
     private readonly walletService: WalletService,
     private readonly settingsService: SettingsService,
     @InjectRepository(PayoutRequest)
@@ -217,7 +217,7 @@ export class PayoutsService {
 
     // 4. Appeler GeniusPay (seul provider de payout actif)
     try {
-      const transferResult = await this.jekoPayoutProvider.sendTransfer(
+      const transferResult = await this.sasPayPayoutProvider.sendTransfer(
         payoutReference,
         feeInfo.netAmount,
         dto.phoneNumber,

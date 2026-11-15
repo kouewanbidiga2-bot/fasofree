@@ -126,7 +126,7 @@ const VipPass = () => {
         customerEmail: user?.email || 'client@fasofree.bf',
       });
       setTopupOpen(false);
-      // 🔗 Redirection obligatoire vers la page de paiement Jeko : sans
+      // 🔗 Redirection obligatoire vers la page de paiement SasPay : sans
       // elle, aucun paiement n'est encaissé et le portefeuille n'est JAMAIS
       // crédité. Le crédit est appliqué par le webhook à la confirmation.
       const checkoutUrl = data?.checkoutUrl || data?.paymentUrl;

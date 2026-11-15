@@ -14,7 +14,7 @@
  *
  * Le rôle du portefeuille (marchand / livreur / client / agence) est déduit
  * CÔTÉ SERVEUR à partir du JWT : il n'y a rien à choisir ici. Le crédit est
- * appliqué par le webhook Jeko dès confirmation du paiement, jamais par
+ * appliqué par le webhook SasPay dès confirmation du paiement, jamais par
  * cette interface.
  */
 import { useState } from 'react';
@@ -74,7 +74,7 @@ const WalletTopupButton = ({
       // ne serait jamais crédité. On suit l'URL renvoyée par Jeko.
       const checkoutUrl = payload?.checkoutUrl || payload?.paymentUrl;
       if (!checkoutUrl) {
-        throw new Error("Jeko n'a pas renvoyé d'URL de paiement");
+        throw new Error("SasPay n'a pas renvoyé d'URL de paiement");
       }
       window.location.href = checkoutUrl;
     } catch (err) {
@@ -111,7 +111,7 @@ const WalletTopupButton = ({
               Recharger le portefeuille
             </h3>
             <p className="mb-4 text-xs text-text-secondary">
-              Paiement sécurisé via Jeko. Le solde est crédité dès la confirmation du paiement.
+              Paiement sécurisé via SasPay. Le solde est crédité dès la confirmation du paiement.
             </p>
 
             <label className="mb-1 block text-xs font-semibold text-text-secondary">

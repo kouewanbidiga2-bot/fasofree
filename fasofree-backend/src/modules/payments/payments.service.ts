@@ -20,7 +20,7 @@ import { Transaction, TransactionStatus } from './entities/transaction.entity';
 import { Order, OrderStatus } from '../orders/entities/order.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { OrdersService } from '../orders/orders.service';
-import { JekoService } from './providers/jeko.service';
+import { SasPayService } from './providers/saspay.service';
 import { WalletService } from '../wallets/wallet.service';
 import { UserRole as WalletUserRole } from '../wallets/entities/wallet.entity';
 import {
@@ -40,7 +40,7 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     @Inject(forwardRef(() => OrdersService))
     private readonly ordersService: OrdersService,
-    private readonly jekoService: JekoService,
+    private readonly sasPayService: SasPayService,
     private readonly walletService: WalletService,
   ) {}
 
@@ -136,7 +136,7 @@ export class PaymentsService {
     }
 
     try {
-      return await this.initiateJeko(order, reference, dto);
+      return await this.initiateSasPay(order, reference, dto);
     } catch (error) {
       this.logger.error(`Payment failed for order ${order.id}: ${error.message}`);
       // Marquer la commande ET la transaction en FAILED
@@ -157,7 +157,7 @@ export class PaymentsService {
     }
   }
 
-  private async initiateJeko(
+  private async initiateSasPay(
     order: Order,
     reference: string,
     dto: InitiatePaymentDto,
@@ -180,18 +180,33 @@ export class PaymentsService {
       `${clientUrl}/payment-error?orderId=${order.id}&reason=returned_failed`,
     );
 
-    // Jeko attend un montant en centimes (1 XOF = 100 centimes).
-    const payment = await this.jekoService.createPaymentRequest({
-      amountCents: Math.round(Number(order.totalAmount) * 100),
-      reference,
-      paymentMethod: dto.paymentMethod,
-      successUrl,
-      errorUrl,
+    const networkMap: Record<string, string> = {
+      orange_money: 'orange_bf',
+      moov_money: 'moov_bf',
+      mtn_money: 'mtn_bf',
+      wave: 'wave_bf',
+    };
+
+    const payment = await this.sasPayService.createPayment({
+      amount: Number(order.totalAmount),
+      currency: 'XOF',
+      country: 'BF',
+      customer: {
+        phone: dto.phoneNumber,
+      },
+      network: networkMap[dto.paymentMethod] ?? dto.paymentMethod,
+      description: `Commande #${order.id.substring(0, 8)}`,
+      metadata: {
+        order_id: order.id,
+        reference,
+      },
+      returnUrl: successUrl,
+      idempotencyKey: reference,
     });
 
-    const checkoutUrl = payment.redirectUrl;
+    const checkoutUrl = payment.checkoutUrl;
 
-    // 🔒 On PERSISTE l'identifiant de la demande Jeko : c'est lui que la
+    // 🔒 On PERSISTE l'identifiant de la demande SasPay : c'est lui que la
     // réconciliation interroge. Sans lui, un second appel « Payer » créerait
     // une charge supplémentaire.
     await this.transactionRepository.update(
@@ -205,9 +220,9 @@ export class PaymentsService {
     return {
       reference,
       checkoutUrl,
-      paymentUrl: checkoutUrl,
+      paymentUrl: payment.checkoutUrl,
       status: payment.status,
-      message: 'Paiement Jeko initié',
+      message: 'Paiement SasPay initié',
     };
   }
 
@@ -312,19 +327,16 @@ export class PaymentsService {
     let gatewayStatus: string;
     let gatewayAmount: number | undefined;
     try {
-      const remote = await this.jekoService.getPaymentRequest(
+      const remote = await this.sasPayService.verifyPayment(
         transaction.paymentGatewayId,
       );
-      // Jeko : success / error / pending → vocabulaire interne completed / failed / pending
-      gatewayStatus =
-        remote.status === 'success' ? 'completed'
-        : remote.status === 'error' ? 'failed'
+      gatewayStatus = remote.status === 'SUCCESS' ? 'completed'
+        : remote.status === 'FAILED' ? 'failed'
         : 'pending';
-      gatewayAmount =
-        remote.amountCents === undefined ? undefined : remote.amountCents / 100;
+      gatewayAmount = remote.amount;
     } catch (err) {
       this.logger.warn(
-        `[Reconcile] Impossible de joindre Jeko pour ${orderId}: ${(err as Error).message}`,
+        `[Reconcile] Impossible de joindre SasPay pour ${orderId}: ${(err as Error).message}`,
       );
       return { status: order.status, paid: false, reference: transaction.reference };
     }
