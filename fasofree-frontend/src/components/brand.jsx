@@ -6,10 +6,10 @@
 /**
  * Marque Koliwa.
  *
- * Le symbole officiel est **le colis qui court** (`koliwa-logo.png`, décliné en
- * `koliwa-mark-run.png` avec les traits de vitesse) : il remplace l'ancien
- * monogramme géométrique. Le wordmark, lui, reprend les tracés exacts de
- * `koliwa-wordmark.svg` — rendu en React pour hériter de `currentColor`.
+ * Le symbole officiel est **le colis qui court** (`koliwa-logo.png`) : il
+ * remplace l'ancien monogramme géométrique. Le wordmark, lui, reprend les
+ * tracés exacts de `koliwa-wordmark.svg` — rendu en React pour hériter de
+ * `currentColor`.
  */
 
 /** Le colis qui court — logo carré, à poser sur fond clair ou dans une pastille. */
@@ -21,18 +21,6 @@ export const KoliwaParcel = ({ size = 40, className = '', alt = 'Koliwa' }) => (
     alt={alt}
     className={className}
     style={{ display: 'block' }}
-    draggable="false"
-  />
-);
-
-/** Variante large avec traits de vitesse — pour les bandeaux et le splash. */
-export const KoliwaParcelRun = ({ height = 64, className = '', alt = 'Koliwa' }) => (
-  <img
-    src="/assets/koliwa-mark-run.png"
-    height={height}
-    alt={alt}
-    className={className}
-    style={{ display: 'block', width: 'auto' }}
     draggable="false"
   />
 );
