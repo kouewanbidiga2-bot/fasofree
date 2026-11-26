@@ -1,8 +1,8 @@
-# FasoFree Backend — Déploiement Oracle Cloud (PAYG) + PM2 + Caddy
+# Koliwa Backend — Déploiement Oracle Cloud (PAYG) + PM2 + Caddy
 
 Guide de bout en bout pour héberger l'API NestJS sur une VM **Oracle Cloud** en mode **Pay As You Go** (budget ≈ 0 $/mois), derrière **PM2** et un reverse proxy **Caddy** (HTTPS + WebSocket).
 
-Le backend FasoFree est **stateless** : la base de données (Neon), Redis (Upstash), Cloudinary/Firebase restent chez leurs fournisseurs. On ne déploie ici que le serveur Node.
+Le backend Koliwa est **stateless** : la base de données (Neon), Redis (Upstash), Cloudinary/Firebase restent chez leurs fournisseurs. On ne déploie ici que le serveur Node.
 
 ---
 

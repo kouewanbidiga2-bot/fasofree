@@ -1,5 +1,5 @@
 # =============================================================================
-# FasoFree API — Caddy (reverse proxy + HTTPS automatique via Let's Encrypt)
+# Koliwa API — Caddy (reverse proxy + HTTPS automatique via Let's Encrypt)
 # -----------------------------------------------------------------------------
 # Emplacement serveur : /etc/caddy/Caddyfile
 #   - Remplace api.fasofree.site par ton sous-domaine réel.

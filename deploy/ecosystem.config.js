@@ -1,5 +1,5 @@
 // =============================================================================
-// FasoFree Backend — Configuration PM2 (production)
+// Koliwa Backend — Configuration PM2 (production)
 // -----------------------------------------------------------------------------
 // Déploie l'API NestJS avec PM2 sur un VPS (Oracle Cloud, Hostinger, etc.).
 //

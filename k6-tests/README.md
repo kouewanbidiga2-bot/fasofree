@@ -1,4 +1,4 @@
-# FasoFree Load Test (k6)
+# Koliwa Load Test (k6)
 
 ## Installation
 

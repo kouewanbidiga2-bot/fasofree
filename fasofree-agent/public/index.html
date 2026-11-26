@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="FasoFree Launcher - conseiller IA du lancement FasoFree">
-  <title>FasoFree Launcher</title>
-  <link rel="icon" type="image/svg+xml" href="apple-touch-icon.png">
+  <meta name="description" content="Koliwa Launcher - conseiller IA du lancement Koliwa">
+  <title>Koliwa Launcher</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
@@ -235,30 +236,11 @@
     }
 
     .hero-logo {
-      position: relative;
-      z-index: 0;
       width: clamp(96px, 14vh, 132px);
-      height: clamp(96px, 14vh, 132px);
-      border-radius: 50%;
-      box-shadow:
-        0 0 0 6px rgba(193, 101, 46, 0.1),
-        0 0 40px rgba(193, 101, 46, 0.18),
-        0 18px 45px rgba(0, 0, 0, 0.5);
       margin-bottom: 26px;
     }
 
-    .hero-mask { display: block; width: 100%; height: 100%; border-radius: 50%; }
-    .hm-spark { opacity: 0; }
-
-    /* Aureole vivante derriere le masque (pulsee en GSAP) */
-    .hero-glow {
-      position: absolute;
-      inset: -32%;
-      z-index: -1;
-      border-radius: 50%;
-      background: radial-gradient(closest-side, rgba(193, 101, 46, 0.34), rgba(193, 101, 46, 0.08) 55%, transparent 78%);
-      pointer-events: none;
-    }
+    .hero-mask { display: block; width: 100%; height: auto; }
 
     .hero-greeting {
       margin: 0;
@@ -1065,7 +1047,7 @@
   <div id="loginScreen" hidden>
     <div class="login-card">
       <img src="apple-touch-icon.png" alt="" class="login-logo">
-      <h1 class="login-title">FasoFree Launcher</h1>
+      <h1 class="login-title">Koliwa Launcher</h1>
       <p class="login-sub">Accès réservé à la direction</p>
       <form id="loginForm">
         <input id="loginPassword" type="password" placeholder="Mot de passe" autocomplete="current-password" aria-label="Mot de passe">
@@ -1077,23 +1059,14 @@
 
   <div id="splash" role="presentation">
     <div class="splash-center">
-      <svg class="splash-mask" viewBox="0 0 140 140" aria-hidden="true">
-        <circle class="s-disc" cx="70" cy="70" r="70" fill="#0d0b0a"/>
-        <ellipse class="s-draw s-ring" cx="70" cy="70" rx="44" ry="52" fill="none" stroke="#C1652E" stroke-width="4.5"/>
-        <path class="s-draw s-arc" d="M38 50 Q70 22 102 50" fill="none" stroke="#D4AF37" stroke-width="3.2" opacity="0.75"/>
-        <path class="s-eye" d="M50 62 Q58 55.5 66 62 Q58 68.5 50 62Z" fill="#C1652E"/>
-        <path class="s-eye" d="M74 62 Q82 55.5 90 62 Q82 68.5 74 62Z" fill="#C1652E"/>
-        <path class="s-nose" d="M70 61 L63.5 84 L76.5 84 Z" fill="#C1652E"/>
-        <path class="s-draw s-mouth" d="M55 96 Q70 105 85 96" fill="none" stroke="#C1652E" stroke-width="4.5" stroke-linecap="round"/>
-        <circle class="s-glow" cx="70" cy="70" r="66" fill="none" stroke="rgba(193,101,46,0.55)" stroke-width="2" opacity="0"/>
-      </svg>
-      <div class="splash-word">FasoFree Launcher</div>
+      <img class="splash-mask" src="favicon.svg" width="140" height="140" alt="">
+      <div class="splash-word">Koliwa Launcher</div>
     </div>
   </div>
 
   <div class="app">
     <aside class="rail" aria-label="Navigation">
-      <img class="rail-logo" src="apple-touch-icon.png" alt="FasoFree" width="34" height="34">
+      <img class="rail-logo" src="apple-touch-icon.png" alt="Koliwa" width="34" height="34">
 
       <button class="rail-btn active" id="navHome" type="button" aria-label="Accueil" title="Accueil">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1164,7 +1137,7 @@
 
     <div class="main">
       <header class="topbar">
-        <div class="brand-name"><strong>FasoFree</strong> Launcher</div>
+        <div class="brand-name"><strong>Koliwa</strong> Launcher</div>
         <div class="topbar-right">
           <button id="newChatBtn" type="button">Nouvelle conversation</button>
           <div id="status" role="status" aria-live="polite" hidden></div>
@@ -1173,30 +1146,12 @@
 
       <section id="hero" aria-label="Bienvenue">
         <div class="hero-logo">
-          <span class="hero-glow" aria-hidden="true"></span>
-          <svg class="hero-mask" viewBox="0 0 140 140" role="img" aria-label="Logo FasoFree">
-            <circle class="hm-disc" cx="70" cy="70" r="70" fill="#0d0b0a"/>
-            <circle class="hm-edge" cx="70" cy="70" r="67.5" fill="none" stroke="rgba(193,101,46,0.55)" stroke-width="1.6"/>
-            <g class="hm-orbit">
-              <circle cx="70" cy="70" r="58" fill="none" stroke="rgba(193,101,46,0.32)" stroke-width="1.4" stroke-dasharray="3 11"/>
-              <circle cx="70" cy="12" r="3" fill="#C1652E"/>
-              <circle cx="128" cy="70" r="2.2" fill="#D4AF37" opacity="0.9"/>
-              <circle cx="70" cy="128" r="2.4" fill="#A85526" opacity="0.75"/>
-            </g>
-            <ellipse class="hm-halo" cx="70" cy="70" rx="50" ry="58" fill="none" stroke="rgba(193,101,46,0.55)" stroke-width="1.2"/>
-            <ellipse class="hm-ring" cx="70" cy="70" rx="44" ry="52" fill="none" stroke="#C1652E" stroke-width="4.5"/>
-            <ellipse class="hm-spark" cx="70" cy="70" rx="44" ry="52" fill="none" stroke="#F2B07C" stroke-width="4.5" stroke-linecap="round"/>
-            <path class="hm-arc" d="M38 50 Q70 22 102 50" fill="none" stroke="#D4AF37" stroke-width="3.2" opacity="0.75"/>
-            <path class="hm-eye" d="M50 62 Q58 55.5 66 62 Q58 68.5 50 62Z" fill="#C1652E"/>
-            <path class="hm-eye" d="M74 62 Q82 55.5 90 62 Q82 68.5 74 62Z" fill="#C1652E"/>
-            <path class="hm-nose" d="M70 61 L63.5 84 L76.5 84 Z" fill="#C1652E"/>
-            <path class="hm-mouth" d="M55 96 Q70 105 85 96" fill="none" stroke="#C1652E" stroke-width="4.5" stroke-linecap="round"/>
-          </svg>
+          <img class="hero-mask" src="favicon.svg" width="140" height="140" alt="Logo Koliwa">
         </div>
         <p class="hero-greeting">Bonjour,</p>
         <h1 class="hero-title">Comment puis-je vous aider&nbsp;?</h1>
         <p class="hero-sub">
-          Conseiller du lancement FasoFree — à partir de vos données réelles.
+          Conseiller du lancement Koliwa — à partir de vos données réelles.
         </p>
       </section>
 
@@ -1206,7 +1161,7 @@
         <label class="sr-only" for="message">Votre message</label>
         <textarea
           id="message"
-          placeholder="Posez votre question sur le lancement de FasoFree..."
+          placeholder="Posez votre question sur le lancement de Koliwa..."
         ></textarea>
         <div class="composer-footer">
           <button type="button" class="mini-chip" data-fill="Prépare un plan de lancement sur 30 jours avec un budget de 300 000 FCFA pour Ouagadougou.">
@@ -1242,7 +1197,7 @@
           <p>Calendrier de 30 jours, priorités et indicateurs par semaine.</p>
         </button>
 
-        <button type="button" class="card" data-fill="Écris un message WhatsApp et un argumentaire pour convaincre les restaurants de Ouagadougou de rejoindre FasoFree.">
+        <button type="button" class="card" data-fill="Écris un message WhatsApp et un argumentaire pour convaincre les commerces de Ouagadougou de rejoindre Koliwa.">
           <span class="card-head">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M4 9h16l-1.2 10.2A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.8L4 9Z"/><path d="M8.5 9V6.5a3.5 3.5 0 0 1 7 0V9"/>
@@ -1388,7 +1343,7 @@
 
       const who = document.createElement("span");
       who.className = "who";
-      who.textContent = role === "user" ? "Vous" : role === "error" ? "Erreur" : "FasoFree";
+      who.textContent = role === "user" ? "Vous" : role === "error" ? "Erreur" : "Koliwa";
 
       const content = document.createElement("div");
       content.className = "body";
@@ -1793,38 +1748,14 @@
         return;
       }
 
-      const q = (sel) => splash.querySelector(sel);
-      const disc = q(".s-disc");
-      const ring = q(".s-ring");
-      const arc = q(".s-arc");
-      const eyes = splash.querySelectorAll(".s-eye");
-      const nose = q(".s-nose");
-      const mouth = q(".s-mouth");
-      const glow = q(".s-glow");
-      const word = q(".splash-word");
-
-      // Préparation du tracé (stroke-dashoffset) pour les traits du masque
-      [ring, arc, mouth].forEach((p) => {
-        const len = p.getTotalLength();
-        gsap.set(p, { strokeDasharray: len, strokeDashoffset: len });
-      });
-      gsap.set(disc, { scale: 0, transformOrigin: "50% 50%" });
-      gsap.set(eyes, { scale: 0, opacity: 0, transformOrigin: "50% 50%" });
-      gsap.set(nose, { scale: 0, opacity: 0, transformOrigin: "50% 100%" });
-      gsap.set(glow, { opacity: 0, scale: 0.85, transformOrigin: "50% 50%" });
-
+      const mark = splash.querySelector(".splash-mask");
+      const word = splash.querySelector(".splash-word");
       const tl = gsap.timeline({ onComplete: () => finishSplash(splash) });
 
-      tl.to(disc, { scale: 1, duration: 0.55, ease: "back.out(1.6)" })
-        .to(ring, { strokeDashoffset: 0, duration: 0.8, ease: "power2.inOut" }, "-=0.2")
-        .to(arc, { strokeDashoffset: 0, duration: 0.45, ease: "power2.out" }, "-=0.5")
-        .to(eyes, { scale: 1, opacity: 1, duration: 0.35, stagger: 0.1, ease: "back.out(2.4)" }, "-=0.25")
-        .to(nose, { scale: 1, opacity: 1, duration: 0.3, ease: "back.out(2)" }, "-=0.15")
-        .to(mouth, { strokeDashoffset: 0, duration: 0.4, ease: "power2.out" }, "-=0.1")
-        .to(glow, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" }, "-=0.35")
-        .to(word, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, "-=0.25")
-        .to({}, { duration: 0.45 })
-        .to(splash, { opacity: 0, duration: 0.45, ease: "power1.inOut" })
+      tl.from(mark, { opacity: 0, y: 10, duration: 0.32, ease: "power2.out" })
+        .to(word, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, "-=0.1")
+        .to({}, { duration: 0.2 })
+        .to(splash, { opacity: 0, duration: 0.28, ease: "power1.inOut" })
         .add(() => revealContent());
 
       // Clic sur le splash = passer l'animation
@@ -1847,49 +1778,6 @@
       gsap.from(els, { opacity: 0, y: -8, duration: 0.4, stagger: 0.05, ease: "power2.out", clearProps: "all" });
       gsap.from("#hero > *", { opacity: 0, y: 16, duration: 0.5, stagger: 0.08, delay: 0.1, ease: "power2.out", clearProps: "all" });
       gsap.from(".composer, .composer-hint, .card", { opacity: 0, y: 18, duration: 0.45, stagger: 0.06, delay: 0.25, ease: "power2.out", clearProps: "all" });
-    }
-
-    /* ---------- Masque du hero : animation permanente (GSAP) ---------- */
-
-    function runHeroAnimation() {
-      const mask = document.querySelector(".hero-mask");
-      if (!mask || reducedMotion || !hasGsap) return;
-
-      const glow = document.querySelector(".hero-glow");
-      const orbit = mask.querySelector(".hm-orbit");
-      const halo = mask.querySelector(".hm-halo");
-      const arc = mask.querySelector(".hm-arc");
-      const eyes = mask.querySelectorAll(".hm-eye");
-      const spark = mask.querySelector(".hm-spark");
-
-      // Respiration douce du masque entier
-      gsap.to(mask, {
-        scale: 1.03, transformOrigin: "50% 50%",
-        duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut"
-      });
-      // Orbite lente des particules autour du visage (tour complet : 70s)
-      gsap.to(orbit, { rotation: 360, svgOrigin: "70 70", duration: 70, repeat: -1, ease: "none" });
-      // Halo qui pulse
-      gsap.to(halo, { opacity: 0.3, duration: 2.4, yoyo: true, repeat: -1, ease: "sine.inOut" });
-      gsap.to(glow, {
-        opacity: 0.55, scale: 1.1, transformOrigin: "50% 50%",
-        duration: 2.4, yoyo: true, repeat: -1, ease: "sine.inOut"
-      });
-      // L'arc dore qui vacille
-      gsap.to(arc, { opacity: 0.45, duration: 1.9, yoyo: true, repeat: -1, ease: "sine.inOut" });
-      // Clignement des yeux toutes les ~4s
-      gsap.to(eyes, {
-        scaleY: 0.12, transformOrigin: "50% 50%",
-        duration: 0.09, repeat: -1, repeatDelay: 3.7, yoyo: true, ease: "power1.in"
-      });
-
-      // Etincelle qui tourne le long du contour du visage (boucle sans raccord)
-      if (spark) {
-        const len = spark.getTotalLength();
-        const dash = 64;
-        gsap.set(spark, { opacity: 1, strokeDasharray: dash + " " + len, strokeDashoffset: 0 });
-        gsap.to(spark, { strokeDashoffset: -(dash + len), duration: 3.4, repeat: -1, ease: "none" });
-      }
     }
 
     /* ---------- Bouton d'envoi : etat "pret" quand le champ est rempli ---------- */
@@ -1933,7 +1821,6 @@
 
     loadStatus();
     runSplash();
-    runHeroAnimation();
     syncSendReady();
   </script>
 </body>

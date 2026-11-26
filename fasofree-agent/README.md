@@ -1,6 +1,6 @@
-# FasoFree Launch Director
+# Koliwa Launch Director
 
-Agent IA **gratuit** de conseil pour le lancement de FasoFree : recrutement de restaurants, campagnes clients, plan de 30 jours, suivi des prospects. Interface web locale en français, propulsée par les modèles gratuits OpenRouter.
+Agent IA **gratuit** de conseil pour le lancement de Koliwa : recrutement de restaurants, campagnes clients, plan de 30 jours, suivi des prospects. Interface web locale en français, propulsée par les modèles gratuits OpenRouter.
 
 ## Prérequis
 
@@ -59,7 +59,7 @@ Ces fichiers sont injectés dans le prompt système : l'agent utilise **vos** ch
 ## Base de données : SQLite ou PostgreSQL
 
 - **Sans `DATABASE_URL`** (local) : SQLite automatique dans `data/agent.db` (node:sqlite, zéro dépendance).
-- **Avec `DATABASE_URL`** (hébergement) : PostgreSQL — les tables `conversations`, `messages`, `memories` sont créées au démarrage (vérifié sans collision avec les entités du backend FasoFree). Fuseau UTC forcé, TLS négocié automatiquement sauf sur localhost.
+- **Avec `DATABASE_URL`** (hébergement) : PostgreSQL — les tables `conversations`, `messages`, `memories` sont créées au démarrage (vérifié sans collision avec les entités du backend Koliwa). Fuseau UTC forcé, TLS négocié automatiquement sauf sur localhost.
 
 Les deux modes partagent les mêmes requêtes ; l'historique et le business plan survivent aux redéploys grâce à la base.
 
@@ -79,7 +79,7 @@ Créez un service **Web** (start command `npm start`) et renseignez les variable
 | Variable | Rôle |
 |---|---|
 | `OPENROUTER_API_KEY` | obligatoire — clé openrouter.ai |
-| `DATABASE_URL` | URL externe de ta PostgreSQL FasoFree (« Internal/External Database URL ») |
+| `DATABASE_URL` | URL externe de ta PostgreSQL Koliwa (« Internal/External Database URL ») |
 | `APP_PASSWORD` | mot de passe de l'écran de connexion (fortement recommandé : l'API est publique sinon) |
 | `PORT` | fourni automatiquement par Render |
 
@@ -116,11 +116,11 @@ Chaque note est visible, datée et supprimable dans le panneau.
 
 ## Animations
 
-Au lancement, un splash animé dessine le masque FasoFree (GSAP, réutilisable au clic pour passer). Pendant l'attente d'une réponse, un indicateur « Réflexion en cours » affiche le masque miniature en orbite. Si GSAP est absent ou si `prefers-reduced-motion` est actif, l'interface bascule sur un repli CSS simple.
+Au lancement, un splash animé dessine le masque Koliwa (GSAP, réutilisable au clic pour passer). Pendant l'attente d'une réponse, un indicateur « Réflexion en cours » affiche le masque miniature en orbite. Si GSAP est absent ou si `prefers-reduced-motion` est actif, l'interface bascule sur un repli CSS simple.
 
 ## Exemples de demandes
 
-- « Nous voulons lancer FasoFree à Ouagadougou dans 30 jours avec 300 000 FCFA. Prépare un plan. »
+- « Nous voulons lancer Koliwa à Ouagadougou dans 30 jours avec 300 000 FCFA. Prépare un plan. »
 - « Quels restaurants devons-nous contacter cette semaine ? »
 - « Prépare une offre pour convaincre les restaurants de Ouagadougou. »
 - « Crée une campagne pour obtenir 500 premiers clients. »

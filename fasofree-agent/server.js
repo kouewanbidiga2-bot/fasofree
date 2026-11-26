@@ -35,7 +35,7 @@ let sqlite = null;
 let pgPool = null;
 
 // Mêmes tables dans les deux dialectes. Collision vérifiée : aucune entité
-// du backend FasoFree ne s'appelle conversations / messages / memories.
+// du backend Koliwa ne s'appelle conversations / messages / memories.
 const SQLITE_DDL = `
   PRAGMA journal_mode = WAL;
   CREATE TABLE IF NOT EXISTS conversations (

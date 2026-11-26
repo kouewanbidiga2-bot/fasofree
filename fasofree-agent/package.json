@@ -1,7 +1,7 @@
 {
   "name": "fasofree-agent",
   "version": "1.0.0",
-  "description": "FasoFree Launch Director - agent IA de conseil pour le lancement (OpenRouter gratuit)",
+  "description": "Koliwa Launch Director - agent IA de conseil pour le lancement (OpenRouter gratuit)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
