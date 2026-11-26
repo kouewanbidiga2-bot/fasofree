@@ -1,161 +1,99 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
+/**
+ * Koliwa Coursier — session du livreur.
+ *
+ * Le rôle est TOUJOURS revalidé auprès du serveur au démarrage (`/users/me`) :
+ * un rôle présent dans localStorage ne prouve rien, il peut être périmé ou
+ * bricolé à la main.
+ */
 import { create } from 'zustand';
-import { login as apiLogin, register as apiRegister, getMe } from '../services/authService';
-import { UserRole } from '../types/roles';
-import { disconnectRealtime } from '../services/realtime';
+import api, { TOKEN_KEY, USER_KEY } from '../services/api';
+import { disconnectDispatch } from '../services/realtime';
 
-const TOKEN_KEY = 'fasofree_token';
-const USER_KEY = 'fasofree_user';
+const COURSIER_ROLES = ['driver', 'courier', 'livreur'];
 
-const persistToken = (token) => localStorage.setItem(TOKEN_KEY, token);
-const persistUser = (user) => localStorage.setItem(USER_KEY, JSON.stringify(user));
+const persist = (token, user) => {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+};
 
 const clearStorage = () => {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 };
 
-const getInitialState = () => {
+const readInitial = () => {
   try {
     const token = localStorage.getItem(TOKEN_KEY);
-    const userRaw = localStorage.getItem(USER_KEY);
-    if (token && userRaw) {
-      const user = JSON.parse(userRaw);
-      // isHydrated starts false — role will be re-verified from server on mount
-      return { token, user, isAuthenticated: true, isHydrated: false };
+    const raw = localStorage.getItem(USER_KEY);
+    if (token && raw) {
+      return { token, user: JSON.parse(raw), isHydrated: false };
     }
-  } catch (e) {
+  } catch {
     clearStorage();
   }
-  return { token: null, user: null, isAuthenticated: false, isHydrated: true };
+  return { token: null, user: null, isHydrated: true };
 };
 
-// EXPORT NOMMÉ ET EXPORT PAR DÉFAUT (Règle le problème d'importation définitivement)
+export const isCourierRole = (role) => COURSIER_ROLES.includes(String(role || '').toLowerCase());
+
 export const useAuthStore = create((set, get) => ({
-  ...getInitialState(),
+  ...readInitial(),
   isLoading: false,
   error: null,
-  // isHydrated: false when restored from localStorage — becomes true after server re-validation
-  isHydrated: getInitialState().isHydrated ?? true,
 
   login: async (email, password) => {
     set({ isLoading: true, error: null });
     try {
-      const data = await apiLogin(email, password);
+      const { data } = await api.post('/auth/login', { email, password });
       const token = data.access_token || data.token;
-      const user = data.user || {
-        id: data.id,
-        fullName: data.fullName,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-      };
+      const user = data.user || { id: data.id, fullName: data.fullName, email, role: data.role };
 
-      persistToken(token);
-      persistUser(user);
-      set({ token, user, isAuthenticated: true, isHydrated: true, isLoading: false, error: null });
-      return user;
-    } catch (err) {
-      set({ isLoading: false, error: err.message });
-      throw err;
-    }
-  },
-
-  register: async (data) => {
-    set({ isLoading: true, error: null });
-    try {
-      const result = await apiRegister(data);
-      if (result.access_token) {
-        const token = result.access_token;
-        const user = result.user || { ...data, id: result.id };
-        persistToken(token);
-        persistUser(user);
-        set({ token, user, isAuthenticated: true, isHydrated: true, isLoading: false, error: null });
-        return user;
+      if (!isCourierRole(user?.role)) {
+        throw new Error("Ce compte n'est pas un compte coursier.");
       }
-      set({ isLoading: false });
-      return result;
+
+      persist(token, user);
+      set({ token, user, isHydrated: true, isLoading: false, error: null });
+      return user;
     } catch (err) {
       set({ isLoading: false, error: err.message });
       throw err;
     }
   },
 
+  /** Revalide la session et le rôle auprès du serveur. */
   refreshProfile: async () => {
+    if (!get().token) {
+      set({ isHydrated: true });
+      return null;
+    }
     try {
-      const user = await getMe();
-      persistUser(user);
-      set({ user, isHydrated: true });
-      return user;
+      const { data } = await api.get('/users/me');
+      if (!isCourierRole(data?.role)) {
+        get().logout();
+        return null;
+      }
+      persist(get().token, data);
+      set({ user: data, isHydrated: true });
+      return data;
     } catch {
-      get().logout();
+      set({ isHydrated: true });
+      return null;
     }
   },
 
   logout: () => {
     clearStorage();
-    disconnectRealtime();
-    set({ token: null, user: null, isAuthenticated: false, isHydrated: true, error: null });
+    disconnectDispatch();
+    set({ token: null, user: null, isHydrated: true, error: null });
   },
 
   clearError: () => set({ error: null }),
-
-  updateUser: (userData) =>
-    set((state) => {
-      const updated = { ...state.user, ...userData };
-      persistUser(updated);
-      return { user: updated };
-    }),
-
-  getRole: () => get().user?.role || null,
-  
-  // Get normalized role for consistent routing
-  getNormalizedRole: () => {
-    const role = get().user?.role;
-    if (!role) return null;
-    return String(role).toLowerCase().replace('-', '_');
-  },
-  
-  // Determine dashboard route based on role
-  getDashboardRoute: () => {
-    const normalizedRole = get().getNormalizedRole();
-    const roleRoutes = {
-      'super_admin': '/admin/super',
-      'superadmin': '/admin/super',
-      'admin': '/admin/manager',
-      'support': '/admin/support',
-      'business_admin': '/designer',
-      'business': '/designer',
-      'merchant': '/designer',
-      'restaurant': '/designer',
-      'driver': '/livreur',
-      'courier': '/livreur',
-      'livreur': '/livreur',
-    };
-    return roleRoutes[normalizedRole] || '/login';
-  },
-  
-  isBusinessAdmin: () => {
-    const role = get().user?.role;
-    return role === UserRole.BUSINESS_ADMIN || role === UserRole.SUPER_ADMIN;
-  },
-  isDriver: () => {
-    const role = get().user?.role;
-    return role === UserRole.DRIVER || role === UserRole.COURIER;
-  },
-  isSuperAdmin: () => get().user?.role === UserRole.SUPER_ADMIN,
-  isAdmin: () => {
-    const role = get().user?.role;
-    return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
-  },
-  isClient: () => {
-    const role = get().user?.role;
-    return role === UserRole.CLIENT || role === UserRole.CUSTOMER;
-  },
 }));
 
 export default useAuthStore;

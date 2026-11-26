@@ -1,231 +1,71 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 /**
- * FasoFree — Realtime Sockets (Singleton)
+ * Koliwa Coursier — socket temps réel (namespace `/dispatch`).
  *
- * FIX CRITIQUE : le token JWT est lu depuis localStorage À CHAQUE tentative
- * de connexion/reconnexion, pas capturé une seule fois à la création du singleton.
- * Cela résout le problème où après refresh (F5) ou changement de token,
- * les sockets utilisaient un token stale et ne se reconnectaient pas.
+ * Le JWT est fourni via une fonction `auth` : socket.io la rappelle à chaque
+ * tentative de reconnexion, donc un token rafraîchi est toujours utilisé
+ * (un token capturé une fois pour toutes laissait le livreur muet après un
+ * changement de session).
  */
 import { io } from 'socket.io-client';
+import { SOCKET_BASE, TOKEN_KEY } from './api';
 
-const API_URL =
-  import.meta.env.VITE_API_URL ||
-  'https://api.fasofree.site/api/v1';
+let socket = null;
 
-const getSocketBase = () => {
-  try {
-    return new URL(API_URL).origin;
-  } catch {
-    return 'http://localhost:3100';
-  }
-};
-
-/**
- * Retourne les options de connexion avec le token FRAIS de localStorage.
- * Appelé à chaque tentative de connexion/reconnexion.
- */
-const getSocketOptions = () => {
-  const token = localStorage.getItem('fasofree_token');
-  return {
-    auth: { token },
-    transports: ['polling', 'websocket'],
-    reconnection: true,
-    reconnectionAttempts: Infinity, // Toujours réessayer
-    reconnectionDelay: 2000,
-    reconnectionDelayMax: 10000,
-    timeout: 15000,
-    // IMPORTANT : forcer le upgrade de polling vers websocket
-    upgrade: true,
-    rememberUpgrade: true,
-  };
-};
-
-let chatSocket = null;
-let dispatchSocket = null;
-let supportSocket = null;
-
-/**
- * Crée ou retourne le socket chat singleton.
- * Si le socket existe mais est déconnecté et ne peut plus se reconnecter,
- * on le recrée avec un token frais.
- */
-export const getChatSocket = () => {
-  // Si le socket existe et est connecté, le retourner tel quel
-  if (chatSocket && chatSocket.connected) {
-    return chatSocket;
-  }
-
-  // Si le socket existe mais est dans un état "mort" (plus de reconnection attempts)
-  // on le détruit et on en recrée un
-  if (chatSocket && chatSocket.disconnected && !chatSocket.active) {
-    chatSocket.removeAllListeners();
-    chatSocket.disconnect();
-    chatSocket = null;
-  }
-
-  if (!chatSocket) {
-    chatSocket = io(`${getSocketBase()}/chat`, {
-      ...getSocketOptions(),
-      autoConnect: false,
-    });
-
-    chatSocket.on('connect_error', (err) => {
-      console.warn('[Chat Socket] Erreur connexion:', err?.message);
-      // Si c'est une erreur d'auth, forcer la reconnexion avec un token frais
-      if (err?.message?.includes('Token') || err?.message?.includes('auth')) {
-        console.warn('[Chat Socket] Token可能 expiré — déconnexion et reset');
-        chatSocket?.disconnect();
-        chatSocket = null;
-      }
-    });
-
-    chatSocket.on('disconnect', (reason) => {
-      console.log('[Chat Socket] Déconnecté:', reason);
-      // Si déconnecté pour une raison qui nécessite un nouveau token
-      if (reason === 'io server disconnect' || reason === 'auth timeout') {
-        chatSocket = null; // Forcer la recréation au prochain appel
-      }
-    });
-
-    chatSocket.on('connect', () => {
-      console.log('[Chat Socket] ✅ Connecté');
-    });
-  }
-
-  return chatSocket;
-};
-
-/**
- * Crée ou retourne le socket dispatch singleton.
- */
 export const getDispatchSocket = () => {
-  if (dispatchSocket && dispatchSocket.connected) {
-    return dispatchSocket;
+  if (socket && socket.connected) return socket;
+
+  // Socket mort (reconnexion abandonnée) : on repart d'une instance neuve.
+  if (socket && socket.disconnected && !socket.active) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
   }
 
-  if (dispatchSocket && dispatchSocket.disconnected && !dispatchSocket.active) {
-    dispatchSocket.removeAllListeners();
-    dispatchSocket.disconnect();
-    dispatchSocket = null;
-  }
-
-  if (!dispatchSocket) {
-    dispatchSocket = io(`${getSocketBase()}/dispatch`, {
-      ...getSocketOptions(),
+  if (!socket) {
+    socket = io(`${SOCKET_BASE}/dispatch`, {
+      auth: (cb) => cb({ token: localStorage.getItem(TOKEN_KEY) }),
+      transports: ['websocket', 'polling'],
       autoConnect: false,
-    });
-
-    dispatchSocket.on('connect_error', (err) => {
-      console.warn('[Dispatch Socket] Erreur connexion:', err?.message);
-      if (err?.message?.includes('Token') || err?.message?.includes('auth')) {
-        console.warn('[Dispatch Socket] Token可能 expiré — reset');
-        dispatchSocket?.disconnect();
-        dispatchSocket = null;
-      }
-    });
-
-    dispatchSocket.on('disconnect', (reason) => {
-      console.log('[Dispatch Socket] Déconnecté:', reason);
-      if (reason === 'io server disconnect' || reason === 'auth timeout') {
-        dispatchSocket = null;
-      }
-    });
-
-    dispatchSocket.on('connect', () => {
-      console.log('[Dispatch Socket] ✅ Connecté');
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1500,
+      reconnectionDelayMax: 8000,
+      timeout: 15000,
     });
   }
 
-  return dispatchSocket;
+  return socket;
+};
+
+export const connectDispatch = () => {
+  const s = getDispatchSocket();
+  if (!s.connected && !s.active) s.connect();
+  return s;
+};
+
+export const disconnectDispatch = () => {
+  if (socket) {
+    socket.removeAllListeners();
+    socket.disconnect();
+    socket = null;
+  }
 };
 
 /**
- * Crée ou retourne le socket support (chat des litiges, namespace /support).
+ * Envoie la position courante au serveur.
+ * `orderId` permet au backend de relayer la position au client qui suit
+ * cette course précise.
  */
-export const getSupportSocket = () => {
-  if (supportSocket && supportSocket.connected) {
-    return supportSocket;
-  }
-
-  if (supportSocket && supportSocket.disconnected && !supportSocket.active) {
-    supportSocket.removeAllListeners();
-    supportSocket.disconnect();
-    supportSocket = null;
-  }
-
-  if (!supportSocket) {
-    supportSocket = io(`${getSocketBase()}/support`, {
-      ...getSocketOptions(),
-      autoConnect: false,
-    });
-
-    supportSocket.on('connect_error', (err) => {
-      console.warn('[Support Socket] Erreur connexion:', err?.message);
-      if (err?.message?.includes('Token') || err?.message?.includes('auth')) {
-        console.warn('[Support Socket] Token expiré — reset');
-        supportSocket?.disconnect();
-        supportSocket = null;
-      }
-    });
-
-    supportSocket.on('disconnect', (reason) => {
-      console.log('[Support Socket] Déconnecté:', reason);
-      if (reason === 'io server disconnect' || reason === 'auth timeout') {
-        supportSocket = null;
-      }
-    });
-
-    supportSocket.on('connect', () => {
-      console.log('[Support Socket] ✅ Connecté');
-    });
-  }
-
-  return supportSocket;
+export const emitLocation = ({ orderId, latitude, longitude, heading }) => {
+  const s = getDispatchSocket();
+  if (!s.connected) return false;
+  s.emit('updateDriverLocation', { orderId, latitude, longitude, heading });
+  return true;
 };
 
-/**
- * Force la reconnexion de tous les sockets avec un token frais.
- * Utile après un refresh de token ou un F5.
- */
-export const forceReconnectRealtime = () => {
-  if (chatSocket) {
-    chatSocket.removeAllListeners();
-    chatSocket.disconnect();
-    chatSocket = null;
-  }
-  if (dispatchSocket) {
-    dispatchSocket.removeAllListeners();
-    dispatchSocket.disconnect();
-    dispatchSocket = null;
-  }
-  if (supportSocket) {
-    supportSocket.removeAllListeners();
-    supportSocket.disconnect();
-    supportSocket = null;
-  }
-};
-
-export const disconnectRealtime = () => {
-  if (chatSocket) {
-    chatSocket.removeAllListeners();
-    chatSocket.disconnect();
-    chatSocket = null;
-  }
-  if (dispatchSocket) {
-    dispatchSocket.removeAllListeners();
-    dispatchSocket.disconnect();
-    dispatchSocket = null;
-  }
-  if (supportSocket) {
-    supportSocket.removeAllListeners();
-    supportSocket.disconnect();
-    supportSocket = null;
-  }
-};
-
-export default { getChatSocket, getDispatchSocket, getSupportSocket, disconnectRealtime, forceReconnectRealtime };
+export const isConnected = () => Boolean(socket?.connected);

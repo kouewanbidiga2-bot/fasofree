@@ -1,156 +1,133 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
- * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
+ * Proprietary and confidential.
  */
 
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ProtectedRoute, ContractGate } from './guards';
-import retryLazy from './utils/lazyWithRetry.jsx';
+/**
+ * Koliwa Coursier — routage.
+ *
+ * Toutes les routes métier passent par `RequireCourier` : session valide,
+ * rôle coursier revalidé côté serveur, et contrat signé (sinon redirection
+ * vers la page de signature).
+ */
+import { useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import useAuthStore from './store/authStore';
+import { fetchContractStatus } from './services/legal';
+import { connectDispatch } from './services/realtime';
+import { Loading, ErrorNote } from './components/ui';
 
-// 1. DIRECT IMPORTS for critical components (eliminates lazy loading crashes)
-import Loading from './pages/Loading';
-import PhoneAuth from './pages/PhoneAuth';
-import Unauthorized from './pages/Unauthorized';
-import ContractSignature from './pages/ContractSignature';
-import LegalDocPage from './pages/LegalDocPage';
-import PushRegistration from './components/PushRegistration';
-import PWAInstallIOSHint from './components/PWAInstallIOSHint';
+import Login from './pages/Login';
+import Missions from './pages/Missions';
+import MissionDetail from './pages/MissionDetail';
+import Earnings from './pages/Earnings';
+import Account from './pages/Account';
+import Contract from './pages/Contract';
 
-// 2. LAZY LOADING avec retry auto (fix page noire après deploy Vercel)
-const BusinessAdminDashboard = retryLazy(() => import('./dashboard/BusinessAdminDashboard'));
-const DriverDashboard = retryLazy(() => import('./dashboard/DriverDashboard'));
-const SuperAdminDashboard = retryLazy(() => import('./dashboard/SuperAdminDashboard'));
-const AdminManagerDashboard = retryLazy(() => import('./dashboard/AdminManagerDashboard'));
-const SupportDashboard = retryLazy(() => import('./dashboard/SupportDashboard'));
-const LiveOrders = retryLazy(() => import('./dashboard/LiveOrders'));
-const ApplicationsDashboard = retryLazy(() => import('./dashboard/ApplicationsDashboard'));
-const AgencyDashboard = retryLazy(() => import('./dashboard/AgencyDashboard'));
+const RequireCourier = ({ children }) => {
+  const token = useAuthStore((s) => s.token);
+  const isHydrated = useAuthStore((s) => s.isHydrated);
+  const refreshProfile = useAuthStore((s) => s.refreshProfile);
+  const [contract, setContract] = useState({ checked: false, pending: false, error: null });
+  const location = useLocation();
 
-function App() {
+  useEffect(() => {
+    if (!token) return;
+    const socket = connectDispatch();
+    socket.connect?.();
+  }, [token]);
+
+  // Session restaurée depuis le stockage local : le rôle est revalidé serveur.
+  useEffect(() => {
+    if (token && !isHydrated) refreshProfile();
+  }, [token, isHydrated, refreshProfile]);
+
+  useEffect(() => {
+    if (!token || !isHydrated) return;
+    if (location.pathname === '/contrat') {
+      setContract({ checked: true, pending: false, error: null });
+      return;
+    }
+    let cancelled = false;
+    fetchContractStatus()
+      .then((data) => {
+        if (!cancelled) setContract({ checked: true, pending: Boolean(data?.pending), error: null });
+      })
+      .catch(() => {
+        // Serveur injoignable : on n'enferme pas le livreur hors de son espace.
+        if (!cancelled) setContract({ checked: true, pending: false, error: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, isHydrated, location.pathname]);
+
+  if (!token) return <Navigate to="/login" replace />;
+  if (!isHydrated) {
+    return (
+      <div className="app">
+        <Loading label="Vérification de votre compte…" />
+      </div>
+    );
+  }
+  if (!contract.checked) return <Loading label="Vérification de votre contrat…" />;
+  if (contract.pending) return <Navigate to="/contrat" replace />;
+
+  return children;
+};
+
+const App = () => {
+  const error = useAuthStore((s) => s.error);
+
   return (
-    <Router>
-      {/* Inerte au lancement : le push n'est actif que si VITE_PUSH_ENABLED=true. */}
-      <PushRegistration />
-      <PWAInstallIOSHint />
-      <Suspense fallback={<Loading />}>
-        <Routes>
-          {/* ROUTE PAR DÉFAUT */}
-          <Route path="/" element={<Navigate to="/login" replace />} />
-
-          {/* ROUTES D'AUTHENTIFICATION */}
-          <Route path="/login" element={<PhoneAuth />} />
-          <Route path="/register" element={<PhoneAuth />} />
-          <Route path="/unauthorized" element={<Unauthorized />} />
-
-          {/* ROUTES MARCHAND / COMMERÇANT — gated par la signature de contrat */}
-          <Route
-            path="/designer"
-            element={
-              <ProtectedRoute allowedRoles={['business_admin', 'business', 'merchant', 'restaurant']}>
-                <ContractGate>
-                  <BusinessAdminDashboard />
-                </ContractGate>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ROUTE LIVREUR — gated par la signature de contrat */}
-          <Route
-            path="/livreur"
-            element={
-              <ProtectedRoute allowedRoles={['driver', 'courier', 'livreur']}>
-                <ContractGate>
-                  <DriverDashboard />
-                </ContractGate>
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ⚖️ SIGNATURE DE CONTRAT (marchands & livreurs) */}
-          <Route
-            path="/contrat"
-            element={
-              <ProtectedRoute allowedRoles={['business_admin', 'business', 'merchant', 'restaurant', 'driver', 'courier', 'livreur']}>
-                <ContractSignature />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ⚖️ DOCUMENT LÉGAL (lecture seule — liens croisés du pack) */}
-          <Route
-            path="/legal/:docCode"
-            element={
-              <ProtectedRoute>
-                <LegalDocPage />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* SUPER ADMIN — accès total + finances */}
-          <Route
-            path="/admin/super"
-            element={
-              <ProtectedRoute allowedRoles={['super_admin', 'superadmin']}>
-                <SuperAdminDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ADMIN MANAGER — gestion commandes, marchands, KYC, litiges */}
-          <Route
-            path="/admin/manager"
-            element={
-              <ProtectedRoute allowedRoles={['admin', 'super_admin', 'superadmin']}>
-                <AdminManagerDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* SUPPORT — litiges, KYC, ban, messagerie commande */}
-          <Route
-            path="/admin/support"
-            element={
-              <ProtectedRoute allowedRoles={['support', 'super_admin', 'superadmin']}>
-                <SupportDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ROUTE AGENCE — Niveau 2 du dispatch (agences partenaires) */}
-          <Route
-            path="/agences"
-            element={
-              <ProtectedRoute allowedRoles={['agency']}>
-                <AgencyDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ROUTES PARTAGÉES (tous les rôles admin) */}
-          <Route
-            path="/dashboard/live-orders"
-            element={
-              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
-                <LiveOrders />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard/applications"
-            element={
-              <ProtectedRoute allowedRoles={['super_admin', 'superadmin', 'admin', 'support']}>
-                <ApplicationsDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* ROUTE PAR DÉFAUT */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Suspense>
-    </Router>
+    <>
+      {error ? <div style={{ padding: 12 }}><ErrorNote>{error}</ErrorNote></div> : null}
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/contrat"
+          element={
+            <RequireCourier>
+              <Contract />
+            </RequireCourier>
+          }
+        />
+        <Route
+          path="/missions"
+          element={
+            <RequireCourier>
+              <Missions />
+            </RequireCourier>
+          }
+        />
+        <Route
+          path="/missions/:id"
+          element={
+            <RequireCourier>
+              <MissionDetail />
+            </RequireCourier>
+          }
+        />
+        <Route
+          path="/gains"
+          element={
+            <RequireCourier>
+              <Earnings />
+            </RequireCourier>
+          }
+        />
+        <Route
+          path="/compte"
+          element={
+            <RequireCourier>
+              <Account />
+            </RequireCourier>
+          }
+        />
+        <Route path="*" element={<Navigate to="/missions" replace />} />
+      </Routes>
+    </>
   );
-}
+};
 
 export default App;

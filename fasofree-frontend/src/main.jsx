@@ -1,24 +1,22 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
- * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
+ * Proprietary and confidential.
  */
 
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
-import './index.css'
-// 🖥️ Capture `beforeinstallprompt` dès le démarrage (avant React) : l'événement
-// n'est émis qu'une fois par chargement, souvent avant le montage des routes.
-import './services/pwaInstall'
-import { ThemeProvider } from './theme/ThemeContext.jsx'
-import SplashScreen from './components/SplashScreen.jsx'
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { registerSW } from 'virtual:pwa-register';
+import App from './App';
+import './styles.css';
+
+// Mise à jour silencieuse : le livreur n'a pas à gérer des invitations à recharger.
+registerSW({ immediate: true });
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <SplashScreen>
-        <App />
-      </SplashScreen>
-    </ThemeProvider>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
   </React.StrictMode>,
-)
+);
