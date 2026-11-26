@@ -128,11 +128,13 @@ textarea {
   width: 38px;
   height: 38px;
   border-radius: 13px;
-  background: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
   display: grid;
   place-items: center;
   flex: none;
   box-shadow: var(--shadow-1);
+  overflow: hidden;
 }
 
 .brand-badge-lg {
@@ -919,6 +921,155 @@ textarea {
 
 .tx-amount.debit {
   color: var(--danger);
+}
+
+/* ── Splash : moto → colis qui court ───────────────────────────────── */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  background: #d7f36b;
+  color: #1b2110;
+  overflow: hidden;
+}
+
+.splash-stage {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(100%, 420px);
+}
+
+.splash-word {
+  width: clamp(190px, 62vw, 300px);
+  height: auto;
+  transform: skewX(-9deg) rotate(-7deg);
+  filter: drop-shadow(3px 2px 0 #a9bf51);
+  animation: splash-word-in 520ms cubic-bezier(0.2, 0.72, 0.3, 1) both;
+}
+
+.splash-scene {
+  position: relative;
+  width: 100%;
+  height: clamp(150px, 34vw, 190px);
+}
+
+/* Traits de vitesse qui accompagnent le colis : repris du visuel client. */
+.splash-lines {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: min(48%, 190px);
+  height: 4px;
+  border-radius: 999px;
+  background: #1b2110;
+  opacity: 0;
+  transform: translate(-140%, -6px);
+}
+
+.splash-moto {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: min(74%, 250px);
+  height: auto;
+  transform: translate(-50%, 0) rotate(-4deg);
+  animation: splash-ride 1100ms cubic-bezier(0.25, 0.8, 0.3, 1) both;
+}
+
+.splash-parcel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(62%, 205px);
+  height: auto;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5) rotate(-6deg);
+}
+
+.splash-morph .splash-moto {
+  animation: splash-moto-out 440ms cubic-bezier(0.6, 0, 0.8, 0.2) forwards;
+}
+
+.splash-morph .splash-parcel,
+.splash-logo .splash-parcel {
+  animation: splash-parcel-in 480ms cubic-bezier(0.2, 1.5, 0.45, 1) 90ms forwards;
+}
+
+.splash-morph .splash-lines,
+.splash-logo .splash-lines {
+  animation: splash-lines-in 360ms ease-out both;
+}
+
+.splash-status {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #3f4a1c;
+}
+
+@keyframes splash-word-in {
+  from {
+    opacity: 0.2;
+    transform: translateX(-14%) skewX(-16deg) rotate(-7deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) skewX(-9deg) rotate(-7deg);
+  }
+}
+
+@keyframes splash-ride {
+  from {
+    opacity: 0;
+    transform: translate(-165%, 8%) rotate(-4deg);
+  }
+  55% {
+    opacity: 1;
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) rotate(-4deg);
+  }
+}
+
+@keyframes splash-moto-out {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0) rotate(-4deg) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-22%, -10%) rotate(-13deg) scale(0.52);
+  }
+}
+
+@keyframes splash-parcel-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(-3deg);
+  }
+}
+
+@keyframes splash-lines-in {
+  from {
+    opacity: 0;
+    transform: translate(-140%, -6px);
+  }
+  to {
+    opacity: 0.75;
+    transform: translate(-104%, -6px) scaleX(1.4);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

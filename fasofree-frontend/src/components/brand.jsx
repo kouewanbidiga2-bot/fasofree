@@ -6,33 +6,35 @@
 /**
  * Marque Koliwa.
  *
- * Mêmes tracés que les SVG officiels de l'app client
- * (`public/koliwa-wordmark.svg` et `public/koliwa-mark.svg`), mais rendus en
- * React : le wordmark hérite de `currentColor` (donc lisible sur fond craie
- * comme sur fond encre) et le symbole garde ses deux tons crème/sable.
+ * Le symbole officiel est **le colis qui court** (`koliwa-logo.png`, décliné en
+ * `koliwa-mark-run.png` avec les traits de vitesse) : il remplace l'ancien
+ * monogramme géométrique. Le wordmark, lui, reprend les tracés exacts de
+ * `koliwa-wordmark.svg` — rendu en React pour hériter de `currentColor`.
  */
 
-/** Symbole seul — à poser dans une pastille sombre. */
-export const KoliwaMark = ({ size = 40, className = '' }) => (
-  <svg
+/** Le colis qui court — logo carré, à poser sur fond clair ou dans une pastille. */
+export const KoliwaParcel = ({ size = 40, className = '', alt = 'Koliwa' }) => (
+  <img
+    src="/assets/koliwa-logo.png"
     width={size}
     height={size}
-    viewBox="0 0 140 140"
+    alt={alt}
     className={className}
-    role="img"
-    aria-label="Koliwa"
-    focusable="false"
-  >
-    <g fill="#FFF1DD">
-      <path d="M42 37 L58 25 L58 62 C52 66 46 70 42 76 Z" />
-      <path d="M56 68 L62 71 L52 79 L59 87 L58 115 C45 112 37 107 38 98 C39 88 46 77 56 68 Z" />
-      <path d="M72 72 C83 78 95 96 111 115 L93 115 C89 115 86 112 83 108 L60 83 Z" />
-    </g>
-    <g fill="#D5A453">
-      <path d="M34 114 C28 99 39 90 54 81 L60 86 C52 93 41 100 34 114 Z" />
-      <path d="M57 64 C69 57 79 51 88 39 C91 35 100 34 112 29 C103 47 90 60 74 69 L70 63 L63 61 L58 66 Z" />
-    </g>
-  </svg>
+    style={{ display: 'block' }}
+    draggable="false"
+  />
+);
+
+/** Variante large avec traits de vitesse — pour les bandeaux et le splash. */
+export const KoliwaParcelRun = ({ height = 64, className = '', alt = 'Koliwa' }) => (
+  <img
+    src="/assets/koliwa-mark-run.png"
+    height={height}
+    alt={alt}
+    className={className}
+    style={{ display: 'block', width: 'auto' }}
+    draggable="false"
+  />
 );
 
 /** Wordmark complet « Koliwa » — prend la couleur du texte parent. */

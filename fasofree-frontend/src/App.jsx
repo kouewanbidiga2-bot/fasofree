@@ -10,9 +10,10 @@
  * rôle coursier revalidé côté serveur, et contrat signé (sinon redirection
  * vers la page de signature).
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import useAuthStore from './store/authStore';
+import Splash from './components/Splash';
 import { fetchContractStatus } from './services/legal';
 import { connectDispatch } from './services/realtime';
 import { Loading, ErrorNote } from './components/ui';
@@ -76,8 +77,31 @@ const RequireCourier = ({ children }) => {
   return children;
 };
 
+/** Le splash ne rejoue qu'une fois par session : un rechargement ne doit pas rebloquer le livreur. */
+const BOOT_KEY = 'koliwa_courier_booted';
+
+const readBooted = () => {
+  try {
+    return sessionStorage.getItem(BOOT_KEY) === '1';
+  } catch {
+    return true; // stockage refusé (navigation privée) : on n'impose pas le splash
+  }
+};
+
 const App = () => {
   const error = useAuthStore((s) => s.error);
+  const [booting, setBooting] = useState(() => !readBooted());
+
+  const finishBoot = useCallback(() => {
+    try {
+      sessionStorage.setItem(BOOT_KEY, '1');
+    } catch {
+      /* stockage refusé : tant pis, le splash reviendra au prochain chargement */
+    }
+    setBooting(false);
+  }, []);
+
+  if (booting) return <Splash onDone={finishBoot} />;
 
   return (
     <>

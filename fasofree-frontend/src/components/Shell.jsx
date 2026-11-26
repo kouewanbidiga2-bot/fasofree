@@ -6,7 +6,7 @@
 /** Coquille commune : en-tête de marque + navigation basse (une main, pouce). */
 import { NavLink } from 'react-router-dom';
 import { Package, Wallet, UserRound } from 'lucide-react';
-import { KoliwaMark } from './brand';
+import { KoliwaParcel } from './brand';
 
 const TABS = [
   { to: '/missions', label: 'Courses', icon: Package },
@@ -22,8 +22,8 @@ const Shell = ({ title, kicker = 'Koliwa Coursier', right, children, hideNav = f
   <div className={`app ${hideNav ? 'app-detail' : ''}`}>
     <header className="topbar">
       <div className="topbar-id">
-        <span className="brand-badge" aria-hidden="true">
-          <KoliwaMark size={22} />
+        <span className="brand-badge">
+          <KoliwaParcel size={26} alt="Koliwa" />
         </span>
         <div className="topbar-titles">
           <span className="topbar-kicker">{kicker}</span>

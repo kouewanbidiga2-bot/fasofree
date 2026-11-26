@@ -9,7 +9,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { ErrorNote } from '../components/ui';
-import { KoliwaMark, KoliwaWordmark } from '../components/brand';
+import { KoliwaParcel, KoliwaWordmark } from '../components/brand';
 
 const Login = () => {
   const token = useAuthStore((s) => s.token);
@@ -44,7 +44,7 @@ const Login = () => {
     <div className="login">
       <div className="login-hero">
         <span className="brand-badge brand-badge-lg">
-          <KoliwaMark size={30} />
+          <KoliwaParcel size={34} />
         </span>
         <KoliwaWordmark height={30} />
         <p>Coursier · Ouagadougou. Connectez-vous pour voir les courses disponibles près de vous.</p>
