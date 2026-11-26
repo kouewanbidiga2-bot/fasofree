@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Ajoute un en-tête de copyright aux fichiers sources FasoFree versionnés.
+ * Ajoute un en-tête de copyright aux fichiers sources Koliwa versionnés.
  *
  * - Idempotent : un fichier déjà marqué n'est pas retouché.
  * - Ne touche QUE les fichiers suivis par git : les scripts locaux non
  *   versionnés (fichiers de travail temporaires) sont ignorés.
  * - Conserve un éventuel shebang (#!) et le BOM UTF-8.
  * - Respecte les fins de ligne d'origine (LF / CRLF).
- * - Cible .ts/.tsx/.js/.jsx/.mjs/.cjs des packages FasoFree,
+ * - Cible .ts/.tsx/.js/.jsx/.mjs/.cjs des packages Koliwa,
  *   en ignorant node_modules, dist, build, coverage, .git.
  *
  * Usage : node tools/add-copyright-headers.mjs [--dry-run]
@@ -47,7 +47,7 @@ const TRACKED = new Set(
 function makeHeader(eol) {
   return (
     `/**${eol}` +
-    ` * Copyright (c) ${COPYRIGHT_YEAR} ${COPYRIGHT_HOLDER} - FasoFree. All rights reserved.${eol}` +
+    ` * Copyright (c) ${COPYRIGHT_YEAR} ${COPYRIGHT_HOLDER} - Koliwa. All rights reserved.${eol}` +
     ` * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.${eol}` +
     ` */${eol}${eol}`
   );

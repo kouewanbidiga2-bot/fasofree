@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -21,7 +21,7 @@ const docs = [];
 for (const f of files.sort()) {
   const raw = readFileSync(join(docsDir, f), 'utf8');
   // front-matter YAML minimal entre deux lignes "---"
-  const m = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+  const m = raw.replace(/\r\n/g, '\n').match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) throw new Error(`Front-matter introuvable dans ${f}`);
   const meta = {};
   for (const line of m[1].split('\n')) {
