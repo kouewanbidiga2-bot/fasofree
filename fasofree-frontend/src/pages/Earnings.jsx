@@ -5,8 +5,9 @@
 
 /** Gains — solde du portefeuille et dernières transactions. */
 import { useCallback, useEffect, useState } from 'react';
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import Shell from '../components/Shell';
-import { Loading, Empty, ErrorNote, formatFcfa, formatDate } from '../components/ui';
+import { CardSkeleton, Empty, ErrorNote, formatDate, formatFcfa } from '../components/ui';
 import useAuthStore from '../store/authStore';
 import { fetchWallet, fetchWalletTransactions } from '../services/wallet';
 
@@ -23,10 +24,7 @@ const Earnings = () => {
       const w = await fetchWallet(user.id);
       setWallet(w);
       const walletId = w?.id || w?.wallet?.id;
-      if (walletId) {
-        const rows = await fetchWalletTransactions(walletId, 25);
-        setTransactions(Array.isArray(rows) ? rows : []);
-      }
+      if (walletId) setTransactions(await fetchWalletTransactions(walletId, 25));
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -39,58 +37,82 @@ const Earnings = () => {
     load();
   }, [load]);
 
-  const balance = wallet?.balance ?? wallet?.wallet?.balance ?? 0;
+  const balance = Number(wallet?.balance ?? wallet?.wallet?.balance ?? 0);
 
   return (
-    <Shell title="Gains">
+    <Shell title="Gains" kicker="Portefeuille coursier">
       {loading ? (
-        <Loading />
+        <>
+          <CardSkeleton lines={2} />
+          <CardSkeleton lines={2} />
+        </>
       ) : (
         <>
           <ErrorNote>{error}</ErrorNote>
 
-          <div className="card" style={{ gap: 6 }}>
-            <span className="section-title" style={{ margin: 0 }}>Solde disponible</span>
-            <span className="amount" style={{ fontSize: 32 }}>{formatFcfa(balance)}</span>
+          <section className="card card-ink">
+            <span className="topbar-kicker">Solde disponible</span>
+            <span className="amount amount-xl">{formatFcfa(balance)}</span>
             <span className="muted">
-              Les gains de chaque course sont crédités une fois la livraison confirmée par le client.
+              Chaque course est créditée une fois la livraison confirmée par le client avec son code.
             </span>
-          </div>
+          </section>
 
-          <div className="card" style={{ gap: 4 }}>
-            <span className="section-title" style={{ margin: 0 }}>Commission Koliwa</span>
-            <span className="muted" style={{ margin: 0 }}>
-              125 FCFA par course livrée, plafonnés à 500 FCFA par jour et jamais plus de 10 % du prix
-              de la livraison. Le reste vous revient.
-            </span>
-          </div>
+          <section className="card">
+            <div className="row row-tight">
+              <span className="section-title" style={{ margin: 0 }}>Commission Koliwa</span>
+              <span className="pill pill-accent">125 FCFA / course</span>
+            </div>
+            <p className="muted" style={{ margin: 0 }}>
+              Prélevée sur le prix de la livraison, plafonnée à 500 FCFA par jour et jamais plus de 10 %
+              de la course. Le reste vous revient directement.
+            </p>
+          </section>
 
           <p className="section-title">Dernières opérations</p>
+
           {transactions.length === 0 ? (
             <Empty title="Aucune opération" hint="Vos gains apparaîtront ici après vos premières courses." />
           ) : (
-            transactions.map((tx) => {
-              const amount = Number(tx.amount ?? 0);
-              const isCredit = amount >= 0;
-              return (
-                <div key={tx.id} className="card" style={{ padding: 14 }}>
-                  <div className="row">
-                    <div className="stack">
-                      <span className="strong" style={{ fontSize: 14 }}>
-                        {tx.description || tx.type || 'Opération'}
+            <section className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              {transactions.map((tx) => {
+                const amount = Number(tx.amount ?? 0);
+                const isCredit = amount >= 0;
+                return (
+                  <div key={tx.id} className="list-row" style={{ cursor: 'default' }}>
+                    <div className="row-tight" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          display: 'grid',
+                          placeItems: 'center',
+                          width: 32,
+                          height: 32,
+                          borderRadius: 10,
+                          flex: 'none',
+                          background: isCredit ? 'var(--ok-bg)' : 'var(--danger-bg)',
+                          color: isCredit ? 'var(--ok)' : 'var(--danger)',
+                        }}
+                      >
+                        {isCredit ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
                       </span>
-                      <span className="muted">{formatDate(tx.createdAt || tx.created_at)}</span>
+                      <div className="stack" style={{ gap: 1 }}>
+                        <span className="strong" style={{ fontSize: 14 }}>
+                          {tx.description || tx.type || 'Opération'}
+                        </span>
+                        <span className="muted" style={{ fontSize: 12 }}>
+                          {formatDate(tx.createdAt || tx.created_at)}
+                        </span>
+                      </div>
                     </div>
-                    <span
-                      className="strong"
-                      style={{ color: isCredit ? 'var(--ok)' : 'var(--danger)', whiteSpace: 'nowrap' }}
-                    >
-                      {isCredit ? '+' : '−'}{formatFcfa(Math.abs(amount))}
+                    <span className={`tx-amount ${isCredit ? 'credit' : 'debit'}`}>
+                      {isCredit ? '+' : '−'}
+                      {formatFcfa(Math.abs(amount))}
                     </span>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </section>
           )}
         </>
       )}

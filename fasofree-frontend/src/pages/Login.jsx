@@ -9,6 +9,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { ErrorNote } from '../components/ui';
+import { KoliwaMark, KoliwaWordmark } from '../components/brand';
 
 const Login = () => {
   const token = useAuthStore((s) => s.token);
@@ -40,20 +41,18 @@ const Login = () => {
   };
 
   return (
-    <div className="login-screen">
-      <div>
-        <div className="brand-mark" style={{ marginBottom: 16 }}>K</div>
-        <h1 style={{ margin: '0 0 6px', fontSize: 26, fontWeight: 800, letterSpacing: '-0.02em' }}>
-          Koliwa Coursier
-        </h1>
-        <p className="muted" style={{ margin: 0 }}>
-          Connectez-vous pour voir les courses disponibles à Ouagadougou.
-        </p>
+    <div className="login">
+      <div className="login-hero">
+        <span className="brand-badge brand-badge-lg">
+          <KoliwaMark size={30} />
+        </span>
+        <KoliwaWordmark height={30} />
+        <p>Coursier · Ouagadougou. Connectez-vous pour voir les courses disponibles près de vous.</p>
       </div>
 
       <ErrorNote>{error}</ErrorNote>
 
-      <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <form className="login-form" onSubmit={onSubmit}>
         <div className="field">
           <label htmlFor="email">Email</label>
           <input
@@ -81,15 +80,23 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={{ paddingRight: 52 }}
+              style={{ paddingRight: 54 }}
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
               style={{
-                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 0, padding: 10, color: 'var(--ink-soft)', cursor: 'pointer',
+                position: 'absolute',
+                right: 6,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 0,
+                padding: 10,
+                color: 'var(--ink-3)',
+                cursor: 'pointer',
+                lineHeight: 0,
               }}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -102,9 +109,7 @@ const Login = () => {
         </button>
       </form>
 
-      <p className="muted" style={{ textAlign: 'center', margin: 0 }}>
-        Pas encore coursier ? Inscription auprès de l'équipe Koliwa.
-      </p>
+      <p className="login-foot">Pas encore coursier ? Inscription auprès de l'équipe Koliwa.</p>
     </div>
   );
 };

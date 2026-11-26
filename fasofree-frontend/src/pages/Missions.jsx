@@ -11,11 +11,22 @@
  * en secours ; le socket `/dispatch` déclenche aussi un rafraîchissement dès
  * qu'une opportunité arrive.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, RefreshCw, ArrowRight, Timer } from 'lucide-react';
+import { ArrowRight, RefreshCw, Timer } from 'lucide-react';
 import Shell from '../components/Shell';
-import { Loading, Empty, ErrorNote, StatusPill, formatFcfa } from '../components/ui';
+import {
+  Amount,
+  CardSkeleton,
+  Empty,
+  ErrorNote,
+  RouteLine,
+  StatusPill,
+  Toggle,
+  formatFcfa,
+  isToday,
+  statusTone,
+} from '../components/ui';
 import useAuthStore from '../store/authStore';
 import useLiveLocation from '../hooks/useLiveLocation';
 import {
@@ -30,18 +41,12 @@ import {
 import { connectDispatch } from '../services/realtime';
 
 const REFRESH_MS = 20000;
-
-const AddressLine = ({ location, fallback }) => (
-  <div className="row" style={{ alignItems: 'flex-start', gap: 8 }}>
-    <MapPin size={16} style={{ marginTop: 2, flex: 'none', color: 'var(--ink-soft)' }} />
-    <span className="muted" style={{ margin: 0 }}>{location?.address || fallback}</span>
-  </div>
-);
+const DONE_STATUSES = ['DELIVERED', 'COMPLETED'];
 
 const Missions = () => {
   const user = useAuthStore((s) => s.user);
   const [online, setOnline] = useState(false);
-  const [active, setActive] = useState([]);
+  const [mine, setMine] = useState([]);
   const [available, setAvailable] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,10 +60,9 @@ const Missions = () => {
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const mine = await fetchMyOrders();
+      const rows = await fetchMyOrders();
       if (!mounted.current) return;
-      const rows = Array.isArray(mine) ? mine : [];
-      setActive(rows.filter((o) => ACTIVE_STATUSES.includes(o.status)));
+      setMine(Array.isArray(rows) ? rows : []);
 
       if (onlineRef.current) {
         const list = await fetchAvailableCourses();
@@ -101,6 +105,24 @@ const Missions = () => {
     };
   }, [load]);
 
+  const active = useMemo(
+    () => mine.filter((order) => ACTIVE_STATUSES.includes(order.status)),
+    [mine],
+  );
+
+  /** Activité du jour, déduite des courses déjà livrées (liste serveur, pas de calcul local du solde). */
+  const today = useMemo(() => {
+    const rows = mine.filter(
+      (order) =>
+        DONE_STATUSES.includes(order.status) &&
+        isToday(order.deliveredAt || order.updatedAt || order.createdAt),
+    );
+    return {
+      count: rows.length,
+      net: rows.reduce((sum, order) => sum + earningOf(order).net, 0),
+    };
+  }, [mine]);
+
   const toggleOnline = async () => {
     const next = !online;
     setOnline(next);
@@ -137,60 +159,68 @@ const Missions = () => {
       right={
         <button
           type="button"
-          onClick={toggleOnline}
-          className={online ? 'btn btn-accent' : 'btn'}
-          style={{ minHeight: 40, padding: '8px 14px', fontSize: 13, borderRadius: 999 }}
+          className="btn btn-ghost btn-icon"
+          onClick={() => load({ silent: true })}
+          aria-label="Rafraîchir les courses"
         >
-          {online ? 'En ligne' : 'Hors ligne'}
+          <RefreshCw size={17} />
         </button>
       }
     >
-      <div className="card" style={{ gap: 8 }}>
+      <section className="card card-ink">
         <div className="row">
           <div className="stack">
-            <span className="strong">{user?.fullName || 'Coursier'}</span>
-            <span className="muted">{online ? 'Vous recevez les courses' : 'Passez en ligne pour recevoir des courses'}</span>
+            <span className="topbar-kicker">Bonne route</span>
+            <span className="strong" style={{ fontSize: 17 }}>
+              {user?.fullName || 'Coursier'}
+            </span>
           </div>
-          <StatusPill tone={online ? 'ok' : 'warn'}>{online ? 'En ligne' : 'Hors ligne'}</StatusPill>
+          <Toggle checked={online} onChange={toggleOnline} label="Disponibilité" />
         </div>
-        {geoError ? <div className="note note-warn">{geoError}</div> : null}
-      </div>
+
+        <div className="row row-tight">
+          <span className="muted">
+            {online ? 'Vous recevez les courses autour de vous.' : 'Passez en ligne pour recevoir des courses.'}
+          </span>
+          {today.count > 0 ? (
+            <span className="amount" style={{ fontSize: 18 }}>
+              {formatFcfa(today.net)}
+              <small>{today.count} course{today.count > 1 ? 's' : ''} aujourd'hui</small>
+            </span>
+          ) : null}
+        </div>
+
+        {geoError ? <p className="muted" style={{ color: '#f0c37a', margin: 0 }}>{geoError}</p> : null}
+      </section>
 
       <ErrorNote>{error}</ErrorNote>
 
-      <div className="row">
-        <p className="section-title" style={{ margin: 0 }}>Ma course</p>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => load({ silent: true })}
-          style={{ minHeight: 34, padding: '4px 8px', fontSize: 12, border: 0 }}
-        >
-          <RefreshCw size={14} /> Rafraîchir
-        </button>
-      </div>
+      <p className="section-title">Ma course</p>
 
       {loading && active.length === 0 ? (
-        <Loading />
+        <>
+          <CardSkeleton />
+        </>
       ) : active.length === 0 ? (
-        <div className="card"><p className="muted" style={{ margin: 0 }}>Aucune course en cours.</p></div>
+        <div className="card card-flat">
+          <p className="muted" style={{ margin: 0 }}>
+            Aucune course en cours. Les courses acceptées apparaissent ici jusqu'à la confirmation du client.
+          </p>
+        </div>
       ) : (
         active.map((order) => {
           const money = earningOf(order);
           return (
             <Link key={order.id} to={`/missions/${order.id}`} className="card card-link">
               <div className="row">
-                <StatusPill tone={order.status === 'DELIVERED_PENDING_CONFIRMATION' ? 'warn' : 'ok'}>
-                  {statusLabel(order.status)}
-                </StatusPill>
-                <span className="pill">{money.net ? formatFcfa(money.net) : 'À livrer'}</span>
+                <StatusPill tone={statusTone(order.status)}>{statusLabel(order.status)}</StatusPill>
+                <Amount value={money.net} caption="à percevoir" />
               </div>
-              <AddressLine location={order.pickupLocation} fallback="Point de retrait à confirmer" />
-              <AddressLine location={order.dropoffLocation} fallback="Point de livraison à confirmer" />
+              <RouteLine pickup={order.pickupLocation} dropoff={order.dropoffLocation} compact />
               <div className="row">
                 <span className="muted">{order.trackingReference || order.id.slice(0, 8)}</span>
-                <span className="strong" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Ouvrir <ArrowRight size={16} />
+                <span className="strong" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
+                  Ouvrir <ArrowRight size={15} />
                 </span>
               </div>
             </Link>
@@ -201,43 +231,54 @@ const Missions = () => {
       <p className="section-title">Courses disponibles</p>
 
       {!online ? (
-        <div className="card">
+        <div className="card card-flat">
           <p className="muted" style={{ margin: 0 }}>
-            Passez en ligne pour voir les courses autour de vous.
+            Activez votre disponibilité pour voir les courses publiées à Ouagadougou.
           </p>
         </div>
-      ) : available.length === 0 && !loading ? (
-        <Empty title="Aucune course pour le moment" hint="Nous vous prévenons dès qu'une course est publiée." />
+      ) : loading && available.length === 0 ? (
+        <>
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={4} />
+        </>
+      ) : available.length === 0 ? (
+        <Empty title="Aucune course pour le moment" hint="Restez en ligne : nous vous prévenons dès qu'une course est publiée." />
       ) : (
         available.map((order) => {
           const money = earningOf(order);
           return (
-            <div key={order.id} className="card">
+            <article key={order.id} className="card">
               <div className="row">
-                <StatusPill tone="ok">{statusLabel(order.status)}</StatusPill>
-                <span className="amount">
-                  {formatFcfa(money.net)} <small>net</small>
-                </span>
+                <StatusPill tone="accent">{statusLabel(order.status)}</StatusPill>
+                <Amount value={money.net} />
               </div>
-              <AddressLine location={order.pickupLocation} fallback="Retrait" />
-              <AddressLine location={order.dropoffLocation} fallback="Livraison" />
-              {order.distanceKm ? (
-                <span className="pill"><Timer size={13} /> {order.distanceKm} km</span>
-              ) : null}
+
+              <RouteLine pickup={order.pickupLocation} dropoff={order.dropoffLocation} />
+
+              <div className="meta">
+                {order.distanceKm ? (
+                  <span className="pill">
+                    <Timer size={12} /> {order.distanceKm} km
+                  </span>
+                ) : null}
+                {money.fee ? <span className="pill">commission {formatFcfa(money.fee)}</span> : null}
+                {order.packageDetails?.isFragile ? <span className="pill pill-warn">Fragile</span> : null}
+              </div>
+
               <div className="btn-row">
-                <Link className="btn btn-ghost" to={`/missions/${order.id}`} style={{ textAlign: 'center' }}>
+                <Link className="btn btn-ghost" to={`/missions/${order.id}`}>
                   Détails
                 </Link>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-accent"
                   disabled={busyId === order.id}
                   onClick={() => onAccept(order.id)}
                 >
                   {busyId === order.id ? 'Acceptation…' : 'Accepter'}
                 </button>
               </div>
-            </div>
+            </article>
           );
         })
       )}

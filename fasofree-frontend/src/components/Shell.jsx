@@ -3,48 +3,49 @@
  * Proprietary and confidential.
  */
 
-/** Coquille commune : en-tête + navigation basse (une main, pouce). */
-import { NavLink, useNavigate } from 'react-router-dom';
-import { Bike, Package, Wallet, User } from 'lucide-react';
+/** Coquille commune : en-tête de marque + navigation basse (une main, pouce). */
+import { NavLink } from 'react-router-dom';
+import { Package, Wallet, UserRound } from 'lucide-react';
+import { KoliwaMark } from './brand';
 
 const TABS = [
   { to: '/missions', label: 'Courses', icon: Package },
   { to: '/gains', label: 'Gains', icon: Wallet },
-  { to: '/compte', label: 'Compte', icon: User },
+  { to: '/compte', label: 'Compte', icon: UserRound },
 ];
 
-const Shell = ({ title, right, children }) => {
-  const navigate = useNavigate();
-
-  return (
-    <div className="app">
-      <header className="topbar">
-        <button
-          type="button"
-          onClick={() => navigate('/missions')}
-          aria-label="Koliwa Coursier"
-          style={{ background: 'none', border: 0, padding: 0, display: 'flex', alignItems: 'center', gap: 10 }}
-        >
-          <span className="brand-mark" style={{ width: 32, height: 32, borderRadius: 10, fontSize: 14 }}>
-            <Bike size={16} />
-          </span>
+/**
+ * `hideNav` : écran de détail, où la place du bas est prise par la barre
+ * d'action de la course (accepter / colis récupéré / colis remis).
+ */
+const Shell = ({ title, kicker = 'Koliwa Coursier', right, children, hideNav = false }) => (
+  <div className={`app ${hideNav ? 'app-detail' : ''}`}>
+    <header className="topbar">
+      <div className="topbar-id">
+        <span className="brand-badge" aria-hidden="true">
+          <KoliwaMark size={22} />
+        </span>
+        <div className="topbar-titles">
+          <span className="topbar-kicker">{kicker}</span>
           <h1>{title}</h1>
-        </button>
-        {right}
-      </header>
+        </div>
+      </div>
+      {right ? <div className="topbar-right">{right}</div> : null}
+    </header>
 
-      <main className="content">{children}</main>
+    <main className="content">{children}</main>
 
-      <nav className="nav">
+    {hideNav ? null : (
+      <nav className="nav" aria-label="Navigation principale">
         {TABS.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
-            <Icon size={20} />
+            <Icon size={20} strokeWidth={2.2} aria-hidden="true" />
             <span>{label}</span>
           </NavLink>
         ))}
       </nav>
-    </div>
-  );
-};
+    )}
+  </div>
+);
 
 export default Shell;

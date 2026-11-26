@@ -10,8 +10,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Shell from '../components/Shell';
-import { Loading, ErrorNote, GoodNote } from '../components/ui';
-import { fetchContractStatus, requestContractOtp, signContract, fetchLegalDocument } from '../services/legal';
+import { ErrorNote, GoodNote, Loading } from '../components/ui';
+import { fetchContractStatus, fetchLegalDocument, requestContractOtp, signContract } from '../services/legal';
 
 const Contract = () => {
   const navigate = useNavigate();
@@ -25,8 +25,8 @@ const Contract = () => {
   const load = useCallback(async () => {
     try {
       const data = await fetchContractStatus();
-      setStatus({ loading: false, pending: Boolean(data?.pending), docCode: data?.docCode || data?.document?.code || null });
-      const docCode = data?.docCode || data?.document?.code;
+      const docCode = data?.docCode || data?.document?.code || null;
+      setStatus({ loading: false, pending: Boolean(data?.pending), docCode });
       if (docCode) {
         try {
           setDocument(await fetchLegalDocument(docCode));
@@ -94,21 +94,21 @@ const Contract = () => {
   }
 
   return (
-    <Shell title="Contrat">
-      <div className="card">
-        <span className="strong">Signez votre contrat de coursier</span>
+    <Shell title="Contrat" kicker="Signature">
+      <section className="card">
+        <span className="strong" style={{ fontSize: 16 }}>Signez votre contrat de coursier</span>
         <span className="muted">
           Obligatoire avant votre première course. Un code vous est envoyé pour confirmer votre accord.
         </span>
-      </div>
+      </section>
 
       {document?.title || document?.content ? (
-        <div className="card" style={{ maxHeight: 260, overflowY: 'auto' }}>
+        <section className="card" style={{ maxHeight: 280, overflowY: 'auto' }}>
           {document.title ? <span className="strong">{document.title}</span> : null}
           {document.content ? (
             <p className="muted" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{document.content}</p>
           ) : null}
-        </div>
+        </section>
       ) : null}
 
       <ErrorNote>{error}</ErrorNote>
@@ -123,13 +123,13 @@ const Contract = () => {
           <label htmlFor="code">Code reçu</label>
           <input
             id="code"
-            className="input"
+            className="input input-code"
             inputMode="numeric"
             autoComplete="one-time-code"
             maxLength={6}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            placeholder="123456"
+            placeholder="••••••"
           />
         </div>
         <button type="submit" className="btn btn-primary btn-block" disabled={busy || code.length < 4}>
