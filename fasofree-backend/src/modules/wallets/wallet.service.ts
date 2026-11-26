@@ -730,6 +730,40 @@ export class WalletService {
   }
 
   /**
+   * 💸 Frais plateforme déjà prélevés AUJOURD'HUI sur les gains de ce livreur
+   * (commission par course + éventuel Pass Journée historique déjà débité).
+   * Base du plafond journalier : prélèvement progressif de 125 FCFA par course,
+   * jamais plus de 500 FCFA sur la journée — donc aucune avance à sortir.
+   */
+  async getDriverPlatformFeesChargedToday(driverId: string): Promise<number> {
+    if (!driverId) return 0;
+
+    const wallet = await this.walletRepository.findOne({
+      where: { userId: driverId, userRole: UserRole.DRIVER },
+    });
+    if (!wallet) return 0;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const raw = await this.transactionRepository
+      .createQueryBuilder('tx')
+      .select('SUM(tx.amount)', 'sum')
+      .where('tx.walletId = :walletId', { walletId: wallet.id })
+      .andWhere('tx.type = :type', { type: TransactionType.DEBIT })
+      .andWhere('tx.reason IN (:...reasons)', {
+        reasons: [
+          TransactionReason.COMMISSION,
+          TransactionReason.DAILY_PASS_FEE,
+        ],
+      })
+      .andWhere('tx.createdAt >= :startOfDay', { startOfDay })
+      .getRawOne<{ sum: string | null }>();
+
+    return Number(raw?.sum ?? 0) || 0;
+  }
+
+  /**
    * Méthode requise par FinancialMonitoringService
    * Calcule le total du passif virtuel (la somme de l'argent dû à tous les livreurs et marchands)
    */

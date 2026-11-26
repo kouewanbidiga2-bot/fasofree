@@ -53,7 +53,7 @@ export class OrderPricingService {
    * - merchantCommission : 5% (Starter) ou 1.5% (Boost Pro) selon le plan du commerce,
    *   prélevée sur le payout marchand (le client ne la voit jamais dans son total)
    * - P2P : itemsTotal = 0, commission marchand = 0 (prix distance + frais plateforme)
-   * - driverCommissionAmount : calculé à la livraison (micro-commission 1%)
+   * - driverCommissionAmount : calculé à la livraison (125 FCFA/course, plafond 500 FCFA/jour)
    * Total client (affiché panier/reçu) = Sous-total + DELIVERY_FEE + PLATFORM_FEE.
    */
   async calculateFinancials(

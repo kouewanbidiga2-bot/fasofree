@@ -18,9 +18,9 @@ audience: commercant-livreur
 
 | Élément | Valeur |
 |---------|--------|
-| Commission FasoFree | [●] % du montant de la commande hors livraison |
-| Frais de service (facturé au client) | [●] % / [●] FCFA |
-| Frais de livraison (facturé au client) | [●] FCFA (grille par zone) |
+| Commission FasoFree | 5 % (Starter) / 1,5 % (Pro) du montant de la commande hors livraison |
+| Frais de service (facturé au client) | **100 FCFA** par commande livrée (0 FCFA avec le Pass VIP client) |
+| Frais de livraison (facturé au client) | **800 FCFA minimum**, puis grille par distance ; +500 FCFA entre 21h et 06h |
 | Frais d'annulation imputables au commerçant | [●] |
 | Délai de règlement au commerçant | [●] jours après la transaction |
 | Seuil de règlement (montant minimum) | [●] FCFA |
@@ -31,13 +31,14 @@ audience: commercant-livreur
 
 | Élément | Valeur |
 |---------|--------|
-| Rémunération de base par course | [●] FCFA |
-| Rémunération par kilomètre | [●] FCFA / km |
+| Rémunération de base par course | **Frais de livraison encaissés** (800 FCFA minimum, grille par distance + surcharge nuit 500 FCFA) |
+| Commission plateforme (prélevée sur le gain de la course) | **125 FCFA par course livrée, jamais plus de 10 % du prix de livraison, plafonnée à 500 FCFA par jour et par livreur** — aucune avance, aucun abonnement journalier obligatoire |
+| Rémunération par kilomètre | Incluse dans la grille de livraison (pas de ligne séparée) |
 | Bonus par course en heure de pointe | [●] FCFA |
 | Bonus de performance / satisfaction | [●] |
 | Frais d'annulation par le livreur | [●] |
 | Paiement des courses | [●] (compte Mobile Money / solde) |
-| Fréquence de règlement | [●] |
+| Fréquence de règlement | Portefeuille FasoFree crédité à chaque livraison confirmée ; retrait vers Mobile Money selon les modalités du contrat |
 
 ## 3. PLAFONDS DE DÉTENTION D'ESPÈCES (LIVREUR)
 
@@ -45,6 +46,7 @@ audience: commercant-livreur
 |--------|--------|
 | **Soft Limit** (déclenche une alerte et une limitation douce) | [●] FCFA |
 | **Hard Limit** (blocage de l'attribution de courses espèces jusqu'à régularisation) | [●] FCFA |
+| **Dette technique de commission** (maximum atteignable) | 500 FCFA (plafond journalier de la commission plateforme) |
 
 ## 4. POLITIQUE D'ANNULATION CLIENT
 
@@ -72,6 +74,7 @@ Toute modification de la grille tarifaire est communiquée aux personnes concern
 
 | Version | Date | Modifications |
 |---------|------|---------------|
+| 0.10 | 2026-11-26 | Valorisation de la grille de revenus : frais de service client 100 FCFA/commande, commission livreur 125 FCFA/course plafonnée à 500 FCFA/jour |
 | 0.9 | 2026-09-27 | Brouillon initial (montants [●] à valoriser) |
 
 **Fin des Annexes tarifaires.**

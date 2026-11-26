@@ -13,8 +13,27 @@ import { UserRole } from '../wallets/entities/wallet.entity';
 import { TransactionReason } from '../wallets/entities/wallet-transaction.entity';
 import { ReceiptsService } from '../receipts/receipts.service';
 
+// Legacy : ancien modèle (Pass Journée 500 FCFA + 1%), conservé pour les
+// historiques de wallet déjà écrits — plus jamais prélevé.
 export const DAILY_PASS_FEE_AMOUNT = 500; // FCFA
-export const DRIVER_MICRO_COMMISSION_RATE = 0.01; // 1% sur les gains des courses suivantes
+export const DRIVER_MICRO_COMMISSION_RATE = 0.01;
+
+/**
+ * 🏍️ Commission plateforme prélevée AU LIVREUR, par course livrée.
+ * 125 FCFA sur le gain de la course, plafonnés à 500 FCFA par jour :
+ * - aucune avance à sortir avant d'avoir gagné (l'ancien Pass Journée débitait
+ *   500 FCFA dès la 1ère course, ce qui pénalisait les nouveaux livreurs) ;
+ * - le livreur ne paie jamais plus qu'un Pass Journée sur une journée chargée ;
+ * - un montant fixe, lisible et prévisible, donc facile à expliquer et à accepter.
+ */
+export const DRIVER_COURSE_COMMISSION_AMOUNT = 125; // FCFA / course livrée
+export const DRIVER_PLATFORM_FEE_DAILY_CAP = 500; // FCFA / livreur / jour
+/**
+ * Garde-fou anti-abus sur les petites courses : la commission ne peut jamais
+ * dépasser 10 % du prix de livraison. Sur une course à 1 000 FCFA, elle tombe
+ * donc à 100 FCFA au lieu de 125 — le livreur garde toujours l'essentiel.
+ */
+export const DRIVER_COMMISSION_MAX_RATE = 0.1;
 
 @Injectable()
 export class DriverFinancialService {
@@ -29,9 +48,9 @@ export class DriverFinancialService {
 
   /**
    * 🛵 Settlement livreur à la livraison :
-   * 1. Crédite les gains nets (deliveryFee)
-   * 2. 1ère course du jour -> débit Pass Journée 500 FCFA (dette autorisée)
-   * 3. Sinon -> micro-commission 1% sur les gains
+   * 1. Crédite le gain de la course (deliveryFee)
+   * 2. Prélève la commission plateforme (125 FCFA), plafonnée à 500 FCFA/jour,
+   *    directement sur le gain qui vient d'être crédité
    */
   @OnEvent('order.delivered')
   async handleOrderDelivered(order: Order): Promise<void> {
@@ -77,47 +96,47 @@ export class DriverFinancialService {
         );
       }
 
-      // 2. Pass Journée : débité à la 1ère course du jour (dette autorisée)
-      const passChargedToday =
-        await this.walletService.hasDailyPassFeeBeenChargedToday(driverId);
+      // 2. Commission plateforme : 125 FCFA sur cette course, dans la limite des
+      //    500 FCFA déjà prélevés aujourd'hui. Pas d'avance, pas de blocage :
+      //    le prélèvement porte sur le gain qui vient d'être crédité.
+      const chargedToday =
+        await this.walletService.getDriverPlatformFeesChargedToday(driverId);
+      const commission =
+        earnings > 0
+          ? Math.max(
+              0,
+              Math.min(
+                DRIVER_COURSE_COMMISSION_AMOUNT,
+                Math.round(earnings * DRIVER_COMMISSION_MAX_RATE),
+                DRIVER_PLATFORM_FEE_DAILY_CAP - chargedToday,
+              ),
+            )
+          : 0;
 
-      if (!passChargedToday) {
+      if (commission > 0) {
+        // Dette autorisée : si le livreur a déjà retiré ses gains, la commission
+        // reste due — montant plafonné, donc jamais de dette importante.
         await this.walletService.debitWalletAllowNegative(
           driverId,
           UserRole.DRIVER,
-          DAILY_PASS_FEE_AMOUNT,
-          TransactionReason.DAILY_PASS_FEE,
+          commission,
+          TransactionReason.COMMISSION,
           orderId,
-          'Pass journée FasoFree (500 FCFA) - 1ère course du jour',
+          `Commission FasoFree ${commission} FCFA (${DRIVER_COURSE_COMMISSION_AMOUNT} FCFA/course, plafond ${DRIVER_PLATFORM_FEE_DAILY_CAP} FCFA/jour)`,
         );
-        this.logger.log(
-          `[Daily Pass] 500 FCFA débités (dette possible) pour le livreur ${driverId}`,
-        );
-        return;
-      }
-
-      // 3. Micro-commission 1% sur les autres courses
-      const microCommission = Math.round(
-        earnings * DRIVER_MICRO_COMMISSION_RATE,
-      );
-      if (microCommission > 0) {
-        try {
-          await this.walletService.debitWallet(
-            driverId,
-            UserRole.DRIVER,
-            microCommission,
-            TransactionReason.COMMISSION,
-            orderId,
-            'Micro-commission FasoFree (1%)',
-          );
-        } catch (error) {
-          this.logger.warn(
-            `[Micro-Commission] Solde insuffisant pour ${driverId}, commission non prélevée: ${error?.message}`,
-          );
-        }
         await this.orderRepository.update(orderId, {
-          driverCommissionAmount: microCommission,
+          driverCommissionAmount: commission,
         });
+        this.logger.log(
+          `[Commission] ${commission} FCFA prélevés sur la course #${orderId} — cumul du jour ${chargedToday + commission}/${DRIVER_PLATFORM_FEE_DAILY_CAP} FCFA`,
+        );
+      } else {
+        await this.orderRepository.update(orderId, {
+          driverCommissionAmount: 0,
+        });
+        this.logger.log(
+          `[Commission] Plafond journalier atteint pour ${driverId} — course #${orderId} sans commission`,
+        );
       }
     } catch (error) {
       this.logger.error(

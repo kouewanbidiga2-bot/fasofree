@@ -10,6 +10,12 @@
  *        + fragile 100 + poids > 5kg × 50/kg   (arrondi au 50 supérieur)
  */
 const P2P_MIN_PRICE = 1000;
+/**
+ * Frais de service FasoFree facturés au client, par livraison (100 FCFA).
+ * Même montant que `SERVICE_FEE_DEFAULT` côté backend, offert aux clients
+ * titulaires du Pass VIP — affiché ici pour que le prix annoncé soit le prix payé.
+ */
+export const P2P_SERVICE_FEE = 100;
 const P2P_PRICE_PER_KM = 200;
 const P2P_FRAGILE_SURCHARGE = 100;
 const P2P_WEIGHT_SURCHARGE_PER_KG = 50;
