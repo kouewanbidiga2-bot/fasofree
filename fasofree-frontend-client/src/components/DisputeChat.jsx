@@ -19,7 +19,7 @@ import CallSupportButton from './CallSupportButton';
  * - Litige clôturé (statut terminal OU ack WS `closed`) : lecture seule.
  */
 const ROLES_LABELS = {
-  SUPPORT: 'Support FasoFree',
+  SUPPORT: 'Support Koliwa',
   ADMIN: 'Administration',
   SUPER_ADMIN: 'Administration',
   BUSINESS_ADMIN: 'Marchand',
@@ -138,16 +138,16 @@ const DisputeChat = ({ disputeId, status }) => {
         ) : (
           messages.map((m, i) => {
             const mine = m.senderRole === 'CLIENT';
-            const label = ROLES_LABELS[m.senderRole] || 'Support FasoFree';
+            const label = ROLES_LABELS[m.senderRole] || 'Support Koliwa';
             return (
               <div
                 key={m.id || `${m.senderId}-${i}`}
                 className={`max-w-[82%] px-3 py-2 rounded-lg ${
                   mine
-                    ? 'ml-auto text-white'
+                    ? 'ml-auto text-[#2a2e23]'
                     : 'bg-background-card border border-border-light text-text-primary'
                 }`}
-                style={mine ? { backgroundColor: '#C1652E' } : {}}
+                style={mine ? { backgroundColor: '#d7f36b', color: '#2a2e23' } : {}}
               >
                 {!mine && (
                   <p className="text-[10px] text-text-secondary mb-0.5">
@@ -194,7 +194,7 @@ const DisputeChat = ({ disputeId, status }) => {
           onClick={sendMessage}
           disabled={sending || !input.trim() || readOnly}
           className="px-4 flex items-center justify-center text-white transition-opacity disabled:opacity-40"
-          style={{ backgroundColor: '#C1652E' }}
+          style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
         >
           {sending ? (
             <Loader2 size={16} className="animate-spin" />

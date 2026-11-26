@@ -3,28 +3,15 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 
 const ThemeContext = createContext();
 
-export const restaurantColors = {
-  cesar: '#B5502E',
-  chitir: '#7A2E1A',
-  gusto: '#5C6B3C',
-  belchiken: '#B8862E',
-  default: '#d79a4b' // FasoFree brass
-};
-
 export const ThemeProvider = ({ children }) => {
-  const [activeRestaurant, setActiveRestaurant] = useState(null);
-  
-  // Computed theme color based on active restaurant
-  const themeColor = activeRestaurant 
-    ? (restaurantColors[activeRestaurant.toLowerCase()] || restaurantColors.default) 
-    : restaurantColors.default;
+  const themeColor = '#d7f36b';
 
   return (
-    <ThemeContext.Provider value={{ activeRestaurant, setActiveRestaurant, themeColor }}>
+    <ThemeContext.Provider value={{ themeColor }}>
       {children}
     </ThemeContext.Provider>
   );

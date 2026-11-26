@@ -1,6 +1,6 @@
 # FasoFree - Application Client
 
-Application React/Vite/Tailwind pour les clients FasoFree (Acheteurs).
+Application React/Vite/Tailwind pour les clients FasoFree qui demandent, suivent et gèrent leurs livraisons.
 
 ## 📁 Structure du projet
 
@@ -10,36 +10,15 @@ fasofree-frontend-client/
 ├── src/
 │   ├── assets/            # Images et ressources
 │   ├── components/         # Composants UI réutilisables
-│   │   ├── Cart.jsx       # Composant Panier
-│   │   ├── Empty.jsx      # État vide
-│   │   ├── Error.jsx      # Gestion d'erreurs
-│   │   ├── Header.jsx     # En-tête de navigation
-│   │   ├── Loading.jsx    # Indicateur de chargement
-│   │   ├── MenuItem.jsx   # Carte d'article de menu
-│   │   ├── OrderItem.jsx  # Carte de commande
-│   │   └── RestaurantCard.jsx # Carte de restaurant/commerce
-│   ├── pages/             # Pages de l'application
-│   │   ├── Cart.jsx       # Page du panier
-│   │   ├── Checkout.jsx   # Page de paiement
-│   │   ├── Home.jsx       # Page d'accueil
-│   │   ├── Orders.jsx     # Liste des commandes
-│   │   ├── OrderTracking.jsx # Suivi de commande
-│   │   ├── PhoneAuth.jsx  # Authentification par téléphone
-│   │   ├── Profile.jsx    # Profil utilisateur
-│   │   └── Restaurant.jsx # Page de restaurant
-│   ├── services/          # Services API
-│   │   ├── api.js         # Configuration Axios
-│   │   ├── authService.js # Authentification
-│   │   ├── businessService.js # Commerces/Restaurants
-│   │   ├── cartService.js # Gestion du panier (Zustand)
-│   │   ├── orderService.js # Commandes
-│   │   └── paymentService.js # Paiements
+│   ├── pages/               # Accueil, livraison, suivi, historique, profil
+│   ├── services/            # API, temps réel, notifications et PWA
+│   ├── store/               # État de session et notifications
 │   ├── App.jsx            # Composant principal
 │   ├── main.jsx           # Point d'entrée
 │   └── index.css          # Styles globaux
 ├── index.html             # HTML racine
 ├── package.json           # Dépendances
-├── vite.config.js         # Configuration Vite (port 5174)
+├── vite.config.js         # Configuration Vite (port 3000)
 ├── tailwind.config.js     # Configuration Tailwind
 ├── postcss.config.js      # Configuration PostCSS
 └── .env                   # Variables d'environnement
@@ -51,7 +30,7 @@ fasofree-frontend-client/
 # Installation des dépendances
 npm install
 
-# Démarrage du serveur de développement (port 5174)
+# Démarrage du serveur de développement
 npm run dev
 
 # Build pour production
@@ -63,42 +42,28 @@ npm run preview
 
 ## 🔧 Configuration
 
-### Variables d'environnement (.env)
-```
-VITE_API_URL=http://localhost:3000/api/v1
-```
+En développement, Vite transmet `/api/v1`, `/uploads` et `/socket.io` au backend NestJS sur `http://127.0.0.1:3100`. Le backend doit être lancé avec sa configuration PostgreSQL et SasPay pour ouvrir un paiement réel. Pour changer sa destination locale, configurer `KOLIWA_DEV_API_ORIGIN` dans `.env.local`.
 
-### Port de l'application
-L'application client est configurée sur le port **5174** via `vite.config.js` :
+Pour une version déployée sur une autre API, définir `VITE_API_BASE_URL` avant la compilation. L’envoi invité utilise `POST /api/v1/public-tracking/guest-delivery` et demande une API qui expose cette route.
 
-```javascript
-server: {
-  port: 5174,
-  strictPort: true,
-}
-```
 
 ## 📱 Fonctionnalités
 
 - **Authentification** : Connexion par téléphone avec code SMS
-- **Navigation** : Exploration des commerces/restaurants par catégorie
-- **Panier** : Gestion du panier avec Zustand
-- **Commandes** : Création de commandes avec différents modes de récupération
-  - Livraison
-  - À emporter
-  - Sur place
+- **Livraisons** : Création d'une livraison de colis ou récupération d'une commande déjà passée chez un commerçant
+- **Tarification** : Estimation selon la distance, le poids et la fragilité
 - **Paiement** : Intégration de plusieurs méthodes de paiement
-- **Suivi** : Suivi en temps réel des commandes
+- **Suivi** : Suivi en temps réel, chat, code PIN et preuve de réception
 - **Profil** : Gestion du profil utilisateur
 
 ## 🔌 API Backend
 
-L'application se connecte au backend NestJS sur `http://localhost:3000/api/v1`.
+Le préfixe de l’API NestJS est `/api/v1`.
 
 ### Endpoints principaux
 - Authentification : `/auth/*`
-- Commerces : `/businesses/*`
 - Commandes : `/orders/*`
+- Dispatch : `/dispatch/*`
 - Paiements : `/payments/*`
 
 ## 🎨 Technologies
@@ -107,8 +72,8 @@ L'application se connecte au backend NestJS sur `http://localhost:3000/api/v1`.
 - **Vite** : Build tool et serveur de développement
 - **React Router v6** : Routage
 - **Tailwind CSS** : Styling
-- **Axios** : Client HTTP
-- **Zustand** : Gestion d'état (panier)
+- **Fetch** : Client HTTP centralisé
+- **Zustand** : Gestion d'état de session
 - **Lucide React** : Icônes
 
 ## 📝 Notes

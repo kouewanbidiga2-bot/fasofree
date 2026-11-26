@@ -23,9 +23,11 @@ import {
   LogIn,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { KoliwaWordmark } from '../components/KoliwaLogo';
+import DeliveryGlyph from '../components/DeliveryGlyph';
 import useAuthStore, { getHomeRoute } from '../store/authStore';
 
-const ACCENT = '#C1652E';
+const ACCENT = 'var(--kw-cta)';
 
 const BUSINESS_CATEGORIES = [
   { value: 'RESTAURANT', label: 'Restaurant' },
@@ -49,8 +51,8 @@ const VEHICLE_CATEGORIES = [
 ];
 
 const TABS = [
-  { id: 'client', label: 'Client', icon: User, hint: 'Commander et se faire livrer' },
-  { id: 'merchant', label: 'Marchand', icon: Store, hint: 'Vendre sur la plateforme' },
+  { id: 'client', label: 'Client', icon: User, hint: 'Demander et suivre une livraison' },
+  { id: 'merchant', label: 'Partenaire', icon: Store, hint: 'Confier mes livraisons à Koliwa' },
   { id: 'driver', label: 'Livreur', icon: Bike, hint: 'Livrer et gagner de l’argent' },
   // 📦 Entreprise de livraison : candidature soumise à l'admin, qui crée
   // l'agence dans « Agences Livraison » après validation du dossier.
@@ -387,7 +389,7 @@ const Register = () => {
   // ─── Écran de succès (candidature envoyée) ─────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-background-primary flex flex-col items-center justify-center px-4">
+      <div className="app-page flex flex-col items-center justify-center px-4">
         <div className="max-w-md w-full text-center">
           <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-6 animate-scale-in">
             <CheckCircle2 size={44} className="text-success" strokeWidth={1.5} />
@@ -417,36 +419,47 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="app-page register-page">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+      <header className="app-header register-header sticky top-0 z-40 border-b border-border-light">
+        <div className="register-header-inner flex items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => navigate(-1)}
-              className="p-2 hover:bg-background-secondary transition-colors"
+              className="tracking-home-link"
+              aria-label="Retour"
             >
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
             <h1 className="text-lg font-display font-bold text-text-primary">Créer un compte</h1>
           </div>
+          <button
+            type="button"
+            className="client-tool"
+            aria-label="Aide Koliwa"
+            onClick={() => window.dispatchEvent(new Event('fasofree:open-assistant'))}
+          >
+            <DeliveryGlyph kind="help" />
+          </button>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-display font-bold text-text-primary mb-2">
-            {proMode ? 'Espace Pro' : 'Rejoignez FasoFree'}
+      <div className="register-container">
+        <div className="register-layout">
+        <div className="register-intro">
+          <h2 className="register-display-title text-3xl font-extrabold">
+            {proMode ? (
+              <><span className="register-title-script">Votre</span><span className="register-title-brand">Espace Pro</span></>
+            ) : (
+              <><span className="register-title-script">Rejoignez</span><KoliwaWordmark className="register-title-brand" /></>
+            )}
           </h2>
-          <p className="text-text-secondary text-sm">
-            {proMode
-              ? 'Devenez marchand ou livreur sur FasoFree — votre dossier sera examiné par notre équipe.'
-              : 'Créez votre compte et choisissez votre profil : client, marchand ou livreur.'}
-          </p>
         </div>
 
+        <div className="register-workspace">
         {/* Tabs */}
-        <div className={`grid gap-3 mb-8 ${proMode ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`}>
+        <div className={`register-tabs grid gap-2 mb-6 ${proMode ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-4'}`} role="group" aria-label="Type de compte">
           {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -454,23 +467,23 @@ const Register = () => {
               <button
                 key={tab.id}
                 type="button"
+                aria-pressed={active}
                 onClick={() => {
                   setActiveTab(tab.id);
                   setErrors({});
                   setSubmitError('');
                 }}
-                className={`rounded-lg border p-4 text-left transition-all ${
+                className={`register-tab rounded-[18px] border p-4 text-left transition-all ${
                   active
                     ? 'border-2 shadow-subtle'
                     : 'border-border-light hover:border-border-medium'
                 }`}
-                style={active ? { borderColor: ACCENT, backgroundColor: '#FDF3EA' } : undefined}
               >
                 <Icon
                   size={22}
                   className="mb-2"
                   strokeWidth={1.5}
-                  style={{ color: active ? ACCENT : '#74695F' }}
+                  aria-hidden="true"
                 />
                 <p className="text-sm font-semibold text-text-primary">{tab.label}</p>
                 <p className="text-[11px] text-text-secondary mt-0.5">{tab.hint}</p>
@@ -479,15 +492,18 @@ const Register = () => {
           })}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="register-form-card app-panel rounded-[24px] p-5 sm:p-7">
+        <form onSubmit={handleSubmit}>
           {/* ─── Champs communs ─── */}
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Nom complet</label>
+            <label htmlFor="register-fullName" className="block text-xs mb-2">Nom complet</label>
             <div className="relative">
               <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" strokeWidth={1.5} />
               <input
                 type="text"
                 placeholder="Votre nom complet"
+                id="register-fullName"
+                autoComplete="name"
                 value={formData.fullName}
                 onChange={(e) => set('fullName', e.target.value)}
                 className={inputClass('fullName')}
@@ -497,12 +513,14 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Email</label>
+            <label htmlFor="register-email" className="block text-xs mb-2">Email</label>
             <div className="relative">
               <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" strokeWidth={1.5} />
               <input
                 type="email"
                 placeholder="votre@email.com"
+                id="register-email"
+                autoComplete="email"
                 value={formData.email}
                 onChange={(e) => set('email', e.target.value)}
                 className={inputClass('email')}
@@ -512,12 +530,14 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Numéro de téléphone</label>
+            <label htmlFor="register-phone" className="block text-xs mb-2">Numéro de téléphone</label>
             <div className="relative">
               <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" strokeWidth={1.5} />
               <input
                 type="tel"
                 placeholder="+226 XX XX XX XX"
+                id="register-phone"
+                autoComplete="tel"
                 value={formData.phone}
                 onChange={(e) => set('phone', e.target.value)}
                 className={inputClass('phone')}
@@ -527,8 +547,9 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Comment souhaitez-vous être notifié ?</label>
+            <label htmlFor="register-notifications" className="block text-xs mb-2">Comment souhaitez-vous être notifié ?</label>
             <select
+              id="register-notifications"
               value={formData.preferredNotificationChannel}
               onChange={(e) => set('preferredNotificationChannel', e.target.value)}
               className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
@@ -551,13 +572,13 @@ const Register = () => {
                 </div>
                 <p className="text-xs text-text-secondary">
                   Votre demande est examinée par l’administration. Après validation, votre
-                  entreprise apparaît dans le réseau de livraison FasoFree.
+                  entreprise apparaît dans le réseau de livraison Koliwa.
                 </p>
                 <div>
                   <label className="block text-xs text-text-secondary mb-2">Raison sociale</label>
                   <input
                     type="text"
-                    placeholder="Ex : FasoFree Logistics SARL"
+                    placeholder="Ex : Koliwa Logistics SARL"
                     value={formData.agencyName}
                     onChange={(e) => set('agencyName', e.target.value)}
                     className={plainInputClass('agencyName')}
@@ -607,7 +628,7 @@ const Register = () => {
                   <label className="block text-xs text-text-secondary mb-2">Nom du commerce</label>
                   <input
                     type="text"
-                    placeholder="Ex : Restaurant Le Terroir"
+                    placeholder="Ex : Boutique Le Terroir"
                     value={formData.businessName}
                     onChange={(e) => set('businessName', e.target.value)}
                     className={plainInputClass('businessName')}
@@ -794,12 +815,14 @@ const Register = () => {
           )}
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Mot de passe</label>
+            <label htmlFor="register-password" className="block text-xs mb-2">Mot de passe</label>
             <div className="relative">
               <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" strokeWidth={1.5} />
               <input
                 type="password"
                 placeholder="••••••••"
+                id="register-password"
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => set('password', e.target.value)}
                 className={inputClass('password')}
@@ -809,12 +832,14 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">Confirmer le mot de passe</label>
+            <label htmlFor="register-confirmPassword" className="block text-xs mb-2">Confirmer le mot de passe</label>
             <div className="relative">
               <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" strokeWidth={1.5} />
               <input
                 type="password"
                 placeholder="••••••••"
+                id="register-confirmPassword"
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={(e) => set('confirmPassword', e.target.value)}
                 className={inputClass('confirmPassword')}
@@ -824,7 +849,7 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-xs text-text-secondary mb-2">
+            <label htmlFor="register-referralCode" className="block text-xs mb-2">
               Code de parrainage <span className="text-text-muted">(facultatif)</span>
             </label>
             <div className="relative">
@@ -832,6 +857,7 @@ const Register = () => {
               <input
                 type="text"
                 placeholder="Ex : AMARA-4F2B"
+                id="register-referralCode"
                 value={formData.referralCode}
                 onChange={(e) => set('referralCode', e.target.value)}
                 className={inputClass('referralCode')}
@@ -858,19 +884,19 @@ const Register = () => {
                   if (e.target.checked) setErrors((er) => ({ ...er, legal: '' }));
                 }}
                 className="mt-0.5 w-4 h-4 shrink-0"
-                style={{ accentColor: ACCENT }}
+                style={{ accentColor: 'var(--kw-accent-ink)' }}
               />
               <span className="text-xs text-text-secondary leading-relaxed">
                 J’ai lu et j’accepte les{' '}
                 {/* Nouvel onglet : la navigation SPA viderait le formulaire en cours */}
-                <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: ACCENT }}>
+                <Link to="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-accent-primary underline">
                   Conditions Générales d’Utilisation
                 </Link>{' '}
                 et la{' '}
-                <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline" style={{ color: ACCENT }}>
+                <Link to="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-accent-primary underline">
                   Politique de Confidentialité
                 </Link>{' '}
-                de FasoFree. L’acceptation est enregistrée (version du document, date et heure).{' '}
+                de Koliwa. L’acceptation est enregistrée (version du document, date et heure).{' '}
                 {legalLoading && <span className="text-text-muted">(lecture des versions…)</span>}
               </span>
             </label>
@@ -898,8 +924,7 @@ const Register = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-60"
-            style={{ backgroundColor: ACCENT }}
+            className="register-submit w-full px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-60"
           >
             {loading
               ? 'Envoi en cours…'
@@ -927,12 +952,14 @@ const Register = () => {
             Vous avez déjà un compte ?{' '}
             <button
               onClick={() => navigate('/auth')}
-              className="font-medium hover:underline"
-              style={{ color: ACCENT }}
+              className="font-medium text-accent-primary hover:underline"
             >
               Se connecter
             </button>
           </p>
+        </div>
+        </div>
+        </div>
         </div>
       </div>
     </div>
@@ -948,7 +975,7 @@ const KycFilePicker = ({ label, required, error, file, onChange, accept = 'image
       </label>
       <label
         htmlFor={id}
-        className="flex items-center justify-center gap-2 w-full py-3 bg-background-secondary border-2 border-dashed border-border-medium hover:border-border-dark transition-colors cursor-pointer text-xs text-text-secondary"
+        className="register-upload flex items-center justify-center gap-2 w-full py-3 bg-background-secondary border-2 border-dashed border-border-medium hover:border-border-dark transition-colors cursor-pointer text-xs text-text-secondary"
       >
         <Upload size={15} strokeWidth={1.5} />
         <span className="truncate max-w-[70%]">

@@ -6,10 +6,9 @@
 /**
  * FasoFree — Page « paiement non abouti » (application client).
  *
- * Page dédiée aux ERREURS DE PAIEMENT uniquement (les autres erreurs de
- * commande restent en toast dans Checkout) :
+ * Page dédiée aux ERREURS DE PAIEMENT uniquement :
  *  - `reason=init_failed`    : la création/initiation a échoué, la commande
- *    a été annulée côté serveur → retour au panier.
+ *    a été annulée côté serveur → retour à la demande de livraison.
  *  - `reason=returned_failed`: le client est revenu de la passerelle sans
  *    paiement confirmé (annulation ou refus opérateur) → réessai possible.
  *
@@ -20,7 +19,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Home, Package, ShoppingCart, XCircle } from 'lucide-react';
+import { Home, Package, XCircle } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from '../components/CallSupportButton';
 import { PaymentLogo } from '../components/PaymentLogos';
@@ -34,7 +33,7 @@ const COPY = {
   init_failed: {
     title: 'Paiement indisponible',
     lead: "La passerelle de paiement n'a pas pu être contactée. Votre commande a été annulée et aucun montant ne vous a été débité.",
-    note: 'Ces articles sont toujours dans votre panier : vous pouvez repasser commande quand vous voulez.',
+    note: 'Votre demande de livraison a été annulée. Vous pouvez en créer une nouvelle quand vous le souhaitez.',
   },
   returned_failed: {
     title: 'Paiement non abouti',
@@ -133,7 +132,7 @@ export default function PaymentError() {
                 ))}
               </div>
               {retrying && (
-                <p className="mt-3 text-xs text-text-secondary animate-pulse">
+                <p className="mt-3 text-xs text-text-secondary">
                   Ouverture de la page de paiement…
                 </p>
               )}
@@ -144,11 +143,11 @@ export default function PaymentError() {
             {reason === 'init_failed' && (
               <button
                 type="button"
-                onClick={() => navigate('/cart', { replace: true })}
+                onClick={() => navigate('/p2p-delivery', { replace: true })}
                 className="inline-flex items-center gap-2 rounded-lg bg-accent-primary text-white px-4 py-2.5 text-sm font-medium hover:opacity-90 transition-opacity"
               >
-                <ShoppingCart size={16} strokeWidth={1.5} />
-                Reprendre mon panier
+                <Package size={16} strokeWidth={1.5} />
+                Nouvelle livraison
               </button>
             )}
             {canRetry && (

@@ -4,609 +4,248 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Mic, Volume2, VolumeX, Square, ChevronDown, ChevronUp } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, ArrowUp, Mic, Square, Volume2, X } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
-import { hasSupportPhone } from '../utils/support';
-import { FasoFreeMask } from './FasoFreeLogo';
+import DeliveryGlyph from './DeliveryGlyph';
+import { normalizeTrackingReference } from '../utils/trackingReference';
 
-const DEFAULT_CHIPS = [
-  'Comment commander ?',
-  'Comment payer ?',
-  'Où est ma commande ?',
-  'Quel plat me conseilles-tu ?',
-];
+const ROUTES = {
+  send: { label: 'Envoyer un colis', to: '/p2p-delivery', glyph: 'parcel' },
+  pickup: { label: 'Retrait en boutique', to: '/p2p-delivery?mode=merchant-pickup', glyph: 'pickup' },
+  track: { label: 'Suivre un colis', to: '/suivre', glyph: 'track' },
+  history: { label: 'Mes livraisons', to: '/order-history', glyph: 'history' },
+  support: { label: 'Signaler un problème', to: '/disputes', glyph: 'help' },
+  signup: { label: 'Ouvrir l’inscription', to: '/register', glyph: 'profile' },
+  login: { label: 'Ouvrir la connexion', to: '/auth', glyph: 'profile' },
+};
+const QUICK_ACTIONS = ['send', 'pickup', 'track', 'support'].map((id) => ({ id }));
+const CONTRACT = 'koliwa-delivery-v1';
 
-const WELCOME =
-  "Bonjour 👋 Je suis l'assistant FasoFree : je vous guide dans l'application et je peux vous conseiller des plats.\nQue puis-je faire pour vous ?";
-
-// 💬 Bulle d'ouverture : apparaît juste après la fin du SplashScreen (1300 ms),
-// visible ~2 s, une seule fois par chargement de page.
-const HINT_SHOW_DELAY = 1450;
-const BUBBLE_DURATION_MS = 2600;
-
-// Le masque FasoFree est désormais centralisé dans ./FasoFreeLogo
-// (FasoFreeMask, version monochrome via la prop `color`).
-
-/**
- * 🤖 Widget assistant flottant (app client).
- *
- * - Bouton flottant avec le logo FasoFree (le « visage » de l'app).
- * - Bulle « Posez une question » de ~2 s à l'ouverture de l'app, pointant
- *   l'icône (une fois par chargement de page, après le SplashScreen).
- * - Mode mobile : panneau plein écran scrollable ; desktop : carte flottante.
- * - Détecte la page restaurant (/restaurant/:id) pour transmettre le
- *   `businessId` et obtenir des conseils basés sur le menu réel.
- * - Réponses du moteur local du backend (aucune clé API requise).
- */
-export default function AssistantWidget() {
-  const [open, setOpen] = useState(false);
+export default function AssistantWidget({ hideLauncher = false } = {}) {
+  const navigate = useNavigate();
+  const dialogRef = useRef(null);
+  const messagesRef = useRef(null);
+  const inputRef = useRef(null);
+  const requestRef = useRef(null);
+  const recognitionRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [chips, setChips] = useState(DEFAULT_CHIPS);
-  const [hint, setHint] = useState(false);
-  const location = useLocation();
-  const navigate = useNavigate();
-  const listRef = useRef(null);
-  const inputRef = useRef(null);
-  const mountedRef = useRef(true);
-  // 🎤 Mode vocal : micro pour poser la question + lecture des réponses
   const [listening, setListening] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const voiceEnabledRef = useRef(true);
-  voiceEnabledRef.current = voiceEnabled;
-  const lastInputWasVoice = useRef(false);
-  // Référence vers startVoiceInput pour les événements globaux (boutons 🎤)
-  const startVoiceRef = useRef(null);
-  // 🔊 Lecture vocale : état visible + arrêt contrôlable par le client
   const [speaking, setSpeaking] = useState(false);
-  // 📐 État réduit : petit rectangle, l'app reste visible derrière
-  const [collapsed, setCollapsed] = useState(false);
-  const collapsedRef = useRef(false);
-  collapsedRef.current = collapsed;
-  const openRef = useRef(false);
-  openRef.current = open;
-  // Marqueur : une action vocale a navigué (pour réduire le panneau)
-  const voiceNavigatedRef = useRef(false);
+  const [voiceError, setVoiceError] = useState('');
+  const SpeechRecognition = window.isSecureContext && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  const canSpeak = typeof window.speechSynthesis?.speak === 'function' && typeof window.SpeechSynthesisUtterance === 'function';
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  // 💬 Indication d'ouverture : apparaît après le SplashScreen, disparaît après ~2 s.
-  useEffect(() => {
-    const showTimer = setTimeout(() => {
-      if (mountedRef.current) setHint(true);
-    }, HINT_SHOW_DELAY);
-    const hideTimer = setTimeout(() => {
-      if (mountedRef.current) setHint(false);
-    }, HINT_SHOW_DELAY + BUBBLE_DURATION_MS);
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
-
-  // 🗣️ Lecture vocale des réponses (réponse API → voix)
   const stopSpeech = useCallback(() => {
-    try {
-      window.speechSynthesis?.cancel();
-    } catch {
-      /* synthèse vocale indisponible */
-    }
+    window.speechSynthesis?.cancel();
     setSpeaking(false);
   }, []);
 
-  // Coupe les réponses trop longues pour la lecture vocale
-  const shortenForSpeech = (text) => {
-    const t = String(text || '').replace(/\s+/g, ' ').trim();
-    if (t.length <= 300) return t;
-    const cut = t.slice(0, 260);
-    const last = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'));
-    return `${cut.slice(0, last > 120 ? last + 1 : 260)} …`;
-  };
-
-  const speakAnswer = useCallback((text) => {
-    if (!voiceEnabledRef.current) return;
-    try {
-      if (typeof window === 'undefined' || !window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(shortenForSpeech(text));
-      utter.lang = 'fr-FR';
-      utter.rate = 0.98;
-      utter.onstart = () => setSpeaking(true);
-      utter.onend = () => setSpeaking(false);
-      utter.onerror = () => setSpeaking(false);
-      window.speechSynthesis.speak(utter);
-    } catch {
-      /* synthèse vocale indisponible */
-    }
+  const openPanel = useCallback(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
   }, []);
 
-  // Esc ferme le chat (mobile comme desktop).
-  useEffect(() => {
-    if (!open) return undefined;
-    const onKey = (e) => {
-      if (e.key === 'Escape' && mountedRef.current) {
-        setOpen(false);
-        stopSpeech();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, stopSpeech]);
-
-  const businessId =
-    location.pathname.match(/^\/restaurant\/([^/]+)/)?.[1] || undefined;
-
-  useEffect(() => {
-    if (open) {
-      setMessages([{ role: 'bot', text: WELCOME }]);
-      setChips(DEFAULT_CHIPS);
-      inputRef.current?.focus();
-    }
-  }, [open]);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-  }, [messages, loading]);
-
-  async function send(text = input) {
-    const question = (text || '').trim();
-    if (!question || loading) return;
-    stopSpeech();
-    setMessages((m) => [...m, { role: 'user', text: question }]);
-    setInput('');
-    setLoading(true);
-    try {
-      const res = await api.askAssistant(question, businessId);
-      if (!mountedRef.current) return;
-      setMessages((m) => [...m, { role: 'bot', text: res.answer }]);
-      if (Array.isArray(res.suggestions) && res.suggestions.length) {
-        setChips(res.suggestions);
-      }
-      // 🎙️ Si la question vient de la voix, on lit la réponse à haute
-      // voix (sinon ça surprendrait un utilisateur qui tape au clavier).
-      if (lastInputWasVoice.current) {
-        speakAnswer(res.answer);
-        lastInputWasVoice.current = false;
-      }
-    } catch {
-      if (!mountedRef.current) return;
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'bot',
-          text: 'Oups, je n’ai pas pu répondre (connexion). Réessayez dans un instant 🙏',
-        },
-      ]);
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }
-
-  // 🧠 Action à exécuter selon la commande vocale (Gemini)
-  function executeVoiceAction(action, query) {
-    if (action && action !== 'none') voiceNavigatedRef.current = true;
-    switch (action) {
-      case 'open_search':
-      case 'open_restaurant':
-        navigate(query ? `/search?q=${encodeURIComponent(query)}` : '/search');
-        break;
-      case 'open_cart':
-        navigate('/cart');
-        break;
-      case 'open_orders':
-      case 'track_order':
-        navigate('/order-history');
-        break;
-      case 'open_checkout':
-        navigate('/checkout');
-        break;
-      default:
-        break;
-    }
-  }
-
-  // 🎙️ Commande vocale : transcript → action structurée (Gemini) → exécution
-  async function handleVoiceCommand(text) {
-    setMessages((m) => [...m, { role: 'user', text }]);
-    setInput('');
-    setLoading(true);
-    try {
-      const res = await api.voiceAction(text, businessId);
-      if (!mountedRef.current) return;
-      if (res?.action && res.action !== 'none') {
-        const msg = res.message || 'Bien sûr.';
-        setMessages((m) => [...m, { role: 'bot', text: msg }]);
-        speakAnswer(msg);
-        executeVoiceAction(res.action, res.query);
-        return;
-      }
-      const answer = res?.answer || res?.message || 'Je n’ai pas compris. Pouvez-vous reformuler ?';
-      setMessages((m) => [...m, { role: 'bot', text: answer }]);
-      speakAnswer(answer);
-    } catch {
-      if (!mountedRef.current) return;
-      try {
-        const res = await api.askAssistant(text, businessId);
-        if (!mountedRef.current) return;
-        setMessages((m) => [...m, { role: 'bot', text: res.answer }]);
-        speakAnswer(res.answer);
-      } catch {
-        setMessages((m) => [...m, { role: 'bot', text: 'Oups, je n’ai pas pu traiter cette commande vocale. Réessayez 🙏' }]);
-      }
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }
-
-  // 🎙️ Question posée à la voix → transcrite → API assistant → réponse lue
-  const startVoiceInput = () => {
-    stopSpeech();
-    const SR =
-      typeof window !== 'undefined' &&
-      (window.SpeechRecognition || window.webkitSpeechRecognition);
-    if (!SR) {
-      setMessages((m) => [
-        ...m,
-        {
-          role: 'bot',
-          text: "Désolé, la reconnaissance vocale n'est pas supportée sur ce navigateur. 😅",
-        },
-      ]);
-      return;
-    }
-    const recognition = new SR();
+  const startVoice = useCallback(() => {
+    if (!SpeechRecognition || recognitionRef.current) return;
+    const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
     recognition.lang = 'fr-FR';
-    recognition.interimResults = false;
     recognition.maxAlternatives = 1;
-    recognition.onstart = () => setListening(true);
+    setListening(true);
+    setVoiceError('');
     recognition.onresult = (event) => {
-      const text = event.results?.[0]?.[0]?.transcript?.trim();
-      if (text) {
-        lastInputWasVoice.current = true;
-        handleVoiceCommand(text);
+      const transcript = event.results[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setInput(transcript.slice(0, 500));
+        inputRef.current?.focus();
       }
     };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
+    recognition.onerror = (event) => {
+      if (event.error !== 'aborted') setVoiceError('Le micro est indisponible. Vous pouvez écrire votre question.');
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setListening(false);
+    };
     try {
       recognition.start();
     } catch {
+      recognitionRef.current = null;
       setListening(false);
+      setVoiceError('Le micro est indisponible. Vous pouvez écrire votre question.');
     }
-  };
+  }, [SpeechRecognition]);
 
-  startVoiceRef.current = startVoiceInput;
-
-  // 🌐 Boutons 🎤 externes (barres de recherche) : ouvrent l'assistant
-  // et lancent directement l'écoute vocale.
   useEffect(() => {
-    const openAssistant = () => setOpen(true);
     const openAndListen = () => {
-      setOpen(true);
-      window.setTimeout(() => startVoiceRef.current?.(), 350);
+      openPanel();
+      startVoice();
     };
-    window.addEventListener('fasofree:open-assistant', openAssistant);
+    window.addEventListener('fasofree:open-assistant', openPanel);
     window.addEventListener('fasofree:voice-command', openAndListen);
     return () => {
-      window.removeEventListener('fasofree:open-assistant', openAssistant);
+      window.removeEventListener('fasofree:open-assistant', openPanel);
       window.removeEventListener('fasofree:voice-command', openAndListen);
     };
+  }, [openPanel, startVoice]);
+
+  useEffect(() => () => {
+    requestRef.current?.abort();
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = null;
+      recognitionRef.current.abort();
+    }
+    window.speechSynthesis?.cancel();
   }, []);
 
-  // 🧭 Une commande vocale a navigué (recherche, panier, commandes…) :
-  // on coupe la voix et on réduit le panneau pour que le client voie l'app
-  // bouger sous ses yeux.
   useEffect(() => {
-    if (!voiceNavigatedRef.current) return;
-    voiceNavigatedRef.current = false;
+    const list = messagesRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [messages, loading]);
+
+  function openAction({ id, reference }) {
+    const { to } = ROUTES[id];
+    const tracking = id === 'track' && typeof reference === 'string' ? normalizeTrackingReference(reference) : null;
+    dialogRef.current?.close();
+    navigate(to, tracking ? { state: { reference: tracking } } : undefined);
+  }
+
+  async function send(event) {
+    event.preventDefault();
+    const question = input.trim();
+    if (question.length < 2 || requestRef.current) return;
+
+    const request = new AbortController();
+    requestRef.current = request;
+    const deadline = window.setTimeout(() => request.abort('timeout'), 10000);
     stopSpeech();
-    if (openRef.current && !collapsedRef.current) setCollapsed(true);
-  }, [location.pathname, stopSpeech]);
+    setInput('');
+    setVoiceError('');
+    setLoading(true);
+    setMessages((current) => [...current, { role: 'user', text: question }]);
+    try {
+      const response = await api.askAssistant(question, request.signal);
+      if (response?.contract !== CONTRACT || typeof response.answer !== 'string') throw new Error('Réponse indisponible');
+      const actions = Array.isArray(response.actions)
+        ? response.actions.filter((action) => action && Object.hasOwn(ROUTES, action.id))
+        : [];
+      if (!request.signal.aborted) setMessages((current) => [...current, { role: 'assistant', text: response.answer, actions }]);
+    } catch {
+      if (!request.signal.aborted || request.signal.reason === 'timeout') {
+        setMessages((current) => [
+          ...current,
+          { role: 'assistant', text: 'Le guide est momentanément indisponible. Vous pouvez continuer avec l’un de ces raccourcis.', actions: QUICK_ACTIONS },
+        ]);
+      }
+    } finally {
+      window.clearTimeout(deadline);
+      requestRef.current = null;
+      if (!request.signal.aborted || request.signal.reason === 'timeout') setLoading(false);
+    }
+  }
 
-  // 🗑️ Couper toute lecture vocale en quittant l'app
-  useEffect(() => {
-    return () => {
-      try {
-        window.speechSynthesis?.cancel();
-      } catch {}
-    };
-  }, []);
+  function readReply() {
+    const latest = [...messages].reverse().find((message) => message.role === 'assistant');
+    if (!latest || !canSpeak) return;
+    if (speaking) {
+      stopSpeech();
+      return;
+    }
 
-  function openWidget() {
-    setHint(false);
-    setOpen(true);
+    const utterance = new SpeechSynthesisUtterance(latest.text);
+    utterance.lang = 'fr-FR';
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function actionsList(actions) {
+    return (
+      <ul className="koliwa-help-actions">
+        {actions.map((action) => {
+          const { label, glyph } = ROUTES[action.id];
+          return (
+            <li key={action.id}>
+              <button type="button" onClick={() => openAction(action)}>
+                <DeliveryGlyph kind={glyph} />
+                {label}
+                <ArrowRight size={16} aria-hidden="true" />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    );
   }
 
   return (
     <>
-      {/* 💬 Indication d'ouverture (~2 s) pointant l'icône */}
-      {!open && hint && (
-        <button
-          type="button"
-          onClick={openWidget}
-          className="fixed bottom-[calc(11rem+env(safe-area-inset-bottom))] right-4 z-50 w-[248px] cursor-pointer rounded-2xl border border-accent-primary/25 bg-background-primary px-4 py-3 text-left text-sm font-medium text-text-primary shadow-elevated motion-safe:animate-[fasofree-bubble_2.6s_ease-out_forwards] md:bottom-[6.5rem]"
-        >
-          <span className="mr-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-accent-primary/10 align-middle text-xs">
-            💬
-          </span>
-          <span className="align-middle">Posez une question à l'assistant</span>
-          <span
-            aria-hidden="true"
-            className="absolute -bottom-1.5 right-7 h-3 w-3 rotate-45 border-b border-r border-accent-primary/25 bg-background-primary"
-          />
+      {!hideLauncher && (
+        <button type="button" className="assistant-launcher koliwa-help-launcher" onClick={openPanel} aria-label="Ouvrir l’aide Koliwa">
+          <DeliveryGlyph kind="help" />
         </button>
       )}
-
-      {/* 📍 Bouton flottant = l'assistant vocal (logo FasoFree + libellé + micro) */}
-      {open && collapsed ? (
-        /* 📐 État réduit : petit rectangle — l'app reste visible derrière */
-        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[60] md:bottom-6">
-          <div className="flex items-center gap-1 rounded-full border border-border-light bg-background-card py-1.5 pl-2 pr-1.5 shadow-elevated">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-primary text-white">
-              <FasoFreeMask className="h-5 w-5" color="#FFFDFC" />
-            </span>
-            <span className="max-w-[110px] truncate text-xs font-bold text-text-primary">
-              Assistant
-            </span>
-            <button
-              type="button"
-              aria-label="Agrandir l'assistant"
-              onClick={() => setCollapsed(false)}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-text-primary transition hover:bg-background-secondary"
-            >
-              <ChevronUp size={16} />
-            </button>
-            <button
-              type="button"
-              aria-label="Fermer l'assistant"
-              onClick={() => {
-                setCollapsed(false);
-                setOpen(false);
-                stopSpeech();
-              }}
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-text-secondary transition hover:bg-background-secondary"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-6">
-          <div className="flex items-center gap-2">
-            {!open && (
-              <span className="whitespace-nowrap rounded-full border border-border-light bg-background-card px-3 py-1.5 text-xs font-bold text-text-primary shadow-subtle">
-                🎤 Assistant vocal
-              </span>
+      <dialog
+        className="koliwa-help"
+        ref={dialogRef}
+        aria-labelledby="koliwa-help-title"
+        onClose={() => {
+          recognitionRef.current?.abort();
+          stopSpeech();
+        }}
+      >
+        <div className="koliwa-help-frame">
+          <header className="koliwa-help-header">
+            <span className="koliwa-help-symbol"><DeliveryGlyph kind="help" /></span>
+            <h2 id="koliwa-help-title">Assistant Koliwa</h2>
+            {canSpeak && messages.some((message) => message.role === 'assistant') && (
+              <button type="button" className="koliwa-help-icon" onClick={readReply} aria-label={speaking ? 'Arrêter la lecture' : 'Lire la dernière réponse'}>
+                {speaking ? <Square size={17} aria-hidden="true" /> : <Volume2 size={19} aria-hidden="true" />}
+              </button>
             )}
-            <div className="relative">
-              {!open && hint && (
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-0 motion-safe:animate-ping rounded-full bg-white/40"
-                />
-              )}
-              <button
-                type="button"
-                aria-label={
-                  open ? "Fermer l'assistant" : "Ouvrir l'assistant vocal FasoFree"
-                }
-                onClick={() => {
-                  if (open) stopSpeech();
-                  setOpen((o) => !o);
-                }}
-                className="relative flex h-14 w-14 items-center justify-center rounded-full bg-accent-primary text-white shadow-elevated transition hover:scale-105 active:scale-95"
-              >
-                {open ? (
-                  <span className="text-2xl font-bold leading-none">✕</span>
-                ) : (
-                  <>
-                    <FasoFreeMask className="h-8 w-8" color="#FFFDFC" />
-                    <span
-                      aria-hidden="true"
-                      className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-background-primary bg-gradient-to-br from-accent-primary to-[#C1652E] text-white shadow-subtle"
-                    >
-                      <Mic size={12} strokeWidth={2.4} />
-                    </span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            <button type="button" className="koliwa-help-icon" onClick={() => dialogRef.current?.close()} aria-label="Fermer l’assistant">
+              <X size={21} aria-hidden="true" />
+            </button>
+          </header>
 
-      {/* 💬 Fenêtre de dialogue : bottom-sheet compact sur mobile (l'app reste
-          visible au-dessus), carte flottante sur desktop */}
-      {open && !collapsed && (
-        <div
-          role="dialog"
-          aria-label="Assistant FasoFree"
-          className="fixed inset-x-0 bottom-0 z-[60] flex h-[56vh] max-h-[56vh] flex-col rounded-t-3xl border border-b-0 border-border-light bg-background-card shadow-elevated md:inset-auto md:bottom-24 md:right-4 md:z-50 md:h-[70vh] md:max-h-[70vh] md:w-[360px] md:overflow-hidden md:rounded-2xl md:border md:shadow-elevated"
-        >
-          {/* Poignée (mobile) */}
-          <span
-            aria-hidden="true"
-            className="mx-auto mt-2 mb-0.5 h-1 w-10 shrink-0 rounded-full bg-text-tertiary/30 md:hidden"
-          />
-
-          {/* En-tête avec le logo */}
-          <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-accent-primary to-[#C1652E] px-4 py-3 text-white">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/95 shadow-sm">
-                <FasoFreeMask className="h-6 w-6" />
-              </span>
-              <div>
-                <p className="text-sm font-bold leading-tight">Assistant FasoFree</p>
-                <p className="text-[11px] opacity-90">
-                  {listening ? '🎤 Je vous écoute…' : 'Écrivez ou parlez pour commander'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                aria-label="Réduire l'assistant (voir l'app)"
-                title="Réduire pour voir l'application"
-                onClick={() => setCollapsed(true)}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
-              >
-                <ChevronDown size={18} />
-              </button>
-              <button
-                type="button"
-                aria-label="Fermer l'assistant"
-                onClick={() => {
-                  setOpen(false);
-                  stopSpeech();
-                }}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-
-          {/* 🔊 Lecture vocale en cours → bouton ARRÊTER */}
-          {speaking && (
-            <div className="flex shrink-0 items-center justify-between gap-2 bg-accent-primary/10 px-4 py-1.5">
-              <span className="flex items-center gap-1.5 text-[11px] font-bold text-accent-primary">
-                <Volume2 size={13} />
-                Lecture vocale en cours…
-              </span>
-              <button
-                type="button"
-                aria-label="Arrêter la lecture vocale"
-                onClick={stopSpeech}
-                className="flex items-center gap-1 rounded-full bg-gradient-to-r from-accent-primary to-[#C1652E] px-2.5 py-1 text-[11px] font-bold text-white transition hover:opacity-90"
-              >
-                <Square size={10} fill="currentColor" /> Arrêter
-              </button>
-            </div>
-          )}
-
-          {/* Messages — zone scrollable (min-h-0 est requis pour le scroll en flex) */}
-          <div
-            ref={listRef}
-            role="log"
-            aria-live="polite"
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-background-secondary/60 px-3 py-4"
-          >
-            {messages.map((msg, i) =>
-              msg.role === 'user' ? (
-                <div
-                  key={i}
-                  className="ml-auto w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-br-md bg-accent-primary px-3 py-2 text-sm text-white"
-                >
-                  {msg.text}
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  className="mr-auto w-fit max-w-[85%] whitespace-pre-line rounded-2xl rounded-bl-md border border-border-light bg-background-card px-3 py-2 text-sm text-text-primary"
-                >
-                  {msg.text}
-                </div>
-              ),
-            )}
-            {loading && (
-              <div className="mr-auto w-fit rounded-2xl rounded-bl-md border border-border-light bg-background-card px-3 py-2 text-sm text-text-secondary">
-                <span className="inline-flex gap-1">
-                  <span className="animate-bounce">●</span>
-                  <span className="animate-bounce [animation-delay:120ms]">●</span>
-                  <span className="animate-bounce [animation-delay:240ms]">●</span>
-                </span>
+          <div className="koliwa-help-log" ref={messagesRef} role="log" aria-label="Conversation" aria-busy={loading}>
+            {messages.length === 0 && (
+              <div className="koliwa-help-start">
+                <p>Que souhaitez-vous faire ?</p>
+                {actionsList(QUICK_ACTIONS)}
               </div>
             )}
+            {messages.map(({ role, text, actions }, index) => (
+              <div key={index} className="koliwa-help-message" data-role={role}>
+                <p>{text}</p>
+                {actions?.length > 0 && actionsList(actions)}
+              </div>
+            ))}
+            {loading && <p className="koliwa-help-pending" role="status">Recherche de la réponse…</p>}
           </div>
 
-          {/* Suggestions rapides */}
-          {chips.length > 0 && !loading && (
-            <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-border-light bg-background-card px-3 pt-2">
-              {chips.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => send(chip)}
-                  className="rounded-full border border-accent-primary/30 bg-accent-primary/5 px-3 py-1 text-xs font-medium text-accent-primary transition hover:bg-accent-primary/10"
-                >
-                  {chip}
+          <div className="koliwa-help-bottom">
+            {voiceError && <p className="koliwa-help-voice-error" role="status">{voiceError}</p>}
+            <form className="koliwa-help-form" onSubmit={send}>
+              <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} maxLength={500} placeholder="Votre question" aria-label="Votre question" />
+              {SpeechRecognition && (
+                <button type="button" className="koliwa-help-icon" disabled={listening || loading} onClick={startVoice} aria-label={listening ? 'Écoute en cours' : 'Dicter une question'}>
+                  <Mic size={19} aria-hidden="true" />
                 </button>
-              ))}
-            </div>
-          )}
-
-          {/* Hotline — masquée sans numéro configuré */}
-          {hasSupportPhone && (
-            <div className="shrink-0 border-t border-border-light bg-background-card px-3 pt-2 pb-1">
-              <CallSupportButton
-                variant="link"
-                label="Besoin de plus d'aide ? Appeler le support"
-                className="text-xs justify-center w-full"
-              />
-            </div>
-          )}
-
-          {/* Saisie — marge basse sûre (iPhone) */}
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              send();
-            }}
-            className="flex shrink-0 items-center gap-2 bg-background-card p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pb-3"
-          >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Écrivez ou parlez…"
-              aria-label="Votre question"
-              className="min-w-0 flex-1 rounded-full border border-border-light bg-background-secondary px-4 py-2 text-sm text-text-primary outline-none transition focus:border-accent-primary"
-            />
-            <button
-              type="button"
-              onClick={() => setVoiceEnabled((v) => !v)}
-              aria-label={voiceEnabled ? 'Désactiver la lecture vocale' : 'Activer la lecture vocale'}
-              className={`grid h-10 w-10 shrink-0 place-items-center rounded-full transition ${
-                voiceEnabled
-                  ? 'bg-accent-primary/10 text-accent-primary'
-                  : 'bg-background-secondary text-text-tertiary'
-              }`}
-            >
-              {voiceEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-            </button>
-            <button
-              type="button"
-              onClick={startVoiceInput}
-              disabled={loading || listening}
-              aria-label={listening ? 'Écoute en cours…' : 'Poser une question à la voix'}
-              title="Commande vocale : parlez pour rechercher, commander, suivre…"
-              className={`grid h-11 w-11 shrink-0 place-items-center rounded-full transition ${
-                listening
-                  ? 'animate-pulse bg-status-error text-white'
-                  : 'bg-gradient-to-br from-accent-primary to-[#C1652E] text-white shadow-subtle hover:opacity-90 active:scale-95'
-              }`}
-            >
-              <Mic size={19} strokeWidth={2.2} />
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="shrink-0 rounded-full bg-accent-primary px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Envoyer
-            </button>
-          </form>
+              )}
+              <button type="submit" className="koliwa-help-send" disabled={loading || input.trim().length < 2} aria-label="Envoyer la question">
+                <ArrowUp size={21} aria-hidden="true" />
+              </button>
+            </form>
+            <CallSupportButton variant="link" className="koliwa-help-contact" />
+          </div>
         </div>
-      )}
+      </dialog>
     </>
   );
 }

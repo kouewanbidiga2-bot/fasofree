@@ -57,7 +57,7 @@ export default function PWAInstallIOSHint() {
         </button>
 
         <h3 className="text-sm font-bold mb-2 pr-6">
-          Installer FasoFree sur votre iPhone
+          Installer Koliwa sur votre iPhone
         </h3>
 
         <ol className="space-y-2 text-xs text-text-secondary">

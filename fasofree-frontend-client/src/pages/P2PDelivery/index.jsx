@@ -3,10 +3,9 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, Boxes, AlertCircle, Info } from 'lucide-react';
-import { toast } from 'sonner';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, Check, AlertCircle, LockKeyhole } from 'lucide-react';
 import Footer from '../../components/Footer';
 import { api } from '../../services/api';
 import useAuthStore from '../../store/authStore';
@@ -15,81 +14,126 @@ import { formatBurkinaPhone } from '../../utils/phone';
 import { estimateP2PPrice } from '../../utils/p2pPricing';
 import LocationStep from './LocationStep';
 import PackageStep from './PackageStep';
-import SuccessScreen from './SuccessScreen';
+import DeliveryTicket from './DeliveryTicket';
+import DeliveryGlyph, { DELIVERY_SERVICES } from '../../components/DeliveryGlyph';
 
-// Brouillon de course P2P conservé entre la redirection connexion et le retour
+// Brouillon conservé dans cet onglet pour reprendre la saisie sans compte.
 const P2P_DRAFT_KEY = 'fasofree_p2p_draft';
+
+function hasDeliveryPoint(location) {
+  return ['map', 'gps'].includes(location.locationSource)
+    && Number.isFinite(location.latitude) && Number.isFinite(location.longitude);
+}
+
+function readDraft(key) {
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(key));
+    if (draft?.pickup && draft.dropoff && draft.packageInfo) {
+      const dropoff = draft.dropoff.locationSource === 'gps' ? {
+        ...draft.dropoff,
+        latitude: emptyLocation.latitude,
+        longitude: emptyLocation.longitude,
+        locationSource: emptyLocation.locationSource,
+        address: draft.dropoff.address === 'Position actuelle (GPS)' ? '' : draft.dropoff.address,
+      } : draft.dropoff;
+      return { ...draft, dropoff };
+    }
+  } catch {
+    /* Le formulaire fonctionne aussi sans stockage local. */
+  }
+  return { step: 1, pickup: emptyLocation, dropoff: emptyLocation, packageInfo: emptyPackage };
+}
+
+function checkoutErrorMessage(error) {
+  if (error?.code === 'NETWORK_ERROR' || error?.status >= 500) {
+    return 'Le service d’envoi est momentanément indisponible. Votre brouillon est conservé. Réessayez dans un instant.';
+  }
+  if (error?.status === 404) {
+    return 'L’envoi est indisponible sur cette version du serveur. Votre brouillon est conservé.';
+  }
+  if (error?.status === 429) {
+    return 'Trop de tentatives. Patientez une minute avant de réessayer.';
+  }
+  return error?.message || 'Impossible de soumettre votre course. Réessayez dans un instant.';
+}
 
 const P2PDelivery = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const deliveryMode = searchParams.get('mode') === 'merchant-pickup' ? 'merchant-pickup' : 'parcel';
+  const isMerchantPickup = deliveryMode === 'merchant-pickup';
+  const draftKey = `${P2P_DRAFT_KEY}_${deliveryMode}`;
   const { isAuthenticated } = useAuthStore();
-  const [step, setStep] = useState(1);
-  const [pickup, setPickup] = useState(emptyLocation);
-  const [dropoff, setDropoff] = useState(emptyLocation);
-  const [packageInfo, setPackageInfo] = useState(emptyPackage);
+  const [draft] = useState(() => readDraft(draftKey));
+  const [step, setStep] = useState(draft.step);
+  const [pickup, setPickup] = useState(draft.pickup);
+  const [dropoff, setDropoff] = useState(draft.dropoff);
+  const [packageInfo, setPackageInfo] = useState(draft.packageInfo);
+  const [guestEmail, setGuestEmail] = useState(draft.guestEmail || '');
+  const [guestPhone, setGuestPhone] = useState(draft.guestPhone);
+  const checkoutAttempt = useRef(draft.checkoutAttempt);
+  const payerContact = isMerchantPickup ? dropoff : pickup;
+  const payerPhone = guestPhone ?? payerContact.contactPhone;
   const [submitting, setSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(null);
 
-  // Restaure le brouillon après la redirection vers la page de connexion
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(P2P_DRAFT_KEY);
-      if (!raw) return;
-      const draft = JSON.parse(raw);
-      if (draft && draft.pickup?.address && draft.dropoff?.address && draft.packageInfo?.description) {
-        setPickup(draft.pickup);
-        setDropoff(draft.dropoff);
-        setPackageInfo(draft.packageInfo);
-        setStep(draft.step || 1);
-      }
+      sessionStorage.setItem(draftKey, JSON.stringify({ step, pickup, dropoff, packageInfo, guestEmail, guestPhone, checkoutAttempt: checkoutAttempt.current }));
     } catch {
-      /* ignore un brouillon corrompu */
+      /* Le formulaire fonctionne aussi sans stockage local. */
     }
-  }, []);
+  }, [draftKey, step, pickup, dropoff, packageInfo, guestEmail, guestPhone]);
 
-  // Estimation client-side du prix P2P (Haversine + formule backend)
+
+  const hasPickupPoint = hasDeliveryPoint(pickup);
+  const hasDropoffPoint = hasDeliveryPoint(dropoff);
+  const missingPointStep = !hasPickupPoint ? 1 : !hasDropoffPoint ? 2 : null;
   const priceEstimate = useMemo(
-    () =>
-      estimateP2PPrice(pickup, dropoff, packageInfo.isFragile, packageInfo.weight),
-    [pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, packageInfo.isFragile, packageInfo.weight],
+    () => missingPointStep ? null : estimateP2PPrice(pickup, dropoff, packageInfo.isFragile, packageInfo.weight),
+    [missingPointStep, pickup.latitude, pickup.longitude, dropoff.latitude, dropoff.longitude, packageInfo.isFragile, packageInfo.weight],
   );
 
   const updateLocation = (setter, field, value) =>
-    setter((prev) => ({ ...prev, [field]: value }));
+    setter((prev) => ({
+      ...prev,
+      [field]: value,
+      locationSource: field === 'address' && prev.address.trim() && prev.address.trim() !== value.trim()
+        ? 'approximate'
+        : prev.locationSource,
+    }));
+
+  const selectPoint = (setter, { lat, lng }) =>
+    setter((prev) => ({ ...prev, latitude: lat, longitude: lng, locationSource: 'map' }));
+
+  const applySavedAddress = (setter, saved) => {
+    const hasPoint = saved.latitude != null && saved.longitude != null
+      && Number.isFinite(Number(saved.latitude)) && Number.isFinite(Number(saved.longitude));
+    setter((prev) => ({
+      ...prev,
+      address: saved.address,
+      latitude: hasPoint ? Number(saved.latitude) : emptyLocation.latitude,
+      longitude: hasPoint ? Number(saved.longitude) : emptyLocation.longitude,
+      locationSource: hasPoint ? 'map' : emptyLocation.locationSource,
+    }));
+  };
 
   const updatePackage = (field, value) =>
     setPackageInfo((prev) => ({ ...prev, [field]: value }));
-
-  // Récupère la position GPS du navigateur et remplit le lieu concerné
-  const handleUseCurrentLocation = (setter) => {
-    if (!navigator.geolocation) {
-      toast.error('Géolocalisation non disponible sur cet appareil');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setter((prev) => ({
-          ...prev,
-          address: 'Position actuelle (GPS)',
-          latitude: Number(position.coords.latitude.toFixed(6)),
-          longitude: Number(position.coords.longitude.toFixed(6)),
-        }));
-      },
-      () => toast.error('Impossible de récupérer votre position')
-    );
-  };
 
   const isStepValid = (current) => {
     if (current === 1) {
       const hasCoords = pickup.latitude != null && pickup.longitude != null &&
         !isNaN(Number(pickup.latitude)) && !isNaN(Number(pickup.longitude));
+      const hasPickupReference = !isMerchantPickup || pickup.instructions.trim();
       return (
         pickup.address.trim() &&
         pickup.contactName.trim() &&
         pickup.contactPhone.trim() &&
         !!formatBurkinaPhone(pickup.contactPhone) &&
-        hasCoords
+        hasCoords &&
+        hasPickupReference
       );
     }
     if (current === 2) {
@@ -106,18 +150,36 @@ const P2PDelivery = () => {
     return packageInfo.description.trim() && packageInfo.estimatedAmount.trim();
   };
 
+  const goToStep = (nextStep) => {
+    setStep(nextStep);
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  };
+
   const handleNext = () => {
     setError('');
     if (!isStepValid(step)) {
       setError('Veuillez remplir tous les champs obligatoires de cette étape.');
       return;
     }
-    setStep((prev) => Math.min(prev + 1, 3));
+    if (step === 1 && !hasPickupPoint) {
+      setError('Confirmez le point de ramassage sur la carte pour continuer.');
+      return;
+    }
+    if (step === 2 && !hasDropoffPoint) {
+      setError('Confirmez le point de remise sur la carte pour continuer.');
+      return;
+    }
+    goToStep(Math.min(step + 1, 3));
   };
 
   const handleBack = () => {
     setError('');
-    setStep((prev) => Math.max(prev - 1, 1));
+    goToStep(Math.max(step - 1, 1));
+  };
+
+  const showMissingPoint = () => {
+    setError(missingPointStep === 1 ? 'Placez le point de départ sur la carte.' : 'Placez le point de remise sur la carte.');
+    goToStep(missingPointStep);
   };
 
   const buildPayload = () => ({
@@ -156,255 +218,204 @@ const P2PDelivery = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submissionInFlight.current) return;
+    if (step < 3) {
+      handleNext();
+      return;
+    }
     setError('');
+    if (missingPointStep) {
+      showMissingPoint();
+      return;
+    }
     if (!isStepValid(3)) {
       setError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
 
-    // Brouillon conservé systématiquement : si le token expire au moment de la
-    // soumission (401 → éjection par apiFetch), la saisie est récupérée au retour.
-    try {
-      sessionStorage.setItem(P2P_DRAFT_KEY, JSON.stringify({ step, pickup, dropoff, packageInfo }));
-    } catch { /* stockage indisponible, on continue */ }
-
-    // 🛡️ Service protégé : un visiteur non connecté doit se connecter
-    // avant de pouvoir activer/confirmer sa course. Le formulaire est
-    // conservé en brouillon pour être repris après connexion.
-    if (!isAuthenticated) {
-      toast.info('Connectez-vous pour confirmer votre course.');
-      navigate('/auth', { state: { from: '/p2p-delivery' } });
+    const phone = formatBurkinaPhone(payerPhone);
+    if (!isAuthenticated && (!guestEmail.trim() || !phone)) {
+      setError('Renseignez votre e-mail et un numéro burkinabè valide pour payer sans compte.');
       return;
     }
 
+    submissionInFlight.current = true;
     setSubmitting(true);
     try {
-      const response = await api.createOrder(buildPayload());
-      // Pour P2P_DELIVERY et RIDE, le backend retourne { order, checkoutUrl }.
-      // Rediriger vers SasPay pour le paiement.
-      if (response?.checkoutUrl) {
-        sessionStorage.removeItem(P2P_DRAFT_KEY);
-        window.location.href = response.checkoutUrl;
-        return;
+      const payload = buildPayload();
+      let response;
+      if (isAuthenticated) {
+        response = await api.createOrder(payload);
+      } else {
+        const { pickupLocation, dropoffLocation, packageDetails } = payload;
+        const guest = { pickupLocation, dropoffLocation, packageDetails, email: guestEmail.trim(), phone, name: payerContact.contactName.trim() };
+        const snapshot = JSON.stringify(guest);
+        if (checkoutAttempt.current?.snapshot !== snapshot) {
+          const bytes = crypto.getRandomValues(new Uint8Array(32));
+          const key = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+          checkoutAttempt.current = { key, snapshot };
+        }
+        try {
+          sessionStorage.setItem(draftKey, JSON.stringify({
+            step, pickup, dropoff, packageInfo, guestEmail, guestPhone, checkoutAttempt: checkoutAttempt.current,
+          }));
+        } catch {
+          /* Le paiement reste possible dans la session courante. */
+        }
+        response = await api.createGuestDelivery({ ...guest, checkoutKey: checkoutAttempt.current.key });
       }
-      // Pas d'URL de checkout : confirmation via le téléphone du client + webhook.
-      sessionStorage.removeItem(P2P_DRAFT_KEY);
+
       const orderId = response?.order?.id || response?.orderId;
-      if (orderId) {
-        window.location.href = `/order-tracking?orderId=${orderId}&pending=1`;
+      if (!orderId) throw new Error('La course n’a pas pu être enregistrée.');
+      try {
+        if (response.trackingToken) sessionStorage.setItem('fasofree_tracking_token', response.trackingToken);
+        if (isAuthenticated) sessionStorage.removeItem(draftKey);
+        else sessionStorage.setItem(`koliwa_checkout_${orderId}`, draftKey);
+      } catch {
+        /* Le lien de retour du paiement contient les informations de suivi. */
+      }
+
+      if (response.checkoutUrl) {
+        window.location.assign(response.checkoutUrl);
         return;
       }
-      throw new Error('URL de paiement indisponible');
+      const query = new URLSearchParams({ orderId });
+      if (response.trackingToken) query.set('trackingToken', response.trackingToken);
+      const reference = response.trackingReference || response.order?.trackingReference;
+      if (reference) query.set('reference', reference);
+      navigate(`/p2p/success?${query}`, { replace: true });
     } catch (err) {
-      setError(
-        err?.message ||
-          'Impossible de soumettre votre course. Vérifiez que vous êtes connecté et réessayez.'
-      );
+      if (!isAuthenticated && err?.status === 410) {
+        checkoutAttempt.current = null;
+        try {
+          sessionStorage.setItem(draftKey, JSON.stringify({ step, pickup, dropoff, packageInfo, guestEmail, guestPhone }));
+        } catch {
+          /* Le brouillon reste disponible à l’écran. */
+        }
+      }
+      setError(checkoutErrorMessage(err));
     } finally {
+      submissionInFlight.current = false;
       setSubmitting(false);
     }
   };
 
-  const resetForm = () => {
-    setSuccess(null);
-    setPickup(emptyLocation);
-    setDropoff(emptyLocation);
-    setPackageInfo(emptyPackage);
-    setStep(1);
-    try { sessionStorage.removeItem(P2P_DRAFT_KEY); } catch { /* RAS */ }
-  };
-
-  // ─── Écran de confirmation ───────────────────────────────────────────
-  if (success) {
-    return <SuccessScreen orderRef={success.id} onReset={resetForm} />;
-  }
-
-  // ─── Formulaire en 3 étapes ──────────────────────────────────────────
   return (
-    <div className="app-page text-text-primary font-sans">
-      <header className="app-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-background-secondary transition-colors"
-              aria-label="Retour"
-            >
-              <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
-            </button>
-            <div>
-              <h1 className="text-lg font-display font-bold text-text-primary">Envoyer un colis</h1>
-              <p className="text-xs text-text-secondary">Course à la demande · Point A vers Point B</p>
-            </div>
+    <div className="app-page p2p-page">
+      <div className="client-screen-frame">
+        <header className="shipment-heading">
+          <div className="shipment-title">
+            <span className="shipment-heading-glyph">
+              <DeliveryGlyph kind={isMerchantPickup ? 'pickup' : 'parcel'} />
+            </span>
+            <h1>{isMerchantPickup ? 'Faire récupérer un colis' : 'Envoyer un colis'}</h1>
           </div>
-        </div>
-      </header>
+          <nav className="p2p-mode-switch" aria-label="Service de livraison">
+            {DELIVERY_SERVICES.map(({ kind, title, to }) => (
+              <Link key={kind} to={to} aria-current={(kind === 'pickup') === isMerchantPickup ? 'page' : undefined}>
+                <DeliveryGlyph kind={kind} /> {title}
+              </Link>
+            ))}
+          </nav>
+        </header>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Indicateur d'étapes */}
-        <ol className="mb-8 flex items-center gap-2">
-          {STEPS.map((s, i) => {
-            const isActive = step === s.id;
-            const isDone = step > s.id;
-            return (
-              <React.Fragment key={s.id}>
-                {i > 0 && (
-                  <li aria-hidden="true" className="h-px flex-1 bg-border-light" />
-                )}
-                <li
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? 'border-accent-primary bg-accent-primary/10 text-accent-primary'
-                      : isDone
-                      ? 'border-status-success/30 bg-status-success/10 text-status-success'
-                      : 'border-border-light bg-background-card text-text-secondary'
-                  }`}
-                >
-                  <span>{isDone ? <Check size={14} /> : s.icon ? <s.icon size={14} /> : s.id}</span>
-                  <span className="hidden sm:inline">{s.label}</span>
-                </li>
-              </React.Fragment>
-            );
-          })}
+        <ol className="p2p-steps" aria-label="Étapes de la demande">
+          {STEPS.map(({ id, label }) => (
+            <li key={id} className="p2p-step" aria-current={step === id ? 'step' : undefined} data-complete={step > id}>
+              <span className="p2p-step-number" aria-hidden={step > id}>{step > id ? <Check size={13} /> : id}</span>
+              <span>{label}</span>
+            </li>
+          ))}
         </ol>
 
-        <form onSubmit={handleSubmit}>
-          {/* ─── ÉTAPE 1 : RAMASSAGE ─── */}
-          {step === 1 && (
-            <LocationStep
-              title="Adresse de ramassage"
-              contactLabel="Nom du contact"
-              phoneLabel="Téléphone du contact"
-              value={pickup}
-              onUpdate={(field, value) => updateLocation(setPickup, field, value)}
-              onUseCurrentLocation={() => handleUseCurrentLocation(setPickup)}
-            />
-          )}
+        <form onSubmit={handleSubmit} className="p2p-form">
+          <div className="p2p-step-fields">
+            {step === 1 && (
+              <LocationStep
+                title={isMerchantPickup ? 'Point de retrait' : 'Point de ramassage'}
+                contactLabel={isMerchantPickup ? 'Nom du commerçant' : 'Nom du contact'}
+                phoneLabel={isMerchantPickup ? 'Téléphone du commerce' : 'Téléphone du contact'}
+                value={pickup}
+                onUpdate={(field, value) => updateLocation(setPickup, field, value)}
+                allowCurrentLocation={!isMerchantPickup}
+                onSelectPoint={(point) => selectPoint(setPickup, point)}
+                onSavedAddress={(address) => applySavedAddress(setPickup, address)}
+                isMerchantPickup={isMerchantPickup}
+              />
+            )}
+            {step === 2 && (
+              <LocationStep
+                title="Point de remise"
+                contactLabel="Nom du destinataire"
+                phoneLabel="Téléphone du destinataire"
+                value={dropoff}
+                onUpdate={(field, value) => updateLocation(setDropoff, field, value)}
+                onSelectPoint={(point) => selectPoint(setDropoff, point)}
+                onSavedAddress={(address) => applySavedAddress(setDropoff, address)}
+              />
+            )}
+            {step === 3 && <PackageStep value={packageInfo} onUpdate={updatePackage} />}
+          </div>
 
-          {/* ─── ÉTAPE 2 : LIVRAISON ─── */}
-          {step === 2 && (
-            <LocationStep
-              title="Adresse de livraison"
-              contactLabel="Nom du destinataire"
-              phoneLabel="Téléphone du destinataire"
-              value={dropoff}
-              onUpdate={(field, value) => updateLocation(setDropoff, field, value)}
-              onUseCurrentLocation={() => handleUseCurrentLocation(setDropoff)}
-            />
-          )}
+          <DeliveryTicket pickup={pickup} dropoff={dropoff} estimate={priceEstimate} showPrice={step === 3} />
 
-          {/* ─── ÉTAPE 3 : COLIS & CONTACT ─── */}
-          {step === 3 && (
-            <PackageStep value={packageInfo} onUpdate={updatePackage} />
-          )}
-
-          {/* ─── ESTIMATION PRIX (affichée à partir de l'étape 3) ─── */}
-          {step === 3 && priceEstimate && (
-            <div className="app-panel rounded-lg p-5 mb-6 border border-accent-primary/20 bg-accent-primary/5 fade-in">
-              <div className="flex items-center gap-2 mb-3">
-                <Info size={15} className="text-accent-primary" />
-                <h3 className="text-sm font-semibold text-text-primary">Estimation du tarif</h3>
+          {step === 3 && !isAuthenticated && (
+            <section className="app-panel p2p-payment-panel" aria-labelledby="guest-payment-title">
+              <div className="p2p-payment-heading">
+                <LockKeyhole size={19} aria-hidden="true" />
+                <h2 id="guest-payment-title">Payer sans compte</h2>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div>
-                  <span className="text-text-tertiary">Distance</span>
-                  <p className="font-semibold text-text-primary">{priceEstimate.distance} km</p>
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Frais de livraison</span>
-                  <p className="font-semibold text-accent-primary text-base">
-                    {priceEstimate.price.toLocaleString('fr-FR')} FCFA
-                  </p>
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Base</span>
-                  <p className="text-text-secondary">{priceEstimate.breakdown.basePrice} FCFA</p>
-                </div>
-                <div>
-                  <span className="text-text-tertiary">Distance ({priceEstimate.distance} km)</span>
-                  <p className="text-text-secondary">{priceEstimate.breakdown.distancePrice} FCFA</p>
-                </div>
-                {priceEstimate.breakdown.fragileSurcharge > 0 && (
-                  <div>
-                    <span className="text-text-tertiary">Surcoût fragile</span>
-                    <p className="text-text-secondary">{priceEstimate.breakdown.fragileSurcharge} FCFA</p>
-                  </div>
-                )}
-                {priceEstimate.breakdown.weightSurcharge > 0 && (
-                  <div>
-                    <span className="text-text-tertiary">Surcoût poids</span>
-                    <p className="text-text-secondary">{priceEstimate.breakdown.weightSurcharge} FCFA</p>
-                  </div>
-                )}
+              <p>Indiquez l’e-mail et le numéro de la personne qui paie la livraison.</p>
+              <div className="p2p-fields">
+                <label>
+                  <span>Adresse e-mail</span>
+                  <input type="email" className="app-input" required maxLength={254} autoComplete="email" value={guestEmail} onChange={event => setGuestEmail(event.target.value)} />
+                </label>
+                <label>
+                  <span>Téléphone du payeur</span>
+                  <input type="tel" className="app-input" required maxLength={14} autoComplete="tel" value={payerPhone} onChange={event => setGuestPhone(event.target.value)} />
+                </label>
               </div>
-              <p className="mt-3 text-[11px] text-text-tertiary">
-                Le montant final est calculé côté serveur et peut varier légèrement. Frais de service : 100 FCFA.
-              </p>
-            </div>
+            </section>
           )}
 
-          {step === 3 && !priceEstimate && (
-            <div className="mb-6 p-4 rounded-lg border border-status-warning/30 bg-status-warning/10 text-xs text-status-warning">
-              Renseignez les adresses aux étapes 1 et 2 pour obtenir une estimation du tarif.
-            </div>
-          )}
-
-          {/* Erreur éventuelle */}
-          {error && (
-            <div className="mb-6 flex items-start gap-3 rounded-md border border-status-error/30 bg-status-error/10 px-4 py-3 text-sm text-status-error">
-              <AlertCircle size={18} className="mt-0.5 shrink-0" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Navigation des étapes */}
-          <div className="flex items-center justify-between gap-4">
-            {step > 1 ? (
-              <button
-                type="button"
-                className="app-action-secondary"
-                onClick={handleBack}
-              >
-                <ArrowLeft size={16} /> Précédent
-              </button>
-            ) : (
-              <span />
+          <div className="p2p-form-bottom">
+            {error && (
+              <div className="p2p-form-error" role="alert">
+                <AlertCircle size={18} aria-hidden="true" />
+                <p>{error}</p>
+              </div>
             )}
 
-            {step < 3 ? (
-              <button
-                type="button"
-                className="app-action gap-2"
-                onClick={handleNext}
-              >
-                Continuer <ArrowRight size={16} />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="app-action gap-2"
-                disabled={submitting}
-              >
-                {submitting ? 'Envoi en cours...' : (
-                  <>
-                    <Boxes size={16} /> Confirmer la course
-                  </>
-                )}
-              </button>
-            )}
+            <div className="p2p-step-actions">
+              {step > 1 && (
+                <button type="button" className="app-action-secondary" onClick={handleBack} disabled={submitting}>
+                  <ArrowLeft size={16} aria-hidden="true" /> Précédent
+                </button>
+              )}
+              {step < 3 ? (
+                <button type="button" className="app-action" onClick={handleNext}>
+                  Continuer <ArrowRight size={17} aria-hidden="true" />
+                </button>
+              ) : missingPointStep ? (
+                <button type="button" className="app-action" onClick={showMissingPoint}>
+                  Placer le point {missingPointStep === 1 ? 'de départ' : 'de remise'} <ArrowRight size={17} aria-hidden="true" />
+                </button>
+              ) : (
+                <button type="submit" className="app-action" disabled={submitting}>
+                  {submitting ? 'Préparation du paiement…' : (
+                    <>{isAuthenticated ? 'Confirmer la course' : 'Passer au paiement'} <ArrowRight size={17} aria-hidden="true" /></>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </form>
-
-        <p className="mt-8 flex items-start gap-2 text-xs leading-5 text-text-tertiary">
-          <AlertCircle size={14} className="mt-0.5 shrink-0" />
-          Un livreur vérifié sera assigné automatiquement. Le paiement s'effectuera à la
-          confirmation de la course. Les champs marqués d'une * sont obligatoires.
-        </p>
       </div>
-
       <Footer />
     </div>
   );
 };
+
 
 export default P2PDelivery;

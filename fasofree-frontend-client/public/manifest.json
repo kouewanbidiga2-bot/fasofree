@@ -1,11 +1,11 @@
 {
-  "name": "FasoFree — Commandes & Livraison",
-  "short_name": "FasoFree",
-  "description": "Commandez vos plats préférés et faites livrer à Ouagadougou.",
+  "name": "Koliwa — Livraison de colis",
+  "short_name": "Koliwa",
+  "description": "Envoyez et suivez vos livraisons à Ouagadougou.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FBF8F3",
-  "theme_color": "#C1652E",
+  "background_color": "#d7f36b",
+  "theme_color": "#f4f2e6",
   "orientation": "portrait-primary",
   "icons": [
     {

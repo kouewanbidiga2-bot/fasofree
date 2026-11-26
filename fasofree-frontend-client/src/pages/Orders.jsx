@@ -3,169 +3,140 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Package, Clock, Calendar, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronRight, Plus } from 'lucide-react';
+import DeliveryGlyph from '../components/DeliveryGlyph';
 import Footer from '../components/Footer';
+import TrackingModeNav from '../components/TrackingModeNav';
+import Skeleton from '../components/ui/Skeleton';
 import { api } from '../services/api';
 import useAuthStore from '../store/authStore';
-import Skeleton from '../components/ui/Skeleton';
-import CallSupportButton from '../components/CallSupportButton';
+import { formatTrackingReference } from '../utils/trackingReference';
 
-const STATUS_CONFIG = {
-  PENDING: { label: 'En attente', color: 'text-amber-600', bg: 'bg-amber-50', icon: Clock },
-  SCHEDULED: { label: 'Programmée', color: 'text-teal-600', bg: 'bg-teal-50', icon: Calendar },
-  PAID: { label: 'Payée', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: CheckCircle },
-  IN_PREPARATION: { label: 'En préparation', color: 'text-orange-600', bg: 'bg-orange-50', icon: Package },
-  READY_FOR_PICKUP: { label: 'Prête', color: 'text-teal-600', bg: 'bg-teal-50', icon: CheckCircle },
-  DRIVER_ASSIGNED: { label: 'Livreur en chemin', color: 'text-indigo-600', bg: 'bg-indigo-50', icon: Package },
-  IN_DELIVERY: { label: 'En livraison', color: 'text-purple-600', bg: 'bg-purple-50', icon: Package },
-  PROCESSING: { label: 'En livraison', color: 'text-purple-600', bg: 'bg-purple-50', icon: Package },
-  READY: { label: 'Prête', color: 'text-teal-600', bg: 'bg-teal-50', icon: CheckCircle },
-  DELIVERED_PENDING_CONFIRMATION: { label: 'Arrivée', color: 'text-blue-600', bg: 'bg-blue-50', icon: CheckCircle },
-  DELIVERED: { label: 'Livrée', color: 'text-green-600', bg: 'bg-green-50', icon: CheckCircle },
-  COMPLETED: { label: 'Terminée', color: 'text-green-700', bg: 'bg-green-50', icon: CheckCircle },
-  CANCELLED: { label: 'Annulée', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
-  FAILED: { label: 'Échouée', color: 'text-red-600', bg: 'bg-red-50', icon: XCircle },
+const STATUS_LABELS = {
+  PENDING: 'En attente',
+  AWAITING_PAYMENT: 'Paiement en attente',
+  SCHEDULED: 'Programmée',
+  PAID: 'Paiement confirmé',
+  IN_PREPARATION: 'En attente de récupération',
+  READY_FOR_PICKUP: 'À récupérer',
+  DRIVER_ASSIGNED: 'Livreur assigné',
+  IN_DELIVERY: 'En livraison',
+  PROCESSING: 'En livraison',
+  READY: 'Prête',
+  DELIVERED_PENDING_CONFIRMATION: 'Arrivée, réception à confirmer',
+  DELIVERED: 'Livrée',
+  COMPLETED: 'Terminée',
+  CANCELLED: 'Annulée',
+  FAILED: 'Échouée',
+  REFUNDED: 'Remboursée',
+  DISPUTED: 'En cours de réclamation',
 };
 
-const Orders = () => {
-  const navigate = useNavigate();
-  const { user } = useAuthStore();
+const FILTERS = ['PENDING', 'PAID', 'IN_PREPARATION', 'PROCESSING', 'DELIVERED', 'COMPLETED', 'CANCELLED'];
+const DELIVERY_DATE = new Intl.DateTimeFormat('fr-BF', { day: 'numeric', month: 'short', year: 'numeric' });
+const DELIVERY_PRICE = new Intl.NumberFormat('fr-BF', { maximumFractionDigits: 0 });
+
+export default function Orders() {
+  const filterId = useId();
+  const userId = useAuthStore((state) => state.user?.id);
   const [filter, setFilter] = useState('all');
 
-  // Cache TanStack Query : la page « Mes Commandes » s'affiche instantanément
-  // au retour arrière (données en cache) puis se resynchronise en arrière-plan.
-  // La queryKey inclut l'id utilisateur : jamais de commandes d'un autre compte
-  // dans le cache (le store purge aussi tout le cache au login/logout).
-  const {
-    data: orders = [],
-    isLoading,
-    isError,
-    isFetching,
-    refetch,
-  } = useQuery({
-    // Le filtre entre dans la clé : chaque pastille déclenche sa propre
-    // requête (?status=…). Sans statut, le serveur masque les commandes
-    // non payées/échouées — les « commandes fantômes » n'apparaissent plus
-    // dans « Toutes ».
-    queryKey: ['orders', 'my', user?.id || null, filter],
+  const { data: orders = [], isLoading, isError, isFetching, refetch } = useQuery({
+    queryKey: ['orders', 'my', userId || null, filter],
     queryFn: async () => {
-      const res = await api.getMyOrders(filter === 'all' ? undefined : filter);
-      return res.data || res;
+      const response = await api.getMyOrders(filter === 'all' ? undefined : filter);
+      return response.data || response;
     },
-    staleTime: 15_000, // commandes fraîches 15 s (statut suivi par push/realtime)
+    staleTime: 15_000,
   });
 
-  // Spinner visible UNIQUEMENT au 1er chargement ou sur « Réessayer » — jamais
-  // lors d'une resync d'arrière-plan (les cartes restent affichées).
   const loading = isLoading || (isError && isFetching);
-  const error = isError ? 'Impossible de charger vos commandes' : null;
-
-  const filteredOrders = orders.filter((o) => filter === 'all' || o.status === filter);
-
-  const filters = [
-    { value: 'all', label: 'Toutes' },
-    { value: 'PENDING', label: 'En attente' },
-    { value: 'PAID', label: 'Payées' },
-    { value: 'IN_PREPARATION', label: 'En préparation' },
-    { value: 'PROCESSING', label: 'En livraison' },
-    { value: 'DELIVERED', label: 'Livrées' },
-    { value: 'COMPLETED', label: 'Terminées' },
-    { value: 'CANCELLED', label: 'Annulées' },
-  ];
+  const filteredOrders = orders.filter((order) => filter === 'all' || order.status === filter);
 
   return (
-    <div className="min-h-screen bg-background-primary font-sans">
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <h1 className="text-2xl font-semibold text-text-primary">Mes Commandes</h1>
-          <CallSupportButton variant="outline" label="Aide · Appeler" />
-        </div>
+    <div className="app-page orders-page">
+      <div className="client-screen-frame">
+        <header className="client-screen-heading">
+          <div className="client-screen-title">
+            <span><DeliveryGlyph kind="history" /></span>
+            <h1>Mes livraisons</h1>
+          </div>
+          <Link to="/p2p-delivery" className="app-action"><Plus size={17} aria-hidden="true" /> Nouvel envoi</Link>
+        </header>
 
-        <div className="flex flex-wrap gap-2 mb-6">
-          {filters.map((s) => (
-            <button
-              key={s.value}
-              onClick={() => setFilter(s.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition active:scale-[0.98] ${
-                filter === s.value
-                  ? 'bg-accent-primary text-white'
-                  : 'bg-background-card text-text-secondary border border-border-light hover:border-accent-primary'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
+        <div className="orders-toolbar">
+          <TrackingModeNav />
+          <div className="orders-filter">
+            <label htmlFor={filterId}>Statut</label>
+            <select id={filterId} value={filter} onChange={(event) => setFilter(event.target.value)}>
+              <option value="all">Toutes les livraisons</option>
+              {FILTERS.map((status) => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+            </select>
+          </div>
         </div>
 
         {loading ? (
-          // Squelette aux dimensions EXACTES des cartes de commande (cercle
-          // d'icône w-10 h-10 + libellés + montant) : la liste apparaît sans
-          // saut de mise en page, plus de texte « Chargement… » isolé.
-          <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 bg-background-card rounded-xl border border-border-light p-4">
-                <Skeleton className="w-10 h-10 rounded-full shrink-0" />
-                <div className="flex-1 min-w-0 space-y-2">
-                  <Skeleton className="h-4 rounded w-2/5" />
-                  <Skeleton className="h-3 rounded w-1/3" />
-                </div>
-                <Skeleton className="h-4 rounded w-16 shrink-0" />
+          <div className="orders-list" aria-label="Chargement des livraisons" aria-busy="true">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div key={index} className="orders-card">
+                <Skeleton className="h-3 w-24 rounded" />
+                <Skeleton className="h-5 w-3/5 rounded" />
+                <Skeleton className="h-3 w-40 rounded" />
               </div>
             ))}
           </div>
-        ) : error ? (
-          <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">
-            <p className="text-text-secondary mb-4">{error}</p>
-            <button onClick={refetch} className="px-6 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium transition active:scale-[0.98]">Reessayer</button>
-          </div>
+        ) : isError ? (
+          <section className="orders-empty">
+            <p role="alert">Impossible de charger vos livraisons.</p>
+            <button type="button" onClick={() => refetch()} className="app-action">Réessayer</button>
+          </section>
         ) : filteredOrders.length === 0 ? (
-          <div className="text-center py-12 bg-background-card rounded-xl border border-border-light">
-            <Package size={48} className="mx-auto text-text-secondary mb-4" />
-            <p className="text-text-secondary text-lg mb-2">
-              {filter === 'all' ? "Aucune commande pour le moment" : `Aucune commande ${filter.toLowerCase()}`}
-            </p>
-            <Link to="/" className="inline-block px-6 py-2 bg-[#C1652E] text-white rounded-lg text-sm font-medium mt-2">
-              Commander
-            </Link>
-          </div>
+          <section className="orders-empty">
+            <DeliveryGlyph kind="parcel" />
+            <h2>{filter === 'all' ? 'Vous n’avez pas encore de livraison' : 'Aucune livraison avec ce statut'}</h2>
+            {filter === 'all' ? (
+              <Link to="/p2p-delivery" className="orders-empty-link">Envoyer un colis <ArrowRight size={16} aria-hidden="true" /></Link>
+            ) : (
+              <button type="button" onClick={() => setFilter('all')} className="orders-empty-link">Voir toutes les livraisons <ArrowRight size={16} aria-hidden="true" /></button>
+            )}
+          </section>
         ) : (
-          <div className="space-y-3 animate-fade-in">
+          <ul className="orders-list">
             {filteredOrders.map((order) => {
-              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
-              const Icon = cfg.icon;
+              const createdAt = new Date(order.createdAt);
+              const destination = order.dropoffLocation || order.deliveryLocation;
+              const price = order.totalAmount ?? order.total;
+              const finalStatus = ['DELIVERED', 'COMPLETED'].includes(order.status);
+              const problemStatus = ['CANCELLED', 'FAILED', 'DISPUTED'].includes(order.status);
               return (
-                <button
-                  key={order.id}
-                  onClick={() => navigate('/order-tracking', { state: { orderId: order.id } })}
-                  className="w-full flex items-center gap-4 bg-background-card rounded-xl border border-border-light p-4 text-left hover:border-accent-primary transition active:scale-[0.98]"
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${cfg.bg}`}>
-                    <Icon size={18} className={cfg.color} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-text-primary truncate">
-                      Commande #{order.id?.slice(0, 8)}
-                    </p>
-                    <p className="text-xs text-text-secondary mt-0.5">
-                      {cfg.label} &middot; {new Date(order.createdAt).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-[#2D2A26]">{order.totalAmount?.toLocaleString()} F</p>
-                  </div>
-                  <ChevronRight size={16} className="text-[#C4B8AA]" />
-                </button>
+                <li key={order.id}>
+                  <Link to="/order-tracking" state={{ orderId: order.id }} className="orders-card">
+                    <div className="orders-card-top">
+                      {!Number.isNaN(createdAt.getTime()) && <time dateTime={createdAt.toISOString()}>{DELIVERY_DATE.format(createdAt)}</time>}
+                      <span className="orders-status" data-tone={finalStatus ? 'done' : problemStatus ? 'issue' : 'active'}>{STATUS_LABELS[order.status] || 'Livraison'}</span>
+                    </div>
+                    {(order.pickupLocation?.address || destination?.address) && (
+                      <div className="orders-route">
+                        <span>{order.pickupLocation?.address || 'Point de récupération'}</span>
+                        <span>{destination?.address || 'Destination'}</span>
+                      </div>
+                    )}
+                    <div className="orders-card-bottom">
+                      <span className="orders-reference">{formatTrackingReference(order.trackingReference) || `Livraison #${order.id?.slice(0, 8)}`}</span>
+                      {price != null && Number.isFinite(Number(price)) && <strong>{DELIVERY_PRICE.format(Number(price))} F CFA</strong>}
+                      <ChevronRight size={17} aria-hidden="true" />
+                    </div>
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </div>
       <Footer />
     </div>
   );
-};
-
-export default Orders;
+}

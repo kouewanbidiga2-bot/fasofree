@@ -1,0 +1,89 @@
+.koliwa-loading {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: #d7f36b;
+  color: #1b2110;
+  color-scheme: light;
+  font: 600 0.86rem/1.35 system-ui, sans-serif;
+}
+#koliwa-boot { position: fixed; z-index: 80; inset: 0; }
+.koliwa-loading-stage {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  width: min(100%, 43rem);
+}
+.koliwa-loading-title {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 0.5rem;
+  transform: skewX(-9deg) rotate(-7deg);
+}
+.koliwa-loading-title img {
+  display: block;
+  width: clamp(12.8rem, 67vw, 29rem);
+  filter: drop-shadow(0.19rem 0.15rem 0 #a9bf51);
+  height: auto;
+}
+.koliwa-loading-title::before {
+  position: absolute;
+  inset: auto 98% 18% auto;
+  width: clamp(1.3rem, 7vw, 4.4rem);
+  height: 0.25rem;
+  border-radius: 999px;
+  background: #718738;
+  box-shadow: -0.85rem -0.58rem 0 -1px #9ab144, 0.43rem 0.57rem 0 -1px #9ab144;
+  content: '';
+}
+.koliwa-loading-scene {
+  position: relative;
+  width: min(100vw, 43rem);
+  height: clamp(9.6rem, 39vw, 16.4rem);
+  overflow: hidden;
+}
+.koliwa-loading-scene::before {
+  position: absolute;
+  inset: auto -12% 1.25rem;
+  height: clamp(2.45rem, 9vw, 4.7rem);
+  border-radius: 55% 43% 48% 36%;
+  background: #bfd65f;
+  transform: rotate(-7deg);
+  content: '';
+}
+.koliwa-loading-track {
+  position: absolute;
+  inset: 0;
+  transform: translate(38%, 0);
+}
+.koliwa-loading-track img {
+  position: absolute;
+  left: 0;
+  bottom: 0.85rem;
+  width: clamp(9.6rem, 45vw, 18.5rem);
+  height: auto;
+  transform: rotate(-5deg);
+}
+.koliwa-loading-status {
+  margin: 0.95rem 0 0;
+  padding-block: 0.42rem;
+  letter-spacing: 0.01em;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .koliwa-loading-title { animation: koliwa-loading-title-in 460ms cubic-bezier(.2,.72,.3,1) both; }
+  .koliwa-loading-track { animation: koliwa-loading-courier 2s linear infinite; }
+  @keyframes koliwa-loading-title-in {
+    from { opacity: 0.32; transform: translateX(-12%) skewX(-15deg) rotate(-7deg); }
+    to { opacity: 1; transform: translateX(0) skewX(-9deg) rotate(-7deg); }
+  }
+  @keyframes koliwa-loading-courier {
+    0% { opacity: 0; transform: translate(-27%, 12%); }
+    16% { opacity: 1; }
+    78% { opacity: 1; }
+    100% { opacity: 0; transform: translate(93%, -12%); }
+  }
+}

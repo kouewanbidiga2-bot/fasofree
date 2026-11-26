@@ -23,7 +23,7 @@ import { api } from '../services/api';
 import useAuthStore from '../store/authStore';
 
 const RIDE_OPTIONS = [
-  { key: 'ECONOMY', label: 'Économique', desc: 'Moto standard', icon: Bike, multiplier: '1×', color: '#C1652E' },
+  { key: 'ECONOMY', label: 'Économique', desc: 'Moto standard', icon: Bike, multiplier: '1×', color: '#7f9425' },
   { key: 'COMFORT', label: 'Confort', desc: 'Moto premium', icon: Snowflake, multiplier: '1.4×', color: '#2563EB' },
   { key: 'PREMIUM', label: 'Premium', desc: 'VTC / Berline', icon: Crown, multiplier: '2×', color: '#9333EA' },
 ];
@@ -326,7 +326,7 @@ const RideBooking = () => {
             </button>
             <div>
               <h1 className="text-lg font-display font-bold text-text-primary">
-                FasoFree Ride
+                Koliwa Ride
               </h1>
               <p className="text-xs text-text-secondary">
                 {RIDE_OPTIONS.find(o => o.key === rideOption)?.desc || 'Moto standard'} · 200 FCFA/km
@@ -403,7 +403,7 @@ const RideBooking = () => {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between text-text-secondary">
                   <span>Type de course</span>
-                  <span className="font-semibold" style={{ color: RIDE_OPTIONS.find(o => o.key === rideOption)?.color || '#C1652E' }}>
+                  <span className="font-semibold" style={{ color: RIDE_OPTIONS.find(o => o.key === rideOption)?.color || '#7f9425' }}>
                     {RIDE_OPTIONS.find(o => o.key === rideOption)?.label || 'Économique'}
                   </span>
                 </div>
@@ -458,7 +458,7 @@ const RideBooking = () => {
 
         <p className="mt-8 flex items-start gap-2 text-xs leading-5 text-text-tertiary">
           <AlertCircle size={14} className="mt-0.5 shrink-0" />
-          Le montant est séquestré sur votre portefeuille FasoFree. Il est versé au
+          Le montant est séquestré sur votre portefeuille Koliwa. Il est versé au
           chauffeur à la livraison, après validation du code PIN.
         </p>
       </div>

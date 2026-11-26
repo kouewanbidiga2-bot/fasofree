@@ -3,7 +3,6 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { User, ShoppingBag, History, Briefcase, LogOut, ChevronDown } from 'lucide-react';
@@ -19,23 +18,10 @@ const ROLE_LABELS = {
   SUPPORT: 'Support',
 };
 
-const ROLE_ROUTES = {
-  CLIENT: '/',
-  BUSINESS_ADMIN: 'https://admin.fasofree.site',
-  DRIVER: 'https://admin.fasofree.site/livreur',
-  COURIER: 'https://admin.fasofree.site/livreur',
-  SUPER_ADMIN: '/',
-  ADMIN: '/',
-  SUPPORT: '/',
-};
 
-// Menu utilisateur — Radix DropdownMenu (primitif headless) : apporte la
-// navigation clavier (flèches), la fermeture Échap et le retour de focus,
-// SANS changer le visuel (classes tokens FasoFree d'origine conservées).
 export default function UserMenu() {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthStore();
-  const [open, setOpen] = useState(false);
 
   if (!isAuthenticated || !user) return null;
 
@@ -43,26 +29,23 @@ export default function UserMenu() {
   const displayName = user.firstName || user.fullName || user.email || 'Compte';
   const initials = displayName.slice(0, 1).toUpperCase();
 
-  // Les classes des items sont celles des anciens <button> : on ajoute
-  // uniquement cursor-pointer (les div de Radix n'ont pas le curseur
-  // natif des boutons) et outline-none (focus clavier sans cadre).
   const itemClass =
     'flex w-full items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-background-secondary transition-colors cursor-pointer outline-none';
 
   return (
-    <DropdownMenu.Root open={open} onOpenChange={setOpen}>
+    <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <button
-          className="flex items-center gap-2 rounded-full border border-border-light bg-background-card px-3 py-2 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-accent-primary"
+          className="client-account-trigger"
+          aria-label="Menu du compte"
         >
           <span
-            className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
-            style={{ background: '#C1652E' }}
+            className="client-account-initial"
           >
             {initials}
           </span>
           <span className="hidden sm:inline max-w-[100px] truncate">{displayName}</span>
-          <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown size={14} aria-hidden="true" />
         </button>
       </DropdownMenu.Trigger>
 
@@ -70,15 +53,14 @@ export default function UserMenu() {
         <DropdownMenu.Content
           sideOffset={8}
           align="end"
-          className="z-50 w-56 rounded-xl border border-border-light bg-background-card py-2 shadow-elevated outline-none"
+          className="client-account-menu z-50 w-56 rounded-xl border py-2 shadow-elevated outline-none"
           style={{ animation: 'fadeIn 0.15s ease-out' }}
         >
           <div className="border-b border-border-light px-4 py-3">
             <p className="text-sm font-semibold text-text-primary truncate">{displayName}</p>
             <p className="text-xs text-text-secondary mt-0.5">{user.email}</p>
             <span
-              className="mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
-              style={{ background: '#C1652E' }}
+              className="client-account-role mt-1.5 inline-block rounded px-2 py-0.5 text-xs font-bold"
             >
               {ROLE_LABELS[currentRole] || currentRole}
             </span>
@@ -89,13 +71,13 @@ export default function UserMenu() {
             onSelect={() => navigate('/profile')}
             className={itemClass}
           >
-            <User size={15} /> Mon Profil
+            <User size={15} /> Mon profil
           </DropdownMenu.Item>
           <DropdownMenu.Item
             onSelect={() => navigate('/order-history')}
             className={itemClass}
           >
-            <History size={15} /> Mes Commandes
+            <History size={15} /> Mes livraisons
           </DropdownMenu.Item>
 
           {currentRole === 'CLIENT' && (

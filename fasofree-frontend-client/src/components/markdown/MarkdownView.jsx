@@ -150,7 +150,7 @@ const Block = ({ block }) => {
     }
     case 'quote':
       return (
-        <blockquote className="border-l-2 pl-4 italic text-text-secondary" style={{ borderColor: '#C1652E' }}>
+        <blockquote className="border-l-2 pl-4 italic text-text-secondary" style={{ borderColor: '#5f7220' }}>
           {renderInline(block.content)}
         </blockquote>
       );
@@ -250,7 +250,7 @@ const renderInline = (text) => {
             key={parts.length}
             to={target}
             className="font-medium underline"
-            style={{ color: '#C1652E' }}
+            style={{ color: '#5f7220' }}
           >
             {label}
           </Link>
@@ -259,7 +259,7 @@ const renderInline = (text) => {
             key={parts.length}
             href={target}
             className="font-medium underline"
-            style={{ color: '#C1652E' }}
+            style={{ color: '#5f7220' }}
           >
             {label}
           </a>

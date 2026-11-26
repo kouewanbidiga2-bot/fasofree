@@ -3,424 +3,152 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Bell, Package, Car, LogIn, Mic } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, MapPin, Package, Store } from 'lucide-react';
+import { DELIVERY_SERVICES } from '../components/DeliveryGlyph';
+import DeliveryJourney from '../components/DeliveryJourney';
 import Footer from '../components/Footer';
-import RestaurantCard from '../components/RestaurantCard';
-import HeroBanner from '../components/HeroBanner';
-import StoryStrip from '../components/stories/StoryStrip';
-import NotificationDropdown from '../components/NotificationDropdown';
-import UserMenu from '../components/UserMenu';
-import api from '../services/api';
-import useAuthStore from '../store/authStore';
-import useNotificationStore from '../store/notificationStore';
-import { getAbsoluteImageUrl, getCategoryFallbackImage, getBrandImage, getBrandName } from '../utils/images';
-import { useLanguage } from '../contexts/LanguageContext';
-import { FasoFreeMask } from '../components/FasoFreeLogo';
-import { useQuery } from '@tanstack/react-query';
-import queryClient from '../services/queryClient';
-import { getUserLocation } from '../utils/userLocation';
-import Skeleton from '../components/ui/Skeleton';
+import TrackingLookup from '../components/TrackingLookup';
+import HomeIllustration from '../components/HomeIllustration';
+import './Home.css';
 
-const mapBusinessToRestaurant = (b) => {
-  const category = b.category || 'Fast Food';
-  const rawName = b.name || b.fullName || 'Restaurant';
-  const name = b.isBrand ? rawName : (getBrandName(rawName) || rawName);
-  const brandImage = getBrandImage(rawName);
-  // Priorité aux URLs hébergées (Cloudinary/DB), fallback sur l'image locale de marque
-  const coverUrl = b.coverImage || b.coverUrl || b.cover_url || b.banner || b.cover_image || brandImage;
-  const signatureUrl = b.signatureImage || b.signature_image || brandImage;
-  
-  return {
-    id: b.id,
-    brandId: b.brandId || null,
-    name: name,
-    tagline: category,
-    description: name,
-    isBrand: b.isBrand || false,
-    branchCount: b.branchCount || 0,
-    branches: b.branches || [],
-    logo: b.logo || b.logoUrl || b.logo_url || brandImage,
-    coverImage: coverUrl ? (coverUrl.startsWith('/') ? coverUrl : getAbsoluteImageUrl(coverUrl)) : getCategoryFallbackImage(category),
-    signatureImage: signatureUrl ? (signatureUrl.startsWith('/') ? signatureUrl : getAbsoluteImageUrl(signatureUrl)) : null,
-    rating: b.rating ?? 4.0,
-    deliveryTime: b.deliveryTime || '25-40 min',
-    deliveryFee: b.deliveryFee ?? 500,
-    minOrder: b.minOrder ?? 1500,
-    latitude: b.latitude ?? b.location?.coordinates?.[1] ?? 12.37,
-    longitude: b.longitude ?? b.location?.coordinates?.[0] ?? -1.52,
-    location: b.address || 'Ouagadougou',
-    phone: b.phone || '',
-    cuisineType: category,
-    promo: b.promo || null,
-    categories: b.categories || [],
-    menu: b.menu || [],
-  };
-};
+const [parcel, pickup] = DELIVERY_SERVICES;
+const scenes = [
+  {
+    src: 'ouaga-monument-heros.jpg',
+    to: parcel.to,
+    alt: 'Monument des Héros nationaux de Ouagadougou',
+    pan: 'a',
+  },
+  {
+    src: 'ouaga-place-cineastes.jpg',
+    to: pickup.to,
+    alt: 'Place des Cinéastes à Ouagadougou',
+    pan: 'b',
+  },
+  {
+    src: 'ouaga-rood-woko.jpg',
+    to: '/suivre',
+    alt: 'Marché Rood Woko au centre de Ouagadougou',
+    pan: 'c',
+  },
+];
+const marqueeWords = ['Réserver', 'Envoyer', 'Suivre', 'Recevoir'];
 
-const Home = () => {
-  const navigate = useNavigate();
-  const { isAuthenticated } = useAuthStore();
-  const { t } = useLanguage();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedSubCategory, setSelectedSubCategory] = useState('all');
-  const [notifOpen, setNotifOpen] = useState(false);
-  const { unreadCount } = useNotificationStore();
-
-  // Retour navigateur → resynchronisation en ARRIÈRE-PLAN (invalidate) : le
-  // cache affiche l'ancien résultat instantanément, aucune page blanche.
-  useEffect(() => {
-    const handlePopState = () =>
-      queryClient.invalidateQueries({ queryKey: ['businesses', 'grouped'] });
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Commerces groupés, mis en cache par couple (catégorie, sous-catégorie) :
-  // re-sélectionner un filtre déjà vu est instantané ; le premier chargement
-  // d'un filtre nouveau montre exactement le même spinner qu'avant.
-  const { data: allRestaurants = [], isLoading: loadingBusinesses } = useQuery({
-    queryKey: ['businesses', 'grouped', selectedCategory, selectedSubCategory],
-    queryFn: async () => {
-      const { lat, lng } = await getUserLocation();
-      const data = await api.getGroupedBusinesses(
-        lat,
-        lng,
-        selectedCategory,
-        selectedSubCategory,
-      );
-      return Array.isArray(data) ? data.map(mapBusinessToRestaurant) : [];
-    },
-  });
-
-  // Catalogue des catégories : quasi statique côté serveur → cache long,
-  // rechargé discrètement en arrière-plan.
-  const { data: categoryCatalog = [] } = useQuery({
-    queryKey: ['business-categories'],
-    queryFn: async () => {
-      const data = await api.getBusinessCategories();
-      return data?.categories || [];
-    },
-    staleTime: 5 * 60_000,
-  });
-
-  // 🏷️ Catalogue chargé depuis l'API (source unique de vérité).
-  // L'ancienne liste codée en dur (« Fast-Food », « Cuisine Locale »…) ne
-  // correspondait à AUCUNE valeur stockée en base : le filtre était donc
-  // sans effet — d'où « les mêmes restaurants quel que soit le type choisi ».
-  // Sous-catégories de la verticale sélectionnée (niveau 2)
-  const activeSubCategories = useMemo(() => {
-    const found = categoryCatalog.find((c) => c.value === selectedCategory);
-    return found?.subCategories || [];
-  }, [categoryCatalog, selectedCategory]);
-
-  const filteredRestaurants = useMemo(() => {
-    let filtered = allRestaurants;
-    // Category filtering is now handled by the backend!
-    // We only filter locally by search query:
-    if (searchQuery) {
-      const lowerQuery = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (r) =>
-          r.name.toLowerCase().includes(lowerQuery) ||
-          r.description.toLowerCase().includes(lowerQuery) ||
-          r.cuisineType.toLowerCase().includes(lowerQuery)
-      );
-    }
-    return filtered;
-  }, [allRestaurants, searchQuery]);
-
-  const handleSearch = useCallback((query) => {
-    setSearchQuery(query);
-  }, []);
-
-  // 🎤 Ouvre l'assistant vocal en écoute directe (bouton micro des barres de recherche)
-  const requestVoiceCommand = () => {
-    window.dispatchEvent(new CustomEvent('fasofree:voice-command'));
-  };
-
-  const handleCategoryChange = useCallback((category) => {
-    setSelectedCategory(category);
-    // Retour à une sous-catégorie neutre : les sous-familles diffèrent
-    // d'une verticale à l'autre (« Épicerie » n'existe pas côté restaurants).
-    setSelectedSubCategory('all');
-  }, []);
-
-  const handleSubCategoryChange = useCallback((subCategory) => {
-    setSelectedSubCategory(subCategory);
-  }, []);
-
+/** Colis lancé, avec ses lignes de vitesse : motif motion design du bandeau. */
+function ParcelMark() {
   return (
-    <div className="app-page text-text-primary font-sans">
-      {/* Header simplifié pour mobile */}
-      <header className="app-header relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between gap-4">
-            
-            {/* Logo & Localisation */}
-            <button type="button" className="flex items-center gap-2 sm:gap-3 text-left min-w-0 flex-1 md:flex-none" onClick={() => navigate('/')} aria-label={t('homeAria')}>
-              <FasoFreeMask
-                size={38}
-                className="w-8 h-8 sm:w-[38px] sm:h-[38px] flex-shrink-0"
-              />
-              <div className="flex flex-col min-w-0">
-                <span className="text-[10px] font-bold tracking-widest text-[#70645C] uppercase">{t('deliveryTo')}</span>
-                <p className="text-sm text-[#29231e] flex items-center gap-1 font-bold truncate">
-                  Ouagadougou, Zone du Bois
-                </p>
-              </div>
-            </button>
+    <svg className="kw-marquee-parcel" viewBox="0 0 28 24" aria-hidden="true" focusable="false">
+      <path d="M6.6 7.6 14.6 4l8.8 3.9v8.7l-8.8 3.9-8-3.5z" />
+      <path d="M6.6 7.6l8 3.5 8.8-3.2M14.6 11.1v9.4" fill="none" stroke="#f0f2ed" strokeWidth="1.3" strokeLinejoin="round" opacity=".8" />
+      <path className="kw-parcel-speed" d="M0.8 9.6h4.2M1.6 12.6h3.4M0.8 15.6h4.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  );
+}
 
-            {/* Barre de Recherche - cachée sur mobile */}
-            <div className="hidden flex-1 max-w-xl md:block">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
-                <input
-                  type="text"
-                  placeholder={t('searchPlaceholder')}
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      navigate(`/search?q=${encodeURIComponent(e.target.value.trim())}`);
-                    }
-                  }}
-                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-accent-primary focus:outline-none focus:shadow-medium"
-                />
-                <button
-                  type="button"
-                  aria-label="Recherche vocale"
-                  title="Recherche vocale"
-                  onClick={requestVoiceCommand}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-accent-primary/10 text-accent-primary transition hover:bg-accent-primary hover:text-white"
-                >
-                  <Mic size={16} />
-                </button>
-              </div>
-            </div>
+/** Parcours de livraison animé, en boucle, façon motion design vidéo. */
+function MotionRoute() {
+  const route = 'M6 34C54 34 66 12 118 12s62 26 112 26 42-16 84-16';
+  return (
+    <svg className="kw-route" viewBox="0 0 320 48" fill="none" aria-hidden="true" focusable="false">
+      <path className="kw-route-base" d={route} />
+      <path className="kw-route-trace" d={route} />
+      <circle className="kw-route-pin" cx="6" cy="34" r="4.5" />
+      <circle className="kw-route-pin kw-route-pin--end" cx="314" cy="22" r="6" />
+      <path className="kw-route-comet" d={route} pathLength="100" />
+    </svg>
+  );
+}
 
-            {/* Boutons d'action */}
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {!isAuthenticated && (
-                <button
-                  type="button"
-                  aria-label={t('loginAria')}
-                  onClick={() => navigate('/auth')}
-                  className="inline-flex items-center gap-2 rounded-lg border border-border-light bg-background-card px-3 sm:px-4 py-2 sm:py-2.5 text-sm font-semibold text-text-primary shadow-subtle transition hover:border-[#C1652E]"
-                >
-                  <LogIn size={16} strokeWidth={1.8} />
-                  <span className="hidden sm:inline">{t('login')}</span>
-                </button>
-              )}
-              <button
-                aria-label={t('notificationsAria')}
-                onClick={() => setNotifOpen(true)}
-                className="relative rounded-lg border border-border-light bg-background-card p-2 sm:p-2.5 text-text-primary shadow-subtle transition hover:border-[#C1652E]"
-              >
-                <Bell size={17} strokeWidth={1.8} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#C1652E] text-white text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              {/* Menu profil — visible sur desktop ET mobile (uniquement connecté) */}
-              <UserMenu />
-            </div>
-          </div>
-
-          {/* Catégories de recherche (niveau 1 : verticales) — optimisées mobile */}
-          <div className="mt-4 flex gap-2 overflow-x-auto scrollbar-none pt-2">
-            <button
-              onClick={() => handleCategoryChange('all')}
-              className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
-                selectedCategory === 'all'
-                  ? 'bg-[#C1652E] border-[#C1652E] text-white shadow-subtle'
-                  : 'bg-background-card border-border-light text-text-secondary hover:border-[#C1652E] hover:text-text-primary'
-              }`}
-            >
-              {t('allRestaurants')}
-            </button>
-            {categoryCatalog.map((cat) => {
-              const isActive = selectedCategory === cat.value;
-              return (
-                <button
-                  key={cat.value}
-                  onClick={() => handleCategoryChange(cat.value)}
-                  className={`px-4 py-2 text-xs font-bold rounded-md transition-[transform,background-color,border-color,color,box-shadow] duration-200 whitespace-nowrap border active:scale-[0.96] ${
-                    isActive
-                      ? 'bg-[#C1652E] border-[#C1652E] text-white shadow-subtle'
-                      : 'bg-background-card border-border-light text-text-secondary hover:border-[#C1652E] hover:text-text-primary'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Sous-catégories (niveau 2) — visibles seulement si la verticale en propose plusieurs */}
-          {activeSubCategories.length > 1 && (
-            <div className="mt-2 flex gap-2 overflow-x-auto scrollbar-none">
-              <button
-                onClick={() => handleSubCategoryChange('all')}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
-                  selectedSubCategory === 'all'
-                    ? 'bg-[#C1652E]/10 border-[#C1652E] text-[#C1652E]'
-                    : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
-                }`}
-              >
-                {t('allRestaurants')}
-              </button>
-              {activeSubCategories.map((sub) => (
-                <button
-                  key={sub}
-                  onClick={() => handleSubCategoryChange(sub)}
-                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-full whitespace-nowrap border transition-colors ${
-                    selectedSubCategory === sub
-                      ? 'bg-[#C1652E]/10 border-[#C1652E] text-[#C1652E]'
-                      : 'bg-background-card border-border-light text-text-tertiary hover:text-text-primary'
-                  }`}
-                >
-                  {sub}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Mobile search bar */}
-          <div className="mt-3 md:hidden">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
-              <input
-                type="text"
-                placeholder={t('searchPlaceholder')}
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && e.target.value.trim()) {
-                    navigate(`/search?q=${encodeURIComponent(e.target.value.trim())}`);
-                  }
-                }}
-                className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-12 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#C1652E] focus:outline-none focus:shadow-medium"
-              />
-              <button
-                type="button"
-                aria-label="Recherche vocale"
-                title="Recherche vocale"
-                onClick={requestVoiceCommand}
-                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-full bg-accent-primary/10 text-accent-primary transition hover:bg-accent-primary hover:text-white"
-              >
-                <Mic size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Suivre une commande par numéro */}
-          {isAuthenticated && (
-            <div className="mt-3">
-              <div className="relative">
-                <Package className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[#A09388]" size={16} />
-                <input
-                  type="text"
-                  placeholder="Suivre une commande (numéro ou ID)"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim()) {
-                      navigate(`/order-tracking?orderId=${e.target.value.trim()}`);
-                    }
-                  }}
-                  className="w-full rounded-md border border-border-light bg-background-card py-3 pl-11 pr-4 text-sm text-text-primary placeholder:text-text-secondary shadow-subtle transition-[border-color,box-shadow] duration-200 focus:border-[#C1652E] focus:outline-none focus:shadow-medium"
-                />
-              </div>
-            </div>
-          )}
+export default function Home() {
+  return (
+    <div className="app-page koliwa-home">
+      <section className="kw-poster" aria-labelledby="home-title">
+        <span className="kw-poster-glow" aria-hidden="true" />
+        <div className="kw-poster-inner">
+          <p className="kw-poster-location">À Ouaga</p>
+          <h1 id="home-title">Koliwa</h1>
+          <p className="kw-poster-tagline">Vos colis, de porte à porte.</p>
+          <HomeIllustration />
+          <Link className="kw-home-button kw-poster-action" to={parcel.to}>
+            <MapPin size={24} aria-hidden="true" /> {parcel.title}
+          </Link>
         </div>
-      </header>
-
-      {/* Bannière Hero */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-2">
-        <HeroBanner />
-      </div>
-
-      {/* Section Stories */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-        <StoryStrip />
       </section>
 
-      {/* Grille de Restaurants */}
-      <main id="restaurants" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="mb-9 flex flex-wrap items-end justify-between gap-6">
-          <div>
-            <h2 className="text-xs font-bold tracking-[0.2em] text-[#70645C] uppercase mb-4 ml-1">
-              {t('allRestaurants')}
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/ride')}
-              className="inline-flex items-center gap-2 bg-[#C1652E] hover:bg-[#D17843] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
-            >
-              <Car size={16} strokeWidth={2} />
-              FasoFree Ride
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => navigate('/p2p-delivery')}
-              className="inline-flex items-center gap-2 bg-[#D17843] hover:bg-[#C1652E] text-white px-4 py-2.5 rounded-md text-sm font-semibold transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.97]"
-            >
-              <Package size={16} strokeWidth={2} />
-              {t('sendPackage')}
-            </button>
-          </div>
+      <section className="kw-home-services" id="services-livraison" aria-labelledby="home-services-title">
+        <h2 id="home-services-title" className="sr-only">Services Koliwa</h2>
+        <div className="kw-marquee" aria-hidden="true">
+          {[0, 1].map((run) => (
+            <span key={run}>
+              {marqueeWords.map((word) => (
+                <span className="kw-marquee-item" key={word}>
+                  {word}<ParcelMark />
+                </span>
+              ))}
+            </span>
+          ))}
         </div>
-
-        <div className="grid grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto animate-fade-in">
-          {loadingBusinesses && allRestaurants.length === 0
-            ? Array.from({ length: 6 }).map((_, i) => (
-                // Squelette aux dimensions EXACTES de RestaurantCard
-                // (visuel aspect-square + nom + temps de livraison), sur les
-                // tokens de couleur FasoFree (pas de gris générique).
-                <div key={i} className="w-full">
-                  <Skeleton className="aspect-square w-full rounded-xl" />
-                  <div className="pt-2.5 px-0.5 space-y-2">
-                    <Skeleton className="h-4 rounded w-3/4" />
-                    <Skeleton className="h-3 rounded w-1/2" />
+        <div className="kw-photo-strip">
+          <div className="kw-photo-track">
+            {[0, 1].map((run) => (
+              <div className="kw-photo-run" key={run} aria-hidden={run === 1 ? 'true' : undefined}>
+                {scenes.map(({ src, to, alt, pan }) => (
+                  <Link className="kw-photo" data-pan={pan} key={src} to={to} tabIndex={run === 1 ? -1 : undefined}>
+                    <img src={`/assets/${src}`} alt={alt} loading="lazy" decoding="async" />
+                  </Link>
+                ))}
+                <div className="kw-pickup-panel">
+                  <h3>Votre achat,<br />à votre porte.</h3>
+                  <div>
+                    <p>Un coursier récupère votre achat déjà payé en boutique.</p>
+                    <Link className="kw-home-button" to={pickup.to} tabIndex={run === 1 ? -1 : undefined}>
+                      {pickup.title} <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
                   </div>
                 </div>
-              ))
-            : filteredRestaurants.map((restaurant) => (
-                <RestaurantCard
-                  key={restaurant.id}
-                  restaurant={restaurant}
-                  onClick={() => navigate(`/restaurant/${restaurant.id}`)}
-                />
-              ))}
-        </div>
-
-        {filteredRestaurants.length === 0 && (
-          <div className="app-panel rounded-lg text-center py-16">
-            <p className="text-[#70645C] text-sm font-medium mb-3">{t('noResults')}</p>
-            <button
-              className="app-action mt-3"
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-              }}
-            >
-              {t('resetFilters')}
-            </button>
+              </div>
+            ))}
           </div>
-        )}
-      </main>
+        </div>
+        <p className="kw-home-width kw-photo-credits">
+          Photos : Wikimedia Commons — CC BY-SA 3.0.
+        </p>
+      </section>
 
-      <NotificationDropdown open={notifOpen} onClose={() => setNotifOpen(false)} />
+      <section id="suivi-accueil" className="kw-home-width kw-track" aria-labelledby="home-tracking-title" tabIndex={-1}>
+        <div className="kw-track-pattern" aria-hidden="true">
+          {Array.from({ length: 18 }, (_, index) => {
+            const Icon = index % 2 ? MapPin : Package;
+            return <Icon key={index} strokeWidth={0.75} />;
+          })}
+        </div>
+        <div className="kw-track-inner">
+          <p className="kw-track-kicker">Suivi en direct</p>
+          <MotionRoute />
+          <h2 id="home-tracking-title">Où est votre colis&nbsp;?</h2>
+          <TrackingLookup />
+          <Link className="kw-track-history" to="/order-history">
+            Mes livraisons <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <div className="kw-home-width kw-story">
+        <DeliveryJourney />
+      </div>
+
+      <section className="kw-home-width kw-partner" aria-labelledby="home-partner-title">
+        <div>
+          <h2 id="home-partner-title">Livrez vos commandes.</h2>
+          <p>Confiez les livraisons de votre commerce à Koliwa.</p>
+          <Link className="kw-home-button" to="/register?pro=1">
+            Devenir partenaire <ArrowRight size={16} aria-hidden="true" />
+          </Link>
+        </div>
+        <Store className="kw-partner-icon" strokeWidth={0.85} aria-hidden="true" />
+      </section>
       <Footer />
     </div>
   );
-};
-
-export default Home;
+}

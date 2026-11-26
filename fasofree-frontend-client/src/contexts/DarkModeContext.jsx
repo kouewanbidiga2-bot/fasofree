@@ -6,12 +6,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const DarkModeContext = createContext();
+const THEME_STORAGE_KEY = 'koliwa-appearance';
 
 export function DarkModeProvider({ children }) {
   const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem('fasofree_theme');
-    if (saved) return saved === 'dark';
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark';
   });
 
   useEffect(() => {
@@ -21,7 +20,7 @@ export function DarkModeProvider({ children }) {
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('fasofree_theme', dark ? 'dark' : 'light');
+    localStorage.setItem(THEME_STORAGE_KEY, dark ? 'dark' : 'light');
   }, [dark]);
 
   const toggle = () => setDark((d) => !d);

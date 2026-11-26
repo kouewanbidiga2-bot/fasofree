@@ -3,7 +3,8 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.fasofree.site/api/v1';
+import { API_URL } from './apiBase';
+const ASSISTANT_API_URL = (import.meta.env.VITE_ASSISTANT_API_BASE_URL || API_URL).replace(/\/+$/, '');
 
 export async function apiFetch(endpoint, options = {}) {
   const token = localStorage.getItem('access_token');
@@ -62,12 +63,20 @@ export async function apiFetch(endpoint, options = {}) {
           window.location.href = '/auth';
         }
       }
-      throw new Error(data.message || 'Une erreur est survenue');
+      const message = Array.isArray(data?.message) ? data.message.join(' ') : data?.message;
+      const error = new Error(message || 'Une erreur est survenue');
+      error.status = response.status;
+      throw error;
     }
 
     return data;
   } catch (error) {
-    console.error(`[API Error] on ${endpoint}:`, error);
+    if (error instanceof TypeError) {
+      const unavailable = new Error('Impossible de joindre le service. Réessayez dans un instant.', { cause: error });
+      unavailable.code = 'NETWORK_ERROR';
+      throw unavailable;
+    }
+    if (error?.name !== 'AbortError') console.error(`[API Error] on ${endpoint}:`, error);
     throw error;
   }
 }
@@ -99,42 +108,6 @@ export const api = {
   // Candidature Marchand / Livreur (multipart, avec fichiers KYC)
   apply: (formData) => apiFetch('/auth/apply', { method: 'POST', body: formData }),
   
-  // Businesses
-  getMyBusiness: () => apiFetch('/businesses/me', { method: 'GET' }),
-  getNearbyBusinesses: (lat, lng, radius = 10000, category = '') => {
-    const url = category && category !== 'all' 
-      ? `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}&category=${category}`
-      : `/businesses/nearby?lat=${lat}&lng=${lng}&radius=${radius}`;
-    return apiFetch(url, { method: 'GET' });
-  },
-  getGroupedBusinesses: (lat, lng, category = '', subCategory = '') => {
-    // 🏷️ Le filtre était calculé côté client mais JAMAIS transmis
-    // → mêmes commerces affichés quel que soit le chip sélectionné.
-    const params = new URLSearchParams();
-    if (lat != null) params.set('lat', lat);
-    if (lng != null) params.set('lng', lng);
-    if (category && category !== 'all') params.set('category', category);
-    if (subCategory && subCategory !== 'all') params.set('subCategory', subCategory);
-    const qs = params.toString();
-    return apiFetch(`/businesses/grouped${qs ? `?${qs}` : ''}`, { method: 'GET' });
-  },
-  // Catalogue des catégories actives (source unique de vérité, côté serveur)
-  getBusinessCategories: () => apiFetch('/businesses/categories', { method: 'GET' }),
-  getBusiness: (businessId) => apiFetch(`/businesses/${businessId}`, { method: 'GET' }),
-
-  // Brands & Branches (multi-agences)
-  getBrand: (brandId) => apiFetch(`/brands/${brandId}`, { method: 'GET' }),
-  getBrandBranches: (brandId, lat, lng) => {
-    const params = lat && lng ? `?latitude=${lat}&longitude=${lng}` : '';
-    return apiFetch(`/brands/${brandId}/branches${params}`, { method: 'GET' });
-  },
-  getNearestBranch: (brandId, lat, lng) =>
-    apiFetch(`/brands/${brandId}/nearest-business?latitude=${lat}&longitude=${lng}`, { method: 'GET' }),
-  getAllBrands: () => apiFetch('/brands', { method: 'GET' }),
-
-  // Products (client-facing: view only)
-  getBusinessProducts: (businessId) => apiFetch(`/products/business/${businessId}`, { method: 'GET' }),
-
   // Orders
   createOrder: (orderData) => apiFetch('/orders', { method: 'POST', body: orderData }),
   quoteOrder: (quoteData) => apiFetch('/orders/quote', { method: 'POST', body: quoteData }),
@@ -146,6 +119,11 @@ export const api = {
   getAvailableOrders: () => apiFetch('/dispatch/available', { method: 'GET' }),
   getOrder: (orderId) => apiFetch(`/orders/${orderId}`, { method: 'GET' }),
   getOrderTracking: (orderId) => apiFetch(`/orders/${orderId}/tracking`, { method: 'GET' }),
+  createGuestDelivery: (data) => apiFetch('/public-tracking/guest-delivery', { method: 'POST', body: data }),
+  resendPublicReceiptCode: (token) => apiFetch(`/public-tracking/${encodeURIComponent(token)}/receipt-code`, { method: 'POST' }),
+  getPublicTracking: (token, signal) => apiFetch(`/public-tracking/${encodeURIComponent(token)}`, { method: 'GET', signal }),
+  getActiveTrackingByReference: (reference, signal) => apiFetch('/public-tracking/lookup', { method: 'POST', body: { reference }, signal }),
+  confirmPublicTracking: (token, pinCode) => apiFetch(`/public-tracking/${encodeURIComponent(token)}/confirm`, { method: 'POST', body: { pinCode } }),
   updateOrderStatus: (id, status) => apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }),
   acceptOrder: (id) => apiFetch(`/orders/${id}/accept`, { method: 'POST' }),
   driverValidateDelivery: (id) => apiFetch(`/orders/${id}/driver-validate`, { method: 'POST' }),
@@ -213,11 +191,6 @@ export const api = {
   // Notifications
   registerFcmToken: (token) => apiFetch('/notifications/fcm-token', { method: 'POST', body: { fcmToken: token } }),
 
-  // Favoris
-  toggleFavorite: (businessId) => apiFetch(`/users/favorites/${businessId}`, { method: 'POST' }),
-  getFavorites: () => apiFetch('/users/favorites', { method: 'GET' }),
-  getFavoriteIds: () => apiFetch('/users/favorites/ids', { method: 'GET' }),
-
   // OTP Verification
   getMe: () => apiFetch('/auth/me', { method: 'GET' }),
 
@@ -240,7 +213,10 @@ export const api = {
   // Upload (image directe) — ✅ FIX #22 : vérifier response.ok
   uploadImage: (formData, folder = 'stories') => {
     const token = localStorage.getItem('access_token');
-    return fetch(`${API_URL}/uploads/image?folder=${folder}`, {
+    // Allow-list côté client : le dossier ne doit contenir que des caractères
+    // sûrs (évite l'injection dans la query string). Le backend re-valide.
+    const safeFolder = /^[a-zA-Z0-9_-]+$/.test(String(folder || '')) ? folder : 'stories';
+    return fetch(`${API_URL}/uploads/image?folder=${encodeURIComponent(safeFolder)}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -264,23 +240,27 @@ export const api = {
     });
   },
 
-  // Personnalisation
-  getTrending: (limit = 10) => apiFetch(`/businesses/trending?limit=${limit}`, { method: 'GET' }),
-  getRecentOrders: () => apiFetch('/orders/my-recent', { method: 'GET' }),
-
   // Adresses de livraison
   getAddresses: () => apiFetch('/users/me/addresses', { method: 'GET' }),
   createAddress: (data) => apiFetch('/users/me/addresses', { method: 'POST', body: data }),
   updateAddress: (id, data) => apiFetch(`/users/me/addresses/${id}`, { method: 'PATCH', body: data }),
   deleteAddress: (id) => apiFetch(`/users/me/addresses/${id}`, { method: 'DELETE' }),
 
-  // 🤖 Assistant IA (guide de la plateforme + conseils menu)
-  askAssistant: (question, businessId) =>
-    apiFetch('/assistant/ask', { method: 'POST', body: { question, businessId } }),
+  // Le guide est public : aucun jeton de session ne part vers cette URL.
+  async askAssistant(question, signal) {
+    const response = await fetch(`${ASSISTANT_API_URL}/assistant/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ question }),
+      signal,
+    });
+    if (!response.ok) throw new Error('Assistant indisponible');
+    return response.json();
+  },
 
-  // 🎙️ Commande vocale → action structurée (Gemini / fallback local)
-  voiceAction: (question, businessId) =>
-    apiFetch('/assistant/voice-action', { method: 'POST', body: { question, businessId } }),
+  // Action structurée pour les demandes formulées à l'oral
+  voiceAction: (question) =>
+    apiFetch('/assistant/voice-action', { method: 'POST', body: { question } }),
 };
 
 export default api;

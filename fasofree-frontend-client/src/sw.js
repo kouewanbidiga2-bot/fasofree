@@ -18,7 +18,7 @@
  * La configuration Firebase ci-dessous est PUBLIQUE (clé navigateur) : elle est
  * injectée par Vite au build via `import.meta.env.VITE_FIREBASE_*`.
  */
-import { precacheAndRoute } from 'workbox-precaching';
+import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
 import { initializeApp } from 'firebase/app';
 import { getMessaging, onBackgroundMessage } from 'firebase/messaging/sw';
@@ -40,10 +40,10 @@ self.addEventListener('activate', (event) => {
 // 2) Repli de navigation vers index.html (SPA), SAUF sur les appels réseau :
 //    API, WebSocket (socket.io) et tuiles OpenStreetMap. Un cache agressif
 //    casserait le temps réel et renverrait des données périmées au client.
-//    ⚠️ `createHandlerBoundToURL` n'existe plus dans workbox-routing v7.
+//    Workbox associe index.html à la révision mise en cache lors du build.
 registerRoute(
   new NavigationRoute(
-    () => caches.match(new URL('index.html', self.location).toString()),
+    createHandlerBoundToURL('index.html'),
     {
       denylist: [/^\/api/, /^\/socket\.io/, /tile\.openstreetmap\.org/],
     },
@@ -80,7 +80,7 @@ if (firebaseConfig.projectId) {
       const orderId = payload.data?.orderId;
       const url = orderId ? `/order-tracking?id=${orderId}` : '/';
 
-      self.registration.showNotification(payload?.data?.title || 'FasoFree', {
+      self.registration.showNotification(payload?.data?.title || 'Koliwa', {
         body: payload?.data?.body || '',
         icon: '/favicon.svg',
         data: { url },

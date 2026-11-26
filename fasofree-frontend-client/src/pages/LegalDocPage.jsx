@@ -4,12 +4,10 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Loader2, AlertTriangle, ScrollText } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft, FileText, Loader2, AlertTriangle, ScrollText, ShieldCheck } from 'lucide-react';
 import { api } from '../services/api';
 import MarkdownView from '../components/markdown/MarkdownView';
-
-const ACCENT = '#C1652E';
 
 /**
  * ⚖️ Page document légal — contenu servi par le BACKEND
@@ -18,6 +16,13 @@ const ACCENT = '#C1652E';
  * Routes : /legal/:docCode (générique), et alias /terms, /privacy,
  * /cookies, /cgv (voir App.jsx).
  */
+const DOC_TABS = [
+  { code: 'FR-CGU-001', label: "Conditions d'utilisation", to: '/terms' },
+  { code: 'FR-CGV-004', label: 'Conditions de vente', to: '/cgv' },
+  { code: 'FR-PRIV-002', label: 'Confidentialité', to: '/privacy' },
+  { code: 'FR-COOK-003', label: 'Cookies', to: '/cookies' },
+];
+
 const LegalDocPage = ({ docCode: fixedDocCode }) => {
   const { docCode: paramDocCode } = useParams();
   const navigate = useNavigate();
@@ -51,71 +56,76 @@ const LegalDocPage = ({ docCode: fixedDocCode }) => {
   }, [docCode]);
 
   return (
-    <div className="min-h-screen bg-background-primary">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-background-secondary transition-colors"
-              aria-label="Retour"
-            >
-              <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
-            </button>
-            <div className="flex items-center gap-2">
-              <ScrollText size={18} className="text-text-secondary" strokeWidth={1.5} />
-              <h1 className="text-base font-display font-bold text-text-primary">
-                Document légal
-              </h1>
-            </div>
+    <div className="app-page legal-page">
+      <header className="legal-header">
+        <div className="legal-header-inner">
+          <button onClick={() => navigate(-1)} className="legal-back" aria-label="Retour">
+            <ArrowLeft size={18} strokeWidth={1.6} aria-hidden="true" />
+          </button>
+          <div className="legal-heading">
+            <ScrollText size={17} strokeWidth={1.6} aria-hidden="true" />
+            <span>Documents légaux</span>
           </div>
+          <Link to="/" className="legal-home">Accueil</Link>
         </div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <nav className="legal-tabs" aria-label="Documents légaux">
+        {DOC_TABS.map((tab) => (
+          <Link
+            key={tab.code}
+            to={tab.to}
+            className="legal-tab"
+            aria-current={tab.code === docCode ? 'page' : undefined}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </nav>
+
+      <div className="legal-shell">
         {loading && (
-          <div className="flex items-center justify-center py-20 text-text-secondary">
-            <Loader2 size={22} className="animate-spin mr-3 text-accent-primary" />
-            <span className="text-sm">Chargement du document…</span>
+          <div className="legal-state">
+            <Loader2 size={22} className="animate-spin" aria-hidden="true" />
+            <span>Chargement du document…</span>
           </div>
         )}
 
         {error && !loading && (
-          <div className="rounded-lg border border-error/20 bg-error/5 px-4 py-6 text-center">
-            <AlertTriangle size={28} className="mx-auto mb-3 text-error" strokeWidth={1.5} />
-            <p className="text-sm text-text-primary font-medium">Document indisponible</p>
-            <p className="text-xs text-text-secondary mt-1">{error}</p>
-            <button
-              onClick={() => navigate('/')}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium text-white hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: ACCENT }}
-            >
+          <div className="legal-state legal-state--error">
+            <AlertTriangle size={26} strokeWidth={1.5} aria-hidden="true" />
+            <p>Document indisponible</p>
+            <p className="legal-state-detail">{error}</p>
+            <button onClick={() => navigate('/')} className="app-action legal-state-action">
               Retour à l’accueil
             </button>
           </div>
         )}
 
         {doc && !loading && (
-          <article className="bg-background-secondary/40 border border-border-light rounded-xl p-5 sm:p-8">
-            {/* Métadonnées du document */}
-            <div className="flex flex-wrap items-center gap-2 mb-5 pb-5 border-b border-border-light">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium px-2.5 py-1 rounded-full"
-                    style={{ backgroundColor: '#FDF3EA', color: ACCENT }}>
-                <FileText size={11} strokeWidth={2} />
-                {doc.docCode}
+          <article className="legal-doc">
+            <div className="legal-doc-intro">
+              <span className="legal-doc-badge">
+                <ShieldCheck size={13} strokeWidth={2} aria-hidden="true" />
+                Document officiel
               </span>
-              <span className="text-[11px] px-2.5 py-1 rounded-full bg-background-secondary border border-border-light text-text-secondary">
-                Version {doc.version}
-              </span>
-              {doc.date && (
-                <span className="text-[11px] px-2.5 py-1 rounded-full bg-background-secondary border border-border-light text-text-secondary">
-                  {doc.date}
-                </span>
-              )}
+              <h1 className="legal-doc-title">{doc.title}</h1>
+              <div className="legal-doc-meta">
+                <span className="legal-chip"><FileText size={11} strokeWidth={2} aria-hidden="true" />{doc.docCode}</span>
+                <span className="legal-chip">Version {doc.version}</span>
+                {doc.date && <span className="legal-chip">{doc.date}</span>}
+              </div>
             </div>
-
-            <MarkdownView content={doc.contentMd} />
+            <div className="legal-doc-body">
+              <MarkdownView content={doc.contentMd} />
+            </div>
+            <footer className="legal-doc-footer">
+              <span>Une question ? fasofree2@gmail.com</span>
+              <button onClick={() => navigate(-1)} className="legal-doc-back">
+                <ArrowLeft size={15} strokeWidth={1.8} aria-hidden="true" />
+                Retour
+              </button>
+            </footer>
           </article>
         )}
       </div>

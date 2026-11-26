@@ -90,7 +90,7 @@ export default function Disputes() {
     };
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="app-page">
       <header className="sticky top-0 z-30 bg-background-primary/95 backdrop-blur-sm border-b border-border-light">
         <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
           <button
@@ -107,7 +107,7 @@ export default function Disputes() {
         <button
           onClick={openNewModal}
           className="w-full mb-5 px-4 py-3 text-sm font-semibold text-white rounded-xl flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#C1652E' }}
+          style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
         >
           <Plus size={18} strokeWidth={2} />
           Nouvelle réclamation

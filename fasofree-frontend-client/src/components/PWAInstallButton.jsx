@@ -20,7 +20,7 @@ import {
  * le montage du composant sur les routes hors `Layout` — était perdu et le
  * bouton n'apparaissait jamais.
  */
-export default function PWAInstallButton({ className = '' }) {
+export default function PWAInstallButton() {
   const { canInstall, installed } = useSyncExternalStore(
     subscribeInstall,
     getInstallState,
@@ -36,12 +36,12 @@ export default function PWAInstallButton({ className = '' }) {
   return (
     <button
       onClick={handleInstall}
-      className={`inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition ${className}`}
+      className="client-tool"
       aria-label="Installer l'application"
       type="button"
     >
-      <Download className="w-4 h-4" />
-      <span>Installer l&apos;app</span>
+      <Download size={17} aria-hidden="true" />
+      <span className="client-tool-label">Installer l’app</span>
     </button>
   );
 }

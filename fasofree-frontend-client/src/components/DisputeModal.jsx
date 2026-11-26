@@ -61,7 +61,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
     <Modal isOpen={isOpen} onClose={onClose} overlayClassName="bg-black/40" panelClassName="bg-background-card w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <AlertTriangle size={20} style={{ color: '#C1652E' }} />
+            <AlertTriangle size={20} style={{ color: '#7f9425' }} />
             <ModalTitle asChild>
               <h2 className="text-lg font-semibold text-[#2D2A26]">Signaler un problème</h2>
             </ModalTitle>
@@ -73,11 +73,11 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
 
         {pickerEnabled ? (
           <div className="mb-4">
-            <label className="block text-xs text-[#70645C] mb-2">Commande concernée</label>
+            <label className="block text-xs text-[#7B5C4C] mb-2">Commande concernée</label>
             <select
               value={selectedOrderId || ''}
               onChange={(e) => setSelectedOrderId(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] bg-white rounded focus:outline-none focus:border-[#C1652E]"
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] bg-white rounded focus:outline-none focus:border-[#a2b64a]"
               required
             >
               <option value="" disabled>
@@ -91,14 +91,14 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
               ))}
             </select>
             {orders.length === 0 && (
-              <p className="text-xs text-[#70645C] mt-1">
+              <p className="text-xs text-[#7B5C4C] mt-1">
                 Aucune commande livrée éligible pour une réclamation.
               </p>
             )}
           </div>
         ) : (
           orderId && (
-            <p className="text-sm text-[#70645C] mb-4">
+            <p className="text-sm text-[#7B5C4C] mb-4">
               Commande #{orderId.slice(0, 8)}
             </p>
           )
@@ -106,11 +106,11 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-xs text-[#70645C] mb-2">Motif du litige</label>
+            <label className="block text-xs text-[#7B5C4C] mb-2">Motif du litige</label>
             <select
               value={reasonCategory}
               onChange={(e) => setReasonCategory(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] bg-white rounded focus:outline-none focus:border-[#C1652E]"
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] bg-white rounded focus:outline-none focus:border-[#a2b64a]"
             >
               {REASONS.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
@@ -119,7 +119,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
           </div>
 
           <div className="mb-4">
-            <label className="block text-xs text-[#70645C] mb-2">Description du problème</label>
+            <label className="block text-xs text-[#7B5C4C] mb-2">Description du problème</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -127,19 +127,19 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
               rows={4}
               required
               minLength={10}
-              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded resize-none focus:outline-none focus:border-[#C1652E]"
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded resize-none focus:outline-none focus:border-[#a2b64a]"
             />
           </div>
 
           <div className="mb-6">
-            <label className="block text-xs text-[#70645C] mb-2">Confirmez votre mot de passe</label>
+            <label className="block text-xs text-[#7B5C4C] mb-2">Confirmez votre mot de passe</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Saisissez votre mot de passe actuel"
               required
-              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded focus:outline-none focus:border-[#C1652E]"
+              className="w-full px-3 py-2.5 text-sm border border-[#E8E0D8] rounded focus:outline-none focus:border-[#a2b64a]"
             />
           </div>
 
@@ -147,7 +147,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm font-medium border border-[#E8E0D8] text-[#70645C] hover:border-[#C1652E] transition active:scale-[0.98]"
+              className="flex-1 px-4 py-2.5 text-sm font-medium border border-[#E8E0D8] text-[#7B5C4C] hover:border-[#a2b64a] transition active:scale-[0.98]"
             >
               Annuler
             </button>
@@ -160,7 +160,7 @@ const DisputeModal = ({ isOpen, onClose, onSubmit, orderId, orders }) => {
                 (pickerEnabled && !finalOrderId)
               }
               className="flex-1 px-4 py-2.5 text-sm font-medium text-white transition active:scale-[0.98] disabled:opacity-50"
-              style={{ backgroundColor: '#C1652E' }}
+              style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
             >
               {submitting ? (
                 <span className="flex items-center justify-center gap-2">

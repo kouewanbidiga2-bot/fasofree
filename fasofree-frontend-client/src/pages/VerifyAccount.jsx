@@ -142,14 +142,14 @@ const VerifyAccount = () => {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background-primary flex items-center justify-center p-4">
+          <div className="app-page flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#C1652E] flex items-center justify-center">
-            <Shield size={28} className="text-white" />
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#d7f36b] flex items-center justify-center">
+            <Shield size={28} className="text-[#2a2e23]" />
           </div>
           <h1 className="text-2xl font-semibold text-[#2D2A26] mb-2">Vérifiez votre compte</h1>
-          <p className="text-sm text-[#70645C]">
+          <p className="text-sm text-[#7B5C4C]">
             Un code à 6 chiffres a été envoyé à<br />
             <span className="font-medium text-text-primary">{email || 'votre adresse'}</span>
           </p>
@@ -177,7 +177,7 @@ const VerifyAccount = () => {
                     onKeyDown={(e) => handleKeyDown(i, e)}
                     onPaste={handlePaste}
                     disabled={loading}
-                    className="w-12 h-14 text-center text-xl font-semibold border border-[#E8E0D8] rounded-lg focus:outline-none focus:border-[#C1652E] transition disabled:opacity-50"
+                    className="w-12 h-14 text-center text-xl font-semibold border border-[#E8E0D8] rounded-lg focus:outline-none focus:border-[#a2b64a] transition disabled:opacity-50"
                     autoFocus={i === 0}
                   />
                 ))}
@@ -191,7 +191,7 @@ const VerifyAccount = () => {
                 onClick={() => handleSubmit(code.join(''))}
                 disabled={loading || code.join('').length !== OTP_LENGTH}
                 className="w-full py-3 text-white text-sm font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
-                style={{ backgroundColor: '#C1652E' }}
+                style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
               >
                 {loading ? (
                   <>
@@ -205,15 +205,15 @@ const VerifyAccount = () => {
 
               <div className="text-center mt-6">
                 {resendTimer > 0 ? (
-                  <p className="text-sm text-[#70645C]">
+                  <p className="text-sm text-[#7B5C4C]">
                     Renvoyer le code dans{' '}
-                    <span className="font-medium text-[#C1652E]">{resendTimer}s</span>
+                    <span className="font-medium text-[#5f7220]">{resendTimer}s</span>
                   </p>
                 ) : (
                   <button
                     onClick={handleResend}
                     disabled={resending}
-                    className="text-sm font-medium text-[#C1652E] hover:underline flex items-center justify-center gap-1 mx-auto"
+                    className="text-sm font-medium text-[#5f7220] hover:underline flex items-center justify-center gap-1 mx-auto"
                   >
                     <RefreshCw size={14} className={resending ? 'animate-spin' : ''} />
                     Renvoyer le code
@@ -227,7 +227,7 @@ const VerifyAccount = () => {
         <div className="text-center mt-6">
           <button
             onClick={() => navigate('/register')}
-            className="text-sm text-[#70645C] hover:text-[#C1652E] flex items-center justify-center gap-1 mx-auto"
+            className="text-sm text-[#7B5C4C] hover:text-[#5f7220] flex items-center justify-center gap-1 mx-auto"
           >
             <ArrowLeft size={14} />
             Retour à l'inscription

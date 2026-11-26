@@ -5,17 +5,7 @@
 
 import { io } from 'socket.io-client';
 
-const API_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  'https://api.fasofree.site/api/v1';
-
-const getSocketBase = () => {
-  try {
-    return new URL(API_URL).origin;
-  } catch {
-    return 'http://localhost:3100';
-  }
-};
+import { API_ORIGIN } from './apiBase';
 
 const getSocketOptions = () => {
   const token = localStorage.getItem('access_token');
@@ -39,7 +29,7 @@ let supportSocket = null;
  */
 export const getChatSocket = () => {
   if (!chatSocket) {
-    chatSocket = io(`${getSocketBase()}/chat`, {
+    chatSocket = io(`${API_ORIGIN}/chat`, {
       ...getSocketOptions(),
       autoConnect: false,
     });
@@ -55,7 +45,7 @@ export const getChatSocket = () => {
  */
 export const getDispatchSocket = () => {
   if (!dispatchSocket) {
-    dispatchSocket = io(`${getSocketBase()}/dispatch`, {
+    dispatchSocket = io(`${API_ORIGIN}/dispatch`, {
       ...getSocketOptions(),
       autoConnect: false,
     });
@@ -71,7 +61,7 @@ export const getDispatchSocket = () => {
  */
 export const getSupportSocket = () => {
   if (!supportSocket) {
-    supportSocket = io(`${getSocketBase()}/support`, {
+    supportSocket = io(`${API_ORIGIN}/support`, {
       ...getSocketOptions(),
       autoConnect: false,
     });

@@ -3,7 +3,7 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -14,7 +14,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Un SEUL SW par scope (contrainte navigateur) : c'est ce qui évite la
 // collision silencieuse entre le SW PWA et l'ancien
 // `public/firebase-messaging-sw.js` (supprimé).
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const { KOLIWA_DEV_API_ORIGIN } = loadEnv(mode, process.cwd(), 'KOLIWA_DEV_');
+  const target = KOLIWA_DEV_API_ORIGIN?.trim() || 'http://127.0.0.1:3100';
+  const apiProxy = { target, changeOrigin: true };
+
+  return {
   plugins: [
     react(),
     VitePWA({
@@ -27,26 +32,27 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.svg',
+        'koliwa-wordmark.svg',
+        'koliwa-courier-splash.svg',
+        'koliwa-loading.css',
         'favicon.ico',
         'favicon-16.png',
         'favicon-32.png',
         'apple-touch-icon.png',
-        'assets/*.jpeg',
-        'assets/*.jpg',
       ],
       manifest: {
-        name: 'FasoFree — Commandes & Livraison',
-        short_name: 'FasoFree',
+        name: 'Koliwa — Livraison de colis',
+        short_name: 'Koliwa',
         description:
-          'Commandez vos plats préférés et faites livrer en un clin d’œil à Ouagadougou.',
+          'Envoyez, faites récupérer et suivez vos colis à Ouagadougou.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#FBF8F3',
-        theme_color: '#C1652E',
+        background_color: '#d7f36b',
+        theme_color: '#f4f2e6',
         orientation: 'portrait-primary',
         lang: 'fr',
-        categories: ['food', 'shopping'],
+        categories: ['business', 'productivity'],
         icons: [
           {
             src: 'icon-192.png',
@@ -88,6 +94,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 3000,
-    allowedHosts: true
-  }
+    allowedHosts: ['localhost', '127.0.0.1', '.fasofree.site', '.vercel.app'],
+    proxy: {
+      '/api/v1': apiProxy,
+      '/uploads': apiProxy,
+      '/socket.io': { ...apiProxy, ws: true },
+    },
+  },
+  };
 })

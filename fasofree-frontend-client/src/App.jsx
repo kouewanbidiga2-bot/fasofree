@@ -9,11 +9,9 @@ import { Toaster, toast } from 'sonner';
 import Home from './pages/Home';
 import P2PDelivery from './pages/P2PDelivery';
 import RideBooking from './pages/RideBooking';
-import Restaurant from './pages/Restaurant';
-import Cart from './pages/Cart';
-import Checkout from './pages/Checkout';
-import Receipt from './pages/Receipt';
 import OrderTracking from './pages/OrderTracking';
+import PublicTracking from './pages/PublicTracking';
+import PaymentSuccess from './pages/P2PDelivery/PaymentSuccess';
 import PaymentError from './pages/PaymentError';
 import OrderHistory from './pages/Orders';
 import Profile from './pages/Profile';
@@ -27,7 +25,7 @@ import Auth from './pages/Auth';
 import VerifyAccount from './pages/VerifyAccount';
 import LegalDocPage from './pages/LegalDocPage';
 import Loading from './pages/Loading';
-import SearchPage from './pages/Search';
+import Offline from './pages/Offline';
 import Layout from './components/navigation/Layout';
 import AssistantWidget from './components/AssistantWidget';
 import useAuthStore from './store/authStore';
@@ -50,6 +48,12 @@ const ProtectedRoute = ({ children }) => {
 
   return children;
 };
+
+function FloatingAssistant() {
+  const pathname = useLocation().pathname.replace(/\/+$/, '').toLowerCase() || '/';
+  if (['/auth', '/loading', '/offline'].includes(pathname)) return null;
+  return <AssistantWidget hideLauncher={pathname === '/' || pathname === '/suivre' || pathname.startsWith('/track/')} />;
+}
 
 function App() {
   const { isAuthenticated } = useAuthStore();
@@ -74,7 +78,7 @@ function App() {
       console.info('[FCM Foreground]', payload.title, payload.body);
       // Toast visible quand l'app est ouverte (sonner est déjà monté via <Toaster />).
       try {
-        toast(payload.title || 'FasoFree', {
+        toast(payload.title || 'Koliwa', {
           description: payload.body,
           action: payload.data?.orderId
             ? {
@@ -98,9 +102,10 @@ function App() {
   return (
     <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Toaster position="top-center" richColors duration={4000} />
-      <AssistantWidget />
+      <FloatingAssistant />
       <Routes>
         <Route path="/loading" element={<Loading />} />
+        <Route path="/offline" element={<Offline />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/login" element={<Navigate to="/auth" replace />} />
         <Route path="/register" element={<Register />} />
@@ -113,16 +118,14 @@ function App() {
         <Route path="/remboursement" element={<LegalDocPage docCode="FR-RMB-008" />} />
         <Route path="/legal/:docCode" element={<LegalDocPage />} />
         <Route path="/ride" element={<ProtectedRoute><RideBooking /></ProtectedRoute>} />
-        <Route path="/p2p-delivery" element={<P2PDelivery />} />
 
         {/* Pages avec BottomNav mobile */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/restaurant/:id" element={<Restaurant />} />
-          <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-          <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-          <Route path="/receipt" element={<ProtectedRoute><Receipt /></ProtectedRoute>} />
+          <Route path="/p2p-delivery" element={<P2PDelivery />} />
+          <Route path="/suivre" element={<PublicTracking byReference />} />
+          <Route path="/track/:token" element={<PublicTracking />} />
+          <Route path="/p2p/success" element={<PaymentSuccess />} />
           <Route path="/order-tracking" element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
           {/* Page dédiée aux échecs de paiement (retour passerelle ou
               initiation échouée) — jamais pour les autres erreurs. */}

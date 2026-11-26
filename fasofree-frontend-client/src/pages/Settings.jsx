@@ -26,11 +26,11 @@ export default function Settings() {
   const toggle = (key) => setOpenSection(openSection === key ? null : key);
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="app-page">
       <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate(-1)} className="p-2 hover:bg-background-secondary transition-colors">
+            <button type="button" aria-label="Retour" onClick={() => navigate(-1)} className="tracking-home-link">
               <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
             </button>
             <h1 className="text-lg font-display font-bold text-text-primary">{t('settings')}</h1>
@@ -39,7 +39,7 @@ export default function Settings() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-3xl mx-auto space-y-3">
+        <div className="settings-sections max-w-3xl mx-auto space-y-3">
 
           {/* Mode sombre */}
           <div className="border border-border-light p-4 flex items-center justify-between">
@@ -51,11 +51,13 @@ export default function Settings() {
               </div>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={dark}
+              aria-label={t('darkMode') || 'Mode sombre'}
               onClick={toggleDark}
-              className={`relative w-10 h-5 rounded-full transition-colors ${dark ? 'bg-[#C1652E]' : 'bg-gray-300'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${dark ? 'translate-x-5' : ''}`} />
-            </button>
+              className="settings-switch"
+            />
           </div>
 
           {/* Langue */}
@@ -107,7 +109,6 @@ export default function Settings() {
               <div className="border-t border-border-light bg-background-secondary/50">
                 <ToggleRow label={t('notifOrders')} desc={t('notifOrdersDesc')} defaultOn storageKey="notif_orders" />
                 <ToggleRow label={t('notifPromos')} desc={t('notifPromosDesc')} defaultOn storageKey="notif_promos" />
-                <ToggleRow label={t('notifNewRestaurants')} desc={t('notifNewRestaurantsDesc')} storageKey="notif_restaurants" />
               </div>
             )}
           </div>
@@ -231,8 +232,8 @@ export default function Settings() {
             {openSection === 'about' && (
               <div className="border-t border-border-light bg-background-secondary/50 p-4 space-y-2">
                 <p className="text-xs text-text-secondary">{t('aboutDesc')}</p>
-                <a href="/terms" className="block text-sm text-[#C1652E]">{t('terms')}</a>
-                <a href="/privacy" className="block text-sm text-[#C1652E]">{t('privacyPolicy')}</a>
+                <a href="/terms" className="block text-sm text-accent-primary">{t('terms')}</a>
+                <a href="/privacy" className="block text-sm text-accent-primary">{t('privacyPolicy')}</a>
               </div>
             )}
           </div>
@@ -250,7 +251,7 @@ export default function Settings() {
       {loading && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-background-card p-6 flex items-center gap-3">
-            <Loader2 size={20} className="animate-spin text-[#C1652E]" />
+            <Loader2 size={20} className="animate-spin text-accent-primary" />
             <span className="text-sm text-text-primary">{t('loading')}</span>
           </div>
         </div>
@@ -315,7 +316,7 @@ function ChangePasswordForm({ t, setLoading }) {
       <button
         type="submit"
         disabled={saving || !current || !newPass || !confirm}
-        className="w-full bg-[#C1652E] text-white py-2.5 text-sm font-semibold disabled:opacity-50"
+        className="app-action w-full py-2.5 text-sm font-semibold disabled:opacity-50"
       >
         {saving ? <Loader2 size={16} className="animate-spin mx-auto" /> : t('save')}
       </button>
@@ -330,7 +331,7 @@ function LangOption({ label, code, active, onSelect }) {
       className="w-full flex items-center justify-between p-3 hover:bg-background-secondary transition-colors text-left"
     >
       <span className="text-sm text-text-primary">{label}</span>
-      {active ? <Check size={14} className="text-[#C1652E]" /> : <span className="w-3.5" />}
+      {active ? <Check size={14} className="text-accent-primary" /> : <span className="w-3.5" />}
     </button>
   );
 }
@@ -353,11 +354,13 @@ function ToggleRow({ label, desc, defaultOn = false, storageKey }) {
         <p className="text-xs text-text-secondary">{desc}</p>
       </div>
       <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
         onClick={handleToggle}
-        className={`relative w-10 h-5 rounded-full transition-colors ${on ? 'bg-[#C1652E]' : 'bg-gray-300'}`}
-      >
-        <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${on ? 'translate-x-5' : ''}`} />
-      </button>
+        className="settings-switch"
+      />
     </div>
   );
 }

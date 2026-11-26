@@ -36,7 +36,6 @@ const useAuthStore = create((set) => ({
   isAuthenticated: loadInitial().isAuthenticated,
   isLoading: false,
   orders: [],
-  receipts: [],
 
   loginWithPhone: (phone, userData = {}) => {
     const user = {
@@ -93,22 +92,18 @@ const useAuthStore = create((set) => ({
     localStorage.removeItem('fasofree_user');
     // Purge des brouillons locaux (ex. course P2P) : un autre compte sur le
     // même onglet ne doit pas voir les données du compte précédent.
-    try { sessionStorage.removeItem('fasofree_p2p_draft'); } catch { /* RAS */ }
+    try {
+      sessionStorage.removeItem('fasofree_p2p_draft_parcel');
+      sessionStorage.removeItem('fasofree_p2p_draft_merchant-pickup');
+    } catch { /* RAS */ }
     // Purge du cache de données : pas de commandes/wallet du compte précédent
     // visibles par le prochain utilisateur de cet onglet.
     queryClient.clear();
-    set({ user: null, isAuthenticated: false, orders: [], receipts: [] });
+    set({ user: null, isAuthenticated: false, orders: [] });
   },
 
   setLoading: (isLoading) => set({ isLoading }),
 
-  addOrder: (order) => set((state) => ({
-    orders: [...state.orders, { ...order, createdAt: new Date().toISOString() }]
-  })),
-
-  addReceipt: (receipt) => set((state) => ({
-    receipts: [...state.receipts, { ...receipt, createdAt: new Date().toISOString() }]
-  })),
 }));
 
 export const needsVerification = (user) => {

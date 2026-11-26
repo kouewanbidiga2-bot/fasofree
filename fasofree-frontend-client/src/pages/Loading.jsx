@@ -3,73 +3,20 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React from 'react';
-import { FasoFreeLockup } from '../components/FasoFreeLogo';
-
-const Loading = () => {
+export default function Loading() {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: '#0C0A08',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '40px',
-        padding: '24px',
-      }}
-    >
-      {/* Logo FasoFree (lockup W2) */}
-      <FasoFreeLockup maskSize={96} dark />
-
-      {/* Loading Dots */}
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', height: '12px' }}>
-        <div style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: '#C1652E',
-          animation: 'bounce 1.4s ease-in-out infinite'
-        }} />
-        <div style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: '#C1652E',
-          animation: 'bounce 1.4s ease-in-out infinite 0.2s'
-        }} />
-        <div style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '50%',
-          background: '#C1652E',
-          animation: 'bounce 1.4s ease-in-out infinite 0.4s'
-        }} />
+    <section className="koliwa-loading" role="status">
+      <div className="koliwa-loading-stage">
+        <div className="koliwa-loading-title">
+          <img src="/koliwa-wordmark.svg" width="175" height="44" alt="Koliwa" />
+        </div>
+        <div className="koliwa-loading-scene" aria-hidden="true">
+          <div className="koliwa-loading-track">
+            <img src="/koliwa-courier-splash.svg" width="316" height="188" alt="" />
+          </div>
+        </div>
+        <p className="koliwa-loading-status">Chargement…</p>
       </div>
-
-      {/* Tagline */}
-      <div style={{
-        fontSize: '13px',
-        fontWeight: 300,
-        fontStyle: 'italic',
-        color: '#8B7355',
-        letterSpacing: '5px',
-        textTransform: 'uppercase',
-        opacity: 0.9,
-        textAlign: 'center',
-      }}>
-        Commande &amp; livraison au Burkina
-      </div>
-
-      <style>{`
-        @keyframes bounce {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
-          40% { transform: translateY(-10px); opacity: 1; }
-        }
-      `}</style>
-    </div>
+    </section>
   );
-};
-
-export default Loading;
+}

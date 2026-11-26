@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
+    <!-- Sécurité : CSP stricte (front PWA). Ajuster les domaines si de nouveaux services sont ajoutés. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: ws: http://127.0.0.1:* http://localhost:*; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';" />
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
@@ -11,41 +14,56 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#C1652E" />
-    <meta name="msapplication-TileColor" content="#C1652E" />
+    <meta name="theme-color" content="#f4f2e6" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="msapplication-TileColor" content="#d7f36b" />
 
     <!-- PWA / iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="FasoFree" />
+    <meta name="apple-mobile-web-app-title" content="Koliwa" />
 
     <!-- SEO -->
-    <title>FasoFree — Commandes & Livraison</title>
-    <meta name="description" content="Commandez vos plats préférés et faites livrer en un clin d'œil à Ouagadougou. FasoFree, la marketplace premium du Burkina Faso." />
-    <meta name="keywords" content="livraison, food delivery, Ouagadougou, Burkina Faso, restaurant, marketplace, FasoFree" />
-    <meta name="author" content="FasoFree" />
+    <title>Koliwa — Livraison de colis</title>
+    <meta name="description" content="Envoyez, faites récupérer et suivez vos colis à Ouagadougou avec Koliwa." />
+    <meta name="keywords" content="livraison, colis, coursier, Ouagadougou, Burkina Faso, Koliwa" />
+    <meta name="author" content="Koliwa" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="FasoFree" />
-    <meta property="og:title" content="FasoFree — Commandes & Livraison" />
-    <meta property="og:description" content="Commandez vos plats préférés et faites livrer en un clin d'œil à Ouagadougou." />
+    <meta property="og:site_name" content="Koliwa" />
+    <meta property="og:title" content="Koliwa — Livraison de colis" />
+    <meta property="og:description" content="Envoyez, faites récupérer et suivez vos colis à Ouagadougou avec Koliwa." />
     <meta property="og:image" content="/icon-512.png" />
     <meta property="og:locale" content="fr_BF" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="FasoFree — Commandes & Livraison" />
-    <meta name="twitter:description" content="Commandez vos plats préférés et faites livrer à Ouagadougou." />
+    <meta name="twitter:title" content="Koliwa — Livraison de colis" />
+    <meta name="twitter:description" content="Envoyez, faites récupérer et suivez vos colis à Ouagadougou avec Koliwa." />
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600&family=Nexa:wght@400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/koliwa-loading.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="koliwa-boot" class="koliwa-loading" role="status">
+      <div class="koliwa-loading-stage">
+        <div class="koliwa-loading-title">
+          <img src="/koliwa-wordmark.svg" width="175" height="44" alt="Koliwa" />
+        </div>
+        <div class="koliwa-loading-scene" aria-hidden="true">
+          <div class="koliwa-loading-track">
+            <img src="/koliwa-courier-splash.svg" width="316" height="188" alt="" />
+          </div>
+        </div>
+        <p class="koliwa-loading-status">Chargement…</p>
+      </div>
+    </div>
+    <div id="root" inert></div>
+    <script>performance.mark('koliwa:splash-start');</script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

@@ -3,17 +3,15 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, MapPin, Phone, Heart, ArrowLeft, LogOut, Settings, Bell, CreditCard, Receipt as ReceiptIcon, Package, Crown, Smartphone, Check, AlertTriangle, Camera } from 'lucide-react';
+import { User, MapPin, Phone, LogOut, Settings, Bell, CreditCard, Crown, Check, AlertTriangle, Camera, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Footer from '../components/Footer';
 import NotificationDropdown from '../components/NotificationDropdown';
-import ImageWithFallback from '../components/ImageWithFallback';
 import LoyaltyWidget from '../components/loyalty/LoyaltyWidget';
 import useAuthStore from '../store/authStore';
 import { api } from '../services/api';
-import { getAbsoluteImageUrl } from '../utils/images';
 import { useLanguage } from '../contexts/LanguageContext';
 import CallSupportButton from '../components/CallSupportButton';
 import { hasSupportPhone } from '../utils/support';
@@ -25,19 +23,17 @@ const MOBILE_MONEY_PROVIDERS = [
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, orders, receipts, logout, updateUser } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
   const { t } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    name: user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' '),
     email: user?.email || '',
     phone: user?.phone || '',
-    address: '',
     preferredNotificationChannel: user?.preferredNotificationChannel || 'EMAIL',
   });
   const [notifOpen, setNotifOpen] = useState(false);
-  const [favoriteItems, setFavoriteItems] = useState([]);
 
   // Avatar
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
@@ -57,7 +53,7 @@ const Profile = () => {
     const loadProfile = async () => {
       try {
         const me = await api.getProfile();
-        const name = me.fullName || me.name || '';
+        const name = me.fullName || me.name || [me.firstName, me.lastName].filter(Boolean).join(' ');
         setFormData((prev) => ({
           ...prev,
           name,
@@ -111,32 +107,13 @@ const Profile = () => {
     }
   };
 
-  useEffect(() => {
-    const loadFavorites = async () => {
-      try {
-        const data = await api.getFavorites();
-        if (Array.isArray(data)) {
-          setFavoriteItems(data.map((f) => ({
-            id: f.businessId,
-            name: f.business?.name || 'Commerce',
-            image: getAbsoluteImageUrl(f.business?.logo || f.business?.logoUrl || f.business?.logo_url),
-          })));
-        }
-      } catch {
-        // silent
-      }
-    };
-    loadFavorites();
-  }, []);
-
   const menuItems = [
-    { icon: Crown, label: t('vipPass'), action: () => navigate('/vip-pass'), highlight: user?.isPremium },
+    { icon: Crown, label: t('vipPass'), action: () => navigate('/vip-pass') },
     { icon: MapPin, label: t('addresses'), action: () => navigate('/addresses') },
-    { icon: CreditCard, label: t('paymentInfo'), action: () => setShowPaymentInfo(!showPaymentInfo) },
+    { icon: CreditCard, label: t('paymentInfo'), action: () => setShowPaymentInfo((open) => !open), expandable: true },
     { icon: Bell, label: t('notifications'), action: () => setNotifOpen(true) },
     { icon: AlertTriangle, label: t('reclamations'), action: () => navigate('/disputes') },
     { icon: Settings, label: t('settings'), action: () => navigate('/settings') },
-    { icon: LogOut, label: t('logout'), action: handleLogout, variant: 'danger' },
   ];
 
   const handleSave = async () => {
@@ -177,355 +154,122 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background-primary">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-background-secondary transition-colors"
-            >
-              <ArrowLeft size={18} className="text-text-primary" strokeWidth={1.5} />
-            </button>
-            <h1 className="text-lg font-display font-bold text-text-primary">{t('myProfile')}</h1>
+    <div className="app-page profile-page">
+      <div className="client-screen-frame">
+        <header className="client-screen-heading">
+          <div className="client-screen-title">
+            <span><User size={24} strokeWidth={1.65} aria-hidden="true" /></span>
+            <h1>{t('myProfile')}</h1>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="max-w-3xl mx-auto space-y-6">
-          {/* Profile Card */}
-          <div className="border border-border-light p-4">
-            <div className="flex items-start justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={() => !avatarUploading && avatarFileRef.current?.click()}
-                  className="relative w-16 h-16 bg-background-secondary flex items-center justify-center overflow-hidden group cursor-pointer"
-                  disabled={avatarUploading}
-                  title="Changer la photo de profil"
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <User size={24} className="text-text-secondary" strokeWidth={1.5} />
-                  )}
-                  <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    {avatarUploading ? (
-                      <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <Camera size={16} className="text-white" />
-                    )}
-                  </span>
-                  <input
-                    ref={avatarFileRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={handleAvatarSelect}
-                    className="hidden"
-                  />
-                </button>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-base font-medium text-text-primary">{formData.name}</h2>
-                    {user?.isPremium && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase flex items-center gap-1">
-                        <Crown size={10} /> VIP
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-text-secondary text-sm">{formData.email}</p>
-                </div>
-              </div>
+        <div className="profile-layout">
+          <section className="profile-account" aria-labelledby="profile-name">
+            <div className="profile-identity">
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className="text-xs text-text-secondary hover:text-text-primary transition-colors"
+                type="button"
+                className="profile-avatar"
+                onClick={() => avatarFileRef.current?.click()}
+                disabled={avatarUploading}
+                aria-label={avatarUploading ? 'Envoi de la photo en cours' : 'Changer la photo de profil'}
               >
-                {isEditing ? t('cancel') : t('edit')}
+                {avatarUrl ? <img src={avatarUrl} alt="" /> : <User size={26} strokeWidth={1.4} aria-hidden="true" />}
+                <span className="profile-avatar-edit"><Camera size={13} aria-hidden="true" /></span>
               </button>
+              <input ref={avatarFileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarSelect} hidden />
+              <div className="profile-identity-details">
+                <h2 id="profile-name">{formData.name || 'Mon compte'}</h2>
+                {formData.email && <p>{formData.email}</p>}
+                {formData.phone && (
+                  <p className="profile-phone"><Phone size={14} strokeWidth={1.6} aria-hidden="true" /> {formData.phone}</p>
+                )}
+              </div>
+              {user?.isPremium && <span className="profile-vip"><Crown size={13} aria-hidden="true" /> VIP</span>}
             </div>
 
-            {isEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('fullName')}</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('email')}</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('phone')}</label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('address')}</label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('notificationChannel')}</label>
-                  <select
-                    value={formData.preferredNotificationChannel}
-                    onChange={(e) => setFormData({ ...formData, preferredNotificationChannel: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  >
+            <button type="button" className="app-action-secondary profile-edit" aria-expanded={isEditing} onClick={() => setIsEditing((open) => !open)}>
+              {isEditing ? t('cancel') : t('edit')}
+            </button>
+
+            {isEditing && (
+              <form className="profile-form" onSubmit={(event) => { event.preventDefault(); handleSave(); }}>
+                <label>
+                  <span>{t('fullName')}</span>
+                  <input className="app-input" autoComplete="name" value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} />
+                </label>
+                <label>
+                  <span>{t('email')}</span>
+                  <input className="app-input" type="email" autoComplete="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} />
+                </label>
+                <label>
+                  <span>{t('phone')}</span>
+                  <input className="app-input" type="tel" autoComplete="tel" value={formData.phone} onChange={(event) => setFormData({ ...formData, phone: event.target.value })} />
+                </label>
+                <label>
+                  <span>{t('notificationChannel')}</span>
+                  <select className="app-input" value={formData.preferredNotificationChannel} onChange={(event) => setFormData({ ...formData, preferredNotificationChannel: event.target.value })}>
                     <option value="EMAIL">Email</option>
-                    <option value="WHATSAPP">WhatsApp</option>
                     <option value="SMS">SMS</option>
+                    <option value="WHATSAPP">WhatsApp</option>
                   </select>
-                </div>
-                <button onClick={handleSave} className="w-full px-4 py-3 text-sm font-medium text-white transition-colors" style={{ backgroundColor: '#C1652E' }} disabled={loading}>
-                  {loading ? t('saving') : t('save')}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm text-text-secondary">
-                  <Phone size={16} className="text-text-secondary" strokeWidth={1.5} />
-                  <span>{formData.phone}</span>
-                </div>
-                <div className="flex items-center gap-3 text-sm text-text-secondary">
-                  <MapPin size={16} className="text-text-secondary" strokeWidth={1.5} />
-                  <span>{formData.address}</span>
-                </div>
-              </div>
+                </label>
+                <button type="submit" className="app-action" disabled={loading}>{loading ? t('saving') : t('save')}</button>
+              </form>
             )}
-          </div>
+          </section>
 
-          {/* Orders */}
-          <div className="border border-border-light p-4">
-            <div className="flex items-center gap-2 mb-6">
-              <Package size={16} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">{t('myOrders')}</h2>
-            </div>
-
-            {orders.length > 0 ? (
-              <div className="space-y-3">
-                {orders.map((order, index) => (
-                  <div key={index} className="bg-background-secondary p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-mono text-text-primary">{order.id || `FF${Date.now().toString().slice(-8)}`}</span>
-                      <span className="text-xs text-text-secondary">
-                        {new Date(order.createdAt).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-primary">{order.restaurant || 'Restaurant'}</p>
-                    <p className="text-xs text-text-secondary">{order.items?.length || 0} article(s)</p>
-                    <p className="text-sm font-mono mt-1" style={{ color: '#C1652E' }}>
-                      {(order.total || 0).toLocaleString()} FCFA
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Package size={32} className="mx-auto text-text-secondary mb-4" strokeWidth={1.5} />
-                <p className="text-text-secondary text-sm">{t('noOrders')}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Receipts */}
-          <div className="border border-border-light p-4">
-            <div className="flex items-center gap-2 mb-6">
-              <ReceiptIcon size={16} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">{t('myReceipts')}</h2>
-            </div>
-
-            {receipts.length > 0 ? (
-              <div className="space-y-3">
-                {receipts.map((receipt, index) => (
-                  <div key={index} className="bg-background-secondary p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-mono text-text-primary">{receipt.orderId}</span>
-                      <span className="text-xs text-text-secondary">
-                        {new Date(receipt.createdAt).toLocaleDateString('fr-FR')}
-                      </span>
-                    </div>
-                    <p className="text-sm text-text-primary">{receipt.paymentMethod || 'Paiement'}</p>
-                    <p className="text-xs text-text-secondary">{receipt.status || 'Payé'}</p>
-                    <p className="text-sm font-mono mt-1" style={{ color: '#C1652E' }}>
-                      {(receipt.total || 0).toLocaleString()} FCFA
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <ReceiptIcon size={32} className="mx-auto text-text-secondary mb-4" strokeWidth={1.5} />
-                <p className="text-text-secondary text-sm">{t('noReceipts')}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Favorites */}
-          <div className="border border-border-light p-4">
-            <div className="flex items-center gap-2 mb-6">
-              <Heart size={20} className="text-accent-primary" strokeWidth={1.5} />
-              <h2 className="text-sm font-medium text-text-secondary">{t('favorites')}</h2>
-            </div>
-
-            {favoriteItems.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {favoriteItems.map((item) => (
+          <div className="profile-tools">
+            <section className="profile-menu" aria-labelledby="profile-menu-title">
+              <h2 id="profile-menu-title">Préférences du compte</h2>
+              {menuItems.map(({ icon: Icon, label, action, expandable }) => (
+                <div key={label} className="profile-menu-item">
                   <button
-                    key={item.id}
-                    onClick={() => navigate(`/restaurant/${item.id}`)}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-background-secondary transition-colors text-left"
+                    type="button"
+                    className="profile-menu-row"
+                    onClick={action}
+                    aria-expanded={expandable ? showPaymentInfo : undefined}
+                    aria-controls={expandable && showPaymentInfo ? 'profile-mobile-money' : undefined}
                   >
-                    <ImageWithFallback
-                      src={item.image}
-                      alt={item.name}
-                      className="w-12 h-12 rounded-lg object-cover"
-                    />
-                    <p className="text-sm font-medium text-text-primary truncate">{item.name}</p>
+                    <span className="profile-menu-icon"><Icon size={19} strokeWidth={1.65} aria-hidden="true" /></span>
+                    <span>{label}</span>
+                    <ChevronRight size={16} aria-hidden="true" />
                   </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Heart size={48} className="mx-auto text-text-secondary mb-4" strokeWidth={1} />
-                <p className="text-text-secondary text-sm">{t('noFavorites')}</p>
-                <p className="text-text-tertiary text-xs mt-1">{t('addFavoritesHint')}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Loyalty & Referral */}
-          <div>
-            <LoyaltyWidget />
-          </div>
-
-          {/* Menu Items */}
-          <div className="border border-border-light">
-            <div className="divide-y divide-border-light">
-              {menuItems.map((item, index) => {
-                const Icon = item.icon;
-                const isDanger = item.variant === 'danger';
-
-                return (
-                  <button
-                    key={index}
-                    onClick={item.action}
-                    className={`w-full flex items-center gap-4 p-4 transition-colors ${
-                      isDanger
-                        ? 'hover:bg-red-50 text-red-600'
-                        : 'hover:bg-background-secondary text-text-primary'
-                    }`}
-                  >
-                    <Icon size={16} strokeWidth={1.5} />
-                    <span className="flex-1 text-left font-medium text-sm">{item.label}</span>
-                    {item.highlight && (
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase">
-                        VIP
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Support — carte + hotline, masquées sans numéro configuré */}
-          {hasSupportPhone && (
-            <div className="border border-border-light p-4 flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-text-primary">{t('needHelpTitle')}</p>
-                <p className="text-xs text-text-secondary mt-0.5">
-                  {t('needHelpDesc')}
-                </p>
-              </div>
-              <CallSupportButton variant="solid" label={t('callSupport')} />
-            </div>
-          )}
-
-          {/* Mobile Money Section — appears after the support card */}
-          {showPaymentInfo && (
-            <div className="border border-border-light p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <Smartphone size={16} className="text-accent-primary" strokeWidth={1.5} />
-                <h2 className="text-sm font-medium text-text-secondary">{t('paymentInfo')}</h2>
-              </div>
-              <p className="text-xs text-text-secondary mb-4">
-                {t('paymentInfoDesc')}
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('mobileMoneyNumber')}</label>
-                  <input
-                    type="tel"
-                    placeholder="+226 70 12 34 56"
-                    value={paymentData.mobileMoneyNumber}
-                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyNumber: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none transition-colors"
-                  />
+                  {expandable && showPaymentInfo && (
+                    <form id="profile-mobile-money" className="profile-form profile-payment" onSubmit={(event) => { event.preventDefault(); handleSavePaymentInfo(); }}>
+                      <p>{t('paymentInfoDesc')}</p>
+                      <label>
+                        <span>{t('mobileMoneyNumber')}</span>
+                        <input
+                          className="app-input"
+                          type="tel"
+                          placeholder="+226 70 12 34 56"
+                          value={paymentData.mobileMoneyNumber}
+                          onChange={(event) => setPaymentData({ ...paymentData, mobileMoneyNumber: event.target.value })}
+                        />
+                      </label>
+                      <label>
+                        <span>{t('operator')}</span>
+                        <select className="app-input" value={paymentData.mobileMoneyProvider} onChange={(event) => setPaymentData({ ...paymentData, mobileMoneyProvider: event.target.value })}>
+                          <option value="">{t('selectOperator')}</option>
+                          {MOBILE_MONEY_PROVIDERS.map(({ value, label: provider }) => <option key={value} value={value}>{provider}</option>)}
+                        </select>
+                      </label>
+                      <button type="submit" className="app-action" disabled={paymentLoading}>
+                        {paymentLoading ? t('saving') : paymentSaved ? <><Check size={16} aria-hidden="true" /> {t('saved')}</> : t('save')}
+                      </button>
+                    </form>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs text-text-secondary mb-2">{t('operator')}</label>
-                  <select
-                    value={paymentData.mobileMoneyProvider}
-                    onChange={(e) => setPaymentData({ ...paymentData, mobileMoneyProvider: e.target.value })}
-                    className="w-full px-4 py-3 bg-background-secondary border-0 text-sm text-text-primary focus:outline-none transition-colors"
-                  >
-                    <option value="">{t('selectOperator')}</option>
-                    {MOBILE_MONEY_PROVIDERS.map((p) => (
-                      <option key={p.value} value={p.value}>{p.label}</option>
-                    ))}
-                  </select>
-                </div>
+              ))}
+            </section>
 
-                <button
-                  onClick={handleSavePaymentInfo}
-                  disabled={paymentLoading}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white transition-colors"
-                  style={{ backgroundColor: '#C1652E' }}
-                >
-                  {paymentLoading ? t('saving') : paymentSaved ? (
-                    <><Check size={16} /> {t('saved')}</>
-                  ) : t('save')}
-                </button>
-              </div>
+            <div className="profile-help">
+              {hasSupportPhone && <CallSupportButton variant="outline" label={t('callSupport')} />}
+              <button type="button" className="profile-logout" onClick={handleLogout}><LogOut size={17} aria-hidden="true" /> {t('logout')}</button>
             </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => navigate('/order-history')}
-              className="px-4 py-3 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
-            >
-              {t('myOrders')}
-            </button>
-            <button
-              onClick={() => navigate('/')}
-              className="px-4 py-3 text-sm font-medium border border-border-light text-text-secondary hover:border-accent-primary hover:text-accent-primary transition-colors"
-            >
-              {t('orderNow')}
-            </button>
           </div>
+
+          <section className="profile-rewards" aria-label="Fidélité et parrainage"><LoyaltyWidget /></section>
         </div>
       </div>
       <NotificationDropdown open={notifOpen} onClose={() => setNotifOpen(false)} />

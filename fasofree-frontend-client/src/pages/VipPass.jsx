@@ -28,7 +28,7 @@ const VipPass = () => {
   const [topupBusy, setTopupBusy] = useState(false);
 
   // ⚙️ Les 3 lectures de la page (offres, statut VIP, wallet) passent par le
-  // cache TanStack Query : le retour arrière sur FasoFree Pass réaffiche tout
+  // cache TanStack Query : le retour arrière sur Koliwa Pass réaffiche tout
   // instantanément puis resynchronise en tâche de fond. `enabled: !!userId`
   // reproduit l'ancien comportement au pixel : visiteur non connecté → aucune
   // requête, aucun chargement, aucun écran d'erreur. Les queryKey portent
@@ -122,7 +122,7 @@ const VipPass = () => {
         paymentMethod: topupMethod,
         customerName: user?.firstName && user?.lastName
           ? `${user.firstName} ${user.lastName}`.trim()
-          : user?.email || 'Client FasoFree',
+          : user?.email || 'Client Koliwa',
         customerEmail: user?.email || 'client@fasofree.bf',
       });
       setTopupOpen(false);
@@ -146,7 +146,7 @@ const VipPass = () => {
   const isPremium = !!vipStatus?.isPremium;
 
   return (
-    <div className="min-h-screen bg-background-primary">
+    <div className="app-page">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background-primary border-b border-border-light">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -171,23 +171,23 @@ const VipPass = () => {
           )}
 
           {/* Hero */}
-          <div className="relative overflow-hidden text-white p-8" style={{ backgroundColor: '#C1652E' }}>
+          <div className="relative overflow-hidden text-[#2a2e23] p-8" style={{ backgroundColor: '#d7f36b' }}>
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-3">
                 <Crown size={22} className="text-amber-300" fill="#FCD34D" />
-                <span className="text-xs font-bold uppercase tracking-widest text-amber-200">
+                <span className="text-xs font-bold uppercase tracking-widest text-[#55650f]">
                   {isPremium ? t('activeMember') : t('exclusiveAdvantage')}
                 </span>
               </div>
               <h2 className="text-2xl font-bold mb-2">
                 {isPremium ? t('platformFeesFree') : t('switchToVip')}
               </h2>
-              <p className="text-sm text-orange-100 mb-4 max-w-md">
+              <p className="text-sm text-[#3f4a1b] mb-4 max-w-md">
                 {t('vipDesc', { fee: loading ? '…' : '100 FCFA' })}
               </p>
               <div className="flex flex-wrap gap-3 text-xs">
-                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ {t('feePerOrder')}</span>
-                <span className="px-3 py-1 bg-white/15 rounded-full backdrop-blur-sm">✓ {t('noCommitment')}</span>
+                <span className="px-3 py-1 bg-black/10 rounded-full backdrop-blur-sm">✓ {t('feePerOrder')}</span>
+                <span className="px-3 py-1 bg-black/10 rounded-full backdrop-blur-sm">✓ {t('noCommitment')}</span>
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ const VipPass = () => {
                 <button
                   onClick={() => setTopupOpen(true)}
                   className="px-3 py-2 text-xs font-medium text-white rounded transition active:scale-[0.98]"
-                  style={{ backgroundColor: '#C1652E' }}
+                  style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
                 >
                   {t('recharge')}
                 </button>
@@ -273,7 +273,7 @@ const VipPass = () => {
                     onClick={handleTopup}
                     disabled={topupBusy || Number(topupAmount) < 100}
                     className="px-4 py-2 text-sm text-white rounded-lg disabled:opacity-50 transition active:scale-[0.98]"
-                    style={{ backgroundColor: '#C1652E' }}
+                    style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
                   >
                     {topupBusy ? t('recharging') : t('recharge')}
                   </button>
@@ -323,7 +323,7 @@ const VipPass = () => {
                         onClick={() => handleSubscribe(plan)}
                         disabled={subscribing}
                         className="w-full px-4 py-3 text-sm font-medium text-white rounded-lg transition-all active:scale-[0.98] disabled:opacity-50"
-                        style={{ backgroundColor: '#C1652E' }}
+                        style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
                       >
                         {subscribing ? t('subscribing') : t('subscribeFor', { price: (plan.priceFcfa ?? 0).toLocaleString('fr-FR') })}
                       </button>
@@ -344,7 +344,7 @@ const VipPass = () => {
               <button
                 onClick={() => navigate('/')}
                 className="px-4 py-3 text-sm font-medium text-white rounded-lg transition active:scale-[0.98]"
-                style={{ backgroundColor: '#C1652E' }}
+                style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
               >
                 {t('orderNow')}
               </button>

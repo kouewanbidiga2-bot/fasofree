@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# OpenStreetMap place directory used by the delivery form.
+!src/pages/P2PDelivery/ouagadougou-places.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

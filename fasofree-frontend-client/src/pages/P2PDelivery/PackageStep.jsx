@@ -3,89 +3,54 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React from 'react';
-import { Package, Weight } from 'lucide-react';
-
 const DIMENSIONS = [
   { key: 'length', label: 'Longueur (cm)', placeholder: '30' },
   { key: 'width', label: 'Largeur (cm)', placeholder: '20' },
   { key: 'height', label: 'Hauteur (cm)', placeholder: '15' },
 ];
 
-const PackageStep = ({ value, onUpdate }) => (
-  <div className="app-panel rounded-lg p-5 mb-6 fade-in">
-    <h2 className="text-sm font-medium text-text-secondary mb-6 flex items-center gap-2">
-      <Package size={16} className="text-accent-primary" strokeWidth={1.5} />
-      Détails du colis
-    </h2>
-
-    <div className="mb-4">
-      <label className="block text-xs text-text-secondary mb-2">Description du colis *</label>
-      <textarea
-        placeholder="Ex: Clés, documents, colis de 2 kg..."
-        value={value.description}
-        onChange={(e) => onUpdate('description', e.target.value)}
-        required
-        rows={3}
-        className="app-input resize-none"
-      />
-    </div>
-
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-      <div>
-        <label className="block text-xs text-text-secondary mb-2 flex items-center gap-1.5">
-          <Weight size={13} className="text-text-tertiary" /> Poids estimé (kg)
-        </label>
-        <input
-          type="number"
-          min="0"
-          step="0.1"
-          placeholder="Ex: 2"
-          value={value.weight}
-          onChange={(e) => onUpdate('weight', e.target.value)}
-          className="app-input"
-        />
-      </div>
-      <div>
-        <label className="block text-xs text-text-secondary mb-2">Valeur déclarée du colis (FCFA) *</label>
-        <input
-          type="number"
-          min="0"
-          placeholder="Ex: 3000"
-          value={value.estimatedAmount}
-          onChange={(e) => onUpdate('estimatedAmount', e.target.value)}
-          required
-          className="app-input"
-        />
-      </div>
-    </div>
-
-    <label className="mb-6 flex cursor-pointer items-center gap-3">
-      <input
-        type="checkbox"
-        checked={value.isFragile}
-        onChange={(e) => onUpdate('isFragile', e.target.checked)}
-        className="h-4 w-4 rounded border-border-light accent-[#C1652E]"
-      />
-      <span className="text-sm text-text-secondary">Colis fragile</span>
-    </label>
-
-    <div className="grid grid-cols-3 gap-4">
-      {DIMENSIONS.map((dim) => (
-        <div key={dim.key}>
-          <label className="block text-xs text-text-secondary mb-2">{dim.label}</label>
-          <input
-            type="number"
-            min="0"
-            placeholder={dim.placeholder}
-            value={value[dim.key]}
-            onChange={(e) => onUpdate(dim.key, e.target.value)}
-            className="app-input"
+export default function PackageStep({ value, onUpdate }) {
+  return (
+    <section className="app-panel p2p-location p2p-package" aria-labelledby="p2p-package-title">
+      <h2 id="p2p-package-title">Votre colis</h2>
+      <div className="p2p-fields">
+        <label>
+          <span>Description</span>
+          <textarea
+            placeholder="Ex. Documents dans une enveloppe"
+            value={value.description}
+            onChange={(event) => onUpdate('description', event.target.value)}
+            required
+            rows={2}
+            className="app-input resize-y"
           />
+        </label>
+        <div className="p2p-package-measures">
+          <label>
+            <span>Valeur déclarée (F CFA)</span>
+            <input type="number" min="0" placeholder="Ex. 3 000" value={value.estimatedAmount} onChange={(event) => onUpdate('estimatedAmount', event.target.value)} required className="app-input" />
+          </label>
+          <label>
+            <span>Poids en kg (facultatif)</span>
+            <input type="number" min="0" step="0.1" placeholder="Ex. 2" value={value.weight} onChange={(event) => onUpdate('weight', event.target.value)} className="app-input" />
+          </label>
         </div>
-      ))}
-    </div>
-  </div>
-);
-
-export default PackageStep;
+        <label className="p2p-fragile">
+          <input type="checkbox" checked={value.isFragile} onChange={(event) => onUpdate('isFragile', event.target.checked)} />
+          <span>Colis fragile</span>
+        </label>
+        <details className="p2p-dimensions" open={DIMENSIONS.some(({ key }) => value[key]) || undefined}>
+          <summary>Dimensions (facultatif)</summary>
+          <div className="p2p-package-measures">
+            {DIMENSIONS.map(({ key, label, placeholder }) => (
+              <label key={key}>
+                <span>{label}</span>
+                <input type="number" min="0" placeholder={placeholder} value={value[key]} onChange={(event) => onUpdate(key, event.target.value)} className="app-input" />
+              </label>
+            ))}
+          </div>
+        </details>
+      </div>
+    </section>
+  );
+}

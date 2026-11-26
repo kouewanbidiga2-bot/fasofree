@@ -13,36 +13,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        // FasoFree Design System - warm, food-first editorial palette
         background: {
-          primary: '#FBF8F3',
-          secondary: '#F4EEE5',
-          tertiary: '#ECE2D4',
-          card: '#FFFDFC',
+          primary: '#F5F6F1',
+          secondary: '#EEF0E9',
+          tertiary: '#E2E7D8',
+          card: '#FFFFFF',
         },
         text: {
-          primary: '#29231E',
-          secondary: '#74695F',
-          tertiary: '#5E554D',
-          muted: '#4C443D',
+          primary: '#181A12',
+          secondary: '#383D31',
+          tertiary: '#51564A',
+          muted: '#51564A',
         },
         border: {
-          light: '#E9E0D5',
-          medium: '#D8CDBF',
-          dark: '#C4B7A8',
+          light: '#DCE0D4',
+          subtle: '#DCE0D4',
+          medium: '#BAC1AD',
+          dark: '#777F68',
         },
-        // Global accent - terracotta
         accent: {
-          primary: '#C1652E',
-          secondary: '#D17843',
-          muted: '#91461F',
-        },
-        // Restaurant-specific colors
-        restaurant: {
-          cesar: '#B5502E',
-          chitir: '#7A2E1A',
-          gusto: '#5C6B3C',
-          belchiken: '#B8862E'
+          primary: 'rgb(var(--kw-brand-rgb) / <alpha-value>)',
+          secondary: '#617427',
+          muted: '#4C5B2D',
         },
         // Status colors
         success: '#5C6B3C',
@@ -58,10 +50,10 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Nexa', 'Manrope', 'system-ui', 'sans-serif'],
-        display: ['Manrope', 'sans-serif'],
-        body: ['Nexa', 'Manrope', 'sans-serif'],
-        serif: ['Playfair Display', 'Georgia', 'serif'],
+        sans: ['Instrument Sans', 'system-ui', 'sans-serif'],
+        display: ['Manrope', 'system-ui', 'sans-serif'],
+        body: ['Instrument Sans', 'system-ui', 'sans-serif'],
+        serif: ['Georgia', 'serif'],
         mono: ['IBM Plex Mono', 'monospace'],
       },
       spacing: {
@@ -99,7 +91,6 @@ export default {
         'slide-up': 'slideUp 0.4s ease-out',
         'slide-down': 'slideDown 0.4s ease-out',
         'scale-in': 'scaleIn 0.3s ease-out',
-        'cart-pop': 'cartPop 0.35s ease',
       },
       keyframes: {
         fadeIn: {
@@ -117,15 +108,6 @@ export default {
         scaleIn: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
-        },
-        patternShift: {
-          '0%': { backgroundPosition: '0 0' },
-          '100%': { backgroundPosition: '20px 20px' },
-        },
-        cartPop: {
-          '0%': { transform: 'scale(0.8)' },
-          '50%': { transform: 'scale(1.2)' },
-          '100%': { transform: 'scale(1)' },
         },
       },
     },

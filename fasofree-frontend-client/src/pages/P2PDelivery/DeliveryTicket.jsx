@@ -32,7 +32,7 @@ export default function DeliveryTicket({ pickup, dropoff, estimate, showPrice })
           {estimate ? (
             <>
               <strong>{amount(estimate.price + P2P_SERVICE_FEE)}</strong>
-              <p>Dont {amount(P2P_SERVICE_FEE)} de frais de service FasoFree, offerts avec le Pass VIP.</p>
+              <p>Dont {amount(P2P_SERVICE_FEE)} de frais de service Koliwa, offerts avec le Pass VIP.</p>
               <p>Le montant final s’affiche avant le paiement.</p>
               <details>
                 <summary>Détail du tarif</summary>
@@ -42,7 +42,7 @@ export default function DeliveryTicket({ pickup, dropoff, estimate, showPrice })
                   {extras.fragileSurcharge > 0 && <div><dt>Colis fragile</dt><dd>{amount(extras.fragileSurcharge)}</dd></div>}
                   {extras.weightSurcharge > 0 && <div><dt>Surcoût de poids</dt><dd>{amount(extras.weightSurcharge)}</dd></div>}
                   {rounding > 0 && <div><dt>Arrondi</dt><dd>{amount(rounding)}</dd></div>}
-                  <div><dt>Frais de service FasoFree</dt><dd>{amount(P2P_SERVICE_FEE)}</dd></div>
+                  <div><dt>Frais de service Koliwa</dt><dd>{amount(P2P_SERVICE_FEE)}</dd></div>
                 </dl>
               </details>
             </>
