@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import CallSupportButton from '../components/CallSupportButton';
+import KoliwaHandoffBadge from '../components/KoliwaHandoffBadge';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -32,6 +33,7 @@ import { getChatSocket, getDispatchSocket } from '../services/realtime';
 import useAuthStore from '../store/authStore';
 import Footer from '../components/Footer';
 import DisputeModal from '../components/DisputeModal';
+import { formatTrackingReference } from '../utils/trackingReference';
 
 const STATUS_STEP = {
   PENDING: 1,
@@ -48,20 +50,20 @@ const STATUS_STEP = {
   COMPLETED: 4,
 };
 
-const STEP_LABELS_FOOD = [
-  '',
-  'Commande confirmée',
-  'En préparation',
-  'En route',
-  'Livré',
-];
-
 const STEP_LABELS_RIDE = [
   '',
   'Course confirmée',
   'Chauffeur assigné',
   'En route',
   'Arrivé',
+];
+
+const STEP_LABELS_DELIVERY = [
+  '',
+  'Livraison confirmée',
+  'Livreur recherché',
+  'En livraison',
+  'Livrée',
 ];
 
 const STATUS_LABELS = {
@@ -91,10 +93,10 @@ const makeIcon = (color, label) =>
     iconAnchor: [13, 13],
   });
 
-const BUSINESS_ICON = makeIcon('#6B7280', 'R');
+const ORIGIN_ICON = makeIcon('#6B7280', 'D');
 const PICKUP_ICON = makeIcon('#3B82F6', 'P');
 const DELIVERY_ICON = makeIcon('#5C6B3C', 'D');
-const DRIVER_ICON = makeIcon('#C1652E', 'L');
+const DRIVER_ICON = makeIcon('#7f9425', 'L');
 
 function FitBounds({ points }) {
   const map = useMap();
@@ -110,6 +112,71 @@ function FitBounds({ points }) {
 
 const OUAGA = [12.3714, -1.5197];
 
+// Statuts pour lesquels plus rien ne bouge : ni polling, ni badge « hors ligne ».
+const TERMINAL_STATUSES = [
+  'DELIVERED',
+  'COMPLETED',
+  'CANCELLED',
+  'FAILED',
+  'REFUNDED',
+  'DISPUTED',
+];
+
+// 📴 Au-delà de 60 s sans signal GPS, le livreur est considéré hors ligne.
+const DRIVER_OFFLINE_AFTER_MS = 60_000;
+// Dernière position gardée en cache local (par commande) : la carte s'affiche
+// tout de suite au retour sur le suivi. TTL 2 h, au-delà elle n'a plus de sens.
+const DRIVER_POS_PREFIX = 'koliwa:driverPos:';
+const DRIVER_POS_TTL_MS = 2 * 60 * 60 * 1000;
+
+/** Position GPS en cache pour cette commande (null si absente ou périmée). */
+const readDriverPosCache = (orderId) => {
+  if (!orderId) return null;
+  try {
+    const raw = localStorage.getItem(`${DRIVER_POS_PREFIX}${orderId}`);
+    if (!raw) return null;
+    const cached = JSON.parse(raw);
+    if (
+      !cached ||
+      !Number.isFinite(cached.latitude) ||
+      !Number.isFinite(cached.longitude) ||
+      !cached.at ||
+      Date.now() - cached.at > DRIVER_POS_TTL_MS
+    ) {
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+};
+
+const readCachedDriverPos = (orderId) => {
+  const cached = readDriverPosCache(orderId);
+  return cached ? [cached.latitude, cached.longitude] : null;
+};
+
+const readCachedDriverSignalAt = (orderId) =>
+  readDriverPosCache(orderId)?.at ?? null;
+
+const writeDriverPosCache = (orderId, latitude, longitude) => {
+  if (!orderId) return;
+  try {
+    localStorage.setItem(
+      `${DRIVER_POS_PREFIX}${orderId}`,
+      JSON.stringify({ latitude, longitude, at: Date.now() }),
+    );
+  } catch {
+    // Quota plein ou navigation privée : le cache est un confort, pas un dû.
+  }
+};
+
+/** « il y a 3 min » — libellé du badge hors ligne. */
+const formatAge = (ms) => {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  return minutes < 60 ? `il y a ${minutes} min` : `il y a ${Math.round(minutes / 60)} h`;
+};
+
 const OrderTracking = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -120,6 +187,19 @@ const OrderTracking = () => {
     location.state?.orderId ||
     new URLSearchParams(location.search).get('id') ||
     new URLSearchParams(location.search).get('orderId');
+
+  // Sockets créés AVANT tout usage : l'état de connexion alimente le badge
+  // « hors ligne » et le polling adaptatif de la requête ci-dessous. La ref
+  // évite de recréer la requête à chaque reconnexion.
+  const dispatchSocket = getDispatchSocket();
+  const chatSocket = getChatSocket();
+  const [dispatchConnected, setDispatchConnected] = useState(
+    () => dispatchSocket.connected,
+  );
+  const dispatchConnectedRef = useRef(dispatchSocket.connected);
+  useEffect(() => {
+    dispatchConnectedRef.current = dispatchConnected;
+  }, [dispatchConnected]);
 
   // Suivi de commande en cache TanStack Query : le retour arrière depuis le
   // détail d'une commande réaffiche le suivi instantanément, puis la requête
@@ -134,7 +214,16 @@ const OrderTracking = () => {
     queryKey: ['order-tracking', myUserId ?? null, orderId],
     queryFn: () => api.getOrderTracking(orderId),
     enabled: !!orderId,
-    staleTime: 10_000, // le reste du statut arrive déjà par websocket
+    staleTime: 10_000,
+    // Polling 10 s UNIQUEMENT quand le socket est coupé : connecté, le serveur
+    // pousse les positions et interroger l'API en plus ne sert à rien.
+    refetchInterval: ({ state: { data } }) => {
+      const stillMoving =
+        data?.orderType === 'P2P_DELIVERY' &&
+        !TERMINAL_STATUSES.includes(data.status);
+      if (!stillMoving) return false;
+      return dispatchConnectedRef.current ? false : 10_000;
+    },
   });
 
   // 💳 Retour de la passerelle (successUrl) : UNE réconciliation au montage,
@@ -157,8 +246,22 @@ const OrderTracking = () => {
       .catch(() => undefined);
   }, [orderId, tracking, unpaidLike, refetch]);
 
-  const [driverPos, setDriverPos] = useState(null);
+  // Dernière position connue du livreur, restaurée depuis le cache local :
+  // la carte est remplie dès le montage au lieu de rester vide.
+  const [driverPos, setDriverPos] = useState(() =>
+    readCachedDriverPos(orderId),
+  );
   const [liveTrace, setLiveTrace] = useState([]);
+  const [lastSignalAt, setLastSignalAt] = useState(() =>
+    readCachedDriverSignalAt(orderId),
+  );
+  // Horloge lente : réévalue le badge « hors ligne » même quand aucun
+  // événement socket n'arrive (c'est justement le cas à détecter).
+  const [, setSignalClock] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSignalClock((n) => n + 1), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   const [channel, setChannel] = useState('driver');
   const [messages, setMessages] = useState([]);
@@ -166,8 +269,6 @@ const OrderTracking = () => {
   const [chatJoined, setChatJoined] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const chatBoxRef = useRef(null);
-  const chatSocket = getChatSocket();
-  const dispatchSocket = getDispatchSocket();
 
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeError, setDisputeError] = useState(null);
@@ -182,10 +283,19 @@ const OrderTracking = () => {
 
   const status = tracking?.status || 'PENDING';
   const isRide = tracking?.orderType === 'RIDE';
-  const STEP_LABELS = isRide ? STEP_LABELS_RIDE : STEP_LABELS_FOOD;
+  const STEP_LABELS = isRide
+    ? STEP_LABELS_RIDE
+    : STEP_LABELS_DELIVERY;
   const step = STATUS_STEP[status] || 1;
   const progress = (step / 4) * 100;
   const trackingActive = tracking?.trackingActive === true;
+  // Signal GPS muet depuis plus de 60 s : on prévient le client au lieu de
+  // lui laisser croire que le livreur arrive.
+  const driverOffline = Boolean(
+    driverPos &&
+      lastSignalAt &&
+      Date.now() - lastSignalAt > DRIVER_OFFLINE_AFTER_MS,
+  );
 
   // 🧭 Nom d'affichage du provider de livraison (dispatch multi-niveaux)
   function providerLabel(p) {
@@ -195,7 +305,7 @@ const OrderTracking = () => {
       case 'manual':
         return 'notre équipe (traitement manuel)';
       case 'internal':
-        return 'un livreur FasoFree';
+        return 'un livreur Koliwa';
       default:
         return p;
     }
@@ -209,13 +319,16 @@ const OrderTracking = () => {
       ? trackingError.message || 'Erreur de chargement du suivi'
       : null;
 
-  // 2. Initialisation de la position live depuis le serveur
+  // 2. Initialisation de la position live depuis le serveur. On ne remet pas
+  // la position à zéro quand elle manque : le cache local évite que la carte
+  // se vide à chaque retour sur la page.
   useEffect(() => {
     if (tracking?.driverLocation) {
       setDriverPos([
         tracking.driverLocation.latitude,
         tracking.driverLocation.longitude,
       ]);
+      setLastSignalAt((prev) => prev ?? Date.now());
     }
     if (tracking?.trace?.length) {
       setLiveTrace(tracking.trace.map((p) => [p.latitude, p.longitude]));
@@ -233,6 +346,8 @@ const OrderTracking = () => {
       if (!data || data.orderId !== orderId) return;
       const pos = [data.latitude, data.longitude];
       setDriverPos(pos);
+      setLastSignalAt(Date.now());
+      writeDriverPosCache(orderId, data.latitude, data.longitude);
       setLiveTrace((prev) => {
         const last = prev[prev.length - 1];
         if (last && last[0] === pos[0] && last[1] === pos[1]) return prev;
@@ -244,6 +359,29 @@ const OrderTracking = () => {
 
     return () => {
       dispatchSocket.off('driverLocationUpdated', onLocation);
+    };
+  }, [orderId, dispatchSocket]);
+
+  // Reconnexion automatique + suivi de l'état de la connexion temps réel.
+  // Socket.io reconnecte tout seul ; on ré-émet joinOrderTracking à chaque
+  // reconnexion pour reprendre le suivi sans recharger la page.
+  useEffect(() => {
+    if (!orderId) return;
+    const onConnect = () => {
+      setDispatchConnected(true);
+      dispatchSocket.emit('joinOrderTracking', { orderId });
+    };
+    const onDisconnect = () => setDispatchConnected(false);
+    dispatchSocket.on('connect', onConnect);
+    dispatchSocket.on('disconnect', onDisconnect);
+    if (dispatchSocket.connected) {
+      setDispatchConnected(true);
+    } else {
+      dispatchSocket.connect();
+    }
+    return () => {
+      dispatchSocket.off('connect', onConnect);
+      dispatchSocket.off('disconnect', onDisconnect);
     };
   }, [orderId, dispatchSocket]);
 
@@ -270,7 +408,7 @@ const OrderTracking = () => {
       } catch {}
       // Notification navigateur
       if (Notification.permission === 'granted') {
-        new Notification('FasoFree', {
+        new Notification('Koliwa', {
           body: data.message || 'Votre livreur est arrive. Confirmez la reception.',
         });
       }
@@ -417,7 +555,7 @@ const OrderTracking = () => {
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="tracking-layout max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm">
             {error}
@@ -428,7 +566,7 @@ const OrderTracking = () => {
           // Squelette reprenant la structure du panneau de suivi réel
           // (cartouche statut + barre de progression + carte) — remplace le
           // texte « Chargement du suivi… » isolé.
-          <div className="app-panel rounded-xl p-5 mb-6 space-y-4">
+          <div className="tracking-card app-panel rounded-[22px] p-5 mb-6 space-y-4">
             <Skeleton className="h-5 rounded w-2/5" />
             <Skeleton className="h-2 w-full rounded-full" />
             <Skeleton className="h-40 w-full rounded-xl" />
@@ -438,19 +576,23 @@ const OrderTracking = () => {
         {tracking && (
           <>
             {/* Ordre + statut */}
-            <div className="app-panel rounded-xl p-5 mb-6 animate-fade-in">
-              <div className="flex items-center justify-between mb-6">
-                <div>
+            <div className="tracking-card app-panel rounded-[22px] p-5 mb-6 animate-fade-in">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <div className="min-w-0">
                   <p className="text-xs text-text-secondary">
-                    Numéro de commande
+                    {tracking.trackingReference ? 'Numéro de suivi' : 'Numéro de commande'}
                   </p>
-                  <p className="text-lg font-mono font-bold text-text-primary">
-                    {orderId}
+                  <p className="break-words text-sm font-mono font-bold text-text-primary">
+                    {formatTrackingReference(tracking.trackingReference) || orderId}
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-background-secondary text-xs font-medium text-text-secondary">
-                  {STATUS_LABELS[status] || status}
-                </span>
+                {!isRide && (status === 'DELIVERED' || status === 'COMPLETED') ? (
+                  <KoliwaHandoffBadge />
+                ) : (
+                  <span className="px-3 py-1 bg-background-secondary text-xs font-medium text-text-secondary">
+                    {STATUS_LABELS[status] || status}
+                  </span>
+                )}
               </div>
 
               {tracking?.agency ? (
@@ -468,7 +610,7 @@ const OrderTracking = () => {
                     <div
                       className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg shrink-0"
                       style={{
-                        backgroundColor: tracking.agency.brandColor || '#C1652E',
+                        backgroundColor: tracking.agency.brandColor || '#5f7220',
                       }}
                     >
                       {String(tracking.agency.name || '?').charAt(0).toUpperCase()}
@@ -502,7 +644,7 @@ const OrderTracking = () => {
                 </div>
               ) : tracking?.deliveryProvider ? (
                 <p className="mb-4 text-xs text-text-secondary">
-                  🚚 Livraison confiée à{' '}
+                  Livraison confiée à{' '}
                   <span className="font-semibold text-text-primary">
                     {providerLabel(tracking.deliveryProvider)}
                   </span>
@@ -518,7 +660,7 @@ const OrderTracking = () => {
                 <div className="absolute top-0 left-0 w-full h-1 bg-background-secondary">
                   <div
                     className="h-full transition-all duration-500"
-                    style={{ width: `${progress}%`, backgroundColor: '#C1652E' }}
+                    style={{ width: `${progress}%`, backgroundColor: '#d7f36b' }}
                   />
                 </div>
                 <div className="flex justify-between mt-4">
@@ -528,14 +670,14 @@ const OrderTracking = () => {
                       className="flex flex-col items-center"
                     >
                       <div
-                        className={`w-8 h-8 flex items-center justify-center border-2 transition-colors ${
+                        className={`w-9 h-9 rounded-full flex items-center justify-center border-2 transition-colors ${
                           index < step
                             ? 'bg-accent-primary border-accent-primary text-white'
                             : 'bg-background-secondary border-border-light text-text-secondary'
                         }`}
                         style={
                           index < step
-                            ? { backgroundColor: '#C1652E', borderColor: '#C1652E' }
+                            ? { backgroundColor: '#d7f36b', borderColor: '#d7f36b', color: '#2a2e23' }
                             : {}
                         }
                       >
@@ -558,7 +700,7 @@ const OrderTracking = () => {
 
             {/* Estimateur de temps */}
             {eta && (
-              <div className="border border-border-light p-4 mb-6">
+              <div className="tracking-section app-panel rounded-[22px] p-4 mb-6">
                 <div className="flex items-center gap-3">
                   <Clock
                     size={20}
@@ -596,14 +738,25 @@ const OrderTracking = () => {
             )}
 
             {/* Carte live */}
-            <div className="border border-border-light p-4 mb-6">
+            <div className="tracking-section app-panel rounded-[22px] p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-medium text-text-secondary">
                   Position du {isRide ? 'chauffeur' : 'livreur'}
                 </h2>
-                {trackingActive ? (
+                {!dispatchConnected ? (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    Connexion temps réel perdue — reconnexion…
+                  </span>
+                ) : driverOffline ? (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-600">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    {isRide ? 'Chauffeur' : 'Livreur'} hors ligne ·{' '}
+                    {formatAge(Date.now() - lastSignalAt)}
+                  </span>
+                ) : trackingActive ? (
                   <span className="flex items-center gap-1.5 text-xs text-success">
-                    <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <span className="w-2 h-2 rounded-full bg-success" />
                     Suivi en direct
                   </span>
                 ) : (
@@ -616,7 +769,7 @@ const OrderTracking = () => {
               </div>
               <div
                 className="w-full"
-                style={{ height: 320, borderRadius: 8, overflow: 'hidden' }}
+                style={{ height: 320, borderRadius: 18, overflow: 'hidden' }}
               >
                 <MapContainer
                   center={mapPoints[0] || OUAGA}
@@ -633,7 +786,7 @@ const OrderTracking = () => {
                     <Polyline
                       positions={tracePath}
                       pathOptions={{
-                        color: '#C1652E',
+                        color: '#7f9425',
                         weight: 4,
                         opacity: 0.7,
                       }}
@@ -656,7 +809,7 @@ const OrderTracking = () => {
                           tracking.businessLocation.latitude,
                           tracking.businessLocation.longitude,
                         ]}
-                        icon={BUSINESS_ICON}
+                        icon={ORIGIN_ICON}
                       />
                     )
                   )}
@@ -685,7 +838,7 @@ const OrderTracking = () => {
                 <span className="flex items-center gap-1.5">
                   <span
                     className="w-2.5 h-2.5 rounded-full inline-block"
-                    style={{ backgroundColor: '#C1652E' }}
+                    style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
                   />
                   {isRide ? 'Chauffeur' : 'Livreur'}
                 </span>
@@ -700,7 +853,7 @@ const OrderTracking = () => {
             </div>
 
             {/* Chat éphémère */}
-            <div className="border border-border-light p-4 mb-6">
+            <div className="tracking-section app-panel rounded-[22px] p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-medium text-text-secondary flex items-center gap-2">
                   <MessageCircle size={16} strokeWidth={1.5} />
@@ -723,7 +876,7 @@ const OrderTracking = () => {
                       : 'border border-border-light text-text-secondary'
                   }`}
                   style={
-                    channel === 'driver' ? { backgroundColor: '#C1652E' } : {}
+                    channel === 'driver' ? { backgroundColor: '#d7f36b', color: '#2a2e23' } : {}
                   }
                 >
                   Avec le {isRide ? 'chauffeur' : 'livreur'}
@@ -738,7 +891,7 @@ const OrderTracking = () => {
                     }`}
                     style={
                       channel === 'merchant'
-                        ? { backgroundColor: '#C1652E' }
+                        ? { backgroundColor: '#d7f36b', color: '#2a2e23' }
                         : {}
                     }
                   >
@@ -776,7 +929,7 @@ const OrderTracking = () => {
                           ? 'ml-auto text-white'
                           : 'bg-background-card border border-border-light text-text-primary'
                       }`}
-                      style={mine ? { backgroundColor: '#C1652E' } : {}}
+                      style={mine ? { backgroundColor: '#d7f36b', color: '#2a2e23' } : {}}
                     >
                       {!mine && (
                         <p className="text-[10px] text-text-secondary mb-0.5">
@@ -816,7 +969,7 @@ const OrderTracking = () => {
                   onClick={sendMessage}
                   disabled={!chatActive || !chatJoined || !chatInput.trim()}
                   className="px-4 flex items-center justify-center text-white transition-opacity disabled:opacity-40"
-                  style={{ backgroundColor: '#C1652E' }}
+                  style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
                 >
                   <Send size={16} strokeWidth={1.5} />
                 </button>
@@ -824,7 +977,12 @@ const OrderTracking = () => {
             </div>
 
             {/* Confirmation de réception */}
-            {status === 'DELIVERED_PENDING_CONFIRMATION' && (
+            {status === 'DELIVERED_PENDING_CONFIRMATION' && tracking?.orderType === 'P2P_DELIVERY' && (
+              <p className="app-panel p-4 mb-6">Le destinataire confirme la remise avec le code SMS depuis son lien de suivi.</p>
+            )}
+
+
+            {status === 'DELIVERED_PENDING_CONFIRMATION' && tracking?.orderType !== 'P2P_DELIVERY' && (
               <div className="flex flex-col items-center bg-success/10 border border-success/30 p-6 mb-6">
                 <CheckCircle
                   size={32}
@@ -899,7 +1057,7 @@ const OrderTracking = () => {
               <button
                 onClick={() => navigate('/')}
                 className="flex-1 px-4 py-3 text-sm font-medium text-white transition-colors"
-                style={{ backgroundColor: '#C1652E' }}
+                style={{ backgroundColor: '#d7f36b', color: '#2a2e23' }}
               >
                 Commander
               </button>
