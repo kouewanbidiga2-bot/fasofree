@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -7,7 +7,7 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// 📱 PWA — application CLIENT FasoFree (1ʳᵉ des 2 apps PWA).
+// 📱 PWA — application CLIENT Koliwa (1ʳᵉ des 2 apps PWA).
 //
 // `injectManifest` : le Service Worker source `src/sw.js` fusionne le
 // precache Workbox (hors-ligne) et le handler Firebase Messaging (push).

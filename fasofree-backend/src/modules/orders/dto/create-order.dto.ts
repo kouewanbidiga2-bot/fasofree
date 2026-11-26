@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -211,10 +211,10 @@ export class CreateOrderDto {
   @Type(() => PackageDetailsDto)
   packageDetails?: PackageDetailsDto;
 
-  // --- 🚗 RIDE OPTIONS (FasoFree Ride) ---
+  // --- 🚗 RIDE OPTIONS (Koliwa Ride) ---
 
   @ApiPropertyOptional({
-    description: 'Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)',
+    description: 'Option de confort Koliwa Ride (ECONOMY / COMFORT / PREMIUM)',
     enum: RideOption,
     required: false,
   })

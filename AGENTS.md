@@ -1,4 +1,4 @@
-# FasoFree — AGENTS.md
+# Koliwa — AGENTS.md
 
 Guidance operative pour les agents (OpenCode, Claude Code, Codex…).
 Ce fichier couvre **l'outillage** et **les pièges vérifiés du dépôt**.
@@ -99,12 +99,12 @@ précédentes se sont révélés faux sur des fichiers lus partiellement).
 
 `.ecc/memory/project/` contient les mémoires ECC (facts, handoffs, lessons, decisions).
 
-Les deux scopes sont actifs : `project` (mémoires de FasoFree dans `.ecc/memory/project/`)
+Les deux scopes sont actifs : `project` (mémoires de Koliwa dans `.ecc/memory/project/`)
 et `user` (mémoires transprojets, activé via `ECC_MEMORY_ALLOW_USER_SCOPE=1` dans
 `~/.config/opencode/opencode.json`).
 
 > ⚠️ Le scope `user` est **partagé entre tous les projets** de la machine.
-> Ne pas y déposer de contexte spécifique à FasoFree : il fuiterait dans les
+> Ne pas y déposer de contexte spécifique à Koliwa : il fuiterait dans les
 > autres dépôts. Utiliser `project` pour ce qui est propre à ce repo.
 
 ---

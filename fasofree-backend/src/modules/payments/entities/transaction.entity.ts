@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -60,7 +60,7 @@ export class Transaction {
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   amount: number;
 
-  // 💵 Commission FasoFree (1.5%)
+  // 💵 Commission Koliwa (1.5%)
   @Column({ type: 'numeric', precision: 10, scale: 2 })
   commissionAmount: number;
 

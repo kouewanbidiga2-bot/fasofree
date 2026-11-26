@@ -1,13 +1,13 @@
-# 📚 FasoFree Legal & Compliance Pack
+# 📚 Koliwa Legal & Compliance Pack
 
-> **Pack contractuel et de conformité de la plateforme FasoFree** (Burkina Faso).
+> **Pack contractuel et de conformité de la plateforme Koliwa** (Burkina Faso).
 > Statut global : **V1.0 — à faire relire et valider par un avocat / notaire au Burkina Faso avant mise en production.**
 
 ---
 
 ## 1. Pourquoi ce pack
 
-FasoFree traite des données sensibles et variées : **géolocalisation (continue pour les livreurs), identité, téléphone, historique de commandes, paiements, données de commerçants et de livreurs, espèces encaissées, documents d'identité**. Un simple jeu de CGU génériques ne suffit pas : le dispositif est conçu comme **un ensemble documentaire cohérent, numéroté et versionné**, afin que le backend puisse enregistrer **exactement quelle version chaque utilisateur a acceptée, quand, et par quel mécanisme** (case à cocher, clic, signature électronique / OTP).
+Koliwa traite des données sensibles et variées : **géolocalisation (continue pour les livreurs), identité, téléphone, historique de commandes, paiements, données de commerçants et de livreurs, espèces encaissées, documents d'identité**. Un simple jeu de CGU génériques ne suffit pas : le dispositif est conçu comme **un ensemble documentaire cohérent, numéroté et versionné**, afin que le backend puisse enregistrer **exactement quelle version chaque utilisateur a acceptée, quand, et par quel mécanisme** (case à cocher, clic, signature électronique / OTP).
 
 ## 2. Arborescence
 
@@ -84,7 +84,7 @@ Pour que la preuve d'acceptation soit exploitable par le backend, enregistrer à
 
 ## 7. À compléter avant mise en production (la liste « non-négociable »)
 
-1. [ ] **Identité juridique exacte de FasoFree** : raison sociale, forme juridique, capital, RCCM, IFU, siège, représentant légal, contacts (`[●]` dans tous les documents).
+1. [ ] **Identité juridique exacte de Koliwa** : raison sociale, forme juridique, capital, RCCM, IFU, siège, représentant légal, contacts (`[●]` dans tous les documents).
 2. [ ] **Matrice tarifaire** (FR-TAR-011) : commission commerçant, frais de service, rémunération livreur, bonus, frais d'annulation, **Seuils Soft/Hard Limit** espèces, délais de règlement.
 3. [ ] **Gouvernance des données** (FR-DPI-010) : registre des traitements, durées de conservation par catégorie, sous-traitants exacts, **formalités CIL** (déclaration préalable / autorisation selon l'art. 26).
 4. [ ] **Statut juridique des livreurs** — faire valider par un avocat local (analyse de la subordination réelle, pas seulement la clause d'indépendance).

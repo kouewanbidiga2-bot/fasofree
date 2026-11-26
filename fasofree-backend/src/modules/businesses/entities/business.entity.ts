@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -138,7 +138,7 @@ export class Business {
   enableDineIn: boolean; // Consommation sur place / Réservations
 
   @Column({ type: 'boolean', default: false })
-  hasOwnDrivers: boolean; // Utilise ses propres livreurs (pas de dispatch FasoFree)
+  hasOwnDrivers: boolean; // Utilise ses propres livreurs (pas de dispatch Koliwa)
 
   // 🌍 MOTEUR SPATIAL (PostGIS)
   @Column({

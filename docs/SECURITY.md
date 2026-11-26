@@ -1,4 +1,4 @@
-# Sécurité — FasoFree Backend
+# Sécurité — Koliwa Backend
 
 ## Principes appliqués
 - **Fail-closed** : en cas de doute (secret manquant, signature absente), le traitement est **rejeté**, jamais exécuté.

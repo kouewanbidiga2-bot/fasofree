@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Migration: Catalogue de forfaits & abonnements FasoFree
+ * Migration: Catalogue de forfaits & abonnements Koliwa
  *
  * 1. Table "subscription_plans" (catalogue piloté par le Super Admin)
  * 2. Colonne "plan" des subscriptions → varchar (codes extensibles STARTER/PRO/VIP)
@@ -94,7 +94,7 @@ export class AddSubscriptionPlansAndFee1724600000000
       VALUES
         ('STARTER', 'Starter', 'Plan gratuit pour débuter : commission standard de 5% par commande.', 'MERCHANT', 0, 3650, 0.0500, false, false, 0, true),
         ('PRO', 'Pro', 'Boostez votre commerce : commission réduite à 1,5% par commande.', 'MERCHANT', 5000, 30, 0.0150, false, false, 0, true),
-        ('VIP', 'FasoFree Pass VIP', 'Frais de plateforme (100 FCFA/commande) offerts pendant toute la durée.', 'CUSTOMER', 2500, 30, NULL, true, false, 0, true)
+        ('VIP', 'Koliwa Pass VIP', 'Frais de plateforme (100 FCFA/commande) offerts pendant toute la durée.', 'CUSTOMER', 2500, 30, NULL, true, false, 0, true)
       ON CONFLICT ("code") DO NOTHING;
     `);
   }

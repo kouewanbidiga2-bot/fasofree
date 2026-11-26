@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -73,7 +73,7 @@ export class CreateAgencyDto {
   @MaxLength(255, { message: 'website ne peut pas dépasser 255 caractères.' })
   website?: string;
 
-  /** Société vérifiée par FasoFree (badge de confiance). */
+  /** Société vérifiée par Koliwa (badge de confiance). */
   @IsOptional()
   @IsBoolean()
   isVerified?: boolean;

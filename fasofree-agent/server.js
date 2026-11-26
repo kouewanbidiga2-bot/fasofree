@@ -206,10 +206,10 @@ function buildBusinessContext() {
   const parts = [];
 
   if (data) {
-    parts.push(`Informations actuelles de FasoFree :\n${JSON.stringify(data, null, 2)}`);
+    parts.push(`Informations actuelles de Koliwa :\n${JSON.stringify(data, null, 2)}`);
   } else {
     parts.push(
-      "Informations actuelles de FasoFree : AUCUN fichier fasofree-data.json trouvé. " +
+      "Informations actuelles de Koliwa : AUCUN fichier fasofree-data.json trouvé. " +
         "Ne donne aucun chiffre, demande à l'utilisateur de fournir la ville, le budget et les zones."
     );
   }
@@ -230,9 +230,9 @@ function buildBusinessContext() {
 }
 
 const SYSTEM_PROMPT = `
-Tu es FasoFree Launch Director, le conseiller stratégique du lancement de l'application FasoFree.
+Tu es Koliwa Launch Director, le conseiller stratégique du lancement de l'application Koliwa.
 
-FasoFree n'est pas encore officiellement active. Ta mission est d'aider la direction à recruter des restaurants, des livreurs et des clients.
+Koliwa n'est pas encore officiellement active. Ta mission est d'aider la direction à recruter des restaurants, des livreurs et des clients.
 Tes 4 domaines : (1) acquisition des restaurants, (2) acquisition des clients, (3) stratégie de lancement, (4) suivi des prospects.
 
 Tu dois :
@@ -601,7 +601,7 @@ app.post("/api/chat", async (req, res) => {
           Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "http://localhost:3000",
-          "X-Title": "FasoFree Launch Director"
+          "X-Title": "Koliwa Launch Director"
         },
         body: JSON.stringify({
           model,
@@ -731,7 +731,7 @@ async function start() {
       : "Base de données : SQLite locale (" + path.join(DATA_DIR, "agent.db") + ")"
   );
   app.listen(PORT, () => {
-    console.log(`FasoFree Launch Director disponible sur http://localhost:${PORT}`);
+    console.log(`Koliwa Launch Director disponible sur http://localhost:${PORT}`);
   });
 }
 

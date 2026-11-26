@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -169,13 +169,13 @@ export class OtpService {
     if (!sent) {
       const isContractSign = purpose === OtpService.PURPOSE_CONTRACT_SIGN;
       const subject = isContractSign
-        ? 'FasoFree — Signature de votre contrat'
-        : 'FasoFree — Code de vérification';
+        ? 'Koliwa — Signature de votre contrat'
+        : 'Koliwa — Code de vérification';
       // Message du flux de vérification STRICTEMENT inchangé (compatibilité) ;
       // seul le libellé du flux contrat est spécifique.
       const message = `Votre code ${
         isContractSign ? 'de signature de contrat' : 'de vérification'
-      } FasoFree est : ${code}\n\nCe code expire dans 5 minutes.\n\nSi vous n'avez pas demandé ce code, ignorez ce message.`;
+      } Koliwa est : ${code}\n\nCe code expire dans 5 minutes.\n\nSi vous n'avez pas demandé ce code, ignorez ce message.`;
       try {
         await this.notificationsService.sendPushNotification(user, subject, message);
       } catch (err) {

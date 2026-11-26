@@ -14,11 +14,11 @@ audience: interne-cil
 
 ## ARTICLE 1 — OBJET
 
-La présente Procédure organise, en interne, la gouvernance des données personnelles et la gestion des violations de données au sein de FasoFree, conformément à la loi n°001-2021/AN du 30 mars 2021 et aux recommandations de la Commission de l'Informatique et des Libertés (CIL).
+La présente Procédure organise, en interne, la gouvernance des données personnelles et la gestion des violations de données au sein de Koliwa, conformément à la loi n°001-2021/AN du 30 mars 2021 et aux recommandations de la Commission de l'Informatique et des Libertés (CIL).
 
 ## ARTICLE 2 — RESPONSABILITÉS
 
-**Responsable du traitement** : FasoFree (identité complète cf. [Politique de confidentialité](FR-PRIV-002.md)).
+**Responsable du traitement** : Koliwa (identité complète cf. [Politique de confidentialité](FR-PRIV-002.md)).
 
 **DPO / Responsable protection des données** : [NOM], joignable à [privacy@fasofree.com](mailto:privacy@fasofree.com).
 
@@ -72,7 +72,7 @@ Dès la détection, l'équipe incidents :
 
 ## ARTICLE 7 — NOTIFICATION
 
-Lorsque l'incident est susceptible d'engendrer un risque pour les droits et libertés des personnes, FasoFree notifie la CIL dans les conditions prévues par la réglementation applicable, avec les éléments requis (nature de la violation, catégories de données, mesures prises ou envisagées, conséquences).
+Lorsque l'incident est susceptible d'engendrer un risque pour les droits et libertés des personnes, Koliwa notifie la CIL dans les conditions prévues par la réglementation applicable, avec les éléments requis (nature de la violation, catégories de données, mesures prises ou envisagées, conséquences).
 
 Lorsque l'incident présente un risque élevé, les personnes concernées sont également informées par tout moyen approprié, sauf lorsque les mesures prises rendent le risque sans objet.
 
@@ -84,11 +84,11 @@ Des actions correctives et préventives sont mises en œuvre et suivies.
 
 ## ARTICLE 9 — SOUS-TRAITANTS ET PRESTATAIRES
 
-Les sous-traitants sont référencés au registre. Des clauses de protection des données sont mises en place avec chacun d'eux. En cas d'incident affectant leurs systèmes, ils sont tenus d'en informer FasoFree dans les meilleurs délais.
+Les sous-traitants sont référencés au registre. Des clauses de protection des données sont mises en place avec chacun d'eux. En cas d'incident affectant leurs systèmes, ils sont tenus d'en informer Koliwa dans les meilleurs délais.
 
 ## ARTICLE 10 — FORMALITÉS AUPRÈS DE LA CIL
 
-Avant mise en œuvre des traitements entrant dans le champ des formalités requises (notamment l'article 26 de la loi n°001-2021/AN), FasoFree accomplit les formalités préalables applicables (déclaration préalable, demande d'autorisation le cas échéant) auprès de la CIL. Cette obligation s'applique en particulier aux traitements de géolocalisation continue des livreurs, conformément aux délibérations de la CIL.
+Avant mise en œuvre des traitements entrant dans le champ des formalités requises (notamment l'article 26 de la loi n°001-2021/AN), Koliwa accomplit les formalités préalables applicables (déclaration préalable, demande d'autorisation le cas échéant) auprès de la CIL. Cette obligation s'applique en particulier aux traitements de géolocalisation continue des livreurs, conformément aux délibérations de la CIL.
 
 ## ARTICLE 11 — SENSIBILISATION ET CONTRÔLE
 

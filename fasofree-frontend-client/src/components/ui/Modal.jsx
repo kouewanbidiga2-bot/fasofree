@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -8,7 +8,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { cn } from '../../utils/cn';
 
 /**
- * Modale FasoFree — primitif Radix Dialog habillé avec les tokens du thème.
+ * Modale Koliwa — primitif Radix Dialog habillé avec les tokens du thème.
  *
  * Apporte SANS changer le visuel : fermeture Échap, verrouillage du scroll
  * en arrière-plan (modal), piège de focus, portail au-dessus de tout,

@@ -14,7 +14,7 @@ audience: livreur
 
 ## ARTICLE 1 — OBJET
 
-La présente Charte précise les obligations de sécurité applicables au Livreur dans le cadre de l'exécution des missions de livraison proposées par FasoFree. Elle complète le [Contrat-cadre Livreur](FR-LIVR-006.md) et s'applique sans préjudice des règles légales et réglementaires applicables, notamment le Code de la route, le Code du travail et la loi n°001-2021/AN.
+La présente Charte précise les obligations de sécurité applicables au Livreur dans le cadre de l'exécution des missions de livraison proposées par Koliwa. Elle complète le [Contrat-cadre Livreur](FR-LIVR-006.md) et s'applique sans préjudice des règles légales et réglementaires applicables, notamment le Code de la route, le Code du travail et la loi n°001-2021/AN.
 
 ## ARTICLE 2 — PRÉPARATION AVANT LA COURSE
 
@@ -45,7 +45,7 @@ Lors de la prise en charge chez le commerçant, le Livreur doit :
 * vérifier l'adéquation entre la commande annoncée et celle remise ;
 * s'assurer du caractère approprié de l'emballage ;
 * transporter la commande avec soin, en veillant à sa stabilité et à sa protection ;
-* respecter les consignes de transport mentionnées par le commerçant ou FasoFree.
+* respecter les consignes de transport mentionnées par le commerçant ou Koliwa.
 
 ## ARTICLE 5 — PROTECTION DE L'IDENTITÉ ET DES DONNÉES
 
@@ -72,7 +72,7 @@ Lorsque le Livreur encaisse des espèces, il doit :
 * respecter les plafonds de détention applicables (**Soft Limit** et **Hard Limit**, cf. [Annexes tarifaires](FR-TAR-011.md)) ;
 * régulariser les fonds selon les modalités prévues.
 
-En cas de vol ou de perte, le Livreur doit en informer FasoFree dans les meilleurs délais.
+En cas de vol ou de perte, le Livreur doit en informer Koliwa dans les meilleurs délais.
 
 ## ARTICLE 8 — INCIDENTS ET SITUATIONS À RISQUE
 
@@ -80,7 +80,7 @@ En cas d'accident, de panne, de commande introuvable, de client absent, d'établ
 
 1. se mettre en sécurité ;
 2. contacter les secours lorsque la situation l'exige ;
-3. signaler l'incident à FasoFree dès que possible via les canaux prévus ;
+3. signaler l'incident à Koliwa dès que possible via les canaux prévus ;
 4. suivre la procédure d'incident applicable.
 
 ## ARTICLE 9 — INTERDICTIONS ABSOLUES

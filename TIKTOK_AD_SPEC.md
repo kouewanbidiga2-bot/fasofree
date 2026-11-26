@@ -2,7 +2,7 @@
 
 Art direction premium. Contraintes strictes :
 - **Seules les VRAIES captures de l'app sont utilisées** dans les écrans (jamais d'UI générée) : `home.png`, `resto.png` (menu Chitir Chicken), `p2p.png`, `search.png`, `auth.png`.
-- Cartes panier/paiement/suivi = **auth protégé** → dessinées en style UI FasoFree avec **données réelles** (Chitir Chicken « Poulet Entier » 5 500 FCFA, panier total 8 800 FCFA) + vraies photos produits (`chitirchiken.jpeg`, `gusto.jpeg`).
+- Cartes panier/paiement/suivi = **auth protégé** → dessinées en style UI Koliwa avec **données réelles** (Chitir Chicken « Poulet Entier » 5 500 FCFA, panier total 8 800 FCFA) + vraies photos produits (`chitirchiken.jpeg`, `gusto.jpeg`).
 - Fond & mockup = générés (Midjourney/DALL·E) ; la musique sera ajoutée **nativement dans TikTok/IG** (son Trend) → piste audio laissée vide.
 
 ---
@@ -14,9 +14,9 @@ Voix : **Adam (masculin, dynamique)** — backups : « Dominic » ou « Rachel �
 | # | Time-In | Durée | Time-Out | Script exact (avec respiration) |
 |---|---|---|---|---|
 | S1 | 0,5 s | 3,9 s | 4,4 s | « T'as faim… mais t'as la flemme de bouger ? … Regarde ça. » |
-| S2 | 4,6 s | 6,9 s | 11,5 s | « Avec FasoFree, commande ton poulet entier, à seulement cinq mille cinq cents francs, … direct depuis ton canapé. » |
+| S2 | 4,6 s | 6,9 s | 11,5 s | « Avec Koliwa, commande ton poulet entier, à seulement cinq mille cinq cents francs, … direct depuis ton canapé. » |
 | S3 | 11,6 s | 7,2 s | 18,8 s | « Tu valides ton panier… tu paies en un clic avec tes potes, grâce au P2P… et c'est déjà en route. » |
-| S4 | 20,5 s | 4,4 s | 24,9 s | « Télécharge FasoFree maintenant. … Le lien est dans la bio ! » |
+| S4 | 20,5 s | 4,4 s | 24,9 s | « Télécharge Koliwa maintenant. … Le lien est dans la bio ! » |
 
 > Rythme final testé sur ElevenLabs avec le texte exact ; ajustement ±0,3 s possible → recentrer les timings de la timeline ci-dessous si besoin.
 
@@ -26,10 +26,10 @@ Voix : **Adam (masculin, dynamique)** — backups : « Dominic » ou « Rachel �
 
 | Time | Scène | Visuel (captures RÉELLES) | Texte à l'écran |
 |---|---|---|---|
-| 0,0–3,2 | **S1 HOOK** | BG lifestyle (Midjourney #1) ; zoom rapide vers logo FasoFree (icône réelle) qui « pop » en 3D | « Envie d'un bon plan repas sans te ruiner ? » lettre par lettre (0,8→2,0) |
+| 0,0–3,2 | **S1 HOOK** | BG lifestyle (Midjourney #1) ; zoom rapide vers logo Koliwa (icône réelle) qui « pop » en 3D | « Envie d'un bon plan repas sans te ruiner ? » lettre par lettre (0,8→2,0) |
 | 3,2–10,0 | **S2 SOLUTION** | Mockup 3D pivot face caméra ; écran = **`resto.png`** ; doigt « Tap » sur la rangée Resto ; swipe fluide vers le produit « Poulet Entier » | Sticker « POULET ENTIER » (6,0) + **« 5 500 FCFA » pop 3D + brillance** (6,8) |
 | 10,0–19,3 | **S3 PREUVE / P2P** | Split : haut = carte Panier réelle (total **8 800 FCFA**) ; bas = **`p2p.png`** qui se valide + coche verte brillante | « Paiement 100% Sécurisé 🔒 » (11,2) · « 8 800 FCFA » (13,4) · « PAIEMENT VALIDÉ ✓ » (15,8) |
-| 19,3–34,0 | **S4 CTA** | Téléphone se range ; logo FasoFree géant ; badges App Store / Google Play ; barre de recherche tape « FasoFree » | « Téléchargez maintenant » (20,8) · badges (24,2) · tape « FasoFree » (22,2–26,4) · « La livraison. 100% Burkina Faso. » (29,0) |
+| 19,3–34,0 | **S4 CTA** | Téléphone se range ; logo Koliwa géant ; badges App Store / Google Play ; barre de recherche tape « Koliwa » | « Téléchargez maintenant » (20,8) · badges (24,2) · tape « Koliwa » (22,2–26,4) · « La livraison. 100% Burkina Faso. » (29,0) |
 
 **Mouvement caméra** : pan/tilt léger (3 à 6°) sur chaque scène, fondu d'écran du mockup avec **spring (overshoot 12 %)** aux chutes et **ease-in-out expo** aux entrées ; **motion blur** sur tous les swipes/zooms ≥ 300 px (ghosted 2–3 frames / subexposure 60 fps ; ffmpeg `minterpolate` si besoin).
 
@@ -80,7 +80,7 @@ Whoosh (W) = souffle montant, bande 400→6000 Hz. Pour un rendu local : bruit b
 | 19,30–20,00 | **W** | Transition S3→S4 |
 | 20,00–20,80 | RIS | Riser vers CTA |
 | 20,80 | TH | Chute du logo + shimmer du badge |
-| 22,10–26,40 | KT ×6 | Clics de clavier (tape « FasoFree ») |
+| 22,10–26,40 | KT ×6 | Clics de clavier (tape « Koliwa ») |
 | 24,30 / 24,55 | POP | Badges App Store / Google Play |
 | 27,50 | ST | End-card sting + réverb courte |
 | 33,60–34,00 | W out | Whoosh de sortie (ou loop) |

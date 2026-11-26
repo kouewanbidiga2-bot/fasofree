@@ -13,11 +13,11 @@ Contrainte stricte : écrans = **vraies captures** de l'app (`home.png`, `resto.
 | # | In | Dur | Out | Bloc |
 |---|---|---|---|---|
 | 1 | 0,50 | 3,5 | 4,00 | T'as faim mais t'as pas envie de cuisiner ? |
-| 2 | 4,20 | 5,2 | 9,40 | Découvre les meilleurs restos sur FasoFree. Ton poulet entier en seulement quelques clics. |
+| 2 | 4,20 | 5,2 | 9,40 | Découvre les meilleurs restos sur Koliwa. Ton poulet entier en seulement quelques clics. |
 | 3 | 9,60 | 5,0 | 14,60 | Ajoute tes extras, vérifie ton panier, tout est clair et sans frais cachés. |
 | 4 | 15,40 | 3,4 | 18,80 | Paye en un instant, de façon 100% sécurisée. |
 | 5 | 22,40 | 3,6 | 26,00 | Suis ton livreur en direct, jusqu'à ta porte. |
-| 6 | 28,80 | 3,2 | 32,00 | Télécharge FasoFree dès maintenant. Lien en bio ! |
+| 6 | 28,80 | 3,2 | 32,00 | Télécharge Koliwa dès maintenant. Lien en bio ! |
 
 ### SFX (marqueurs)
 | Time | SFX | Action |
@@ -44,7 +44,7 @@ Contrainte stricte : écrans = **vraies captures** de l'app (`home.png`, `resto.
 | 23,00 / 24,60 / 26,00 | TICK | waypoints livreur |
 | 28,10 | WHOOSH | S5→S6 |
 | 28,70 | THUMP | drop logo |
-| 29,60→31,40 | TICKS ×7 | tape « FasoFree » |
+| 29,60→31,40 | TICKS ×7 | tape « Koliwa » |
 | 30,60 / 30,90 | POP | badges stores |
 | 32,80 | STING | end-card |
 | 33,60 | WHOOSH out | sortie |
@@ -61,7 +61,7 @@ S1 0–3,5 hook (zoom-in + blur) · S2 3,5–8,5 resto/plat · S3 8,5–15 panie
 ### VO (time-in → time-out)
 | # | In | Dur | Out | Bloc |
 |---|---|---|---|---|
-| 1 | 0,70 | 5,0 | 5,70 | Bienvenue sur FasoFree, la livraison cent pour cent burkinabè. |
+| 1 | 0,70 | 5,0 | 5,70 | Bienvenue sur Koliwa, la livraison cent pour cent burkinabè. |
 | 2 | 8,70 | 5,5 | 14,20 | Ouvre l'application et touche Connexion. Ton compte client se crée en une minute. |
 | 3a | 18,70 | 3,8 | 22,50 | Choisis Créer un compte, puis le profil Client. |
 | 3b | 27,00 | 5,0 | 32,00 | Renseigne ton nom, ton email et ton numéro. Crée ensuite ton mot de passe. |
@@ -70,7 +70,7 @@ S1 0–3,5 hook (zoom-in + blur) · S2 3,5–8,5 resto/plat · S3 8,5–15 panie
 | 6a | 56,70 | 4,6 | 61,30 | Sélectionne ton plat : le poulet entier à cinq mille cinq cents francs. |
 | 6b | 63,20 | 2,6 | 65,80 | Et touche Ajouter au panier. |
 | 7 | 68,70 | 6,2 | 74,90 | Vérifie ton panier : huit mille huit cents francs, livraison comprise. Puis paie en Mobile Money. |
-| 8 | 78,70 | 5,8 | 84,50 | Suis ton livreur en direct jusqu'à ta porte. Bon appétit, et bienvenue sur FasoFree ! |
+| 8 | 78,70 | 5,8 | 84,50 | Suis ton livreur en direct jusqu'à ta porte. Bon appétit, et bienvenue sur Koliwa ! |
 
 ### SFX (marqueurs)
 | Time | SFX | Action |

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -59,7 +59,7 @@ export interface AgencyOpenOffer {
 /**
  * 📣 Appel d'offres multi-agences (bloc A4).
  *
- * Remplace le routage vers **une seule** agence : à T+0, FasoFree diffuse
+ * Remplace le routage vers **une seule** agence : à T+0, Koliwa diffuse
  * la course à **toutes** les agences éligibles et **la première qui accepte
  * gagne**. Les offres concurrentes sont clôturées (LOST) immédiatement.
  *

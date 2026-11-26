@@ -1,17 +1,17 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 /**
- * Estimation client-side du prix P2P (Haversine + tarif FasoFree).
+ * Estimation client-side du prix P2P (Haversine + tarif Koliwa).
  * Même formule que le backend distance-calculator.service.ts :
  * prix = 1000 (base : essence A/R + bénéfice livreur) + distance_km × 200
  *        + fragile 100 + poids > 5kg × 50/kg   (arrondi au 50 supérieur)
  */
 const P2P_MIN_PRICE = 1000;
 /**
- * Frais de service FasoFree facturés au client, par livraison (100 FCFA).
+ * Frais de service Koliwa facturés au client, par livraison (100 FCFA).
  * Même montant que `SERVICE_FEE_DEFAULT` côté backend, offert aux clients
  * titulaires du Pass VIP — affiché ici pour que le prix annoncé soit le prix payé.
  */

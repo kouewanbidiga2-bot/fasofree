@@ -1554,7 +1554,7 @@
             "JWT-auth": []
           }
         ],
-        "summary": "Mon statut premium (FasoFree Pass)",
+        "summary": "Mon statut premium (Koliwa Pass)",
         "tags": [
           "Subscriptions"
         ]
@@ -1584,7 +1584,7 @@
             "JWT-auth": []
           }
         ],
-        "summary": "S’abonner au FasoFree Pass (débit portefeuille)",
+        "summary": "S’abonner au Koliwa Pass (débit portefeuille)",
         "tags": [
           "Subscriptions"
         ]
@@ -6700,11 +6700,11 @@
     }
   },
   "info": {
-    "title": "FasoFree API",
-    "description": "## FasoFree — API Backend Marketplace & Livraison Burkina Faso\n\nPlateforme complète de **livraison de repas**, **courses FasoRide**, et **envoi de colis FasoColis** à Ouagadougou.\n\n### Modules principaux\n| Module | Description |\n|--------|-------------|\n| **Authentication** | Inscription, connexion, OTP, rôles (CLIENT, BUSINESS_ADMIN, DRIVER, SUPER_ADMIN) |\n| **Businesses** | Gestion des commerces, branches multi-agences, statut ouvert/fermé |\n| **Products** | Catalogue produits par commerce, gestion stock, disponibilité |\n| **Orders** | Création, suivi FSM (PENDING → PROCESSING → IN_DELIVERY → DELIVERED), annulation |\n| **Dispatch** | Attribution automatique livreur, cascade, timeout 10 min, refus |\n| **Payments** | GeniusPay (Orange Money, Moov Money, Wave), webhooks, escrow |\n| **Wallets** | Portefeuille marchand/agence, crédits automatiques, retraits Mobile Money |\n| **Financial** | Settlement marchand, commission plateforme, rapports financiers |\n| **Analytics** | Statistiques par agence/marque, graphiques de ventes, comparaison branches |\n| **Driver** | Dashboard livreur, statut disponibilité, assignation, validation OTP |\n| **Reviews** | Notes et avis clients, modération |\n| **Disputes** | Réclamations client, résolution admin |\n| **Chat** | Messagerie client-livreur en temps réel (Socket.IO) |\n| **Subscriptions** | Forfaits marchands, KYC obligatoire avant approbation |\n| **Notifications** | Push FCM, email (Resend), WhatsApp Cloud API |\n| **Stories** | Stories éphémères restaurants (likes, vues) |\n| **Loyalty** | Points de fidélité, programme de récompenses |\n| **Promotions** | Codes promo, réductions |\n\n### Rôles et permissions\n| Rôle | Accès |\n|------|-------|\n| `SUPER_ADMIN` | Tous les endpoints, gestion utilisateurs, finances globales |\n| `BUSINESS_ADMIN` | Ses propres commerces/branches, commandes, analytics, wallet |\n| `DRIVER` | Commandes assignées, statut disponibilité, wallet retrait |\n| `CLIENT` | Passer commandes, réclamations, profil, adresses, fidélité |\n\n### Authentification\nTous les endpoints protégés nécessitent un token JWT dans le header `Authorization: Bearer <token>`.\nLe token contient `sub` (userId), `role`, et `brandId` (pour les marchands multi-agences).\n\n### Déploiement\n- **Backend** : Render (https://api.fasofree.site)\n- **Frontend Client** : Vercel (https://fasofree.site)\n- **Frontend Admin** : Vercel (https://admin.fasofree.site)\n- **Base de données** : PostgreSQL (Neon)\n- **Cache** : Redis (optionnel)\n- **Stockage fichiers** : Cloudinary",
+    "title": "Koliwa API",
+    "description": "## Koliwa — API Backend Marketplace & Livraison Burkina Faso\n\nPlateforme complète de **livraison de repas**, **courses FasoRide**, et **envoi de colis FasoColis** à Ouagadougou.\n\n### Modules principaux\n| Module | Description |\n|--------|-------------|\n| **Authentication** | Inscription, connexion, OTP, rôles (CLIENT, BUSINESS_ADMIN, DRIVER, SUPER_ADMIN) |\n| **Businesses** | Gestion des commerces, branches multi-agences, statut ouvert/fermé |\n| **Products** | Catalogue produits par commerce, gestion stock, disponibilité |\n| **Orders** | Création, suivi FSM (PENDING → PROCESSING → IN_DELIVERY → DELIVERED), annulation |\n| **Dispatch** | Attribution automatique livreur, cascade, timeout 10 min, refus |\n| **Payments** | GeniusPay (Orange Money, Moov Money, Wave), webhooks, escrow |\n| **Wallets** | Portefeuille marchand/agence, crédits automatiques, retraits Mobile Money |\n| **Financial** | Settlement marchand, commission plateforme, rapports financiers |\n| **Analytics** | Statistiques par agence/marque, graphiques de ventes, comparaison branches |\n| **Driver** | Dashboard livreur, statut disponibilité, assignation, validation OTP |\n| **Reviews** | Notes et avis clients, modération |\n| **Disputes** | Réclamations client, résolution admin |\n| **Chat** | Messagerie client-livreur en temps réel (Socket.IO) |\n| **Subscriptions** | Forfaits marchands, KYC obligatoire avant approbation |\n| **Notifications** | Push FCM, email (Resend), WhatsApp Cloud API |\n| **Stories** | Stories éphémères restaurants (likes, vues) |\n| **Loyalty** | Points de fidélité, programme de récompenses |\n| **Promotions** | Codes promo, réductions |\n\n### Rôles et permissions\n| Rôle | Accès |\n|------|-------|\n| `SUPER_ADMIN` | Tous les endpoints, gestion utilisateurs, finances globales |\n| `BUSINESS_ADMIN` | Ses propres commerces/branches, commandes, analytics, wallet |\n| `DRIVER` | Commandes assignées, statut disponibilité, wallet retrait |\n| `CLIENT` | Passer commandes, réclamations, profil, adresses, fidélité |\n\n### Authentification\nTous les endpoints protégés nécessitent un token JWT dans le header `Authorization: Bearer <token>`.\nLe token contient `sub` (userId), `role`, et `brandId` (pour les marchands multi-agences).\n\n### Déploiement\n- **Backend** : Render (https://api.fasofree.site)\n- **Frontend Client** : Vercel (https://fasofree.site)\n- **Frontend Admin** : Vercel (https://admin.fasofree.site)\n- **Base de données** : PostgreSQL (Neon)\n- **Cache** : Redis (optionnel)\n- **Stockage fichiers** : Cloudinary",
     "version": "1.0.0",
     "contact": {
-      "name": "FasoFree",
+      "name": "Koliwa",
       "url": "https://fasofree.site",
       "email": "contact@fasofree.site"
     },
@@ -7321,7 +7321,7 @@
           "hasAirConditioning": {
             "type": "boolean",
             "example": true,
-            "description": "Véhicule climatisé (pour FasoFree Ride)"
+            "description": "Véhicule climatisé (pour Koliwa Ride)"
           },
           "vehicleCategory": {
             "type": "string",
@@ -7392,7 +7392,7 @@
           },
           "name": {
             "type": "string",
-            "example": "FasoFree Pass VIP"
+            "example": "Koliwa Pass VIP"
           },
           "subjectType": {
             "type": "string",
@@ -7453,7 +7453,7 @@
           },
           "name": {
             "type": "string",
-            "example": "FasoFree Pass VIP"
+            "example": "Koliwa Pass VIP"
           },
           "subjectType": {
             "type": "string",
@@ -7700,7 +7700,7 @@
           },
           "fasoRidePricing": {
             "type": "object",
-            "description": "Tarifs FasoFree Ride par confort (JSON)"
+            "description": "Tarifs Koliwa Ride par confort (JSON)"
           },
           "enableScheduling": {
             "type": "boolean"
@@ -8199,7 +8199,7 @@
           },
           "rideOption": {
             "type": "string",
-            "description": "Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)",
+            "description": "Option de confort Koliwa Ride (ECONOMY / COMFORT / PREMIUM)",
             "enum": [
               "ECONOMY",
               "COMFORT",
@@ -8286,7 +8286,7 @@
           },
           "rideOption": {
             "type": "string",
-            "description": "Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)",
+            "description": "Option de confort Koliwa Ride (ECONOMY / COMFORT / PREMIUM)",
             "enum": [
               "ECONOMY",
               "COMFORT",

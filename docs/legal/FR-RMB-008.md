@@ -14,7 +14,7 @@ audience: client
 
 ## ARTICLE 1 — OBJET
 
-La présente Politique définit les règles d'annulation et de remboursement applicables aux commandes passées via FasoFree. Elle complète les [CGU](FR-CGU-001.md), les [CGV](FR-CGV-004.md) et le [Contrat de partenariat commercial](FR-PMERC-005.md).
+La présente Politique définit les règles d'annulation et de remboursement applicables aux commandes passées via Koliwa. Elle complète les [CGU](FR-CGU-001.md), les [CGV](FR-CGV-004.md) et le [Contrat de partenariat commercial](FR-PMERC-005.md).
 
 ## ARTICLE 2 — ANNULATION PAR LE COMMERÇANT
 
@@ -32,7 +32,7 @@ En cas d'annulation avant préparation ou livraison, le client est remboursé co
 Le client peut demander l'annulation de sa commande selon les modalités proposées par l'application. La possibilité d'annulation et les frais éventuels dépendent du statut d'avancement de la commande :
 
 * commande non encore prise en charge : annulation possible selon les règles affichées ;
-* commande en préparation ou en cours de livraison : annulation soumise à l'accord de FasoFree et du commerçant.
+* commande en préparation ou en cours de livraison : annulation soumise à l'accord de Koliwa et du commerçant.
 
 Les conditions financières applicables figurent dans les [Annexes tarifaires](FR-TAR-011.md).
 
@@ -42,7 +42,7 @@ Pour être traité, le remboursement doit être demandé via le mécanisme de r�
 
 Le client doit, lorsque cela est possible, fournir les éléments utiles à l'analyse du dossier : description du problème, photos éventuelles, numéro de commande.
 
-FasoFree apprécie le bien-fondé de la demande sur la base des éléments enregistrés dans ses systèmes (commandes, statuts, horodatages, preuves de livraison, échanges dans le litige).
+Koliwa apprécie le bien-fondé de la demande sur la base des éléments enregistrés dans ses systèmes (commandes, statuts, horodatages, preuves de livraison, échanges dans le litige).
 
 ## ARTICLE 5 — RÉFUS OU PARTIEL
 
@@ -51,7 +51,7 @@ Le remboursement peut être :
 * total, lorsque la commande n'a pas été fournie ou est manifestement non conforme ;
 * partiel, lorsque seule une partie de la commande est concernée ou que la non-conformité est partielle.
 
-FasoFree peut refuser tout ou partie d'une demande manifestement infondée, frauduleuse ou non étayée, sous réserve des règles impératives applicables.
+Koliwa peut refuser tout ou partie d'une demande manifestement infondée, frauduleuse ou non étayée, sous réserve des règles impératives applicables.
 
 ## ARTICLE 6 — REMBOURSEMENT IMPUTÉ AU COMMERÇANT
 
@@ -63,14 +63,14 @@ Les modalités opérationnelles (validateur, escale, montant) sont décrites dan
 
 Le remboursement est restitué :
 
-* par crédit sur le solde FasoFree ou le compte Mobile Money du client lorsque le paiement initial était Mobile Money ;
+* par crédit sur le solde Koliwa ou le compte Mobile Money du client lorsque le paiement initial était Mobile Money ;
 * selon les modalités techniques disponibles pour les autres modes de paiement.
 
 Le client est informé de la décision et du montant via l'application ou le canal de contact.
 
 ## ARTICLE 8 — DÉLAIS
 
-FasoFree s'efforce de traiter les demandes de remboursement dans des délais raisonnables à compter de la réception des éléments complets du dossier. Les délais de crédit effectif dépendent par ailleurs des délais techniques des prestataires de paiement.
+Koliwa s'efforce de traiter les demandes de remboursement dans des délais raisonnables à compter de la réception des éléments complets du dossier. Les délais de crédit effectif dépendent par ailleurs des délais techniques des prestataires de paiement.
 
 ## ARTICLE 9 — COMMANDES PAYÉES EN ESPÈCES
 

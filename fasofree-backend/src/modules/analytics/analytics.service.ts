@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -29,7 +29,7 @@ export interface MerchantDashboardStats {
   summary: {
     totalRevenue: number; // CA brut
     netEarnings: number; // Gain Net marchand
-    platformCommission: number; // Commission FasoFree
+    platformCommission: number; // Commission Koliwa
     totalOrders: number;
     completedOrders: number;
     cancelledOrders: number;

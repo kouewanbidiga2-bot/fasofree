@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -21,7 +21,7 @@ const TOP_CANDIDATES_COUNT = 3;
 const OFFER_TTL_MS = 10 * 60 * 1000;
 
 /**
- * 🏍️ Provider NIVEAU 1 — livreurs internes FasoFree.
+ * 🏍️ Provider NIVEAU 1 — livreurs internes Koliwa.
  *
  * Encapsule la logique historique de dispatch (scoring → top 3 →
  * notification WebSocket) sans la modifier. Retourne `accepted=false`

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -18,7 +18,7 @@ export const PLAN_CODE_VIP = 'VIP';
 export const PLAN_CODE_STORIES = 'STORIES'; // Pass Stories marchand : 5 000 FCFA/mois, stories illimitées
 
 /**
- * 📦 Catalogue de forfaits FasoFree (géré par le Super Admin).
+ * 📦 Catalogue de forfaits Koliwa (géré par le Super Admin).
  * - STARTER  : gratuit, commission standard 5% (commerce)
  * - PRO      : 5 000 FCFA/mois, commission préférentielle 1.5% (commerce)
  * - STORIES  : 5 000 FCFA/mois, stories illimitées (commerce)

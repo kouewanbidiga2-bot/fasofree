@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -390,7 +390,7 @@ export class AuthService {
       user.applicationStatus === 'KYC_APPROVED'
     ) {
       throw new ForbiddenException(
-        "Votre compte est en cours d'examen par FasoFree. Vous recevrez vos identifiants après validation de votre dossier.",
+        "Votre compte est en cours d'examen par Koliwa. Vous recevrez vos identifiants après validation de votre dossier.",
       );
     }
 
@@ -465,7 +465,7 @@ export class AuthService {
     return result;
   }
 
-  // 💎 Client abonné FasoFree Pass VIP ? (frais de plateforme offerts)
+  // 💎 Client abonné Koliwa Pass VIP ? (frais de plateforme offerts)
   private async resolveIsPremium(user: User): Promise<boolean> {
     try {
       if (!user || user.role !== UserRole.CLIENT) return false;

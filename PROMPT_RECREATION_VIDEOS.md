@@ -1,4 +1,4 @@
-# PROMPT — Recréer à l'identique : « FasoFree — 2 vidéos publicitaires verticales »
+# PROMPT — Recréer à l'identique : « Koliwa — 2 vidéos publicitaires verticales »
 
 Tu es un expert video (motion design + montage). Produis EXACTEMENT les 2 vidéos suivantes, pixel pour pixel, en respectant strictement : timings, textes, couleurs, polices, animations, son et codec. Aucune créativité : tout est spécifié.
 
@@ -42,18 +42,18 @@ Icône app (carré sombre `#0D0D0D` + épis orange `#C1652E`), Home, Menu restau
 
 ---
 
-## 2. VIDÉO 1 — « FasoFree — Présentation » (34,0 s = 850 frames)
+## 2. VIDÉO 1 — « Koliwa — Présentation » (34,0 s = 850 frames)
 
 VOIX OFF (voix féminine française, énergique, Row~1) — texte exact :
-- c1 « FasoFree. La livraison, cent pour cent burkinabè. » @ 0,6 s
+- c1 « Koliwa. La livraison, cent pour cent burkinabè. » @ 0,6 s
 - c2 « Commandez vos plats préférés en quelques clics. » @ 6,4 s
 - c3 « Tous vos restaurants de Ouagadougou, à portée de main. » @ 11,8 s
-- c4 « Envoyer un colis ? FasoFree s'occupe de tout. » @ 18,3 s
+- c4 « Envoyer un colis ? Koliwa s'occupe de tout. » @ 18,3 s
 - c5 « Payez en Mobile Money. Sécurisé, garanti. » @ 23,3 s
-- c6 « Téléchargez FasoFree. Tout votre quartier, livré. » @ 27,8 s
+- c6 « Téléchargez Koliwa. Tout votre quartier, livré. » @ 27,8 s
 
 ### S1 [0,0–6,0] Icône + wordmark — fond dégradé `#1C150E → #0E0B08` (haut) vers `#7A4421 → #C1652E` (bas), pulsation lente (période ~9 s). 30 particules dorées/oranges montantes. 
-- `t≤0.9` : fondu+zoom du titre « FasoFree » (Segoe UI Bold 150 px, or `#D4AF37`, ombre noire) centré (540, 430).
+- `t≤0.9` : fondu+zoom du titre « Koliwa » (Segoe UI Bold 150 px, or `#D4AF37`, ombre noire) centré (540, 430).
 - « MARKETPLACE & LIVRAISON » (Bold 56, blanc) y=560 ; « Ouagadougou » (Regular 40, blanc a=0.6) y=640.
 - Carte icône : carré blanc arrondi (rayon ~40) 360×360 centré (540, 980), marge 18 ; icône l'app 360×360 par-dessus, fondu + scale 0.9→1.0 entre t=0.6 et t=1.7.
 - Chip « 100% Burkina Faso · fait main » (or clair bg, encre, Bold 38) y=1330 apparaît t=2.2.
@@ -72,7 +72,7 @@ VOIX OFF (voix féminine française, énergique, Row~1) — texte exact :
 
 ### S4 [18,0–23,0] P2P — fond crème.
 - Téléphone `p2p.png`, slide depuis x−620 (3 s), cx=540, cy=1020, fw=440.
-- « Besoin d'envoyer un colis ? » (Bold 46, orange) y=330 ; « FasoFree s'occupe de tout » (Regular 36, encre) y=410.
+- « Besoin d'envoyer un colis ? » (Bold 46, orange) y=330 ; « Koliwa s'occupe de tout » (Regular 36, encre) y=410.
 - Chip orange « Course rapide · Livraison 24/7 » y=1580, t≥19.5.
 
 ### S5 [23,0–27,5] Paiement — fond sombre (`#1E1A16→#141110` / `#3A2415→#241308`), 22 particules or.
@@ -83,16 +83,16 @@ VOIX OFF (voix féminine française, énergique, Row~1) — texte exact :
 
 ### S6 [27,5–34,0] CTA — fond orange vif (haut `#C1652E→#A95320`, bas `#7A3D17→#4C2410`), 26 particules or.
 - Icône l'app 300×300 sur carte blanche (marge 15, r=34) à (540,330), scale 0.8→1.0.
-- « FasoFree » (Bold 150, or) y=760 ; « Téléchargez l'application » (Bold 52, blanc) y=890.
+- « Koliwa » (Bold 150, or) y=760 ; « Téléchargez l'application » (Bold 52, blanc) y=890.
 - 2 pilules blanches 500×110 r=18 : « Télécharger sur / Google Play » y=1150 (t=29.0) ; « Télécharger sur / App Store » y=1320 (t=29.7).
 - « Tout votre quartier, livré à votre porte. » (Regular 40, blanc) y=1580 ; « www.fasofree.site » (Regular 32, or) y=1660 — t≥31.5.
 
 ---
 
-## 3. VIDÉO 2 — « FasoFree — Tutoriel créer son compte et commander » (90,0 s = 2250 frames)
+## 3. VIDÉO 2 — « Koliwa — Tutoriel créer son compte et commander » (90,0 s = 2250 frames)
 
 VOIX OFF — texte exact :
-- t1 « Bienvenue dans le tutoriel FasoFree. Nous allons créer votre compte, puis commander votre premier repas. » @ 0,8 s
+- t1 « Bienvenue dans le tutoriel Koliwa. Nous allons créer votre compte, puis commander votre premier repas. » @ 0,8 s
 - t2 « Ouvrez l'application. En haut à droite, touchez Connexion. » @ 10,5 s
 - t3a « Choisissez créer un compte, puis le profil client. » @ 16,0 s
 - t3b « Remplissez votre nom, votre email, votre téléphone, puis créez votre mot de passe. » @ 21,0 s
@@ -114,7 +114,7 @@ Composants dessinés (style de l'app) :
 - **Suivi** : carte carte fond `#F3EBDD` 620×520 r=34 avec grille `#C9B694` a=40 ; route pointillée orange `#C1652E` (dash 1.4/0.7, trait 9, Bézier) du point vert « A » (40×40 rond, r=20, à x+70 y+400) vers « Vous » (pastille blanche « Vous » à x+460 y+60) ; livreur « C » orange pulsé (rayon 28–42) avec halo alpha 90–210 près du chemin ; étiquette ETA.
 
 ### S1 [0–10] Intro — même fond/particules que v1-S1.
-- Icône 330×330 sur carte blanche à (540,420) ; « FasoFree » (Bold 150, or) y=950 ; chip or clair « TUTORIEL · en 2 minutes » (encre Bold 36) y=1120 (t=1.2) ; « Créer votre compte, puis commander votre premier repas » (Regular 40, blanc) y=1280 (t=2).
+- Icône 330×330 sur carte blanche à (540,420) ; « Koliwa » (Bold 150, or) y=950 ; chip or clair « TUTORIEL · en 2 minutes » (encre Bold 36) y=1120 (t=1.2) ; « Créer votre compte, puis commander votre premier repas » (Regular 40, blanc) y=1280 (t=2).
 
 ### S2 [10–15] Connexion — fond crème ; téléphone `home.png` cx=540 cy=1060 fw=440, slide-up (ease-out).
 - Chip orange « Étape 1 — Connectez-vous » y=330 (t=10.6).
@@ -147,7 +147,7 @@ Composants dessinés (style de l'app) :
 - « Suivi de commande en temps réel » (Bold 46, or) y=320.
 - Carte Suivi (cx=540, cy=1150, échelle 0.9, fondu slide).
 - Chip « Livreur en route · ETA 25 min » (or clair, encre) y=1520 (t=76.4) ; chip blanc « Bon appétit ! » y=1680 (t=78.5).
-- « Téléchargez FasoFree maintenant » (Bold 40, blanc) y=1850 ; « www.fasofree.site » (Regular 30, or) y=1910 (t≥80).
+- « Téléchargez Koliwa maintenant » (Bold 40, blanc) y=1850 ; « www.fasofree.site » (Regular 30, or) y=1910 (t≥80).
 
 ---
 

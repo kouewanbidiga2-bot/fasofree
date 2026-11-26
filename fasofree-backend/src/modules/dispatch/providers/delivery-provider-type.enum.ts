@@ -1,11 +1,11 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 /**
  * 📦 Types de providers de livraison (niveaux du dispatch multi-niveaux).
- * - INTERNAL   : livreurs internes FasoFree (niveau 1 — existant)
+ * - INTERNAL   : livreurs internes Koliwa (niveau 1 — existant)
  * - AGENCY     : agences partenaires locales (niveau 2 — Phase 1)
  * - THIRD_PARTY: sociétés de livraison avec API (niveau 3 — Phase 2)
  * - MANUAL     : pont manuel opérateur (téléphone/WhatsApp — Phase 2)

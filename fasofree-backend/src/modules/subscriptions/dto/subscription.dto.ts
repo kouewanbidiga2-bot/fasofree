@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -23,7 +23,7 @@ export class CreatePlanDto {
   @IsNotEmpty()
   code: string;
 
-  @ApiProperty({ example: 'FasoFree Pass VIP' })
+  @ApiProperty({ example: 'Koliwa Pass VIP' })
   @IsString()
   @IsNotEmpty()
   name: string;

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -69,7 +69,7 @@ class AfricasTalkingProvider implements SmsProvider {
     this.apiKey = configService.get<string>('AFRICASTALKING_API_KEY', '');
     this.senderId = configService.get<string>(
       'AFRICASTALKING_SENDER_ID',
-      'FasoFree',
+      'Koliwa',
     );
   }
 
@@ -318,7 +318,7 @@ export class SmsService {
     orderId: string,
     totalAmount: number,
   ): Promise<boolean> {
-    const message = `FasoFree: Votre commande #${orderId.slice(-8)} a été confirmée. Total: ${totalAmount} FCFA. Suivez votre commande sur l'app.`;
+    const message = `Koliwa: Votre commande #${orderId.slice(-8)} a été confirmée. Total: ${totalAmount} FCFA. Suivez votre commande sur l'app.`;
     return this.sendSms(phoneNumber, message);
   }
 
@@ -329,7 +329,7 @@ export class SmsService {
     phoneNumber: string,
     orderId: string,
   ): Promise<boolean> {
-    const message = `FasoFree: Votre livreur est en route avec votre commande #${orderId.slice(-8)}. Préparez-vous!`;
+    const message = `Koliwa: Votre livreur est en route avec votre commande #${orderId.slice(-8)}. Préparez-vous!`;
     return this.sendSms(phoneNumber, message);
   }
 

@@ -14,7 +14,7 @@ audience: tous
 
 ## 1. OBJET
 
-La présente politique décrit les cookies, identifiants techniques, SDK mobiles et technologies similaires (« traceurs ») utilisés par FasoFree sur ses applications mobiles, sites internet, tableaux de bord professionnels et interfaces administratives. Elle complète la [Politique de confidentialité](FR-PRIV-002.md) et s'inscrit dans le cadre de la loi n°001-2021/AN du 30 mars 2021.
+La présente politique décrit les cookies, identifiants techniques, SDK mobiles et technologies similaires (« traceurs ») utilisés par Koliwa sur ses applications mobiles, sites internet, tableaux de bord professionnels et interfaces administratives. Elle complète la [Politique de confidentialité](FR-PRIV-002.md) et s'inscrit dans le cadre de la loi n°001-2021/AN du 30 mars 2021.
 
 ## 2. DEFINITIONS
 
@@ -26,7 +26,7 @@ La présente politique décrit les cookies, identifiants techniques, SDK mobiles
 
 ## 3. CONSENTEMENT
 
-Lorsque le consentement est requis, FasoFree recueille celui-ci avant l'installation ou l'activation du traceur, notamment via un bandeau ou un écran de paramétrage présentant, au minimum :
+Lorsque le consentement est requis, Koliwa recueille celui-ci avant l'installation ou l'activation du traceur, notamment via un bandeau ou un écran de paramétrage présentant, au minimum :
 
 * la finalité de chaque catégorie de traceurs ;
 * le nom ou l'identité du responsable ;
@@ -52,7 +52,7 @@ Date du dernier inventaire technique : [●]
 
 L'utilisateur peut :
 
-1. paramétrer ses choix via le mécanisme de consentement proposé par FasoFree ;
+1. paramétrer ses choix via le mécanisme de consentement proposé par Koliwa ;
 2. configurer son navigateur ou son système d'exploitation pour bloquer ou supprimer certains traceurs ;
 3. désactiver les autorisations de localisation depuis son appareil (les conséquences sont décrites dans les [CGU](FR-CGU-001.md) et la [Politique de confidentialité](FR-PRIV-002.md)).
 
@@ -64,7 +64,7 @@ Les données collectées via les traceurs sont conservées pour la durée néces
 
 ## 7. MODIFICATION
 
-FasoFree peut mettre à jour la présente politique afin de refléter l'évolution de ses services ou des technologies utilisées. Toute modification substantielle sera portée à la connaissance des utilisateurs par un moyen approprié.
+Koliwa peut mettre à jour la présente politique afin de refléter l'évolution de ses services ou des technologies utilisées. Toute modification substantielle sera portée à la connaissance des utilisateurs par un moyen approprié.
 
 ## 8. CONTACT
 

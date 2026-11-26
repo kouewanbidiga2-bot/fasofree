@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -11,7 +11,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * POURQUOI : une course confiée à une société partenaire était enregistrée
  * sur la commande (`orders.deliveryProviderId` + `deliveryProviderDetails.agencyName`)
  * mais JAMAIS montrée telle quelle au client : l'app affichait « une agence
- * partenaire ». FasoFree récoltait donc implicitement le mérite (ou le blâme)
+ * partenaire ». Koliwa récoltait donc implicitement le mérite (ou le blâme)
  * du travail d'une société tierce.
  *
  * On ajoute ici de quoi identifier et faire reconnaître chaque société :
@@ -19,7 +19,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *   - description : présentation libre de la société.
  *   - brandColor  : couleur de marque (#RRGGBB) pour l'habillage.
  *   - website     : vitrine de la société.
- *   - isVerified  : société vérifiée par FasoFree (badge de confiance).
+ *   - isVerified  : société vérifiée par Koliwa (badge de confiance).
  *
  * Notes de conception (identiques aux migrations précédentes) :
  * - `IF NOT EXISTS` partout : no-op idempotent, compatible avec le

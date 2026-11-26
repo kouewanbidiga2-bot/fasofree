@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -66,7 +66,7 @@ function merchantPlanPriceError(price: number): string {
   return `Le prix minimum d'un forfait marchand payant est de ${MIN_MERCHANT_PLAN_PRICE.toLocaleString('fr-FR')} FCFA (reçu : ${price.toLocaleString('fr-FR')} FCFA). Le plan gratuit Starter reste à 0 FCFA.`;
 }
 
-// 🌱 Forfaits par défaut FasoFree (créés si absents — l'admin peut ensuite les éditer)
+// 🌱 Forfaits par défaut Koliwa (créés si absents — l'admin peut ensuite les éditer)
 export const DEFAULT_PLANS: Array<Partial<SubscriptionPlanEntity>> = [
   {
     code: PLAN_CODE_STARTER,
@@ -112,7 +112,7 @@ export const DEFAULT_PLANS: Array<Partial<SubscriptionPlanEntity>> = [
   },
   {
     code: PLAN_CODE_VIP,
-    name: 'FasoFree Pass VIP',
+    name: 'Koliwa Pass VIP',
     subjectType: SubscriptionSubjectType.CUSTOMER,
     description:
       'Frais de plateforme (100 FCFA/commande) offerts pendant toute la durée.',
@@ -469,7 +469,7 @@ export class SubscriptionService implements OnModuleInit {
 
   /**
    * 🟦 Souscription au Pass Stories marchand (5 000 FCFA / 30 jours).
-   * - Débite le portefeuille FasoFree du commerce (gains en attente).
+   * - Débite le portefeuille Koliwa du commerce (gains en attente).
    * - Si un Pass Stories est déjà actif, le prolonge de 30 jours (renouvellement).
    * - N'affecte pas les autres abonnements (commission Pro, etc.).
    */
@@ -519,7 +519,7 @@ export class SubscriptionService implements OnModuleInit {
       price,
       TransactionReason.SUBSCRIPTION_FEE,
       reference,
-      `Pass Stories (${plan.durationDays} jours) - FasoFree`,
+      `Pass Stories (${plan.durationDays} jours) - Koliwa`,
     );
 
     const existing = await this.getStoriesPass(businessId);
@@ -599,7 +599,7 @@ export class SubscriptionService implements OnModuleInit {
 
     const durationDays = Math.max(1, params.durationDays ?? plan.durationDays);
 
-    // 💳 Mode "déductible" : l'abonnement est débité du portefeuille FasoFree
+    // 💳 Mode "déductible" : l'abonnement est débité du portefeuille Koliwa
     // du marchand (ses gains en attente). false = abonnement accordé sans débit.
     if (params.debitWallet) {
       if (params.subjectType !== SubscriptionSubjectType.MERCHANT) {
@@ -615,7 +615,7 @@ export class SubscriptionService implements OnModuleInit {
           Number(plan.priceFcfa),
           TransactionReason.SUBSCRIPTION_FEE,
           reference,
-          `Abonnement ${plan.name} (${plan.durationDays} jours) - FasoFree`,
+          `Abonnement ${plan.name} (${plan.durationDays} jours) - Koliwa`,
         );
       }
     }
@@ -707,7 +707,7 @@ export class SubscriptionService implements OnModuleInit {
   }
 
   /**
-   * 🛒 Abonnement client (FasoFree Pass) payé depuis le portefeuille FasoFree.
+   * 🛒 Abonnement client (Koliwa Pass) payé depuis le portefeuille Koliwa.
    * Débite le wallet CUSTOMER du prix du forfait puis crée l'abonnement actif.
    */
   async subscribeClient(
@@ -741,7 +741,7 @@ export class SubscriptionService implements OnModuleInit {
 
     const price = Number(plan.priceFcfa) || 0;
 
-    // 💳 Débit du portefeuille FasoFree du client
+    // 💳 Débit du portefeuille Koliwa du client
     const reference = `SUB-${Date.now()}-${randomRefToken()}`;
     await this.walletService.debitWallet(
       clientId,
@@ -749,7 +749,7 @@ export class SubscriptionService implements OnModuleInit {
       price,
       TransactionReason.SUBSCRIPTION_FEE,
       reference,
-      `Abonnement ${plan.name} (${plan.durationDays} jours) - FasoFree`,
+      `Abonnement ${plan.name} (${plan.durationDays} jours) - Koliwa`,
     );
 
     const startDate = new Date();
@@ -779,7 +779,7 @@ export class SubscriptionService implements OnModuleInit {
   }
 
   /**
-   * 🏪 Abonnement marchand (ex: plan Pro) payé depuis le portefeuille FasoFree
+   * 🏪 Abonnement marchand (ex: plan Pro) payé depuis le portefeuille Koliwa
    * du commerce. "Abonnement obligatoire ou déductible" : le marchand doit
    * être abonné pour bénéficier du taux préférentiel, et le prix est débité
    * de son portefeuille (gains en attente). Solde insuffisant → 400.
@@ -841,7 +841,7 @@ export class SubscriptionService implements OnModuleInit {
       price,
       TransactionReason.SUBSCRIPTION_FEE,
       reference,
-      `Abonnement ${plan.name} (${plan.durationDays} jours) - FasoFree`,
+      `Abonnement ${plan.name} (${plan.durationDays} jours) - Koliwa`,
     );
 
     const startDate = new Date();

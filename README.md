@@ -1,8 +1,8 @@
-# FasoFree
+# Koliwa
 
 ## Présentation
 
-FasoFree est une plateforme marketplace et livraison pensée pour le Burkina Faso : commande de repas et de produits chez les commerçants locaux, courses (transport de personnes), livraison de colis entre particuliers, et un back-office permettant de piloter l'ensemble.
+Koliwa est une plateforme marketplace et livraison pensée pour le Burkina Faso : commande de repas et de produits chez les commerçants locaux, courses (transport de personnes), livraison de colis entre particuliers, et un back-office permettant de piloter l'ensemble.
 
 Projet réalisé à deux (342 commits) : plus de 67 000 lignes de code, 37 controllers et plus de 200 endpoints répartis sur trois applications — une app grand public, un espace d'administration multi-rôles et une API centrale.
 

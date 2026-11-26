@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -24,7 +24,7 @@ import { WalletModule } from '../wallets/wallet.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { ReceiptsModule } from '../receipts/receipts.module';
 
-// Modèle financier hybride FasoFree (commissions ultra-basses / abonnements)
+// Modèle financier hybride Koliwa (commissions ultra-basses / abonnements)
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { OrderPricingService } from './order-pricing.service';
 import { DriverFinancialService } from './driver-financial.service';

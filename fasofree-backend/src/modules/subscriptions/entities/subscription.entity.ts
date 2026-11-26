@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -13,7 +13,7 @@ import {
 } from 'typeorm';
 
 export enum SubscriptionSubjectType {
-  CUSTOMER = 'CUSTOMER', // Client FasoFree VIP
+  CUSTOMER = 'CUSTOMER', // Client Koliwa VIP
   MERCHANT = 'MERCHANT', // Commerçant Boost Pro
 }
 

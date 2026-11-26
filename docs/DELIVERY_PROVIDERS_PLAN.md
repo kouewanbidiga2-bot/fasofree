@@ -8,7 +8,7 @@
 
 ## 1. Problème
 
-FasoFree manque de livreurs actifs ⇒ des commandes restent sans prestataire malgré un
+Koliwa manque de livreurs actifs ⇒ des commandes restent sans prestataire malgré un
 dispatch temps réel fonctionnel. Le système sait **distribuer une course quand un
 livreur existe**, mais il ne sait pas **garantir la livraison quand aucun livreur
 n'est disponible** : « aucun livreur » est aujourd'hui traité comme fin de course.

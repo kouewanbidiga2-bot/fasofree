@@ -14,7 +14,7 @@ audience: tous
 
 ## ARTICLE 1 — OBJET
 
-La présente Politique définit les comportements frauduleux prohibés sur FasoFree, les mécanismes de détection utilisés et les mesures applicables, en cohérence avec les [CGU](FR-CGU-001.md) (art. 14), le [Contrat de partenariat commercial](FR-PMERC-005.md) (art. 18) et le [Contrat-cadre Livreur](FR-LIVR-006.md) (art. 14, 16, 18 et 19).
+La présente Politique définit les comportements frauduleux prohibés sur Koliwa, les mécanismes de détection utilisés et les mesures applicables, en cohérence avec les [CGU](FR-CGU-001.md) (art. 14), le [Contrat de partenariat commercial](FR-PMERC-005.md) (art. 18) et le [Contrat-cadre Livreur](FR-LIVR-006.md) (art. 14, 16, 18 et 19).
 
 ## ARTICLE 2 — COMPORTEMENTS PROHIBÉS
 
@@ -37,7 +37,7 @@ Constituent notamment des comportements frauduleux :
 
 ## ARTICLE 3 — MÉCANISMES DE DÉTECTION
 
-FasoFree peut analyser les données techniques nécessaires à la détection de comportements anormaux, notamment :
+Koliwa peut analyser les données techniques nécessaires à la détection de comportements anormaux, notamment :
 
 * la localisation et la cohérence de l'itinéraire ;
 * les temps et distances des courses ;
@@ -50,7 +50,7 @@ Ces analyses sont réalisées dans le respect de la loi n°001-2021/AN et des r�
 
 ## ARTICLE 4 — MESURES CONSERVATOIRES
 
-En cas de fraude constatée ou présumée, FasoFree peut prendre des mesures conservatoires raisonnables, notamment :
+En cas de fraude constatée ou présumée, Koliwa peut prendre des mesures conservatoires raisonnables, notamment :
 
 * la suspension temporaire du compte ou de l'accès aux missions ;
 * le blocage d'un paiement ou d'un règlement dans l'attente de l'investigation ;
@@ -59,7 +59,7 @@ En cas de fraude constatée ou présumée, FasoFree peut prendre des mesures con
 
 ## ARTICLE 5 — MESURES DÉFINITIVES
 
-Sous réserve des règles impératives applicables et de la possibilité de présenter des observations, FasoFree peut :
+Sous réserve des règles impératives applicables et de la possibilité de présenter des observations, Koliwa peut :
 
 * fermer ou résilier le compte concerné ;
 * annuler les bonus ou avantages obtenus frauduleusement ;
@@ -72,7 +72,7 @@ Les mesures sont proportionnées à la gravité des faits. Lorsque cela est poss
 
 ## ARTICLE 7 — DONNÉES PERSONNELLES
 
-Le traitement des données dans le cadre de l'anti-fraude est décrit dans la [Politique de confidentialité](FR-PRIV-002.md) et la [Procédure données personnelles et incidents](FR-DPI-010.md). FasoFree ne procède pas à une décision exclusivement automatisée ayant un effet juridique important sans mécanisme de vérification ou d'intervention humaine, dans les limites de la loi.
+Le traitement des données dans le cadre de l'anti-fraude est décrit dans la [Politique de confidentialité](FR-PRIV-002.md) et la [Procédure données personnelles et incidents](FR-DPI-010.md). Koliwa ne procède pas à une décision exclusivement automatisée ayant un effet juridique important sans mécanisme de vérification ou d'intervention humaine, dans les limites de la loi.
 
 ## ARTICLE 8 — CONTACT
 

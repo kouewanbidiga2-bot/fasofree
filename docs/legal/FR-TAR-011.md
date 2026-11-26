@@ -18,7 +18,7 @@ audience: commercant-livreur
 
 | Élément | Valeur |
 |---------|--------|
-| Commission FasoFree | 5 % (Starter) / 1,5 % (Pro) du montant de la commande hors livraison |
+| Commission Koliwa | 5 % (Starter) / 1,5 % (Pro) du montant de la commande hors livraison |
 | Frais de service (facturé au client) | **100 FCFA** par commande livrée (0 FCFA avec le Pass VIP client) |
 | Frais de livraison (facturé au client) | **800 FCFA minimum**, puis grille par distance ; +500 FCFA entre 21h et 06h |
 | Frais d'annulation imputables au commerçant | [●] |
@@ -38,7 +38,7 @@ audience: commercant-livreur
 | Bonus de performance / satisfaction | [●] |
 | Frais d'annulation par le livreur | [●] |
 | Paiement des courses | [●] (compte Mobile Money / solde) |
-| Fréquence de règlement | Portefeuille FasoFree crédité à chaque livraison confirmée ; retrait vers Mobile Money selon les modalités du contrat |
+| Fréquence de règlement | Portefeuille Koliwa crédité à chaque livraison confirmée ; retrait vers Mobile Money selon les modalités du contrat |
 
 ## 3. PLAFONDS DE DÉTENTION D'ESPÈCES (LIVREUR)
 

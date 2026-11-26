@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -23,7 +23,7 @@ export interface PricingQuote {
 }
 
 /**
- * 🧾 Ventilation financière complète d'une commande (modèle hybride FasoFree).
+ * 🧾 Ventilation financière complète d'une commande (modèle hybride Koliwa).
  * Le legacy (`productsSubtotal`, `platformCommission`, `merchantPayoutAmount`,
  * `commissionPayer`) est conservé pour ne rien casser côté payouts/disputes/analytics.
  */
@@ -47,9 +47,9 @@ export class OrderPricingService {
   constructor(private readonly subscriptionService: SubscriptionService) {}
 
   /**
-   * 🧮 Moteur de calcul financier FasoFree (modèle hybride) :
+   * 🧮 Moteur de calcul financier Koliwa (modèle hybride) :
    * - DELIVERY_FEE = max(calcul distance GPS, MIN_DELIVERY_FEE=800), 0 si PICKUP/DINE_IN
-   * - serviceFee (frais plateforme) : 100 FCFA, offert si le client est FasoFree VIP
+   * - serviceFee (frais plateforme) : 100 FCFA, offert si le client est Koliwa VIP
    * - merchantCommission : 5% (Starter) ou 1.5% (Boost Pro) selon le plan du commerce,
    *   prélevée sur le payout marchand (le client ne la voit jamais dans son total)
    * - P2P : itemsTotal = 0, commission marchand = 0 (prix distance + frais plateforme)

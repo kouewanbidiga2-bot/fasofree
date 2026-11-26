@@ -1,10 +1,10 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 /**
- * FasoFree — Constantes du support client.
+ * Koliwa — Constantes du support client.
  *
  * Le numéro de la hotline est configurable via `VITE_SUPPORT_PHONE`
  * (format international, ex. +22670000000) : aucune valeur dans .env

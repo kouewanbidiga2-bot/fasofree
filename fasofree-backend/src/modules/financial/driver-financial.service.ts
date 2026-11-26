@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -122,7 +122,7 @@ export class DriverFinancialService {
           commission,
           TransactionReason.COMMISSION,
           orderId,
-          `Commission FasoFree ${commission} FCFA (${DRIVER_COURSE_COMMISSION_AMOUNT} FCFA/course, plafond ${DRIVER_PLATFORM_FEE_DAILY_CAP} FCFA/jour)`,
+          `Commission Koliwa ${commission} FCFA (${DRIVER_COURSE_COMMISSION_AMOUNT} FCFA/course, plafond ${DRIVER_PLATFORM_FEE_DAILY_CAP} FCFA/jour)`,
         );
         await this.orderRepository.update(orderId, {
           driverCommissionAmount: commission,

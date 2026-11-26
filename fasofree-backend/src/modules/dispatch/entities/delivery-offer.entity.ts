@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -33,7 +33,7 @@ export enum DeliveryOfferStatus {
 /**
  * 📣 Appel d'offres multi-agences (Niveau 2 du dispatch).
  *
- * À T+0, FasoFree diffuse la course à **toutes** les agences éligibles
+ * À T+0, Koliwa diffuse la course à **toutes** les agences éligibles
  * (au lieu d'en choisir une seule). La première agence qui accepte prend
  * la course : les offres concurrentes passent en `LOST`.
  *

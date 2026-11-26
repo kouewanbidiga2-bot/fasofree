@@ -1,10 +1,10 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 /**
- * FasoFree — Page « paiement non abouti » (application client).
+ * Koliwa — Page « paiement non abouti » (application client).
  *
  * Page dédiée aux ERREURS DE PAIEMENT uniquement :
  *  - `reason=init_failed`    : la création/initiation a échoué, la commande

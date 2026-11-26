@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -32,7 +32,7 @@ export class DeliveryTierDto {
 /**
  * 💳 Grille tarifaire des campagnes push auto-service (FCFA PAR ENVOI).
  *
- * `ALL_CLIENTS` vise toute la base client FasoFree : volontairement bien plus
+ * `ALL_CLIENTS` vise toute la base client Koliwa : volontairement bien plus
  * cher que les audiences de proximité, pour que le spam ne soit pas rentable.
  * Géré par le Super Admin depuis « Paramètres de la plateforme ».
  */
@@ -57,7 +57,7 @@ export class PushCampaignPricingDto {
 
   @ApiPropertyOptional({
     example: 2500,
-    description: 'Campagne vers TOUS les clients FasoFree (FCFA par envoi)',
+    description: 'Campagne vers TOUS les clients Koliwa (FCFA par envoi)',
   })
   @IsOptional()
   @IsInt()
@@ -83,7 +83,7 @@ export class UpdateSettingsDto {
   @Type(() => DeliveryTierDto)
   deliveryTiers?: DeliveryTierDto[];
 
-  @ApiPropertyOptional({ description: 'Tarifs FasoFree Ride par confort (JSON)' })
+  @ApiPropertyOptional({ description: 'Tarifs Koliwa Ride par confort (JSON)' })
   @IsOptional()
   fasoRidePricing?: Record<string, { minFare: number; pricePerKm: number }>;
 

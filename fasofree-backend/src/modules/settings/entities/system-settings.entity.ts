@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -23,7 +23,7 @@ export interface DeliveryTierConfig {
 }
 
 /**
- * Configuration centralisée de la tarification FasoFree.
+ * Configuration centralisée de la tarification Koliwa.
  * Ligne singleton (id=1) créée au démarrage si absente.
  */
 @Entity('system_settings')
@@ -104,7 +104,7 @@ export class SystemSettings {
   // `pushCampaignPriceCache` (alimenté par SettingsService.syncStaticCaches).
   //
   // ALL_CLIENTS est volontairement très au-dessus (2500 F vs 100 F) : viser
-  // toute la base client FasoFree doit coûter cher, sinon le spam devient
+  // toute la base client Koliwa doit coûter cher, sinon le spam devient
   // rentable. C'est un réglage métier, pas une constante de code.
   @Column({
     type: 'jsonb',

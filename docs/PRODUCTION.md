@@ -1,4 +1,4 @@
-# Production — FasoFree Backend
+# Production — Koliwa Backend
 
 ## Architecture
 - **Monolithe modulaire** NestJS (API `/api/v1`) + PostgreSQL (Neon) + Redis (Upstash).

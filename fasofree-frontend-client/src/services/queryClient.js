@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 import { QueryClient } from '@tanstack/react-query';
 
 /**
- * Cache de données du client FasoFree (TanStack Query v5).
+ * Cache de données du client Koliwa (TanStack Query v5).
  *
  * Phase « fluidité » — AUCUN changement visuel : mêmes écrans, même identité.
  * Ce qui change sous le capot :

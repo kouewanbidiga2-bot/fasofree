@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -123,7 +123,7 @@ export class BanRequestService {
 
       if (superAdmins.length === 0) return;
 
-      const subject = 'FasoFree — Demande de bannissement à traiter';
+      const subject = 'Koliwa — Demande de bannissement à traiter';
       const message =
         `Une demande de bannissement vient d'être soumise.\n\n` +
         `Cible : ${target.fullName} (${target.email})\n` +
@@ -220,8 +220,8 @@ export class BanRequestService {
           await this.notificationStore.create({
             userId: target.id,
             type: NotificationType.ACCOUNT,
-            title: 'FasoFree — Votre compte a été suspendu',
-            body: `Bonjour ${target.fullName},\n\nVotre compte FasoFree a été suspendu pour la raison suivante :\n\n"${request.reason}"\n\nSi vous pensez qu'il s'agit d'une erreur, contactez le support.`,
+            title: 'Koliwa — Votre compte a été suspendu',
+            body: `Bonjour ${target.fullName},\n\nVotre compte Koliwa a été suspendu pour la raison suivante :\n\n"${request.reason}"\n\nSi vous pensez qu'il s'agit d'une erreur, contactez le support.`,
           });
         } catch (err) {
           this.logger.warn(`[BanRequest] Échec notification ban: ${(err as Error).message}`);
@@ -258,8 +258,8 @@ export class BanRequestService {
         userId: requester.id,
         type: NotificationType.SYSTEM,
         title: approved
-          ? 'FasoFree — Votre demande de bannissement a été approuvée'
-          : 'FasoFree — Votre demande de bannissement a été rejetée',
+          ? 'Koliwa — Votre demande de bannissement a été approuvée'
+          : 'Koliwa — Votre demande de bannissement a été rejetée',
         body: approved
           ? `Le Super Admin ${admin.fullName} a approuvé votre demande. Le compte concerné a été banni.${request.reviewNote ? `\n\nNote : ${request.reviewNote}` : ''}`
           : `Le Super Admin ${admin.fullName} a rejeté votre demande.${request.reviewNote ? `\n\nMotif : ${request.reviewNote}` : ''}`,

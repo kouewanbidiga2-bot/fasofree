@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -31,7 +31,7 @@ import {
 } from './seed-password';
 
 /**
- * 🌱 Données de test FasoFree (environnement local / sandbox)
+ * 🌱 Données de test Koliwa (environnement local / sandbox)
  *
  * - 1 Client (Awa) avec wallet crédité de 25 000 FCFA
  * - 1 Livreur (Issa) actif & en ligne avec wallet
@@ -195,7 +195,7 @@ export class SeedCommand {
   @Command({
     command: 'seed:test-data',
     describe:
-      'Crée les données de test FasoFree (client, livreur, marque, agences)',
+      'Crée les données de test Koliwa (client, livreur, marque, agences)',
   })
   async seedTestData(): Promise<void> {
     assertSeedAllowed('seed:test-data');
@@ -280,7 +280,7 @@ export class SeedCommand {
       25000,
       TransactionReason.TOPUP,
       'seed:test-data',
-      'Crédit de test FasoFree (recharge simulant un dépôt Mobile Money)',
+      'Crédit de test Koliwa (recharge simulant un dépôt Mobile Money)',
     );
 
     // 5. Wallet livreur : actif + petit solde -------------------------------

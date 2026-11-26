@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -14,7 +14,7 @@ import {
 /**
  * 🏢 Agence de livraison partenaire (Niveau 2 du dispatch multi-niveaux).
  *
- * Une agence est une flotte locale partenaire : FasoFree lui route les
+ * Une agence est une flotte locale partenaire : Koliwa lui route les
  * courses que son pool interne ne peut pas traiter (aucun livreur
  * disponible). L'agence assigne la course à SES chauffeurs depuis son
  * espace dédié, puis le déroulé habituel s'applique (le chauffeur est
@@ -43,7 +43,7 @@ export class DeliveryAgency {
   // ─── 🎨 Identité visuelle (Lot 1) ──────────────────────────────
   // Ces champs servent à faire RECONNAÎTRE la société par le client et le
   // marchand : sans eux, une course livrée par une société tierce apparaissait
-  // comme « une agence partenaire » anonyme, et FasoFree en récoltait le mérite.
+  // comme « une agence partenaire » anonyme, et Koliwa en récoltait le mérite.
 
   /** Logo de la société (URL). Affiché au client et au marchand. */
   @Column({ type: 'varchar', length: 500, nullable: true })
@@ -61,7 +61,7 @@ export class DeliveryAgency {
   @Column({ type: 'varchar', length: 255, nullable: true })
   website: string | null;
 
-  /** Société vérifiée par FasoFree — badge de confiance côté client. */
+  /** Société vérifiée par Koliwa — badge de confiance côté client. */
   @Column({ type: 'boolean', default: false })
   isVerified: boolean;
 

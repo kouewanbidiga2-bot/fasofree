@@ -1,6 +1,6 @@
-# FasoFree - Application Client
+# Koliwa - Application Client
 
-Application React/Vite/Tailwind pour les clients FasoFree qui demandent, suivent et gèrent leurs livraisons.
+Application React/Vite/Tailwind pour les clients Koliwa qui demandent, suivent et gèrent leurs livraisons.
 
 ## 📁 Structure du projet
 

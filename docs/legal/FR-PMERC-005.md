@@ -15,7 +15,7 @@ audience: commercant
 
 **FASOFREE / [DÉNOMINATION SOCIALE]**, [forme juridique], immatriculée au RCCM sous le numéro [●], IFU [●], dont le siège est situé à [●], représentée par [●], dûment habilité(e),
 
-Ci-après « FasoFree »,
+Ci-après « Koliwa »,
 
 **ET**
 
@@ -39,7 +39,7 @@ Les parties conviennent de ce qui suit.
 
 ## ARTICLE 1 — OBJET
 
-Le présent contrat définit les conditions dans lesquelles le Commerçant utilise FasoFree afin de :
+Le présent contrat définit les conditions dans lesquelles le Commerçant utilise Koliwa afin de :
 
 * présenter ses produits ;
 * recevoir des commandes ;
@@ -47,11 +47,11 @@ Le présent contrat définit les conditions dans lesquelles le Commerçant utili
 * organiser des livraisons ;
 * proposer éventuellement des réservations ;
 * recevoir des paiements ;
-* accéder aux outils professionnels FasoFree.
+* accéder aux outils professionnels Koliwa.
 
-FasoFree fournit une infrastructure technologique et des services de coordination.
+Koliwa fournit une infrastructure technologique et des services de coordination.
 
-Le présent contrat ne transfère pas à FasoFree la responsabilité juridique du Commerçant concernant ses produits, son établissement ou son activité professionnelle.
+Le présent contrat ne transfère pas à Koliwa la responsabilité juridique du Commerçant concernant ses produits, son établissement ou son activité professionnelle.
 
 ---
 
@@ -73,7 +73,7 @@ Toute fausse déclaration constitue un manquement contractuel grave.
 
 ## ARTICLE 3 — VÉRIFICATION ET KYC
 
-FasoFree peut demander tout document raisonnablement nécessaire à la vérification du Commerçant.
+Koliwa peut demander tout document raisonnablement nécessaire à la vérification du Commerçant.
 
 Cela peut comprendre notamment :
 
@@ -85,7 +85,7 @@ Cela peut comprendre notamment :
 * coordonnées de paiement ;
 * documents relatifs à l'établissement.
 
-FasoFree peut refuser ou suspendre l'activation du compte lorsque les vérifications nécessaires ne peuvent être réalisées.
+Koliwa peut refuser ou suspendre l'activation du compte lorsque les vérifications nécessaires ne peuvent être réalisées.
 
 ---
 
@@ -97,7 +97,7 @@ Le Commerçant doit :
 
 * protéger ses identifiants ;
 * limiter l'accès aux personnes autorisées ;
-* informer FasoFree en cas de compromission ;
+* informer Koliwa en cas de compromission ;
 * ne pas céder son compte.
 
 Les personnes habilitées par le Commerçant restent sous sa responsabilité dans leur utilisation du compte.
@@ -120,7 +120,7 @@ Le Commerçant est exclusivement responsable :
 * des quantités ;
 * de la conformité du catalogue.
 
-Lorsque FasoFree utilise l'intelligence artificielle pour extraire les informations d'un menu, le Commerçant doit vérifier les informations avant publication.
+Lorsque Koliwa utilise l'intelligence artificielle pour extraire les informations d'un menu, le Commerçant doit vérifier les informations avant publication.
 
 Une extraction automatisée ne constitue jamais une garantie d'exactitude du catalogue.
 
@@ -130,7 +130,7 @@ Une extraction automatisée ne constitue jamais une garantie d'exactitude du cat
 
 Le Commerçant doit fournir des prix exacts et actualisés.
 
-Il lui est interdit de modifier volontairement le prix communiqué au client en dehors des mécanismes autorisés par FasoFree.
+Il lui est interdit de modifier volontairement le prix communiqué au client en dehors des mécanismes autorisés par Koliwa.
 
 Toute différence injustifiée peut donner lieu à une réclamation, une correction ou une mesure contractuelle.
 
@@ -157,7 +157,7 @@ Le Commerçant ne doit pas déclarer une commande prête lorsqu'elle ne l'est pa
 
 Le Commerçant demeure responsable de la qualité, de la sécurité, de la conformité et de la préparation de ses produits.
 
-FasoFree n'est pas le fabricant des produits proposés par les Commerçants, sauf accord contraire exprès.
+Koliwa n'est pas le fabricant des produits proposés par les Commerçants, sauf accord contraire exprès.
 
 Le Commerçant assume les conséquences d'un produit :
 
@@ -182,7 +182,7 @@ Le Commerçant doit prendre des mesures raisonnables pour empêcher toute contam
 
 ## ARTICLE 10 — COMMISSION FASOFREE
 
-En contrepartie des services fournis, FasoFree peut percevoir une commission selon les conditions commerciales applicables au compte du Commerçant.
+En contrepartie des services fournis, Koliwa peut percevoir une commission selon les conditions commerciales applicables au compte du Commerçant.
 
 **Commission : [●] %**
 
@@ -194,15 +194,15 @@ Les conditions commerciales peuvent préciser les modalités de calcul, de factu
 
 ## ARTICLE 11 — PAIEMENTS AU COMMERÇANT
 
-Les sommes dues au Commerçant sont calculées sur la base des transactions enregistrées dans les systèmes FasoFree, sous réserve des corrections justifiées, remboursements, annulations, commissions, frais et ajustements autorisés.
+Les sommes dues au Commerçant sont calculées sur la base des transactions enregistrées dans les systèmes Koliwa, sous réserve des corrections justifiées, remboursements, annulations, commissions, frais et ajustements autorisés.
 
-FasoFree peut suspendre temporairement un règlement lorsqu'une opération fait l'objet d'une investigation raisonnable concernant une fraude, une erreur manifeste ou un litige.
+Koliwa peut suspendre temporairement un règlement lorsqu'une opération fait l'objet d'une investigation raisonnable concernant une fraude, une erreur manifeste ou un litige.
 
 ---
 
 ## ARTICLE 12 — PAIEMENT EN ESPÈCES
 
-Lorsque le client paie en espèces, le Commerçant reconnaît que le paiement doit être enregistré conformément au processus FasoFree.
+Lorsque le client paie en espèces, le Commerçant reconnaît que le paiement doit être enregistré conformément au processus Koliwa.
 
 Le Commerçant ne doit pas :
 
@@ -215,7 +215,7 @@ Le Commerçant ne doit pas :
 
 ## ARTICLE 13 — REMBOURSEMENTS ET RÉCLAMATIONS
 
-Lorsqu'une commande fait l'objet d'une réclamation, FasoFree peut demander au Commerçant les informations nécessaires à l'analyse du dossier.
+Lorsqu'une commande fait l'objet d'une réclamation, Koliwa peut demander au Commerçant les informations nécessaires à l'analyse du dossier.
 
 Selon les circonstances et le contrat commercial, un remboursement peut être imputé au Commerçant lorsqu'il résulte notamment d'un manquement qui lui est imputable.
 
@@ -227,7 +227,7 @@ Les modalités opérationnelles figurent dans la [Politique de remboursement et 
 
 ## ARTICLE 14 — CONTENU ET MARQUE
 
-Le Commerçant autorise FasoFree, pendant la durée du partenariat, à utiliser ses :
+Le Commerçant autorise Koliwa, pendant la durée du partenariat, à utiliser ses :
 
 * nom commercial ;
 * marque ;
@@ -236,7 +236,7 @@ Le Commerçant autorise FasoFree, pendant la durée du partenariat, à utiliser 
 * menus ;
 * descriptions ;
 
-dans la mesure nécessaire à l'exploitation et à la promotion des services FasoFree.
+dans la mesure nécessaire à l'exploitation et à la promotion des services Koliwa.
 
 Le Commerçant garantit qu'il dispose des droits nécessaires.
 
@@ -263,11 +263,11 @@ Cette obligation survit à la fin du contrat pour les informations qui demeurent
 
 ## ARTICLE 16 — DONNÉES PERSONNELLES
 
-Le Commerçant ne peut utiliser les données des clients obtenues via FasoFree pour une finalité étrangère à l'exécution de la commande.
+Le Commerçant ne peut utiliser les données des clients obtenues via Koliwa pour une finalité étrangère à l'exécution de la commande.
 
 Il est notamment interdit de :
 
-* constituer une base marketing personnelle à partir des clients FasoFree ;
+* constituer une base marketing personnelle à partir des clients Koliwa ;
 * contacter les clients à des fins personnelles ;
 * transmettre les données à des tiers ;
 * revendre les données ;
@@ -281,9 +281,9 @@ La gestion des données personnelles est décrite dans la [Politique de confiden
 
 ## ARTICLE 17 — NON-CONTOURNEMENT
 
-Pendant l'exécution d'une commande obtenue via FasoFree, le Commerçant ne doit pas inciter le client à contourner volontairement la plateforme afin d'éviter les frais contractuellement applicables.
+Pendant l'exécution d'une commande obtenue via Koliwa, le Commerçant ne doit pas inciter le client à contourner volontairement la plateforme afin d'éviter les frais contractuellement applicables.
 
-Cette clause ne doit pas être interprétée comme interdisant au Commerçant d'exercer librement son activité en dehors de FasoFree dans les limites de la loi.
+Cette clause ne doit pas être interprétée comme interdisant au Commerçant d'exercer librement son activité en dehors de Koliwa dans les limites de la loi.
 
 ---
 
@@ -307,7 +307,7 @@ Les comportements frauduleux sont traités conformément à la [Politique anti-f
 
 ## ARTICLE 19 — AUDIT ET CONTRÔLE
 
-FasoFree peut effectuer des contrôles raisonnables concernant :
+Koliwa peut effectuer des contrôles raisonnables concernant :
 
 * les commandes ;
 * les prix ;
@@ -322,7 +322,7 @@ Le Commerçant doit coopérer raisonnablement à ces vérifications.
 
 ## ARTICLE 20 — SUSPENSION
 
-FasoFree peut suspendre temporairement le compte en cas notamment :
+Koliwa peut suspendre temporairement le compte en cas notamment :
 
 * de risque pour la sécurité des clients ;
 * de fraude présumée ;
@@ -332,7 +332,7 @@ FasoFree peut suspendre temporairement le compte en cas notamment :
 * de problèmes sanitaires signalés ;
 * de manquements répétés.
 
-Lorsque cela est possible, FasoFree informe le Commerçant du motif et des conditions éventuelles de réactivation.
+Lorsque cela est possible, Koliwa informe le Commerçant du motif et des conditions éventuelles de réactivation.
 
 ---
 
@@ -342,7 +342,7 @@ Le contrat peut être résilié :
 
 * par accord des parties ;
 * par le Commerçant conformément aux modalités applicables ;
-* par FasoFree en cas de manquement grave ;
+* par Koliwa en cas de manquement grave ;
 * immédiatement lorsque la poursuite du partenariat crée un risque sérieux ou lorsque la loi l'impose.
 
 Les sommes régulièrement dues avant la cessation restent exigibles.
@@ -353,7 +353,7 @@ Les sommes régulièrement dues avant la cessation restent exigibles.
 
 Le Commerçant assume les conséquences des obligations relevant de son activité professionnelle.
 
-Il garantit FasoFree, dans les limites autorisées par la loi, contre les conséquences directement imputables à ses propres fautes, violations réglementaires ou produits non conformes.
+Il garantit Koliwa, dans les limites autorisées par la loi, contre les conséquences directement imputables à ses propres fautes, violations réglementaires ou produits non conformes.
 
 Aucune clause du présent contrat ne limite une responsabilité qui ne peut légalement être limitée.
 
@@ -361,7 +361,7 @@ Aucune clause du présent contrat ne limite une responsabilité qui ne peut lég
 
 ## ARTICLE 23 — PROPRIÉTÉ DES SYSTÈMES
 
-Les logiciels, interfaces, algorithmes, bases de données et systèmes FasoFree demeurent la propriété de FasoFree ou de ses concédants.
+Les logiciels, interfaces, algorithmes, bases de données et systèmes Koliwa demeurent la propriété de Koliwa ou de ses concédants.
 
 Le Commerçant reçoit uniquement un droit d'utilisation limité au fonctionnement du partenariat.
 
@@ -369,7 +369,7 @@ Le Commerçant reçoit uniquement un droit d'utilisation limité au fonctionneme
 
 ## ARTICLE 24 — PREUVE
 
-Les données enregistrées dans les systèmes FasoFree peuvent être utilisées comme éléments de preuve des opérations réalisées.
+Les données enregistrées dans les systèmes Koliwa peuvent être utilisées comme éléments de preuve des opérations réalisées.
 
 Cela comprend notamment :
 

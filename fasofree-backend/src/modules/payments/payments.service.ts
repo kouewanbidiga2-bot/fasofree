@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -496,10 +496,10 @@ export class PaymentsService {
         customer: {
           email: params.customerEmail,
           firstName: params.customerName ?? 'Client',
-          lastName: 'FasoFree',
+          lastName: 'Koliwa',
         },
         network,
-        description: `Recharge portefeuille FasoFree - ${params.customerName ?? params.userId}`,
+        description: `Recharge portefeuille Koliwa - ${params.customerName ?? params.userId}`,
         metadata: { type: 'topup', reference },
         returnUrl: `${clientUrl}/?topup=success`,
         idempotencyKey: reference,

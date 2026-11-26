@@ -1,10 +1,10 @@
-# 🇧🇫 FasoFree Backend API
+# 🇧🇫 Koliwa Backend API
 
 <p align="center">
   <img src="https://nestjs.com/img/logo-small.svg" width="100" alt="NestJS Logo" />
 </p>
 
-> **Plateforme Backend d'API Rest & Temps Réel pour FasoFree**  
+> **Plateforme Backend d'API Rest & Temps Réel pour Koliwa**  
 > Solution intégrée de Marketplace, Commande de repas & Livraison géolocalisée à Ouagadougou, Burkina Faso.
 
 ---
@@ -26,7 +26,7 @@
 
 ## 🎯 Aperçu & Vision
 
-**FasoFree** interconnecte 4 acteurs majeurs de l'écosystème économique local :
+**Koliwa** interconnecte 4 acteurs majeurs de l'écosystème économique local :
 1. **Les Clients :** Exploration des boutiques/restaurants, passage de commandes et suivi de livraison en temps réel.
 2. **Les Commerçants (Merchants) :** Gestion du catalogue produit, réception et préparation des commandes.
 3. **Les Livreurs (Riders) :** Assignation dynamique des courses et géolocalisation pour la livraison.

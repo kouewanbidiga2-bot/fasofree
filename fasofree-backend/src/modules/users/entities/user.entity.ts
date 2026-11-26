@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -156,7 +156,7 @@ export class User {
   averageRating?: number;
 
   // 🏍️ Type de véhicule du livreur (BICYCLE, MOTORCYCLE, CAR)
-  // Utilisé par le dispatch pour préférer une moto/VTC sur les courses FasoFree Ride.
+  // Utilisé par le dispatch pour préférer une moto/VTC sur les courses Koliwa Ride.
   @Column({ type: 'varchar', length: 20, nullable: true })
   vehicleType?: VehicleType | string;
 
@@ -164,7 +164,7 @@ export class User {
   @Column({ type: 'varchar', length: 20, nullable: true })
   vehicleCategory?: VehicleCategory | string;
 
-  // ❄️ Véhicule climatisé (pour FasoFree Ride)
+  // ❄️ Véhicule climatisé (pour Koliwa Ride)
   @Column({ type: 'boolean', default: false })
   hasAirConditioning: boolean;
 

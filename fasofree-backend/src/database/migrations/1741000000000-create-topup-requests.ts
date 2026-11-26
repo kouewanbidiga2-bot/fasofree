@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -7,7 +7,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Table des demandes de recharge de portefeuille (SasPay).
- * SasPay ne renvoie pas la référence FasoFree dans son webhook : on retrouve
+ * SasPay ne renvoie pas la référence Koliwa dans son webhook : on retrouve
  * la recharge par `providerPaymentId`. `IF NOT EXISTS` : rejouable et compatible
  * avec le `synchronize` de dev (AGENTS.md §3.1).
  */

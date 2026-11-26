@@ -1,4 +1,4 @@
-# FasoFree — CLAUDE.md
+# Koliwa — CLAUDE.md
 
 ## Projet
 Application de livraison de repas et services (Burkina Faso).

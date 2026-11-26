@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -85,7 +85,7 @@ export class OnboardingService {
    * - active le compte (isActive = true)
    * - génère un mot de passe temporaire (envoyé au candidat)
    * - crée le profil Business (Marchand) ou finalise le profil Livreur
-   * - crée le portefeuille FasoFree (MERCHANT / DRIVER)
+   * - crée le portefeuille Koliwa (MERCHANT / DRIVER)
    */
   async approve(
     applicationId: string,

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -153,7 +153,7 @@ export class WhatsAppWebhookController {
     if (normalized === 'aide' || normalized === 'help' || normalized === 'menu') {
       await this.whatsappService.sendTextMessage(
         from,
-        'Bienvenue sur FasoFree!\n\n' +
+        'Bienvenue sur Koliwa!\n\n' +
         'Commandes disponibles:\n' +
         '- SUIVI + numero de commande -> statut de livraison\n' +
         '- AIDE -> ce message\n' +
@@ -176,7 +176,7 @@ export class WhatsAppWebhookController {
     if (normalized === 'stories') {
       await this.whatsappService.sendTextMessage(
         from,
-        'Decouvrez les stories des restaurants sur FasoFree!\n' +
+        'Decouvrez les stories des restaurants sur Koliwa!\n' +
         'Ouvrez l\'application pour voir les dernieres creations.',
       );
       return;

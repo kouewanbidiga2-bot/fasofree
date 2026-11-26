@@ -1,4 +1,4 @@
-# RAPPORT TECHNIQUE — FasoFree
+# RAPPORT TECHNIQUE — Koliwa
 ## Corrections complètes audit + nettoyage code mort
 
 **Date** : 13 Septembre 2026  

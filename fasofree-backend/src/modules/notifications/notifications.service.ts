@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -88,7 +88,7 @@ export class NotificationsService {
     }
 
     const smsText =
-      `FasoFree: Bienvenue ! Votre compte ${roleLabel} est approuvé. ` +
+      `Koliwa: Bienvenue ! Votre compte ${roleLabel} est approuvé. ` +
       `Mot de passe temporaire: ${tempPassword}. Connectez-vous et changez-le.`;
 
     // 1. Canal préféré — chaque envoi retourne un booléen de remise.
@@ -98,7 +98,7 @@ export class NotificationsService {
         if (user.fcmToken) {
           delivered = await this.sendToDevice(user.fcmToken, {
             title: `Compte ${roleLabel} approuvé !`,
-            body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
+            body: `Bienvenue sur Koliwa ! Connectez-vous avec votre mot de passe temporaire.`,
             data: { type: 'ONBOARDING_APPROVED', role: appType },
           });
         }
@@ -153,7 +153,7 @@ export class NotificationsService {
     if (channel !== NotificationChannel.PUSH && user.fcmToken) {
       this.sendToDevice(user.fcmToken, {
         title: `Compte ${roleLabel} approuvé !`,
-        body: `Bienvenue sur FasoFree ! Connectez-vous avec votre mot de passe temporaire.`,
+        body: `Bienvenue sur Koliwa ! Connectez-vous avec votre mot de passe temporaire.`,
         data: { type: 'ONBOARDING_APPROVED', role: appType },
       }).catch(() => {});
     }
@@ -176,7 +176,7 @@ export class NotificationsService {
     const email = user.email;
 
     const smsText =
-      `FasoFree: Votre candidature ${roleLabel} a été refusée. ` +
+      `Koliwa: Votre candidature ${roleLabel} a été refusée. ` +
       `Motif: ${reason}. Vous pouvez soumettre une nouvelle candidature.`;
 
     let delivered = false;
@@ -374,7 +374,7 @@ export class NotificationsService {
         <div style="background: #FAF6F1; padding: 30px; border-radius: 0 0 8px 8px;">
           <p style="white-space: pre-line;">${safeMessage}</p>
         </div>
-        <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© FasoFree — Marketplace & Livraison, Ouagadougou</p>
+        <p style="text-align: center; color: #999; font-size: 12px; margin-top: 20px;">© Koliwa — Marketplace & Livraison, Ouagadougou</p>
       </div>
     `;
   }

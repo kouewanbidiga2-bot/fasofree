@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -171,7 +171,7 @@ async function bootstrap() {
   const httpServer = app.getHttpAdapter().getInstance();
   httpServer.get('/', (_req: unknown, res: any) =>
     res.json({
-      name: 'FasoFree API',
+      name: 'Koliwa API',
       status: 'operational',
       docs: '/api/docs',
     }),
@@ -180,10 +180,10 @@ async function bootstrap() {
 
   // 8. Documentation OpenAPI / Swagger (UX Améliorée)
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('FasoFree API')
+    .setTitle('Koliwa API')
     .setDescription(
       [
-        '## FasoFree — API Backend Marketplace & Livraison Burkina Faso',
+        '## Koliwa — API Backend Marketplace & Livraison Burkina Faso',
         '',
         'Plateforme complète de **livraison de repas**, **courses FasoRide**, et **envoi de colis FasoColis** à Ouagadougou.',
         '',
@@ -231,7 +231,7 @@ async function bootstrap() {
       ].join('\n'),
     )
     .setVersion('1.0.0')
-    .setContact('FasoFree', 'https://fasofree.site', 'contact@fasofree.site')
+    .setContact('Koliwa', 'https://fasofree.site', 'contact@fasofree.site')
     .setLicense('Proprietary', 'https://fasofree.site/cgu')
     .addServer(`/${globalPrefix}`, 'Serveur courant')
     .addServer('/', 'Base URL (sans préfixe)')
@@ -304,7 +304,7 @@ async function bootstrap() {
         tagsSorter: 'alpha',
         operationsSorter: 'alpha',
       },
-      customSiteTitle: 'FasoFree API Docs',
+      customSiteTitle: 'Koliwa API Docs',
     });
   }
 
@@ -315,7 +315,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   const bootDuration = Date.now() - startTime;
-  logger.log(`⚡ FasoFree Backend prêt en ${bootDuration}ms`);
+  logger.log(`⚡ Koliwa Backend prêt en ${bootDuration}ms`);
   logger.log(
     `🚀 API Base URL          : http://0.0.0.0:${port}/${globalPrefix}`,
   );

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -158,7 +158,7 @@ export class WhatsAppService {
     const roleLabel = role === 'DRIVER' ? 'Livreur' : 'Marchand';
     const emailLine = email ? `📧 Email : ${email}\n` : '';
     const text =
-      `🎉 *Bienvenue sur FasoFree !*\n\n` +
+      `🎉 *Bienvenue sur Koliwa !*\n\n` +
       `Bonjour ${userName},\n\n` +
       `Félicitations ! Votre candidature de *${roleLabel}* a été *approuvée*.\n\n` +
       emailLine +
@@ -176,7 +176,7 @@ export class WhatsAppService {
   ): Promise<boolean> {
     const roleLabel = role === 'DRIVER' ? 'Livreur' : 'Marchand';
     const text =
-      `FasoFree — Mise à jour de votre candidature\n\n` +
+      `Koliwa — Mise à jour de votre candidature\n\n` +
       `Bonjour ${userName},\n\n` +
       `Votre candidature de *${roleLabel}* a été *refusée*.\n\n` +
       `📋 Motif : ${reason}\n\n` +

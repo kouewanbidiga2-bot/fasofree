@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -13,7 +13,7 @@ export class AppController {
   @ApiOperation({ summary: "Message d'accueil de l'API" })
   getHello() {
     return {
-      name: 'FasoFree API',
+      name: 'Koliwa API',
       version: '1.0.0',
       status: 'operational',
       docs: '/api/docs',

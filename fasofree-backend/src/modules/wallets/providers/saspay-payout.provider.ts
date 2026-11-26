@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -64,7 +64,7 @@ export class SasPayPayoutProvider {
           customer: { phone: phoneNumber },
           method,
           recipient: { msisdn: phoneNumber.replace(/^\+/, '') },
-          description: 'Retrait FasoFree',
+          description: 'Retrait Koliwa',
         },
         {
           // Idempotency-Key = notre référence : un retry réseau ne crée pas un second virement.

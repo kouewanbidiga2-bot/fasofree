@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -113,7 +113,7 @@ export class SubscriptionsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  @ApiOperation({ summary: 'Mon statut premium (FasoFree Pass)' })
+  @ApiOperation({ summary: 'Mon statut premium (Koliwa Pass)' })
   async getMyStatus(@NestRequest() req: RequestWithUser) {
     const clientId = req.user?.userId;
     if (!clientId) throw new ForbiddenException('Utilisateur non authentifié');
@@ -122,7 +122,7 @@ export class SubscriptionsController {
 
   @UseGuards(AuthGuard('jwt'))
   @Post('subscribe')
-  @ApiOperation({ summary: 'S’abonner au FasoFree Pass (débit portefeuille)' })
+  @ApiOperation({ summary: 'S’abonner au Koliwa Pass (débit portefeuille)' })
   async subscribe(@NestRequest() req: RequestWithUser, @Body() dto: SubscribeDto) {
     const clientId = req.user?.userId;
     if (!clientId) throw new ForbiddenException('Utilisateur non authentifié');

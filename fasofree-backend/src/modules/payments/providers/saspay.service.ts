@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -27,7 +27,7 @@ export interface SasPayMerchantBalance {
   isFrozen: boolean;
 }
 
-/** Moyen de paiement FasoFree → code réseau SasPay (Burkina Faso). */
+/** Moyen de paiement Koliwa → code réseau SasPay (Burkina Faso). */
 const NETWORKS_BF: Record<string, string> = {
   orange_money: 'orange_bf',
   moov_money: 'moov_bf',
@@ -92,7 +92,7 @@ export class SasPayService {
       customer: {
         email: params.customer.email ?? 'client@fasofree.bf',
         first_name: params.customer.firstName ?? 'Client',
-        last_name: params.customer.lastName ?? 'FasoFree',
+        last_name: params.customer.lastName ?? 'Koliwa',
         phone: params.customer.phone ?? '',
       },
       network: params.network,

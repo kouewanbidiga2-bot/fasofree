@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * BASELINE — Schéma initial des tables de base FasoFree.
+ * BASELINE — Schéma initial des tables de base Koliwa.
  *
  * Contexte : les 10 tables "de base" (users, businesses, orders, order_items,
  * products, transactions, merchant_payouts, financial_ledger, receipts,

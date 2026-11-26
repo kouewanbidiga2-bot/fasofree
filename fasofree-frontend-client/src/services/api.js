@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -142,14 +142,14 @@ export const api = {
   // Disputes
   openDispute: (orderId, data) => apiFetch(`/disputes/orders/${orderId}`, { method: 'POST', body: data }),
 
-  // FasoFree Pass VIP (abonnements)
+  // Koliwa Pass VIP (abonnements)
   getPlans: (subjectType) =>
     apiFetch(`/subscriptions/plans${subjectType ? `?subjectType=${subjectType}` : ''}`, { method: 'GET' }),
   getVipStatus: () => apiFetch('/subscriptions/me', { method: 'GET' }),
   subscribeVip: (planCode = 'VIP', autoRenew = true) =>
     apiFetch('/subscriptions/subscribe', { method: 'POST', body: { planCode, autoRenew } }),
 
-  // Portefeuille FasoFree
+  // Portefeuille Koliwa
   getWallet: (userId) => apiFetch(`/wallets/CUSTOMER/${userId}`, { method: 'GET' }),
   topupWallet: (data) => apiFetch('/payments/topup', { method: 'POST', body: data }),
 

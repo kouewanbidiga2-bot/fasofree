@@ -1,4 +1,4 @@
-# Reprise après incident — FasoFree
+# Reprise après incident — Koliwa
 
 ## Objectifs (RPO / RTO)
 - **RPO cible** : quelques minutes (sauvegarde PostgreSQL continue — Neon a des **point-in-time recovery (PITR)**).

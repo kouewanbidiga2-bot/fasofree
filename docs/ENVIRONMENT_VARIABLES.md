@@ -1,4 +1,4 @@
-# Variables d'environnement — FasoFree Backend
+# Variables d'environnement — Koliwa Backend
 
 Référence des variables pour **staging / production**. Aucun secret n'est codé en dur dans le code ni dans `.env.example` (valeurs placeholder uniquement).
 
@@ -57,7 +57,7 @@ Référence des variables pour **staging / production**. Aucun secret n'est cod�
 |---|---|
 | `SMTP_USER` / `SMTP_PASS` | Gmail SMTP (principal). |
 | `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Fallback Resend. |
-| `EMAIL_FROM` | Expéditeur visible (défaut `FasoFree <noreply@fasofree.site>`). |
+| `EMAIL_FROM` | Expéditeur visible (défaut `Koliwa <noreply@fasofree.site>`). |
 | `EMAIL_REPLY_TO` | Boîte de réception des réponses clients (défaut `fasofree2@gmail.com`). |
 | `WHATSAPP_ACCESS_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | Meta Cloud API. |
 | `WHATSAPP_VERIFY_TOKEN` | Jeton de vérification **GET** — aucune valeur par défaut. |

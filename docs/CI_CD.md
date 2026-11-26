@@ -1,4 +1,4 @@
-# CI / CD — FasoFree
+# CI / CD — Koliwa
 
 ## CI (GitHub Actions)
 

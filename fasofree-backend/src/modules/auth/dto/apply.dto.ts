@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -99,7 +99,7 @@ export class ApplyDto {
   @IsString()
   driverLicenseNumber?: string;
 
-  @ApiPropertyOptional({ example: true, description: 'Véhicule climatisé (pour FasoFree Ride)' })
+  @ApiPropertyOptional({ example: true, description: 'Véhicule climatisé (pour Koliwa Ride)' })
   @IsOptional()
   hasAirConditioning?: boolean;
 
@@ -119,7 +119,7 @@ export class ApplyDto {
   // L'entité `delivery_agencies` n'est créée qu'à l'approbation.
 
   @ApiPropertyOptional({
-    example: 'FasoFree Logistics',
+    example: 'Koliwa Logistics',
     description: "Raison sociale de l'entreprise de livraison (AGENCY)",
   })
   @IsOptional()

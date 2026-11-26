@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -68,7 +68,7 @@ export class ReceiptsService {
       status: ReceiptStatus.COMPLETED,
       amount: params.amount,
       reference: params.reference,
-      description: params.description ?? 'Recharge de portefeuille FasoFree',
+      description: params.description ?? 'Recharge de portefeuille Koliwa',
       clientUserId: params.clientUserId,
       walletTransactionId: params.walletTransactionId ?? null,
       balanceAfter: params.balanceAfter ?? null,
@@ -101,7 +101,7 @@ export class ReceiptsService {
       status: ReceiptStatus.COMPLETED,
       amount,
       reference: order.paymentTransactionRef ?? order.id,
-      description: `Vente de la commande ${order.id} (net de commission FasoFree)`,
+      description: `Vente de la commande ${order.id} (net de commission Koliwa)`,
       merchantUserId,
       businessId: order.businessId,
       orderId: order.id,

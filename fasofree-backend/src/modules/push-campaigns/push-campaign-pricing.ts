@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -27,7 +27,7 @@ export const PUSH_CAMPAIGN_BASE_PRICE_XOF = 100;
  * facturation).
  *
  * ⚠️ `ALL_CLIENTS` est volontairement BEAUCOUP plus cher : viser toute la base
- * client FasoFree pour 100 F rendrait le spam rentable. C'est une audience
+ * client Koliwa pour 100 F rendrait le spam rentable. C'est une audience
  * « premium », pas une audience normale.
  */
 export const PUSH_CAMPAIGN_PRICE_DEFAULTS: Record<string, number> = {

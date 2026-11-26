@@ -13,7 +13,7 @@ audience: livreur
 
 **Entre :**
 
-**[DÉNOMINATION SOCIALE FASOFREE]**, ci-après « FasoFree »,
+**[DÉNOMINATION SOCIALE FASOFREE]**, ci-après « Koliwa »,
 
 **Et :**
 
@@ -33,7 +33,7 @@ Ci-après « le Livreur ».
 
 ## ARTICLE 1 — OBJET
 
-Le présent contrat définit les conditions dans lesquelles le Livreur peut accéder aux missions de livraison proposées par FasoFree.
+Le présent contrat définit les conditions dans lesquelles le Livreur peut accéder aux missions de livraison proposées par Koliwa.
 
 Le Livreur exécute les missions acceptées conformément aux présentes conditions, aux règles de sécurité et aux dispositions légales applicables.
 
@@ -45,7 +45,7 @@ Le Livreur exécute les missions acceptées conformément aux présentes conditi
 
 Le Livreur doit fournir des informations exactes et maintenir ses documents à jour.
 
-Selon le type de véhicule et la réglementation applicable, FasoFree peut demander notamment :
+Selon le type de véhicule et la réglementation applicable, Koliwa peut demander notamment :
 
 * pièce d'identité ;
 * permis approprié ;
@@ -60,7 +60,7 @@ Selon le type de véhicule et la réglementation applicable, FasoFree peut deman
 
 ## ARTICLE 3 — VÉRIFICATION
 
-FasoFree peut procéder à des vérifications d'identité et de documents avant ou pendant la relation.
+Koliwa peut procéder à des vérifications d'identité et de documents avant ou pendant la relation.
 
 Le Livreur garantit l'authenticité des documents transmis.
 
@@ -110,7 +110,7 @@ Le Livreur doit :
 
 Le Livreur doit respecter la réglementation routière applicable.
 
-Il lui est interdit d'utiliser FasoFree :
+Il lui est interdit d'utiliser Koliwa :
 
 * sous l'influence d'alcool ou de stupéfiants ;
 * avec un véhicule manifestement dangereux ;
@@ -196,12 +196,12 @@ Les espèces encaissées dans le cadre d'une commande ne constituent pas une ré
 
 ## ARTICLE 13 — PLAFOND DE LIQUIDITÉS
 
-FasoFree peut appliquer :
+Koliwa peut appliquer :
 
 **Soft Limit : [●] FCFA**
 **Hard Limit : [●] FCFA**
 
-Lorsque le plafond applicable est atteint, FasoFree peut limiter ou suspendre l'attribution de nouvelles courses nécessitant l'encaissement d'espèces jusqu'à régularisation.
+Lorsque le plafond applicable est atteint, Koliwa peut limiter ou suspendre l'attribution de nouvelles courses nécessitant l'encaissement d'espèces jusqu'à régularisation.
 
 Cette mesure constitue un mécanisme de contrôle financier et de réduction du risque.
 
@@ -240,7 +240,7 @@ Toute modification des conditions tarifaires doit être communiquée conforméme
 
 Les bonus sont soumis aux conditions qui leur sont associées.
 
-FasoFree peut annuler un bonus obtenu frauduleusement.
+Koliwa peut annuler un bonus obtenu frauduleusement.
 
 Un bonus ne peut être considéré comme acquis lorsqu'il résulte :
 
@@ -273,7 +273,7 @@ Les incidents graves doivent être signalés immédiatement lorsque cela est pos
 
 ## ARTICLE 18 — SYSTÈME ANTI-FRAUDE
 
-FasoFree peut analyser les données techniques nécessaires à la détection de comportements anormaux.
+Koliwa peut analyser les données techniques nécessaires à la détection de comportements anormaux.
 
 Peuvent notamment être analysés :
 
@@ -317,13 +317,13 @@ Cette obligation porte notamment sur :
 * montants ;
 * commandes ;
 * informations internes ;
-* systèmes FasoFree.
+* systèmes Koliwa.
 
 ---
 
 ## ARTICLE 21 — PROPRIÉTÉ DU MATÉRIEL
 
-Lorsque FasoFree fournit du matériel au Livreur, celui-ci doit en prendre soin et le restituer selon les modalités convenues.
+Lorsque Koliwa fournit du matériel au Livreur, celui-ci doit en prendre soin et le restituer selon les modalités convenues.
 
 Toute utilisation frauduleuse ou appropriation peut engager la responsabilité du Livreur dans les limites de la loi.
 
@@ -341,13 +341,13 @@ En cas de :
 * compromission du compte ;
 * perte d'espèces ;
 
-le Livreur doit avertir FasoFree dans les meilleurs délais et suivre les procédures d'incident.
+le Livreur doit avertir Koliwa dans les meilleurs délais et suivre les procédures d'incident.
 
 ---
 
 ## ARTICLE 23 — SUSPENSION
 
-FasoFree peut suspendre temporairement l'accès aux missions lorsqu'une mesure conservatoire est raisonnablement nécessaire, notamment en cas :
+Koliwa peut suspendre temporairement l'accès aux missions lorsqu'une mesure conservatoire est raisonnablement nécessaire, notamment en cas :
 
 * de risque de fraude ;
 * de risque pour un client ;
@@ -368,7 +368,7 @@ Lorsque cela est possible, le Livreur est informé du motif de la mesure.
 
 Chaque partie peut mettre fin à la relation selon les modalités prévues par le présent contrat et la loi applicable.
 
-FasoFree peut mettre fin immédiatement à l'accès aux missions en cas de faute grave, notamment :
+Koliwa peut mettre fin immédiatement à l'accès aux missions en cas de faute grave, notamment :
 
 * vol ;
 * détournement de fonds ;
@@ -394,7 +394,7 @@ La qualification de la relation et les obligations qui en découlent sont appré
 
 Le Livreur répond des dommages directement imputables à ses fautes personnelles dans les limites prévues par la loi.
 
-FasoFree ne peut exiger du Livreur qu'il viole les règles de sécurité, la réglementation routière ou une disposition légale afin de respecter un délai de livraison.
+Koliwa ne peut exiger du Livreur qu'il viole les règles de sécurité, la réglementation routière ou une disposition légale afin de respecter un délai de livraison.
 
 ---
 
@@ -408,7 +408,7 @@ Le Livreur reconnaît avoir été informé des traitements nécessaires au fonct
 
 ## ARTICLE 28 — PREUVE ÉLECTRONIQUE
 
-Les informations enregistrées dans les systèmes FasoFree peuvent servir d'éléments de preuve, notamment :
+Les informations enregistrées dans les systèmes Koliwa peuvent servir d'éléments de preuve, notamment :
 
 * acceptation d'une course ;
 * heure d'acceptation ;
@@ -454,7 +454,7 @@ Le Livreur déclare :
 **Version du contrat :** [●]
 **Signature électronique / OTP :** [●]
 
-**Pour FasoFree :**
+**Pour Koliwa :**
 Nom : [●]
 Qualité : [●]
 Date : [●]
