@@ -15,7 +15,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import useAuthStore from './store/authStore';
 import { fetchContractStatus } from './services/legal';
 import { connectDispatch } from './services/realtime';
-import { Loading, ErrorNote } from './components/ui';
+import { Loading } from './components/ui';
 
 import Login from './pages/Login';
 import Missions from './pages/Missions';
@@ -76,57 +76,53 @@ const RequireCourier = ({ children }) => {
   return children;
 };
 
+/* Chaque écran affiche son propre message d'erreur : l'app ne double pas l'affichage. */
 const App = () => {
-  const error = useAuthStore((s) => s.error);
-
   return (
-    <>
-      {error ? <div style={{ padding: 12 }}><ErrorNote>{error}</ErrorNote></div> : null}
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route
-          path="/contrat"
-          element={
-            <RequireCourier>
-              <Contract />
-            </RequireCourier>
-          }
-        />
-        <Route
-          path="/missions"
-          element={
-            <RequireCourier>
-              <Missions />
-            </RequireCourier>
-          }
-        />
-        <Route
-          path="/missions/:id"
-          element={
-            <RequireCourier>
-              <MissionDetail />
-            </RequireCourier>
-          }
-        />
-        <Route
-          path="/gains"
-          element={
-            <RequireCourier>
-              <Earnings />
-            </RequireCourier>
-          }
-        />
-        <Route
-          path="/compte"
-          element={
-            <RequireCourier>
-              <Account />
-            </RequireCourier>
-          }
-        />
-        <Route path="*" element={<Navigate to="/missions" replace />} />
-      </Routes>
-    </>
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route
+        path="/contrat"
+        element={
+          <RequireCourier>
+            <Contract />
+          </RequireCourier>
+        }
+      />
+      <Route
+        path="/missions"
+        element={
+          <RequireCourier>
+            <Missions />
+          </RequireCourier>
+        }
+      />
+      <Route
+        path="/missions/:id"
+        element={
+          <RequireCourier>
+            <MissionDetail />
+          </RequireCourier>
+        }
+      />
+      <Route
+        path="/gains"
+        element={
+          <RequireCourier>
+            <Earnings />
+          </RequireCourier>
+        }
+      />
+      <Route
+        path="/compte"
+        element={
+          <RequireCourier>
+            <Account />
+          </RequireCourier>
+        }
+      />
+      <Route path="*" element={<Navigate to="/missions" replace />} />
+    </Routes>
   );
 };
 
