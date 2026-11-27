@@ -6,7 +6,7 @@
 /** Connexion du livreur. Réservée aux comptes DRIVER / COURIER (vérifié au store). */
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, MapPin } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 import { ErrorNote } from '../components/ui';
 import { KoliwaParcel, KoliwaWordmark } from '../components/brand';
@@ -42,7 +42,8 @@ const Login = () => {
 
   return (
     <div className="login">
-      <div className="login-hero">
+      {/* La marque est posée à même le citron : plus de carte, le logo respire. */}
+      <header className="login-brand">
         {/* Le nom se transforme en logo, puis revient : la marque respire au lieu d'être figée. */}
         <div className="brand-morph">
           <span className="brand-morph__word">
@@ -52,8 +53,17 @@ const Login = () => {
             <KoliwaParcel size={34} alt="" />
           </span>
         </div>
-        <p>Coursier · Ouagadougou. Connectez-vous pour voir les courses disponibles près de vous.</p>
-      </div>
+        <p className="login-eyebrow">
+          <MapPin size={13} aria-hidden="true" />
+          Coursier · Ouagadougou
+        </p>
+        <h1 className="login-title">
+          Vos courses,
+          <br />
+          au plus près.
+        </h1>
+        <p className="login-lead">Connectez-vous pour voir les courses disponibles près de vous.</p>
+      </header>
 
       <ErrorNote>{error}</ErrorNote>
 
@@ -75,7 +85,7 @@ const Login = () => {
 
         <div className="field">
           <label htmlFor="password">Mot de passe</label>
-          <div style={{ position: 'relative' }}>
+          <div className="field-secret">
             <input
               id="password"
               className="input"
@@ -85,24 +95,12 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              style={{ paddingRight: 54 }}
             />
             <button
               type="button"
+              className="field-secret__toggle"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-              style={{
-                position: 'absolute',
-                right: 6,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 0,
-                padding: 10,
-                color: 'var(--ink-3)',
-                cursor: 'pointer',
-                lineHeight: 0,
-              }}
             >
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
