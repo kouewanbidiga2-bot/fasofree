@@ -77,7 +77,8 @@ export class SasPayPayoutProvider {
         },
       );
 
-      const d = response.data ?? {};
+      // SasPay enveloppe ses réponses dans `{ success, data, code }`.
+      const d = response.data?.data ?? response.data ?? {};
       if (!d.id) {
         return { success: false, message: 'Réponse SasPay sans identifiant de virement' };
       }
@@ -95,7 +96,12 @@ export class SasPayPayoutProvider {
       );
       return {
         success: false,
-        message: errData?.error?.message ?? errData?.message ?? error?.message ?? 'Échec du virement SasPay',
+        message:
+          errData?.error?.message ??
+          errData?.error?.detail ??
+          errData?.message ??
+          error?.message ??
+          'Échec du virement SasPay',
       };
     }
   }

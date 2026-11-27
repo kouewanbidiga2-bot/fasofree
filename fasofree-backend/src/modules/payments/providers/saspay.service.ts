@@ -71,6 +71,21 @@ export class SasPayService {
   }
 
   /**
+   * SasPay répond sous l'enveloppe `{ success, data, code }`.
+   * On accepte aussi une réponse à plat pour ne pas casser si l'API évolue.
+   */
+  private unwrap<T = any>(body: any): T {
+    const payload = body?.data ?? body;
+    return (payload ?? {}) as T;
+  }
+
+  /** `checkout_url` peut revenir sans schéma (`pay.saspay.me/checkout/...`). */
+  private absoluteUrl(url?: string | null): string | null {
+    if (!url) return null;
+    return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  }
+
+  /**
    * Crée un paiement softpay. Selon le réseau, SasPay renvoie soit une
    * checkout_url (page à rediriger le client), soit pousse une demande USSD.
    */
@@ -109,12 +124,12 @@ export class SasPayService {
         headers,
         timeout: 30000,
       });
-      const d = response.data ?? {};
+      const d = this.unwrap(response.data);
       this.logger.log(`✅ SasPay paiement créé: ${d.id} (${d.status})`);
       return {
         id: String(d.id ?? ''),
         status: d.status ?? 'PENDING',
-        checkoutUrl: d.checkout_url || null,
+        checkoutUrl: this.absoluteUrl(d.checkout_url),
         message: d.message ?? 'Paiement initié',
       };
     } catch (error: any) {
@@ -156,9 +171,9 @@ export class SasPayService {
         headers: this.headers,
         timeout: 30000,
       });
-      const d = response.data ?? {};
+      const d = this.unwrap(response.data);
       this.logger.log(`✅ SasPay session de checkout créée: ${d.id}`);
-      return { id: String(d.id ?? ''), checkoutUrl: d.checkout_url || null };
+      return { id: String(d.id ?? ''), checkoutUrl: this.absoluteUrl(d.checkout_url) };
     } catch (error: any) {
       this.logger.error(
         `❌ SasPay createCheckoutSession HTTP ${error.response?.status}: ${JSON.stringify(error.response?.data ?? error.message)}`,
@@ -174,7 +189,7 @@ export class SasPayService {
         `${this.baseUrl}/payments/${encodeURIComponent(paymentId)}/verify/`,
         { headers: this.headers, timeout: 15000 },
       );
-      const d = response.data ?? {};
+      const d = this.unwrap(response.data);
       return {
         id: String(d.id ?? paymentId),
         status: d.status ?? 'PENDING',
@@ -198,7 +213,8 @@ export class SasPayService {
         params: { page, page_size: 100 },
         timeout: 15000,
       });
-      const results: any[] = response.data?.results ?? [];
+      const body = this.unwrap<any>(response.data);
+      const results: any[] = body?.results ?? [];
       for (const r of results) {
         balances.push({
           country: String(r.country),
@@ -208,7 +224,7 @@ export class SasPayService {
           isFrozen: Boolean(r.is_frozen),
         });
       }
-      if (!response.data?.next || results.length === 0) break;
+      if (!body?.next || results.length === 0) break;
       page += 1;
     }
     return balances;

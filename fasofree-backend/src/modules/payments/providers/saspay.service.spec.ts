@@ -67,10 +67,14 @@ describe('SasPayService', () => {
     it('envoie le contrat de la doc et renvoie checkoutUrl', async () => {
       mockedAxios.post.mockResolvedValueOnce({
         data: {
-          message: 'Payment pushed successfully',
-          id: 'pay-1',
-          status: 'PENDING',
-          checkout_url: 'https://checkout.saspay.me/pay/pay-1',
+          success: true,
+          data: {
+            id: 'pay-1',
+            status: 'PENDING',
+            // SasPay renvoie l'URL sans schéma sur certains réseaux.
+            checkout_url: 'pay.saspay.me/checkout/pay-1',
+          },
+          code: 201,
         },
       });
 
@@ -105,9 +109,50 @@ describe('SasPayService', () => {
         expect.objectContaining({
           id: 'pay-1',
           status: 'PENDING',
-          checkoutUrl: 'https://checkout.saspay.me/pay/pay-1',
+          checkoutUrl: 'https://pay.saspay.me/checkout/pay-1',
         }),
       );
+    });
+  });
+
+  describe('createCheckoutSession', () => {
+    it('déballe l’enveloppe SasPay et renvoie une URL absolue', async () => {
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          success: true,
+          data: {
+            id: 'cs-1',
+            slug: 'kZ2v9rT4bQxL8mNpYw==',
+            checkout_url: 'pay.saspay.me/checkout/kZ2v9rT4bQxL8mNpYw==',
+            status: 'PENDING',
+          },
+          code: 201,
+        },
+      });
+
+      const result = await service.createCheckoutSession({
+        amount: 900,
+        customerEmail: 'client@koliwa.test',
+        customerName: 'Awa Verification',
+      });
+
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        'https://api.saspay.me/api/v1/checkout-sessions/',
+        expect.objectContaining({
+          amount: '900.00',
+          currency: 'XOF',
+          country: 'BF',
+          customer_email: 'client@koliwa.test',
+          customer_name: 'Awa Verification',
+        }),
+        expect.objectContaining({
+          headers: expect.objectContaining({ Authorization: 'Bearer sk_test_123' }),
+        }),
+      );
+      expect(result).toEqual({
+        id: 'cs-1',
+        checkoutUrl: 'https://pay.saspay.me/checkout/kZ2v9rT4bQxL8mNpYw==',
+      });
     });
   });
 });
