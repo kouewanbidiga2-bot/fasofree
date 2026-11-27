@@ -20,7 +20,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'koliwa-mark.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Koliwa Coursier',
         short_name: 'Koliwa',
@@ -28,8 +28,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#f4f2e6',
-        theme_color: '#171310',
+        background_color: '#eef7d2',
+        theme_color: '#cdf35c',
         orientation: 'portrait',
         lang: 'fr',
         categories: ['business', 'navigation'],

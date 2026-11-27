@@ -190,7 +190,7 @@ const Missions = () => {
           ) : null}
         </div>
 
-        {geoError ? <p className="muted" style={{ color: '#f0c37a', margin: 0 }}>{geoError}</p> : null}
+        {geoError ? <p className="muted" style={{ color: '#7a3a10', margin: 0 }}>{geoError}</p> : null}
       </section>
 
       <ErrorNote>{error}</ErrorNote>

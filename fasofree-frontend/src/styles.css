@@ -7,37 +7,40 @@
  * Koliwa Coursier — feuille unique, mobile d'abord.
  *
  * Contraintes terrain qui dictent le style : écran lu en plein soleil, souvent
- * d'une seule main, avec des gants. D'où le contraste encre/craie, des cibles
- * tactiles de 50 px minimum et un accent limon lisible sans saturation.
+ * d'une seule main, avec des gants. D'où une interface citron (la couleur de la
+ * marque) posée sur encre, sans ombre ni dégradé, et des cibles tactiles de 50 px
+ * minimum.
  */
 
 :root {
-  --bg: #f2efe3;
-  --bg-sunken: #eae5d5;
-  --surface: #fffdf6;
-  --ink: #14110e;
-  --ink-2: #5c5449;
-  --ink-3: #8b8276;
-  --cream: #fff1dd;
-  --line: #e3dbc7;
-  --line-strong: #d3c9b1;
-  --lime: #d9f56b;
-  --lime-ink: #1e2a06;
+  --bg: #eef7d2;
+  --bg-sunken: #e3efb9;
+  --surface: #ffffff;
+  --ink: #12170a;
+  --ink-2: #4d563d;
+  --ink-3: #7d866c;
+  --cream: #f8fce9;
+  --line: #dceab6;
+  --line-strong: #c6d89a;
+  --lime: #cdf35c;
+  --lime-soft: #eaf9c1;
+  --lime-ink: #1d2607;
   --sand: #d5a453;
-  --ok: #1c7a45;
-  --ok-bg: #e7f6ec;
-  --warn: #96620e;
-  --warn-bg: #fdf2dd;
-  --danger: #ad3728;
+  --ok: #1a7a41;
+  --ok-bg: #e6f7ea;
+  --warn: #8d5c0d;
+  --warn-bg: #fdf3df;
+  --danger: #a83322;
   --danger-bg: #fbe9e6;
 
-  --r-xl: 24px;
-  --r-lg: 20px;
-  --r-md: 16px;
-  --r-sm: 12px;
+  --r-xl: 22px;
+  --r-lg: 18px;
+  --r-md: 14px;
+  --r-sm: 10px;
 
-  --shadow-1: 0 1px 2px rgba(20, 17, 14, 0.05), 0 10px 24px -18px rgba(20, 17, 14, 0.45);
-  --shadow-2: 0 2px 6px rgba(20, 17, 14, 0.08), 0 24px 48px -28px rgba(20, 17, 14, 0.6);
+  /* Minimal : aucune ombre, les bords suffisent à séparer les blocs. */
+  --shadow-1: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-2: 0 0 0 rgba(0, 0, 0, 0);
 
   --nav-h: 68px;
 }
@@ -125,22 +128,19 @@ textarea {
 }
 
 .brand-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 13px;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
   background: var(--surface);
-  border: 1px solid var(--line);
   display: grid;
   place-items: center;
   flex: none;
-  box-shadow: var(--shadow-1);
-  overflow: hidden;
 }
 
 .brand-badge-lg {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
 }
 
 .topbar-titles {
@@ -201,20 +201,23 @@ textarea {
 }
 
 .card-ink {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--cream);
-  box-shadow: var(--shadow-2);
+  background: var(--lime);
+  border-color: var(--lime);
+  color: var(--ink);
 }
 
 .card-ink .muted,
 .card-ink .section-title,
 .card-ink .topbar-kicker {
-  color: #b6ab99;
+  color: #3f4a2a;
 }
 
 .card-ink .amount {
-  color: var(--lime);
+  color: var(--lime-ink);
+}
+
+.card-ink .amount small {
+  color: #3f4a2a;
 }
 
 .row {
@@ -329,7 +332,7 @@ textarea {
 
 .btn-accent {
   background: var(--lime);
-  border-color: #c6e35c;
+  border-color: #b8e445;
   color: var(--lime-ink);
 }
 
@@ -407,9 +410,9 @@ textarea {
 }
 
 .pill-accent {
-  background: #eef9c9;
-  border-color: #dcefab;
-  color: #47570d;
+  background: var(--lime);
+  border-color: #b8e445;
+  color: var(--lime-ink);
 }
 
 .dot {
@@ -458,7 +461,7 @@ textarea {
 
 .route-dot-dropoff {
   background: var(--ink);
-  box-shadow: 0 0 0 4px #eef9c9;
+  box-shadow: 0 0 0 4px var(--lime-soft);
 }
 
 .route-text {
@@ -531,7 +534,7 @@ textarea {
 
 .switch-on .switch-track {
   background: var(--lime);
-  border-color: #c6e35c;
+  border-color: #b8e445;
 }
 
 .switch-on .switch-knob {
@@ -546,7 +549,7 @@ textarea {
 }
 
 .switch-on .switch-label {
-  color: #47570d;
+  color: var(--lime-ink);
 }
 
 /* ── Champs ────────────────────────────────────────────────────────── */
@@ -584,7 +587,7 @@ textarea {
 .input:focus {
   outline: none;
   border-color: var(--ink);
-  box-shadow: 0 0 0 3px rgba(217, 245, 107, 0.55);
+  box-shadow: 0 0 0 3px rgba(205, 243, 92, 0.6);
 }
 
 .input-code {
@@ -632,7 +635,7 @@ textarea {
 
 .nav-item.active {
   color: var(--ink);
-  background: #eef9c9;
+  background: var(--lime);
 }
 
 /* ── États ─────────────────────────────────────────────────────────── */
@@ -712,7 +715,7 @@ textarea {
   display: block;
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--bg-sunken) 25%, #f4f0e2 50%, var(--bg-sunken) 75%);
+  background: linear-gradient(90deg, var(--bg-sunken) 25%, #f5fbe2 50%, var(--bg-sunken) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -744,22 +747,19 @@ textarea {
 }
 
 .login-hero {
-  background: var(--ink);
-  color: var(--cream);
+  background: var(--lime);
+  color: var(--ink);
   border-radius: var(--r-xl);
-  padding: 28px 22px 24px;
+  padding: 26px 22px 24px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 14px;
-  box-shadow: var(--shadow-2);
-  overflow: hidden;
-  position: relative;
 }
 
 .login-hero p {
   margin: 0;
-  color: #b6ab99;
+  color: #3f4a2a;
   font-size: 13.5px;
   line-height: 1.5;
   max-width: 30ch;
@@ -927,7 +927,7 @@ textarea {
 .timeline-step.current .timeline-mark {
   border-color: var(--ink);
   background: var(--lime);
-  box-shadow: 0 0 0 4px rgba(217, 245, 107, 0.5);
+  box-shadow: 0 0 0 4px rgba(205, 243, 92, 0.55);
 }
 
 .list-row {
@@ -968,8 +968,8 @@ textarea {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--ink);
-  color: var(--lime);
+  background: var(--lime);
+  color: var(--ink);
   font-weight: 800;
   font-size: 18px;
   letter-spacing: 0.02em;
