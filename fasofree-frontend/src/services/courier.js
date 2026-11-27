@@ -34,6 +34,16 @@ export const fetchOrder = async (orderId) => {
   return data?.order ?? data;
 };
 
+export const fetchCourierRoute = async (orderId, { latitude, longitude }, signal) => {
+  const { data } = await api.get(`/orders/${orderId}/courier-route`, { params: { latitude, longitude }, signal });
+  return data;
+};
+
+export const reportCourierLocation = async (orderId, { latitude, longitude }) => {
+  const { data } = await api.post(`/orders/${orderId}/driver-location`, { latitude, longitude });
+  return data?.success === true;
+};
+
 export const acceptCourse = async (orderId) => {
   const { data } = await api.post(`/dispatch/accept/${orderId}`);
   return data;

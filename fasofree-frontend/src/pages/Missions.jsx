@@ -12,7 +12,7 @@
  * qu'une opportunité arrive.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, RefreshCw, Timer } from 'lucide-react';
 import Shell from '../components/Shell';
 import {
@@ -44,14 +44,18 @@ const REFRESH_MS = 20000;
 const DONE_STATUSES = ['DELIVERED', 'COMPLETED'];
 
 const Missions = () => {
+  const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const [online, setOnline] = useState(false);
+  const updateAvailability = useAuthStore((s) => s.updateAvailability);
+  const online = user?.isOnline === true && user?.isAvailable === true;
+  const [changingAvailability, setChangingAvailability] = useState(false);
   const [mine, setMine] = useState([]);
   const [available, setAvailable] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const mounted = useRef(true);
+  const requestVersion = useRef(0);
 
   const { coords, error: geoError } = useLiveLocation({ enabled: online });
   const onlineRef = useRef(online);
@@ -59,23 +63,25 @@ const Missions = () => {
 
   const load = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
+    const request = ++requestVersion.current;
+    const isCurrent = () => mounted.current && request === requestVersion.current;
     try {
       const rows = await fetchMyOrders();
-      if (!mounted.current) return;
+      if (!isCurrent()) return;
       setMine(Array.isArray(rows) ? rows : []);
 
       if (onlineRef.current) {
         const list = await fetchAvailableCourses();
-        if (!mounted.current) return;
+        if (!isCurrent()) return;
         setAvailable(list);
       } else {
         setAvailable([]);
       }
       setError(null);
     } catch (err) {
-      if (mounted.current) setError(err.message);
+      if (isCurrent()) setError(err.message);
     } finally {
-      if (mounted.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
@@ -84,8 +90,9 @@ const Missions = () => {
     load();
     return () => {
       mounted.current = false;
+      requestVersion.current += 1;
     };
-  }, [load]);
+  }, [load, online]);
 
   // Rabattement périodique : le socket peut être muet dans un tunnel réseau.
   useEffect(() => {
@@ -125,7 +132,7 @@ const Missions = () => {
 
   const toggleOnline = async () => {
     const next = !online;
-    setOnline(next);
+    setChangingAvailability(true);
     setError(null);
     try {
       await setDriverStatus({
@@ -133,10 +140,11 @@ const Missions = () => {
         isAvailable: next,
         ...(coords ? { latitude: coords.latitude, longitude: coords.longitude } : {}),
       });
-      load({ silent: true });
+      updateAvailability(user.id, next);
     } catch (err) {
-      setOnline(!next);
       setError(err.message);
+    } finally {
+      setChangingAvailability(false);
     }
   };
 
@@ -145,7 +153,7 @@ const Missions = () => {
     setError(null);
     try {
       await acceptCourse(orderId);
-      await load({ silent: true });
+      navigate(`/missions/${orderId}`);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -167,15 +175,15 @@ const Missions = () => {
         </button>
       }
     >
-      <section className="card card-ink">
+      <section className="card mission-overview">
         <div className="row">
           <div className="stack">
-            <span className="topbar-kicker">Bonne route</span>
+            <span className="mission-availability" data-online={online}>{online ? 'En ligne' : 'Hors ligne'}</span>
             <span className="strong" style={{ fontSize: 17 }}>
               {user?.fullName || 'Coursier'}
             </span>
           </div>
-          <Toggle checked={online} onChange={toggleOnline} label="Disponibilité" />
+          <Toggle checked={online} onChange={toggleOnline} disabled={changingAvailability} label="Disponibilité" />
         </div>
 
         <div className="row row-tight">
@@ -195,7 +203,7 @@ const Missions = () => {
 
       <ErrorNote>{error}</ErrorNote>
 
-      <p className="section-title">Ma course</p>
+      <h2 className="mission-section-title">Mes courses en cours</h2>
 
       {loading && active.length === 0 ? (
         <>
@@ -211,7 +219,7 @@ const Missions = () => {
         active.map((order) => {
           const money = earningOf(order);
           return (
-            <Link key={order.id} to={`/missions/${order.id}`} className="card card-link">
+            <Link key={order.id} to={`/missions/${order.id}`} className="card card-link mission-active">
               <div className="row">
                 <StatusPill tone={statusTone(order.status)}>{statusLabel(order.status)}</StatusPill>
                 <Amount value={money.net} caption="à percevoir" />
@@ -228,7 +236,7 @@ const Missions = () => {
         })
       )}
 
-      <p className="section-title">Courses disponibles</p>
+      <h2 className="mission-section-title">Courses disponibles</h2>
 
       {!online ? (
         <div className="card card-flat">
@@ -266,13 +274,10 @@ const Missions = () => {
               </div>
 
               <div className="btn-row">
-                <Link className="btn btn-ghost" to={`/missions/${order.id}`}>
-                  Détails
-                </Link>
                 <button
                   type="button"
                   className="btn btn-accent"
-                  disabled={busyId === order.id}
+                  disabled={Boolean(busyId)}
                   onClick={() => onAccept(order.id)}
                 >
                   {busyId === order.id ? 'Acceptation…' : 'Accepter'}

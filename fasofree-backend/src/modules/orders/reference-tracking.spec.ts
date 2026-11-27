@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrderStatus, OrderType } from './entities/order.entity';
 import { OrdersService } from './orders.service';
+import { UserRole } from '../users/entities/user-role.enum';
 
 describe('Suivi par numéro', () => {
   const reference = '1A2B3C4D5E6F7A8B9C0D';
@@ -63,6 +64,56 @@ describe('Suivi par numéro', () => {
     await expect(service.getActiveTrackingByReference(reference)).resolves.toMatchObject({
       pickupLocation: null, driverLocation: null, eta: null,
     });
+  });
+});
+
+describe('Publication GPS d’une course', () => {
+  const orderId = 'fixture-order';
+  const driverId = 'fixture-driver';
+  const latitude = 12.365;
+  const longitude = -1.524;
+
+  function createService(status?: OrderStatus) {
+    const findOne = jest.fn().mockResolvedValue(status ? { id: orderId, driverId, status } : null);
+    const updateDriverLocation = jest.fn().mockResolvedValue(undefined);
+    const saveOrderTracePoint = jest.fn().mockResolvedValue(undefined);
+    const service: OrdersService = Object.assign(Object.create(OrdersService.prototype), {
+      orderRepository: { findOne },
+      geoDispatchService: { updateDriverLocation, saveOrderTracePoint },
+    });
+    return { service, findOne, updateDriverLocation, saveOrderTracePoint };
+  }
+
+  it('rattache la position à la course attribuée pendant la livraison', async () => {
+    const { service, findOne, saveOrderTracePoint } = createService(OrderStatus.IN_DELIVERY);
+    await expect(service.updateDriverLocation(orderId, driverId, latitude, longitude)).resolves.toEqual({ success: true });
+    expect(findOne).toHaveBeenCalledWith({ where: { id: orderId, driverId } });
+    expect(saveOrderTracePoint).toHaveBeenCalledWith(orderId, latitude, longitude, undefined, driverId);
+  });
+
+  it.each([undefined, OrderStatus.COMPLETED])('ne publie rien pour une course inaccessible ou close (%s)', async (status) => {
+    const { service, updateDriverLocation, saveOrderTracePoint } = createService(status);
+    await expect(service.updateDriverLocation(orderId, driverId, latitude, longitude)).rejects.toMatchObject({ status: 403 });
+    expect(updateDriverLocation).not.toHaveBeenCalled();
+    expect(saveOrderTracePoint).not.toHaveBeenCalled();
+  });
+
+  it('ignore le GPS de présence et la trace d’un autre livreur en suivi P2P', async () => {
+    const position = { latitude, longitude, timestamp: new Date().toISOString() };
+    const service: OrdersService = Object.assign(Object.create(OrdersService.prototype), {
+      findOneForUser: jest.fn().mockResolvedValue({ id: orderId, driverId, orderType: OrderType.P2P_DELIVERY, status: OrderStatus.IN_DELIVERY }),
+      geoDispatchService: {
+        getDriverLocation: jest.fn(),
+        getOrderTrace: jest.fn().mockResolvedValue([
+          { ...position, driverId },
+          { ...position, latitude: 12.398, driverId: 'other-fixture' },
+        ]),
+      },
+      computeEta: jest.fn().mockReturnValue({ totalMinutes: 5 }),
+      getOrderAgencyBadge: jest.fn().mockResolvedValue(null),
+    });
+    const result = await service.getOrderTracking(orderId, driverId, UserRole.DRIVER);
+    expect(result.driverLocation).toMatchObject({ latitude, longitude, driverId });
   });
 });
 

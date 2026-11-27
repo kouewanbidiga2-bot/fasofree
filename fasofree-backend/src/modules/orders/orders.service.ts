@@ -1904,7 +1904,7 @@ export class OrdersService {
     const agency = await this.getOrderAgencyBadge(order);
 
     let driverLocation: DriverLocation | null = null;
-    if (order.driverId) {
+    if (order.driverId && order.orderType !== OrderType.P2P_DELIVERY) {
       try {
         driverLocation = await this.geoDispatchService.getDriverLocation(
           order.driverId,
@@ -1923,6 +1923,18 @@ export class OrdersService {
       this.logger.warn(
         `Impossible de récupérer le tracé GPS de la commande ${id}`,
       );
+    }
+
+    if (order.driverId && order.orderType === OrderType.P2P_DELIVERY && isDriverOnRoute(order.status)) {
+      const point = [...trace].reverse().find((sample) => sample.driverId === order.driverId);
+      if (point) {
+        driverLocation = latestSharedDriverPosition(order.status, {
+          driverId: order.driverId,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          updatedAt: Date.parse(point.timestamp),
+        });
+      }
     }
 
     let businessLocation: { latitude: number; longitude: number } | null = null;
@@ -2019,7 +2031,9 @@ export class OrdersService {
       status: tracking.status,
       pickupLocation: pickupLocation && { ...pickupLocation, address: tracking.pickupLocation?.address },
       dropoffLocation: dropoffLocation && { ...dropoffLocation, address: tracking.dropoffLocation?.address },
-      driverLocation,
+      driverLocation: driverLocation ? {
+        latitude: driverLocation.latitude, longitude: driverLocation.longitude, updatedAt: driverLocation.updatedAt,
+      } : null,
       eta: driverLocation && dropoffLocation ? { totalMinutes: tracking.eta.totalMinutes } : null,
     };
   }
@@ -3061,27 +3075,56 @@ export class OrdersService {
     driverId: string,
     latitude: number,
     longitude: number,
+    heading?: number,
   ): Promise<{ success: boolean }> {
-    const order = await this.findOne(orderId);
-
-    if (order.driverId && order.driverId !== driverId) {
-      throw new ForbiddenException(
-        "Vous n'êtes pas le livreur assigné à cette commande",
-      );
-    }
-
-    // Stocker la position via le service geo-dispatch (Redis)
-    try {
-      await this.geoDispatchService.updateDriverLocation(
-        driverId,
-        latitude,
-        longitude,
-      );
-    } catch {
-      // Silencieux — le tracking WebSocket gère aussi les mises à jour
-    }
-
+    const order = await this.requireCourierOnRoute(orderId, driverId);
+    this.assertRouteCoordinates(latitude, longitude);
+    await this.geoDispatchService.updateDriverLocation(driverId, latitude, longitude);
+    await this.geoDispatchService.saveOrderTracePoint(order.id, latitude, longitude, heading, driverId);
     return { success: true };
+  }
+
+  private async requireCourierOnRoute(orderId: string, driverId: string) {
+    const order = await this.orderRepository.findOne({ where: { id: orderId, driverId } });
+    if (!order || !isDriverOnRoute(order.status)) {
+      throw new ForbiddenException('Cette course active ne vous est pas attribuée.');
+    }
+    return order;
+  }
+
+  private assertRouteCoordinates(latitude: number, longitude: number) {
+    if (!Number.isFinite(latitude) || Math.abs(latitude) > 85
+      || !Number.isFinite(longitude) || Math.abs(longitude) > 180) {
+      throw new BadRequestException('Coordonnées GPS invalides.');
+    }
+  }
+
+  async getCourierRoute(orderId: string, driverId: string, latitude: number, longitude: number) {
+    const order = await this.requireCourierOnRoute(orderId, driverId);
+    this.assertRouteCoordinates(latitude, longitude);
+    const router = this.configService.get<string>('COURIER_OSRM_URL');
+    const target = mapPoint(order.status === OrderStatus.IN_DELIVERY
+      ? order.dropoffLocation ?? order.deliveryLocation : order.pickupLocation, 6);
+    if (!router || !target) return null;
+
+    try {
+      const base = router.replace(/\/+$/, '');
+      const url = new URL(`${base}/route/v1/driving/${longitude},${latitude};${target.longitude},${target.latitude}`);
+      url.search = new URLSearchParams({ overview: 'simplified', geometries: 'geojson', steps: 'false' }).toString();
+      const response = await fetch(url, { signal: AbortSignal.timeout(6500), redirect: 'error' });
+      if (!response.ok) return null;
+      const route = (await response.json())?.routes?.[0];
+      if (!Array.isArray(route?.geometry?.coordinates) || !Number.isFinite(route.distance)
+        || !Number.isFinite(route.duration)) return null;
+      const points = route.geometry.coordinates.slice(0, 2000)
+        .filter((point: unknown): point is [number, number] => Array.isArray(point)
+          && Number.isFinite(point[0]) && Math.abs(point[0]) <= 180
+          && Number.isFinite(point[1]) && Math.abs(point[1]) <= 85)
+        .map(([lng, lat]: [number, number]) => [lat, lng]);
+      return points.length >= 2 ? { points, distanceMeters: route.distance, durationSeconds: route.duration } : null;
+    } catch {
+      return null;
+    }
   }
 
   // ========================================================================

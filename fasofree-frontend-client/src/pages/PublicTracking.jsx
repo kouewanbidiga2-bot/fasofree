@@ -3,18 +3,19 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Clock3, LocateFixed, MapPin, Package, Truck } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
 import api from '../services/api';
 import KoliwaHandoffBadge from '../components/KoliwaHandoffBadge';
 import TrackingLookup from '../components/TrackingLookup';
 import TrackingModeNav from '../components/TrackingModeNav';
 import DeliveryGlyph from '../components/DeliveryGlyph';
+import CallSupportButton from '../components/CallSupportButton';
 import { formatTrackingReference, normalizeTrackingReference } from '../utils/trackingReference';
 
 const STATUS_LABELS = {
@@ -33,7 +34,6 @@ const STATUS_LABELS = {
   CANCELLED: 'Livraison annulée',
   FAILED: 'Livraison échouée',
 };
-const TRACKING_STEPS = ['Payé', 'Attribué', 'En route', 'Arrivé', 'Remis'];
 const TRACKING_PROGRESS = {
   AWAITING_PAYMENT: -1,
   PAID: 0,
@@ -45,6 +45,8 @@ const TRACKING_PROGRESS = {
   DELIVERED: 4,
   COMPLETED: 4,
 };
+
+const TRACKING_STEPS = ['Confirmé', 'Livreur assigné', 'En route', 'Arrivé à destination', 'Remise confirmée'];
 
 const marker = (kind, label) => L.divIcon({
   className: '',
@@ -97,8 +99,13 @@ export default function PublicTracking({ byReference = false }) {
     queryFn: ({ signal }) => byReference ? api.getActiveTrackingByReference(reference, signal) : api.getPublicTracking(token, signal),
     enabled: Boolean(lookupKey),
     retry: (count, failure) => !(failure.status >= 400 && failure.status < 500) && count < 1,
-    refetchInterval: (query) => query.state.error?.status === 404 || CLOSED_STATUSES.includes(query.state.data?.status) ? false : 12000,
-    staleTime: 8000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      const failure = query.state.error?.status;
+      if (CLOSED_STATUSES.includes(status) || failure === 404 || failure === 429) return false;
+      return DRIVER_ACTIVE_STATUSES.includes(status) ? (byReference ? 10_000 : 6000) : 15_000;
+    },
+    staleTime: 4000,
   });
   const confirmMutation = useMutation({
     mutationFn: () => api.confirmPublicTracking(token, pinCode),
@@ -128,8 +135,15 @@ export default function PublicTracking({ byReference = false }) {
   const isClosed = CLOSED_STATUSES.includes(data?.status);
   const driverActive = DRIVER_ACTIVE_STATUSES.includes(data?.status);
   const location = data?.driverLocation;
-  const age = location ? Date.now() - Number(location.updatedAt) : Infinity;
-  const driver = driverActive && age <= 300000
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!driverActive || !location?.updatedAt) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, [driverActive, location?.updatedAt]);
+  const age = location ? Math.max(now, Date.now()) - Number(location.updatedAt) : Infinity;
+  const driver = driverActive && age >= 0 && age <= 300_000
     && Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude) ? location : null;
   const driverLive = driver && age <= 30000 && !isError;
   const canDisplayData = data && !(isError && error?.status >= 400 && error?.status < 500);
@@ -162,6 +176,7 @@ export default function PublicTracking({ byReference = false }) {
             {isError && !missing && <button className="app-action-secondary" onClick={() => refetch()}>Réessayer</button>}
             {byReference && <TrackingLookup />}
             {!byReference && <Link to="/suivre" className="app-action">Saisir un numéro</Link>}
+            {isError && <CallSupportButton variant="link" />}
           </div>
         ) : (
           <div className="tracking-stage">
@@ -173,18 +188,18 @@ export default function PublicTracking({ byReference = false }) {
               <div className="tracking-status" role="status">{statusLabel}</div>
             </header>
             <div className="tracking-map" role="region" aria-label="Carte de la livraison">
-              {points.length || !isClosed ? (
-                <MapContainer center={points[0] || OUAGADOUGOU} zoom={13} scrollWheelZoom={false} className="tracking-map-canvas">
-                  <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+              {points.length || driver ? (
+                <MapContainer center={points[0] || (driver ? [driver.latitude, driver.longitude] : OUAGADOUGOU)} zoom={13} scrollWheelZoom={false} className="tracking-map-canvas">
+                  <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" referrerPolicy="origin" />
                   <FitBounds points={points} />
                   {driver && <CenterOnCourier latitude={driver.latitude} longitude={driver.longitude} />}
                   {pickup?.latitude != null && <Marker position={[pickup.latitude, pickup.longitude]} icon={pickupIcon} />}
                   {dropoff?.latitude != null && <Marker position={[dropoff.latitude, dropoff.longitude]} icon={dropoffIcon} />}
                   {driver?.latitude != null && <Marker position={[driver.latitude, driver.longitude]} icon={driverIcon} alt="Position du livreur" title="Position du livreur" />}
-                  {points.length === 2 && <Polyline positions={points} pathOptions={{ color: '#454b41', weight: 3, dashArray: '5 8' }} />}
                 </MapContainer>
               ) : (
-                <div className="tracking-feedback">Aucun repère GPS enregistré.</div>
+                <div className="tracking-feedback">Les repères de la livraison s’afficheront ici.</div>
               )}
             </div>
 
@@ -205,7 +220,7 @@ export default function PublicTracking({ byReference = false }) {
               <div className="mt-5 space-y-4">
                 <div className="flex gap-3"><MapPin size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Récupération</p><p className="text-sm">{pickup?.address || (pickup ? 'Point de départ sur la carte' : 'Point GPS indisponible')}</p></div></div>
                 <div className="flex gap-3"><Package size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Destination</p><p className="text-sm">{dropoff?.address || (dropoff ? 'Point d’arrivée sur la carte' : 'Point GPS indisponible')}</p></div></div>
-                {!isClosed && <div className="flex gap-3"><Truck size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Livreur</p><p className="text-sm">{driverLive ? `En direct · actualisé à ${driverUpdateTime}` : driver ? `Dernière position reçue à ${driverUpdateTime}` : driverActive ? 'En attente de la position du livreur' : 'La position s’affiche quand le livreur prend la route.'}</p></div></div>}
+                {!isClosed && <div className="flex gap-3"><Truck size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Livreur</p><p className="text-sm">{driverLive ? `Position récente · ${driverUpdateTime}` : driver ? `Dernière position reçue à ${driverUpdateTime}` : driverActive ? 'En attente de la position du livreur' : 'La position s’affiche quand le livreur prend la route.'}</p></div></div>}
               </div>
               {data.status === 'IN_DELIVERY' && driverLive && data.eta && <div className="mt-6 border-t border-border-light pt-4 flex items-center gap-3"><Clock3 size={18} className="text-text-muted" /><div><p className="text-xs text-text-muted">Arrivée estimée</p><p className="text-sm font-medium">{formatEta(data.eta)}</p></div></div>}
               {data.status === 'DELIVERED_PENDING_CONFIRMATION' && <div className="mt-5 rounded-xl bg-status-warning/10 p-4 text-xs leading-5 text-text-secondary">Le livreur est arrivé. Le receveur doit confirmer la réception avec le code transmis par Koliwa.</div>}
@@ -238,6 +253,10 @@ export default function PublicTracking({ byReference = false }) {
                   <span>Réception confirmée.</span>
                 </div>
               )}
+              <button type="button" className="mt-5 text-sm font-semibold underline"
+                onClick={() => window.dispatchEvent(new Event('koliwa:open-assistant'))}>
+                Besoin d’aide pour ce suivi ?
+              </button>
             </div>
           </div>
         )}

@@ -58,7 +58,7 @@ export const useAuthStore = create((set, get) => ({
       }
 
       persist(token, user);
-      set({ token, user, isHydrated: true, isLoading: false, error: null });
+      set({ token, user, isHydrated: false, isLoading: false, error: null });
       return user;
     } catch (err) {
       set({ isLoading: false, error: err.message });
@@ -85,6 +85,14 @@ export const useAuthStore = create((set, get) => ({
       set({ isHydrated: true });
       return null;
     }
+  },
+
+  updateAvailability: (userId, available) => {
+    const { token, user } = get();
+    if (!token || !user || user.id !== userId) return;
+    const updated = { ...user, isOnline: available, isAvailable: available };
+    persist(token, updated);
+    set({ user: updated });
   },
 
   logout: () => {

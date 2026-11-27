@@ -23,7 +23,7 @@ const Shell = ({ title, kicker = 'Koliwa Coursier', right, children, hideNav = f
     <header className="topbar">
       <div className="topbar-id">
         <span className="brand-badge">
-          <KoliwaParcel size={26} alt="Koliwa" />
+          <KoliwaParcel size={39} alt="Koliwa" />
         </span>
         <div className="topbar-titles">
           <span className="topbar-kicker">{kicker}</span>

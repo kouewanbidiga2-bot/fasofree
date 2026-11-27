@@ -266,7 +266,12 @@ export class DispatchGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() dto: UpdateLocationDto,
   ) {
-    const driverId = client.data.user?.sub;
+    const user = client.data?.user;
+    const driverId = user?.sub ?? user?.userId;
+    if (!driverId || ![UserRole.DRIVER, UserRole.COURIER].includes(user?.role)
+      || (typeof user.exp === 'number' && user.exp * 1000 <= Date.now())) {
+      return { status: 'error', live: false };
+    }
     return this.locationHandler.handleDriverLocationUpdate(
       this.server,
       driverId,

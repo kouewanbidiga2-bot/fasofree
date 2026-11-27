@@ -1,69 +1,78 @@
-/**
- * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
- * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
- */
-
-/**
- * Koliwa Coursier — position GPS du livreur.
- *
- * `watchPosition` remonte la position en continu, mais on ne l'envoie au
- * serveur qu'une fois toutes les 10 s : au-delà, on sature le socket et la
- * batterie pour un déplacement que la carte n'affiche même pas.
- */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { reportCourierLocation } from '../services/courier';
 import { emitLocation } from '../services/realtime';
 
-const SEND_INTERVAL_MS = 10000;
+const SEND_INTERVAL_MS = 10_000;
 
-export const useLiveLocation = ({ orderId, enabled = true } = {}) => {
+export default function useLiveLocation({ orderId, enabled = true } = {}) {
   const [coords, setCoords] = useState(null);
   const [error, setError] = useState(null);
-  const lastSentAt = useRef(0);
+  const [sharedAt, setSharedAt] = useState(null);
+  const [sharingUnavailable, setSharingUnavailable] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !('geolocation' in navigator)) {
-      if (!('geolocation' in navigator)) setError('Géolocalisation non disponible sur cet appareil.');
-      return undefined;
+    setCoords(null);
+    setError(null);
+    setSharedAt(null);
+    setSharingUnavailable(false);
+    if (!enabled) return;
+    if (!navigator.geolocation) {
+      setError('Géolocalisation non disponible sur cet appareil.');
+      return;
     }
 
+    let latest = null;
+    let sentAt = 0;
+    let inFlight = false;
     let cancelled = false;
 
+    async function send() {
+      if (cancelled || inFlight || !latest || Date.now() - latest.observedAt > 30_000
+        || Date.now() - sentAt < SEND_INTERVAL_MS) return;
+
+      inFlight = true;
+      sentAt = Date.now();
+      const { observedAt, ...position } = latest;
+      let shared = await emitLocation({ orderId, ...position }).catch(() => false);
+      if (!shared && orderId && !cancelled) {
+        shared = await reportCourierLocation(orderId, position).catch(() => false);
+      }
+      inFlight = false;
+      if (cancelled) return;
+      setSharingUnavailable(!shared);
+      if (shared) setSharedAt(Date.now());
+    }
+
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
+      ({ coords: position, timestamp }) => {
         if (cancelled) return;
-        const next = {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          heading: position.coords.heading ?? undefined,
+        latest = {
+          latitude: position.latitude,
+          longitude: position.longitude,
+          accuracy: position.accuracy,
+          heading: position.heading ?? undefined,
+          observedAt: timestamp,
         };
-        setCoords(next);
+        setCoords(latest);
         setError(null);
-
-        const now = Date.now();
-        if (now - lastSentAt.current >= SEND_INTERVAL_MS) {
-          const sent = emitLocation({ orderId, ...next });
-          if (sent) lastSentAt.current = now;
-        }
+        void send();
       },
-      (err) => {
+      (failure) => {
         if (cancelled) return;
-        setError(
-          err.code === err.PERMISSION_DENIED
-            ? 'Autorisez la localisation pour recevoir des courses.'
-            : 'Position indisponible pour le moment.',
-        );
+        latest = null;
+        setError(failure.code === 1
+          ? 'Autorisez la position dans les réglages du navigateur.'
+          : 'La position GPS est momentanément indisponible.');
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20_000 },
     );
-
+    const timer = window.setInterval(send, SEND_INTERVAL_MS);
     return () => {
       cancelled = true;
       navigator.geolocation.clearWatch(watchId);
+      window.clearInterval(timer);
     };
   }, [enabled, orderId]);
 
-  return { coords, error };
-};
-
-export default useLiveLocation;
+  return { coords, error, sharedAt, sharingUnavailable };
+}

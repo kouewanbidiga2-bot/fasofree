@@ -13,6 +13,35 @@ import { createPlaceIndex, findPlaces, placeDistance } from './placeSearch';
 import DeliveryMap from './DeliveryMap';
 import { mapsSearchUrl, readMapLocation } from './mapsLocation';
 
+const extendedSearchUrl = import.meta.env.VITE_PHOTON_SEARCH_URL;
+
+async function searchMetroPlaces(query, signal) {
+  const url = new URL(extendedSearchUrl);
+  url.searchParams.set('q', query);
+  url.searchParams.set('lang', 'fr');
+  url.searchParams.set('limit', '8');
+  url.searchParams.set('lat', '12.3714');
+  url.searchParams.set('lon', '-1.5197');
+  url.searchParams.set('bbox', '-1.77,12.16,-1.29,12.62');
+  const response = await fetch(url, { signal, referrerPolicy: 'no-referrer' });
+  if (!response.ok) throw new Error('Recherche indisponible');
+  const data = await response.json();
+  return (Array.isArray(data?.features) ? data.features : []).flatMap((feature, index) => {
+    const [lng, lat] = feature?.geometry?.coordinates || [];
+    const properties = feature?.properties;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)
+      || lat < 12.16 || lat > 12.62 || lng < -1.77 || lng > -1.29
+      || (properties?.countrycode && properties.countrycode.toLowerCase() !== 'bf')) return [];
+    return [{
+      id: `osm-remote-${index}`,
+      name: properties?.name || properties?.street || 'Repère sur la carte',
+      kind: properties?.osm_key === 'highway' ? 'Rue' : properties?.osm_key === 'place' ? 'Quartier' : 'Lieu OSM',
+      area: [...new Set([properties?.district, properties?.city].filter(Boolean))].join(', '),
+      lat, lng,
+    }];
+  });
+}
+
 
 export default function LocationStep({
   title,
@@ -66,70 +95,16 @@ export default function LocationStep({
     retry: false,
   });
   const localPlaces = showPlaces && placeDirectory ? findPlaces(placeDirectory, value.address) : [];
-  // Fallback OpenStreetMap (Nominatim) : compléte le répertoire local quand
-  // aucun lieu n'est trouvé (certains quartiers/rues manquent dans l'extrait).
-  const [osmResults, setOsmResults] = useState([]);
-  const [osmLoading, setOsmLoading] = useState(false);
-  useEffect(() => {
-    if (!showPlaces) { setOsmResults([]); return; }
-    if (localPlaces.length > 0) { setOsmResults([]); return; }
-    const q = value.address.trim();
-    if (q.length < 3) return;
-    setOsmLoading(true);
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      try {
-        let mapped = [];
-        try {
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Burkina Faso')}&countrycodes=bf&limit=8&addressdetails=1`,
-            { signal: controller.signal, headers: { 'Accept-Language': 'fr' } },
-          );
-          const json = await response.json();
-          mapped = (Array.isArray(json) ? json : []).map((item, index) => ({
-            id: `osm-${item.place_id || index}`,
-            name: String(item.display_name || '').split(',')[0].trim() || 'Lieu',
-            kind: 'Lieu OSM',
-            lat: Number(item.lat),
-            lng: Number(item.lon),
-            area: String(item.display_name || '').split(',').slice(1).map((part) => part.trim()).filter(Boolean).join(', '),
-            gates: [],
-          })).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
-        } catch {
-          mapped = [];
-        }
-        // Fallback Photon (Komoot) si Nominatim ne renvoie rien : géocoder
-        // plus tolérant sur les adresses approximatives.
-        if (mapped.length === 0) {
-          try {
-            const response = await fetch(
-              `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=8&lang=fr`,
-              { signal: controller.signal },
-            );
-            const json = await response.json();
-            mapped = (Array.isArray(json?.features) ? json.features : []).map((feature, index) => ({
-              id: `photon-${index}`,
-              name: feature?.properties?.name || feature?.properties?.street || 'Lieu',
-              kind: 'Lieu OSM',
-              lat: Number(feature?.geometry?.coordinates?.[1]),
-              lng: Number(feature?.geometry?.coordinates?.[0]),
-              area: [feature?.properties?.city, feature?.properties?.country].filter(Boolean).join(', '),
-              gates: [],
-            })).filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
-          } catch {
-            mapped = [];
-          }
-        }
-        setOsmResults(mapped);
-      } catch {
-        setOsmResults([]);
-      } finally {
-        setOsmLoading(false);
-      }
-    }, 450);
-    return () => { clearTimeout(timer); controller.abort(); };
-  }, [showPlaces, value.address, localPlaces.length]);
-  const places = localPlaces.length > 0 ? localPlaces : osmResults;
+  const [requestedSearch, setRequestedSearch] = useState('');
+  const query = value.address.trim();
+  const { data: osmResults = [], isFetching: osmLoading, isError: osmError, isSuccess: osmDone } = useQuery({
+    queryKey: ['ouaga-extended-places', requestedSearch],
+    queryFn: ({ signal }) => searchMetroPlaces(requestedSearch, signal),
+    enabled: Boolean(extendedSearchUrl && showPlaces && query === requestedSearch),
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+  const places = requestedSearch === query && osmDone && localPlaces.length === 0 ? osmResults : localPlaces;
   const listOpen = showPlaces && places.length > 0;
   const activePlace = listOpen ? places[highlightedPlace] : null;
   const mapped = value.locationSource !== 'approximate';
@@ -141,8 +116,7 @@ export default function LocationStep({
   const selectedPoint = manualPoint ?? (choosingGate || choosingPoint ? null : previewPoint ?? (mapped ? storedPoint : null));
   const zoom = previewPoint?.zoom ?? (mapped ? 17 : 14);
   const mapsPoint = selectedPoint ? mapsSearchUrl(`${selectedPoint.lat},${selectedPoint.lng}`) : null;
-  const query = value.address.trim();
-  const searchUrl = query ? mapsSearchUrl(`${query}, Burkina Faso`) : null;
+  const searchUrl = query ? mapsSearchUrl(`${query}, Ouagadougou, Burkina Faso`) : null;
   const mapsImport = mapsLink.trim() ? readMapLocation(mapsLink) : null;
 
   function cancelLocationRequest() {
@@ -408,11 +382,28 @@ export default function LocationStep({
                 </ul>
               ) : (
                 <p role="status">
-                  {placesUnavailable ? 'Le répertoire local est indisponible.' : osmLoading ? 'Recherche dans OpenStreetMap…' : placeDirectory ? 'Aucun lieu trouvé localement. Recherche étendue en cours…' : 'Recherche des lieux…'}
+                  {osmLoading ? 'Recherche étendue…'
+                    : requestedSearch === query && osmError ? 'La recherche étendue est indisponible. Vous pouvez placer l’entrée sur la carte.'
+                      : placeDirectory || placesUnavailable ? 'Lieu introuvable ici ? Indiquez son entrée sur la carte ou cherchez dans Google Maps.'
+                        : 'Recherche dans le répertoire de Ouaga…'}
                 </p>
               )}
               {(placeDirectory || placesUnavailable) && (
                 <div className="p2p-place-links">
+                  {!listOpen && (
+                    <button type="button" className="p2p-maps-search" onClick={() => {
+                      setSearchOpen(false);
+                      setGateChoice('place-point');
+                      setMapOpen(true);
+                    }}>
+                      <MapPin size={16} aria-hidden="true" /> Placer l’entrée sur la carte
+                    </button>
+                  )}
+                  {!listOpen && extendedSearchUrl && requestedSearch !== query && (
+                    <button type="button" className="p2p-maps-search" onClick={() => setRequestedSearch(query)}>
+                      <Search size={16} aria-hidden="true" /> Étendre la recherche OSM
+                    </button>
+                  )}
                   <a className="p2p-maps-search" href={searchUrl} target="_blank" rel="noopener noreferrer">
                     <ArrowUpRight size={16} aria-hidden="true" /> Chercher dans Google Maps
                   </a>
@@ -525,6 +516,7 @@ export default function LocationStep({
             />
           </label>
         </div>
+        <p className="text-xs text-text-muted">Indiquez la personne joignable sur place à l’arrivée du livreur.</p>
         {mapped && <p className="p2p-position-label" role="status">{value.locationSource === 'gps' ? 'Position détectée. Vérifiez l’entrée sur la carte.' : 'Point confirmé. Ajoutez un repère pour aider le coursier.'}</p>}
       </div>
     </section>

@@ -26,6 +26,7 @@ export interface CandidateDriverMatch {
 }
 
 export interface OrderTracePoint {
+  driverId?: string;
   latitude: number;
   longitude: number;
   heading?: number;
@@ -110,9 +111,11 @@ export class GeoDispatchService {
     latitude: number,
     longitude: number,
     heading?: number,
+    driverId?: string,
   ): Promise<void> {
     const key = `${this.ORDER_TRACE_KEY_PREFIX}${orderId}`;
     const point: OrderTracePoint = {
+      driverId,
       latitude,
       longitude,
       heading,

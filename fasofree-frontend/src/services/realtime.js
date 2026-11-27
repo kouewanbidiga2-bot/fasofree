@@ -63,9 +63,11 @@ export const disconnectDispatch = () => {
  */
 export const emitLocation = ({ orderId, latitude, longitude, heading }) => {
   const s = getDispatchSocket();
-  if (!s.connected) return false;
-  s.emit('updateDriverLocation', { orderId, latitude, longitude, heading });
-  return true;
+  if (!s.connected) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    s.timeout(3500).emit('updateDriverLocation', { orderId, latitude, longitude, heading },
+      (error, response) => resolve(!error && response?.status === 'ok'));
+  });
 };
 
 export const isConnected = () => Boolean(socket?.connected);

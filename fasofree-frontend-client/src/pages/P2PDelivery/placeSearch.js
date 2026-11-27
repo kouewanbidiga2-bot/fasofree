@@ -121,10 +121,20 @@ function matchesWords(entry, words, allowTypo = false) {
 }
 
 export function findPlaces(index, input) {
-  const query = normalize(input);
-  if (query.length < 3) return [];
-  const words = query.split(' ');
-  const matches = index.filter(entry => matchesWords(entry, words));
+  const normalized = normalize(input);
+  const search = normalized.replace(/\s+burkina(?:\s+faso)?$/, '') || normalized;
+  if (search.length < 3) return [];
+  const withoutCity = search.replace(/\s+(?:ouagadougou|ouaga)$/, '');
+  let query = search;
+  let words = query.split(' ');
+  let matches = index.filter(entry => matchesWords(entry, words));
+  // Le nom de la ville distingue certains lieux, par exemple les campus 2iE.
+  // On l’ignore uniquement si aucun résultat ne correspond à la requête.
+  if (matches.length === 0 && withoutCity !== search && withoutCity.length >= 3) {
+    query = withoutCity;
+    words = query.split(' ');
+    matches = index.filter(entry => matchesWords(entry, words));
+  }
   const useTypoMatch = matches.length === 0;
   if (useTypoMatch) matches.push(...index.filter(entry => matchesWords(entry, words, true)));
   const rank = (entry) => {

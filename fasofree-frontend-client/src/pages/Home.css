@@ -7,16 +7,18 @@
 }
 
 .client-shell.client-shell--landing {
-  --kw-home-paper: #eaf6c8;
+  --kw-home-paper: #f0f2ed;
   --kw-home-type: 'Bricolage Grotesque', 'Arial Narrow', system-ui, sans-serif;
-  --kw-home-clay: #df5527;
+  --kw-home-clay: #a2402a;
   --kw-home-bar-inset: clamp(12px, 1.6vw, 24px);
   --client-header-height: clamp(64px, 5.6vw, 80px);
   --client-nav-space: 0px;
   display: block;
   background: var(--kw-home-paper);
 }
-.client-shell--landing > .client-navigation { display: none; }
+@media (min-width: 1024px) {
+  .client-shell--landing > .client-navigation { display: none; }
+}
 .client-shell--landing .client-route-stage { animation: none; }
 
 .kw-landing-header {
@@ -58,12 +60,12 @@
   position: relative;
   display: block;
   flex: none;
-  width: clamp(3rem, 7vw, 3.8rem);
+  width: clamp(3.3rem, 8vw, 4.4rem);
   aspect-ratio: 3 / 2;
   background: url('/assets/koliwa-mark-run.png') center / contain no-repeat;
 }
 .kw-landing-name { line-height: 0.86; }
-.kw-landing-name-a { color: var(--kw-lime); }
+.kw-landing-name-a { color: var(--kw-home-clay); }
 .kw-landing-actions { display: flex; align-items: center; gap: 0.55rem; }
 .kw-landing-place {
   display: none;
@@ -367,6 +369,8 @@
   font-size: 0.68rem;
   line-height: 1.4;
 }
+.kw-photo-credits summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.kw-photo-credits a { text-decoration: underline; text-underline-offset: 2px; }
 .kw-pickup-panel {
   display: flex;
   flex-direction: column;
@@ -550,6 +554,7 @@
 }
 /* Barre de navigation « verre liquide » de l'accueil mobile */
 @media (max-width: 1023px) {
+  .client-shell.client-shell--landing { --client-nav-space: calc(5.45rem + env(safe-area-inset-bottom)); }
   .client-shell--landing .client-navigation {
     max-width: 34rem;
     padding: 0.42rem 0.5rem calc(0.42rem + env(safe-area-inset-bottom) / 4);
@@ -579,7 +584,7 @@
 }
 @media (max-width: 420px) {
   .kw-landing-brand { font-size: 1.98rem; gap: 0.42rem; }
-  .kw-landing-mark { width: 2.4rem; }
+  .kw-landing-mark { width: 2.9rem; }
   .kw-landing-bar { padding-inline: 0.7rem 0.5rem; }
   .kw-landing-orders, .kw-landing-menu summary { min-width: 3.15rem; }
 }

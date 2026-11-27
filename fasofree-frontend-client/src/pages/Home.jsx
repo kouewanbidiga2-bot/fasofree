@@ -15,19 +15,31 @@ import './Home.css';
 const [parcel, pickup] = DELIVERY_SERVICES;
 const scenes = [
   {
-    src: 'ouaga-monument-heros.jpg',
+    src: 'ouaga-heros-photo.webp',
+    author: 'The black photographer', license: 'CC0 1.0',
+    terms: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    source: 'https://commons.wikimedia.org/wiki/File:Monument_aux_h%C3%A9ros_nationaux_-_Ouagadougou_-_2024.jpg',
+    width: 820, height: 499,
     to: parcel.to,
     alt: 'Monument des Héros nationaux de Ouagadougou',
     pan: 'a',
   },
   {
-    src: 'ouaga-place-cineastes.jpg',
+    src: 'ouaga-cineastes-photo.webp',
+    author: 'Rikyelle Momo Nguematio', license: 'CC BY-SA 4.0',
+    terms: 'https://creativecommons.org/licenses/by-sa/4.0/',
+    source: 'https://commons.wikimedia.org/wiki/File:Place_des_cin%C3%A9astes.jpg',
+    width: 820, height: 868,
     to: pickup.to,
     alt: 'Place des Cinéastes à Ouagadougou',
     pan: 'b',
   },
   {
-    src: 'ouaga-rood-woko.jpg',
+    src: 'ouaga-rood-woko-photo.webp',
+    author: 'Sputniktilt', license: 'CC BY-SA 3.0',
+    terms: 'https://creativecommons.org/licenses/by-sa/3.0/',
+    source: 'https://commons.wikimedia.org/wiki/File:Rood_Woko_Ouagadougou_2013b.jpg',
+    width: 820, height: 461,
     to: '/suivre',
     alt: 'Marché Rood Woko au centre de Ouagadougou',
     pan: 'c',
@@ -93,9 +105,9 @@ export default function Home() {
           <div className="kw-photo-track">
             {[0, 1].map((run) => (
               <div className="kw-photo-run" key={run} aria-hidden={run === 1 ? 'true' : undefined}>
-                {scenes.map(({ src, to, alt, pan }) => (
+                {scenes.map(({ src, to, alt, pan, width, height }) => (
                   <Link className="kw-photo" data-pan={pan} key={src} to={to} tabIndex={run === 1 ? -1 : undefined}>
-                    <img src={`/assets/${src}`} alt={alt} loading="lazy" decoding="async" />
+                    <img src={`/assets/${src}`} alt={alt} width={width} height={height} loading="lazy" decoding="async" />
                   </Link>
                 ))}
                 <div className="kw-pickup-panel">
@@ -111,9 +123,18 @@ export default function Home() {
             ))}
           </div>
         </div>
-        <p className="kw-home-width kw-photo-credits">
-          Photos : Wikimedia Commons — CC BY-SA 3.0.
-        </p>
+        <details className="kw-home-width kw-photo-credits">
+          <summary>Crédits photo</summary>
+          <ul>
+            {scenes.map(({ source, author, license, terms, alt }) => (
+              <li key={source}>
+                <a href={source} target="_blank" rel="noreferrer">{alt} · {author}</a>
+                {' · '}<a href={terms} target="_blank" rel="noreferrer">{license}</a>
+              </li>
+            ))}
+          </ul>
+          <p>Photos redimensionnées et recadrées à l’affichage.</p>
+        </details>
       </section>
 
       <section id="suivi-accueil" className="kw-home-width kw-track" aria-labelledby="home-tracking-title" tabIndex={-1}>

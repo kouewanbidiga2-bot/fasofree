@@ -346,8 +346,8 @@ const P2PDelivery = () => {
             {step === 2 && (
               <LocationStep
                 title="Point de remise"
-                contactLabel="Nom du destinataire"
-                phoneLabel="Téléphone du destinataire"
+                contactLabel="Nom de la personne qui reçoit"
+                phoneLabel="Numéro à appeler à l’arrivée"
                 value={dropoff}
                 onUpdate={(field, value) => updateLocation(setDropoff, field, value)}
                 onSelectPoint={(point) => selectPoint(setDropoff, point)}

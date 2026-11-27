@@ -4,12 +4,16 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRight, ArrowUp, Mic, Square, Volume2, X } from 'lucide-react';
 import api from '../services/api';
 import CallSupportButton from './CallSupportButton';
 import DeliveryGlyph from './DeliveryGlyph';
 import { normalizeTrackingReference } from '../utils/trackingReference';
+import useAuthStore from '../store/authStore';
+
+const ADDRESS_HELP = 'Cherchez un quartier ou un repère près de l’entrée. Si le lieu manque, choisissez « Placer l’entrée sur la carte » ou collez un lien Google Maps dans le formulaire.';
+const TRACKING_HELP = 'Ouvrez le suivi avec le numéro Koliwa du colis. Si la position du livreur date de plusieurs minutes, vérifiez à nouveau dans quelques instants. Le code de réception reste réservé au destinataire.';
 
 const ROUTES = {
   send: { label: 'Envoyer un colis', to: '/p2p-delivery', glyph: 'parcel' },
@@ -25,6 +29,11 @@ const CONTRACT = 'koliwa-delivery-v1';
 
 export default function AssistantWidget({ hideLauncher = false } = {}) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const initialHelp = pathname === '/p2p-delivery' ? ADDRESS_HELP
+    : pathname === '/suivre' || pathname.startsWith('/track/') ? TRACKING_HELP
+      : 'Envoyer un colis, trouver un lieu ou suivre une livraison ?';
   const dialogRef = useRef(null);
   const messagesRef = useRef(null);
   const inputRef = useRef(null);
@@ -111,6 +120,10 @@ export default function AssistantWidget({ hideLauncher = false } = {}) {
     const { to } = ROUTES[id];
     const tracking = id === 'track' && typeof reference === 'string' ? normalizeTrackingReference(reference) : null;
     dialogRef.current?.close();
+    if (id === 'support' && !isAuthenticated) {
+      navigate('/auth', { state: { from: { pathname: to } } });
+      return;
+    }
     navigate(to, tracking ? { state: { reference: tracking } } : undefined);
   }
 
@@ -173,7 +186,7 @@ export default function AssistantWidget({ hideLauncher = false } = {}) {
             <li key={action.id}>
               <button type="button" onClick={() => openAction(action)}>
                 <DeliveryGlyph kind={glyph} />
-                {label}
+                {action.id === 'support' && !isAuthenticated ? 'Se connecter pour signaler un problème' : label}
                 <ArrowRight size={16} aria-hidden="true" />
               </button>
             </li>
@@ -216,7 +229,7 @@ export default function AssistantWidget({ hideLauncher = false } = {}) {
           <div className="koliwa-help-log" ref={messagesRef} role="log" aria-label="Conversation" aria-busy={loading}>
             {messages.length === 0 && (
               <div className="koliwa-help-start">
-                <p>Que souhaitez-vous faire ?</p>
+                <p>{initialHelp}</p>
                 {actionsList(QUICK_ACTIONS)}
               </div>
             )}

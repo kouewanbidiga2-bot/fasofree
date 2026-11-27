@@ -109,24 +109,11 @@ export class DispatchController {
       .limit(20)
       .getMany();
 
-    // Enrichir avec les infos client et business
-    const clientIds = [...new Set(orders.map(o => o.clientId).filter(Boolean))];
-    const businessIds = [...new Set(orders.map(o => o.businessId).filter(Boolean))];
-    
-const [clients, businesses] = await Promise.all([
-      clientIds.length > 0
-        ? this.userRepository.findBy({ id: In(clientIds) })
-        : Promise.resolve([]),
-      businessIds.length > 0
-        ? this.businessRepository.findBy({ id: In(businessIds) })
-        : Promise.resolve([]),
-    ]);
-    
-    const clientMap = new Map<string, { fullName: string; phone: string }>(clients.map(c => [c.id, { fullName: c.fullName || '', phone: c.phone || '' }]));
-    const businessMap = new Map(businesses.map(b => [b.id, b.name]));
+    const businessIds = [...new Set(orders.map((order) => order.businessId).filter(Boolean))];
+    const businesses = businessIds.length ? await this.businessRepository.findBy({ id: In(businessIds) }) : [];
+    const businessMap = new Map(businesses.map((business) => [business.id, business.name]));
 
     const enriched = orders.map(order => {
-      const client = order.clientId ? clientMap.get(order.clientId) : undefined;
       const businessName = businessMap.get(order.businessId) || '';
       
       return {
@@ -145,8 +132,6 @@ const [clients, businesses] = await Promise.all([
         deliveryFee: Number(order.deliveryFee) || 0,
         totalAmount: Number(order.totalAmount) || 0,
         businessName,
-        customerName: client?.fullName || 'Client',
-        customerPhone: client?.phone || '',
         items: order.items || [],
         createdAt: order.createdAt,
         activeDeliveryCount,

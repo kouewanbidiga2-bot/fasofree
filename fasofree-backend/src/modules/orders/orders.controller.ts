@@ -15,6 +15,8 @@ import {
   Request as NestRequest,
   UnauthorizedException,
   BadRequestException,
+  Header,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -436,13 +438,14 @@ export class OrdersController {
   // ========================================================================
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post(':id/driver-location')
   @ApiOperation({
     summary: 'Enregistrer la position GPS du livreur pour une commande',
   })
   @ApiResponse({ status: 200, description: 'Position mise à jour' })
   async updateDriverLocation(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() body: { latitude: number; longitude: number },
     @NestRequest() req: RequestWithUser,
   ) {
@@ -451,6 +454,26 @@ export class OrdersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.ordersService.updateDriverLocation(id, userId, body.latitude, body.longitude);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Throttle({ default: { limit: 12, ttl: 60000 } })
+  @Header('Cache-Control', 'no-store')
+  @Get(':id/courier-route')
+  getCourierRoute(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('latitude') latitude: string,
+    @Query('longitude') longitude: string,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const driverId = req.user?.userId;
+    if (!driverId) throw new UnauthorizedException();
+    return this.ordersService.getCourierRoute(
+      id, driverId,
+      typeof latitude === 'string' && latitude.trim() ? Number(latitude) : NaN,
+      typeof longitude === 'string' && longitude.trim() ? Number(longitude) : NaN,
+    );
   }
 
   // ========================================================================

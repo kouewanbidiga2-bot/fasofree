@@ -56,6 +56,18 @@
   --kw-glyph-accent: #a0b65b;
 }
 
+:root:not(.dark) .client-shell:has(.p2p-page, .tracking-page),
+:root:not(.dark) .koliwa-help {
+  --kw-canvas: #edf0ec;
+  --kw-paper: #f8faf7;
+  --kw-plate: #e2e7e1;
+  --kw-ink: #242826;
+  --kw-muted: #4e5a52;
+  --kw-line: #bfc9bf;
+  --kw-media: #d9e0d7;
+  --kw-glass: rgb(248 250 247 / 0.92);
+}
+
 body, .client-shell, .app-page, .dark .app-page {
   background: var(--kw-canvas);
   color: var(--kw-ink);

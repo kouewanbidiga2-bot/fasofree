@@ -6,34 +6,30 @@
 /*
  * Koliwa Coursier — feuille unique, mobile d'abord.
  *
- * Contraintes terrain qui dictent le style : écran lu en plein soleil, souvent
- * d'une seule main, avec des gants. D'où une interface citron (la couleur de la
- * marque) posée sur encre, sans ombre ni dégradé, et des cibles tactiles de 50 px
- * minimum.
+ * Les surfaces neutres restent lisibles en plein soleil. Le citron indique
+ * les actions principales et l’état de disponibilité.
  */
 
 :root {
-  /* Citron plein écran : le fond est la couleur de la marque, pas un accent. */
-  --bg: #cdf35c;
-  --bg-sunken: #bfe84a;
-  --surface: #d8f87a;
-  --surface-2: #cdeb6a;
-  --ink: #14200a;
-  --ink-2: #33461d;
-  --ink-3: #4c6130;
-  --cream: #f2fbd4;
-  --line: rgba(20, 32, 10, 0.16);
-  --line-strong: rgba(20, 32, 10, 0.32);
-  --lime: #cdf35c;
-  --lime-soft: #e6fb9f;
-  --lime-ink: #14200a;
-  /* Vert arbre : les blocs de tête (connexion, disponibilité, gains). */
-  --tree: #2b4a1b;
-  --tree-2: #3d6626;
-  --on-tree: #eef9c6;
+  --bg: #f3f4f5;
+  --bg-sunken: #e9ebee;
+  --surface: #fff;
+  --surface-2: #f3f4f5;
+  --ink: #22262c;
+  --ink-2: #444d57;
+  --ink-3: #58646f;
+  --cream: #fff;
+  --line: #d9dfe5;
+  --line-strong: #a8b2be;
+  --lime: #d7f36b;
+  --lime-ink: #263216;
+  --tree: #22262c;
+  --tree-2: #3c454f;
+  --on-tree: #f6f7f8;
+  --laterite: #a2402a;
   --sand: #a9722a;
-  --ok: #1a5c33;
-  --ok-bg: #d7f5d9;
+  --ok: #24483a;
+  --ok-bg: #edf2ef;
   --warn: #7a4a06;
   --warn-bg: #ffe9c2;
   --danger: #8f2318;
@@ -137,18 +133,19 @@ textarea {
 }
 
 .brand-badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
+  width: 49px;
+  height: 49px;
+  border-radius: 13px;
   background: var(--surface);
+  border: 1px solid var(--line);
   display: grid;
   place-items: center;
   flex: none;
 }
 
 .brand-badge-lg {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 15px;
 }
 
@@ -473,7 +470,7 @@ textarea {
 
 .route-dot-dropoff {
   background: var(--ink);
-  box-shadow: 0 0 0 4px var(--lime-soft);
+  box-shadow: 0 0 0 4px var(--bg-sunken);
 }
 
 .route-text {
@@ -545,13 +542,13 @@ textarea {
 }
 
 .switch-on .switch-track {
-  background: var(--lime);
-  border-color: var(--lime);
+  background: var(--ink);
+  border-color: var(--ink);
 }
 
 .switch-on .switch-knob {
   transform: translateX(18px);
-  background: var(--ink);
+  background: var(--lime);
 }
 
 .switch-label {
@@ -646,8 +643,8 @@ textarea {
 }
 
 .nav-item.active {
-  color: var(--cream);
-  background: var(--ink);
+  color: var(--ink);
+  background: var(--bg-sunken);
 }
 
 /* ── États ─────────────────────────────────────────────────────────── */
@@ -727,7 +724,7 @@ textarea {
   display: block;
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--surface-2) 25%, var(--lime-soft) 50%, var(--surface-2) 75%);
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface) 50%, var(--surface-2) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -765,7 +762,6 @@ textarea {
   padding: calc(env(safe-area-inset-top) + 44px) 20px calc(30px + env(safe-area-inset-bottom));
 }
 
-/* Plus de carte sous la marque : le logo, le titre et le texte vivent sur le citron. */
 .login-brand {
   display: flex;
   flex-direction: column;
@@ -809,82 +805,10 @@ textarea {
   text-wrap: pretty;
 }
 
-/* Marque animée : le wordmark se retire, le colis qui court prend sa place, puis retour. */
-.brand-morph {
-  position: relative;
-  display: block;
-  width: 122px;
-  height: 52px;
-}
-
-.brand-morph__word,
-.brand-morph__mark {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform-origin: left center;
-  will-change: opacity, transform, filter;
-}
-
-.brand-morph__word {
-  display: flex;
+.login-lockup {
+  display: inline-flex;
   align-items: center;
-  height: 100%;
-  transform: translateY(-50%);
-  animation: morph-word 7.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-.brand-morph__mark {
-  display: flex;
-  padding: 9px;
-  border-radius: 16px;
-  background: var(--cream);
-  opacity: 0;
-  transform: translateY(-50%) scale(0.55) rotate(-8deg);
-  animation: morph-mark 7.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-}
-
-@keyframes morph-word {
-  0%,
-  40% {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-    filter: blur(0);
-  }
-  50%,
-  88% {
-    opacity: 0;
-    transform: translateY(-50%) scale(0.84);
-    filter: blur(3px);
-  }
-  97%,
-  100% {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-    filter: blur(0);
-  }
-}
-
-@keyframes morph-mark {
-  0%,
-  40% {
-    opacity: 0;
-    transform: translateY(-50%) scale(0.55) rotate(-8deg);
-  }
-  50% {
-    opacity: 1;
-    transform: translateY(-50%) scale(1.08) rotate(0deg);
-  }
-  56%,
-  88% {
-    opacity: 1;
-    transform: translateY(-50%) scale(1);
-  }
-  97%,
-  100% {
-    opacity: 0;
-    transform: translateY(-50%) scale(0.55) rotate(-8deg);
-  }
+  gap: 0.65rem;
 }
 
 .login-form {
@@ -893,7 +817,6 @@ textarea {
   gap: 12px;
 }
 
-/* Crème plutôt que citron : le champ se détache du fond, même en plein soleil. */
 .login-form .input {
   background: var(--cream);
 }
@@ -1075,4 +998,166 @@ textarea {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+.mission-overview {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.mission-section-title, .mission-panel h2 {
+  margin: 0;
+  color: var(--ink);
+  font: 750 clamp(1.1rem, 5vw, 1.45rem)/1.12 var(--font-display);
+  letter-spacing: -0.035em;
+}
+.mission-section-title { margin-block-start: 0.6rem; }
+.mission-availability {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--ink-3);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.mission-availability::before {
+  content: '';
+  width: 0.53rem;
+  height: 0.53rem;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+.mission-availability[data-online='true'] { color: #344700; }
+.mission-availability[data-online='true']::before {
+  background: var(--lime);
+  border: 1px solid #667936;
+}
+.mission-active { border-inline-start: 3px solid var(--ink); }
+
+.mission-map {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #e7ebef;
+}
+.mission-map-canvas {
+  width: 100%;
+  height: clamp(238px, 36dvh, 400px);
+  background: #e7ebef;
+  font-family: var(--font-ui);
+}
+.mission-map-controls {
+  position: absolute;
+  z-index: 500;
+  inset: 0.7rem 0.7rem auto auto;
+  display: grid;
+  gap: 0.35rem;
+}
+.mission-map-controls button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.mission-map-controls button:disabled { opacity: 0.58; cursor: default; }
+.mission-map-caption {
+  position: absolute;
+  z-index: 500;
+  inset: auto auto 1.65rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.43rem 0.65rem;
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 750;
+  pointer-events: none;
+}
+.mission-marker {
+  display: grid;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font-weight: 800;
+  background: var(--ink);
+  box-shadow: 0 2px 6px rgb(36 40 38 / 0.34);
+}
+.mission-marker--destination { background: var(--laterite); }
+.mission-marker--gps { background: #29465b; color: #fff; border-color: #fff; }
+
+.mission-signal, .mission-parcel {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+}
+.mission-signal svg, .mission-parcel svg { flex: none; }
+.mission-panel { gap: 0.55rem; }
+.mission-stage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  margin-block-end: 0.12rem;
+  color: var(--ink-3);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.mission-stage .pill-accent {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.mission-panel h2 { font-size: clamp(1.32rem, 6vw, 1.62rem); }
+.mission-address, .mission-instructions { margin: 0; font-size: 0.95rem; }
+.mission-address { font-weight: 750; overflow-wrap: anywhere; }
+.mission-instructions { color: var(--ink-2); }
+.mission-contact {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.65rem;
+  margin: 0.2rem 0 0;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.mission-contact strong { color: var(--ink); }
+.mission-tools {
+  display: flex;
+  gap: 0.48rem;
+}
+.mission-tools .btn-primary { flex: 1; }
+.mission-tools .btn { min-height: 48px; padding-inline: 0.72rem; }
+.mission-panel .mission-signal { margin-block: 0.2rem; }
+.mission-stops { border-block-start: 1px solid var(--line); }
+.mission-stops summary {
+  min-height: 44px;
+  padding-block: 0.62rem;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mission-stops > .amount { margin-block: 0.55rem 0.2rem; text-align: start; }
+.mission-stop { display: flex; gap: 0.55rem; padding-block: 0.4rem; }
+.mission-stop > div { display: grid; min-width: 0; overflow-wrap: anywhere; }
+.mission-stop svg { flex: none; margin-top: 0.08rem; }
+.actionbar .note { margin: 0; }
+.app-detail .actionbar .btn-accent, .app:not(.app-detail) .btn-accent {
+  background: var(--lime);
+  color: var(--lime-ink);
+  border-color: #b1c84b;
 }

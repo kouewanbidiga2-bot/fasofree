@@ -42,16 +42,10 @@ const Login = () => {
 
   return (
     <div className="login">
-      {/* La marque est posée à même le citron : plus de carte, le logo respire. */}
       <header className="login-brand">
-        {/* Le nom se transforme en logo, puis revient : la marque respire au lieu d'être figée. */}
-        <div className="brand-morph">
-          <span className="brand-morph__word">
-            <KoliwaWordmark height={30} />
-          </span>
-          <span className="brand-morph__mark" aria-hidden="true">
-            <KoliwaParcel size={34} alt="" />
-          </span>
+        <div className="login-lockup">
+          <KoliwaParcel size={46} alt="" />
+          <KoliwaWordmark height={33} />
         </div>
         <p className="login-eyebrow">
           <MapPin size={13} aria-hidden="true" />
