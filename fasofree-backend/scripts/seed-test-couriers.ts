@@ -27,7 +27,19 @@ import { User, VehicleType } from '../src/modules/users/entities/user.entity';
 import { UserRole } from '../src/modules/users/entities/user-role.enum';
 import { Wallet } from '../src/modules/wallets/entities/wallet.entity';
 import { UserRole as WalletRole } from '../src/modules/wallets/entities/wallet.entity';
+// Requise par la relation `Wallet#transactions` (metadata TypeORM).
+import { WalletTransaction } from '../src/modules/wallets/entities/wallet-transaction.entity';
 import { ContractAcceptance } from '../src/modules/legal/entities/contract-acceptance.entity';
+
+// `npm run seed:couriers` doit pouvoir lire `fasofree-backend/.env` sans export
+// manuel : DATABASE_URL n'est lue du fichier que si le shell ne la fournit pas.
+if (!process.env.DATABASE_URL) {
+  try {
+    process.loadEnvFile('.env');
+  } catch {
+    // .env absent : le message d'erreur ci-dessous guidera l'utilisateur.
+  }
+}
 
 /** Contrat exigé pour le rôle livreur (`LegalService.requiredContractDoc`). */
 const DRIVER_CONTRACT = { docCode: 'FR-LIVR-006', docVersion: '1.0' };
@@ -51,11 +63,18 @@ const buildDataSource = () => {
   return new DataSource({
     type: 'postgres',
     url,
-    entities: [User, Wallet, ContractAcceptance],
+    entities: [User, Wallet, WalletTransaction, ContractAcceptance],
     // Jamais de synchronize ici : on ne modifie pas le schéma d'une base qui
     // sert déjà l'application.
     synchronize: false,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+    // Render impose TLS sur l'URL externe même hors production : on suit le
+    // `sslmode` de l'URL en plus de NODE_ENV (cf. scripts/reset-database.ts).
+    ssl:
+      process.env.NODE_ENV === 'production' ||
+      /sslmode=(require|verify)/i.test(url) ||
+      /render\.com/i.test(url)
+        ? { rejectUnauthorized: false }
+        : false,
   });
 };
 

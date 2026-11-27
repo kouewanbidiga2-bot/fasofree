@@ -22,7 +22,8 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prepare": "husky",
-    "seed:couriers": "ts-node --transpile-only -P tsconfig.json scripts/seed-test-couriers.ts"
+    "seed:couriers": "ts-node --transpile-only -P tsconfig.json scripts/seed-test-couriers.ts",
+    "db:reset": "ts-node --transpile-only -P tsconfig.json scripts/reset-database.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1107.0",

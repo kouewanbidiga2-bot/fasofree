@@ -15,14 +15,21 @@ export class AddStoryFee1725900000000 implements MigrationInterface {
   name = 'AddStoryFee1725900000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    try {
-      await queryRunner.query(
-        `ALTER TYPE "wallet_transactions_reason_enum" ADD VALUE IF NOT EXISTS 'STORY_FEE'`,
-      );
-    } catch {
-      // Certains environnements (dev, SQLite en test) n'ont pas d'enum PG :
-      // l'échec est non bloquant si le type n'existe pas.
-    }
+    // ⚠️ Sur base vierge, le type "wallet_transactions_reason_enum" n'existe
+    // pas encore (créé par 1726100000001, postérieure) : un try/catch JS ne
+    // suffit pas car l'erreur avorte la transaction TypeORM. Le garde
+    // EXCEPTION undefined_object rend ce bloc no-op sans perte :
+    // 1726100000001 crée déjà l'enum avec la valeur STORY_FEE.
+    await queryRunner.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'STORY_FEE') THEN
+          ALTER TYPE "wallet_transactions_reason_enum" ADD VALUE 'STORY_FEE';
+        END IF;
+      EXCEPTION WHEN undefined_object THEN NULL;
+      END
+      $$;
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
