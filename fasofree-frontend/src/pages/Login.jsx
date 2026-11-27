@@ -43,10 +43,15 @@ const Login = () => {
   return (
     <div className="login">
       <div className="login-hero">
-        <span className="brand-badge brand-badge-lg">
-          <KoliwaParcel size={34} />
-        </span>
-        <KoliwaWordmark height={30} />
+        {/* Le nom se transforme en logo, puis revient : la marque respire au lieu d'être figée. */}
+        <div className="brand-morph">
+          <span className="brand-morph__word">
+            <KoliwaWordmark height={30} />
+          </span>
+          <span className="brand-morph__mark" aria-hidden="true">
+            <KoliwaParcel size={34} alt="" />
+          </span>
+        </div>
         <p>Coursier · Ouagadougou. Connectez-vous pour voir les courses disponibles près de vous.</p>
       </div>
 

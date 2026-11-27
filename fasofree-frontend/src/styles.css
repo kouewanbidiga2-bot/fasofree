@@ -757,23 +757,90 @@ textarea {
   position: relative;
 }
 
-.login-hero::after {
-  content: '';
-  position: absolute;
-  inset: auto -60px -80px auto;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(217, 245, 107, 0.22), transparent 68%);
-  pointer-events: none;
-}
-
 .login-hero p {
   margin: 0;
   color: #b6ab99;
   font-size: 13.5px;
   line-height: 1.5;
   max-width: 30ch;
+}
+
+/* Marque animée : le wordmark se retire, le colis qui court prend sa place, puis retour. */
+.brand-morph {
+  position: relative;
+  display: block;
+  width: 122px;
+  height: 52px;
+}
+
+.brand-morph__word,
+.brand-morph__mark {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform-origin: left center;
+  will-change: opacity, transform, filter;
+}
+
+.brand-morph__word {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  transform: translateY(-50%);
+  animation: morph-word 7.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.brand-morph__mark {
+  display: flex;
+  padding: 9px;
+  border-radius: 16px;
+  background: var(--cream);
+  opacity: 0;
+  transform: translateY(-50%) scale(0.55) rotate(-8deg);
+  animation: morph-mark 7.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes morph-word {
+  0%,
+  40% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    filter: blur(0);
+  }
+  50%,
+  88% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.84);
+    filter: blur(3px);
+  }
+  97%,
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes morph-mark {
+  0%,
+  40% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.55) rotate(-8deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.08) rotate(0deg);
+  }
+  56%,
+  88% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.55) rotate(-8deg);
+  }
 }
 
 .login-form {

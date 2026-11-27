@@ -50,7 +50,9 @@ api.interceptors.response.use(
     const message = Array.isArray(raw) ? raw.join(', ') : raw;
 
     if (!error.response) {
-      return Promise.reject(new Error('Réseau indisponible. Réessayez.'));
+      return Promise.reject(
+        new Error('Réseau indisponible. Vérifiez votre connexion puis réessayez.'),
+      );
     }
     return Promise.reject(new Error(message || `Erreur ${error.response.status}`));
   },
