@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -116,6 +116,7 @@ export class WebhooksService {
         }
 
         if (payload.status === 'SUCCESS') {
+          if (!order.clientId) throw new UnauthorizedException('Cette commande utilise le paiement invité SasPay.');
           order.status = OrderStatus.PAID;
           order.paymentTransactionRef = payload.transactionRef;
           await queryRunner.manager.save(order);
@@ -133,7 +134,7 @@ export class WebhooksService {
             accountOwnerId: 'PLATFORM_FASOFREE',
             amount: order.platformCommission,
             entryType: LedgerEntryType.CREDIT,
-            description: `Commission FasoFree (0.85%) sur commande #${order.id}`,
+            description: `Commission Koliwa (0.85%) sur commande #${order.id}`,
           });
 
           await queryRunner.manager.save([clientCredit, platformFeeEntry]);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -29,6 +29,11 @@ import { GeoDispatchService, DriverLocation } from '../orders/dispatch.service';
 import { OrdersService } from '../orders/orders.service';
 import { NotificationStoreService } from '../notifications/notification-store.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import {
+  ACTIVE_DELIVERY_STATUSES,
+  isCompatibleDeliveryZone,
+  MAX_ACTIVE_DELIVERIES_PER_DRIVER,
+} from './delivery-rules';
 
 @Injectable()
 export class DispatchService {
@@ -122,7 +127,7 @@ export class DispatchService {
     // Skip dispatch si le commerçant a ses propres livreurs
     if (business?.hasOwnDrivers) {
       this.logger.log(
-        `[Auto-Dispatch] Commerçant #${order.businessId} utilise ses propres livreurs - Pas de dispatch FasoFree`,
+        `[Auto-Dispatch] Commerçant #${order.businessId} utilise ses propres livreurs - Pas de dispatch Koliwa`,
       );
       return;
     }
@@ -899,12 +904,33 @@ export class DispatchService {
       throw new Error(`Livreur ${driverId} introuvable`);
     }
 
+    const activeOrders = await this.orderRepository.find({
+      where: {
+        driverId,
+        status: In([...ACTIVE_DELIVERY_STATUSES]),
+      },
+    });
+    const activeDeliveryCount = activeOrders.length;
+    if (activeDeliveryCount >= MAX_ACTIVE_DELIVERIES_PER_DRIVER) {
+      throw new Error(
+        `Ce livreur a déjà atteint la limite de ${MAX_ACTIVE_DELIVERIES_PER_DRIVER} livraisons actives.`,
+      );
+    }
+    if (!isCompatibleDeliveryZone(order, activeOrders)) {
+      throw new Error(
+        'Cette commande est hors de la zone de cumul du livreur (2 km).',
+      );
+    }
+
     const previousStatus = order.status;
     order.driverId = driverId;
     order.status = OrderStatus.DRIVER_ASSIGNED;
     const updatedOrder = await this.orderRepository.save(order);
 
-    await this.userRepository.update(driverId, { isAvailable: false });
+    await this.userRepository.update(driverId, {
+      isAvailable:
+        activeDeliveryCount + 1 < MAX_ACTIVE_DELIVERIES_PER_DRIVER,
+    });
 
     // 📱 Notifications push / in-app (client + livreur)
     try {

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -16,6 +16,7 @@ export class LoyaltyListener {
 
   @OnEvent('order.completed', { async: true })
   async onOrderCompleted(order: Order): Promise<void> {
+    if (!order.clientId) return;
     try {
       const points = await this.loyaltyService.earnPointsFromOrder(
         order.clientId,

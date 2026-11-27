@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -631,7 +631,7 @@ export class DisputesService {
       resolvedEvent = {
         disputeId: dispute.id,
         orderId: order.id,
-        clientId: order.clientId,
+        clientId: dispute.clientId,
         businessId: order.businessId ?? null,
         resolution: DisputeResolution.REFUND,
       };
@@ -639,7 +639,7 @@ export class DisputesService {
       // 💳 Créditer le wallet du client (hors transaction pour éviter deadlock)
       try {
         const { wallet } = await this.walletService.creditWallet(
-          order.clientId,
+          dispute.clientId,
           WalletUserRole.CUSTOMER,
           refundAmount,
           TransactionReason.REFUND,
@@ -653,7 +653,7 @@ export class DisputesService {
 
         // 📱 Notifier le client (in-app + push FCM, jamais d'e-mail)
         await this.notificationStore.create({
-          userId: order.clientId,
+          userId: dispute.clientId,
           type: NotificationType.ACCOUNT,
           title: 'Remboursement effectué 💰',
           body: `Votre compte a été crédité de ${refundAmount.toLocaleString()} FCFA suite à votre réclamation.`,
@@ -828,7 +828,7 @@ export class DisputesService {
       resolvedEvent = {
         disputeId: dispute.id,
         orderId: order.id,
-        clientId: order.clientId,
+        clientId: dispute.clientId,
         businessId: order.businessId ?? null,
         resolution: DisputeResolution.REFUND,
       };
@@ -836,7 +836,7 @@ export class DisputesService {
       // 💳 Créditer le wallet du client (hors transaction pour éviter deadlock)
       try {
         const { wallet } = await this.walletService.creditWallet(
-          order.clientId,
+          dispute.clientId,
           WalletUserRole.CUSTOMER,
           refundAmount,
           TransactionReason.REFUND,
@@ -849,7 +849,7 @@ export class DisputesService {
 
         // 📱 Notifier le client (in-app + push FCM, jamais d'e-mail)
         await this.notificationStore.create({
-          userId: order.clientId,
+          userId: dispute.clientId,
           type: NotificationType.ACCOUNT,
           title: 'Remboursement effectué 💰',
           body: `Le commerce a remboursé votre commande : ${refundAmount.toLocaleString()} FCFA crédités sur votre compte.`,
@@ -924,7 +924,7 @@ export class DisputesService {
       resolvedEvent = {
         disputeId: dispute.id,
         orderId: order.id,
-        clientId: order.clientId,
+        clientId: dispute.clientId,
         businessId: order.businessId ?? null,
         resolution: DisputeResolution.REJECT,
       };

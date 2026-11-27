@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -7,6 +7,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
+import { PublicTrackingController } from './public-tracking.controller';
 import { GeoDispatchService } from './dispatch.service';
 import { DeliveryPricingService } from './delivery-pricing.service';
 import { QrCodeService } from './qr-code.service';
@@ -59,7 +60,7 @@ import { DeliveryAgency } from '../dispatch/entities/delivery-agency.entity';
     FraudModule, // 🚫 Anti-fraude : contrôle avant création de commande
     PenaltiesModule, // ⚖️ Sanctions qualité (avertissement auto sur retard)
   ],
-  controllers: [OrdersController],
+  controllers: [OrdersController, PublicTrackingController],
   providers: [
     OrdersService,
     GeoDispatchService,

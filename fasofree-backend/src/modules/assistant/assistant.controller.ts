@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -8,12 +8,7 @@ import { AssistantService } from './assistant.service';
 import { AskAssistantDto } from './dto/ask-assistant.dto';
 import { VoiceActionDto } from './dto/voice-action.dto';
 
-/**
- * 🤖 Assistant FasoFree — guidance de la plateforme + conseils de menu.
- * Endpoint public (aucune donnée sensible) : les visiteurs peuvent poser
- * leurs questions sans être connectés. La limite de débit globale
- * (ThrottlerGuard) s'applique comme sur toutes les routes.
- */
+/** Guide public des parcours de livraison Koliwa. */
 @Controller('assistant')
 export class AssistantController {
   constructor(private readonly assistantService: AssistantService) {}
@@ -25,15 +20,11 @@ export class AssistantController {
 
   @Post('ask')
   ask(@Body() dto: AskAssistantDto) {
-    return this.assistantService.ask(dto.question, dto.businessId);
+    return this.assistantService.ask(dto.question);
   }
 
-  /**
-   * 🎙️ Commande vocale → action structurée (Gemini), avec fallback local.
-   * Retourne { action, query, message, answer }.
-   */
   @Post('voice-action')
   voiceAction(@Body() dto: VoiceActionDto) {
-    return this.assistantService.voiceAction(dto.question, dto.businessId);
+    return this.assistantService.voiceAction(dto.question);
   }
 }

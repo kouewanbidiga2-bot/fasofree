@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -16,7 +16,7 @@ import {
 
 export class AskAssistantDto {
   @ApiProperty({
-    example: 'Quel plat me conseilles-tu ?',
+    example: 'Comment faire récupérer un achat en boutique ?',
     description: "Question posée à l'assistant",
   })
   @IsString()
@@ -28,8 +28,8 @@ export class AskAssistantDto {
 
   @ApiPropertyOptional({
     example: '3d1f6d8e-62c0-4c7a-9f88-2d0b0c8a91e4',
-    description:
-      'ID du restaurant actuellement affiché — permet des conseils sur son menu réel',
+    description: 'Ancien contexte marchand conservé pour les clients existants',
+    deprecated: true,
   })
   @IsOptional()
   @IsUUID()

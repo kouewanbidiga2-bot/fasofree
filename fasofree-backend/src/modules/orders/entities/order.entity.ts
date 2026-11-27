@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -48,7 +48,7 @@ export enum OrderType {
 }
 
 /**
- * 🚗 Options de confort pour FasoFree Ride
+ * 🚗 Options de confort pour Koliwa Ride
  */
 export enum RideOption {
   ECONOMY = 'ECONOMY',       // Moto — tarif de base
@@ -70,9 +70,17 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index('UQ_orders_trackingReference', { unique: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  trackingReference?: string | null;
+
   @Index()
-  @Column({ type: 'varchar' })
-  clientId: string;
+  @Column({ type: 'varchar', nullable: true })
+  clientId: string | null;
+
+  @Index('UQ_orders_guestCheckoutKeyHash', { unique: true })
+  @Column({ type: 'varchar', length: 64, nullable: true, select: false })
+  guestCheckoutKeyHash?: string | null;
 
   @Index()
   @Column({ type: 'uuid', nullable: true })
@@ -93,7 +101,7 @@ export class Order {
   })
   fulfillmentType: FulfillmentType;
 
-  // 🚗 Option de confort FasoFree Ride (ECONOMY / COMFORT / PREMIUM)
+  // 🚗 Option de confort Koliwa Ride (ECONOMY / COMFORT / PREMIUM)
   // Nullable pour les commandes non-RIDE (MERCHANT, P2P_DELIVERY)
   @Column({ type: 'varchar', length: 20, nullable: true })
   rideOption?: RideOption | null;
@@ -163,7 +171,7 @@ export class Order {
   })
   merchantPayoutAmount: number;
 
-  // --- 🧾 VENTILATION FINANCIÈRE (Modèle hybride FasoFree) ---
+  // --- 🧾 VENTILATION FINANCIÈRE (Modèle hybride Koliwa) ---
   @Column({
     type: 'decimal',
     precision: 10,

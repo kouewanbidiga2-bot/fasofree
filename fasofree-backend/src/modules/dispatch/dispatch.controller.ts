@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -33,6 +33,12 @@ import { Business } from '../businesses/entities/business.entity';
 import { DispatchService } from './dispatch.service';
 import { DispatchGateway } from './dispatch.gateway';
 import { OrdersService } from '../orders/orders.service';
+import {
+  ACTIVE_DELIVERY_STATUSES,
+  DISPATCH_ZONE_RADIUS_KM,
+  isCompatibleDeliveryZone,
+  MAX_ACTIVE_DELIVERIES_PER_DRIVER,
+} from './delivery-rules';
 
 type RequestWithUser = ExpressRequest & {
   user?: { userId?: string; role?: string };
@@ -71,6 +77,23 @@ export class DispatchController {
   ) {
     const driverId = req.user?.userId;
 
+    if (!driverId) {
+      throw new ForbiddenException('Utilisateur non authentifié');
+    }
+
+    const activeDeliveryCount = await this.orderRepository.count({
+      where: {
+        driverId,
+        status: In([...ACTIVE_DELIVERY_STATUSES]),
+      },
+    });
+
+    // Le livreur reste connecté mais ne reçoit plus de nouvelles missions
+    // lorsqu'il a atteint la capacité opérationnelle configurée.
+    if (activeDeliveryCount >= MAX_ACTIVE_DELIVERIES_PER_DRIVER) {
+      return [];
+    }
+
     const orders = await this.orderRepository
       .createQueryBuilder('o')
       .where('o.status = :status', { status: OrderStatus.READY_FOR_PICKUP })
@@ -103,7 +126,7 @@ const [clients, businesses] = await Promise.all([
     const businessMap = new Map(businesses.map(b => [b.id, b.name]));
 
     const enriched = orders.map(order => {
-      const client = clientMap.get(order.clientId);
+      const client = order.clientId ? clientMap.get(order.clientId) : undefined;
       const businessName = businessMap.get(order.businessId) || '';
       
       return {
@@ -126,6 +149,9 @@ const [clients, businesses] = await Promise.all([
         customerPhone: client?.phone || '',
         items: order.items || [],
         createdAt: order.createdAt,
+        activeDeliveryCount,
+        maxActiveDeliveries: MAX_ACTIVE_DELIVERIES_PER_DRIVER,
+        dispatchZoneRadiusKm: DISPATCH_ZONE_RADIUS_KM,
       };
     });
 
@@ -167,6 +193,14 @@ const [clients, businesses] = await Promise.all([
         throw new NotFoundException(`Commande #${orderId} introuvable`);
       }
 
+      // Verrouiller la ligne utilisateur sérialise les acceptations
+      // concurrentes de plusieurs missions par le même livreur.
+      await queryRunner.manager
+        .createQueryBuilder(User, 'u')
+        .setLock('pessimistic_write')
+        .where('u.id = :driverId', { driverId })
+        .getOneOrFail();
+
       const acceptableStatuses = [
         OrderStatus.READY_FOR_PICKUP,
         OrderStatus.PAID,
@@ -188,6 +222,26 @@ const [clients, businesses] = await Promise.all([
         return { success: true, orderId: order.id, status: order.status, driverId, message: 'Déjà assigné' };
       }
 
+      const activeOrders = await queryRunner.manager.getRepository(Order).find({
+        where: {
+          driverId,
+          status: In([...ACTIVE_DELIVERY_STATUSES]),
+        },
+      });
+      const activeDeliveryCount = activeOrders.length;
+
+      if (activeDeliveryCount >= MAX_ACTIVE_DELIVERIES_PER_DRIVER) {
+        throw new BadRequestException(
+          `Vous avez déjà ${MAX_ACTIVE_DELIVERIES_PER_DRIVER} livraisons actives. Terminez-en une avant d'en accepter une autre.`,
+        );
+      }
+
+      if (!isCompatibleDeliveryZone(order, activeOrders)) {
+        throw new BadRequestException(
+          `Cette course est hors de votre zone de cumul (${DISPATCH_ZONE_RADIUS_KM} km). Terminez vos missions actuelles ou acceptez-la avec un autre livreur.`,
+        );
+      }
+
       const alreadyTried = (order.dispatchCandidates || []).some(
         (c) => c.driverId === driverId && c.refused,
       );
@@ -206,7 +260,9 @@ const [clients, businesses] = await Promise.all([
       await queryRunner.manager.save(order);
 
       await queryRunner.manager.update(User, driverId, {
-        isAvailable: false,
+        // Rester disponible jusqu'à la troisième mission permet le cumul
+        // contrôlé. La quatrième acceptation reste bloquée côté serveur.
+        isAvailable: activeDeliveryCount + 1 < MAX_ACTIVE_DELIVERIES_PER_DRIVER,
       });
 
       await queryRunner.commitTransaction();

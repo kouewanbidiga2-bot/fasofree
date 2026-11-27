@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -88,5 +88,13 @@ export class PackageDetailsDto {
   @IsOptional()
   @IsObject()
   @ValidateNested()
+  @Type(() => PackageDimensionsDto)
   dimensions?: PackageDimensionsDto;
+
+  @ApiPropertyOptional({ description: 'Valeur déclarée du colis en FCFA' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  estimatedValue?: number;
 }

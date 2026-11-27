@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -67,7 +67,7 @@ describe('DisputesService', () => {
       { create: jest.fn(), sendToUsers: jest.fn() } as never,
     );
 
-    await service.open(order.id, order.clientId, {
+    await service.open(order.id, order.clientId!, {
       reason: 'Le colis n’a pas été remis au client.',
       password: 'Test@12345',
     });

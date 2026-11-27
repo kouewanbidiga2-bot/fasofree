@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -7,6 +7,9 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ServiceUnavailableException,
+  GoneException,
+  ConflictException,
   ForbiddenException,
   Logger,
   Inject,
@@ -22,7 +25,7 @@ import {
   Not,
   FindOptionsWhere,
 } from 'typeorm';
-import { randomInt, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 
 // Entités et DTOs
 import {
@@ -38,6 +41,7 @@ import {
   TransactionStatus,
 } from '../payments/entities/transaction.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { GuestDeliveryDto } from './dto/guest-delivery.dto';
 import { QuoteOrderDto } from './dto/quote-order.dto';
 
 // Gateways et Services
@@ -255,11 +259,46 @@ export interface AgencyBadge {
   phone: string | null;
 }
 
-/**
- * 🗺️ Payload de suivi live d'une commande (GPS + ETA).
- */
+// La recherche publique est limitée aux livraisons dont le suivi reste actif.
+const REFERENCE_TRACKING_STATUSES = [
+  OrderStatus.PENDING,
+  OrderStatus.AWAITING_PAYMENT,
+  OrderStatus.PAID,
+  OrderStatus.SCHEDULED,
+  OrderStatus.IN_PREPARATION,
+  OrderStatus.READY_FOR_PICKUP,
+  OrderStatus.DRIVER_ASSIGNED,
+  OrderStatus.PROCESSING,
+  OrderStatus.IN_DELIVERY,
+  OrderStatus.DELIVERED_PENDING_CONFIRMATION,
+];
+
+type Coordinates = { latitude: number; longitude: number };
+
+function mapPoint(point: Coordinates | null | undefined, decimals: number) {
+  if (!point || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) return null;
+  // Le formulaire historique utilise le centre de Ouaga en l’absence de GPS.
+  if (point.latitude === 12.3714 && point.longitude === -1.5197) return null;
+  return {
+    latitude: Number(point.latitude.toFixed(decimals)),
+    longitude: Number(point.longitude.toFixed(decimals)),
+  };
+}
+
+function isDriverOnRoute(status: OrderStatus) {
+  return status === OrderStatus.DRIVER_ASSIGNED
+    || status === OrderStatus.PROCESSING || status === OrderStatus.IN_DELIVERY;
+}
+
+function latestSharedDriverPosition(status: OrderStatus, position: DriverLocation | null) {
+  return isDriverOnRoute(status) && position && Date.now() - position.updatedAt <= 5 * 60 * 1000
+    ? position
+    : null;
+}
+
 export interface OrderTrackingPayload {
   orderId: string;
+  trackingReference?: string | null;
   orderType: OrderType;
   status: OrderStatus;
   trackingActive: boolean;
@@ -268,6 +307,7 @@ export interface OrderTrackingPayload {
   trace: OrderTracePoint[];
   businessLocation: { latitude: number; longitude: number } | null;
   pickupLocation: Order['pickupLocation'] | null;
+  dropoffLocation: Order['dropoffLocation'] | null;
   deliveryLocation: Order['deliveryLocation'] | null;
   // 🧭 Provider de livraison (dispatch multi-niveaux) — Phase 0/1
   deliveryProvider: string | null;
@@ -852,7 +892,7 @@ export class OrdersService {
     } else if (dto.orderType === OrderType.RIDE) {
       if (!dto.pickupLocation || !dto.dropoffLocation) {
         throw new BadRequestException(
-          'Les lieux de départ et de destination sont obligatoires pour un devis FasoFree Ride',
+          'Les lieux de départ et de destination sont obligatoires pour un devis Koliwa Ride',
         );
       }
       const estimate = await this.ridePricingService.estimate(
@@ -909,11 +949,11 @@ export class OrdersService {
   }
 
   /**
-   * 🏍️ Création d'une commande FasoFree Ride (VTC / moto-taxi à la demande).
+   * 🏍️ Création d'une commande Koliwa Ride (VTC / moto-taxi à la demande).
    * Calquée sur le flux P2P mais avec un vrai séquestre : le wallet CLIENT est
    * débité du total à la création (statut PAID), les gains livreur sont crédités
    * à la livraison (event `order.delivered`), et la plateforme conserve sa part.
-   * Aucun remboursement client en cas d'imprévu (règles métier FasoFree).
+   * Aucun remboursement client en cas d'imprévu (règles métier Koliwa).
    */
   private async createRideOrder(
     clientId: string,
@@ -923,7 +963,7 @@ export class OrdersService {
 
     if (!pickupLocation || !dropoffLocation) {
       throw new BadRequestException(
-        'Les lieux de départ et de destination sont obligatoires pour une course FasoFree Ride',
+        'Les lieux de départ et de destination sont obligatoires pour une course Koliwa Ride',
       );
     }
 
@@ -955,7 +995,7 @@ export class OrdersService {
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
       rideOption: estimate.rideOption,
       fulfillmentDetails: {
-        notes: `Course FasoFree Ride - ${pickupLocation.address} → ${dropoffLocation.address}`,
+        notes: `Course Koliwa Ride - ${pickupLocation.address} → ${dropoffLocation.address}`,
       },
       productsSubtotal: 0,
       itemsTotal: 0,
@@ -999,7 +1039,7 @@ export class OrdersService {
         totalAmount,
         TransactionReason.ORDER_PAYMENT,
         `ESCROW-${savedOrder.id}`,
-        `Séquestre course FasoFree Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
+        `Séquestre course Koliwa Ride #${savedOrder.id} (${estimate.distanceKm} km)`,
         undefined,
         queryRunner.manager,
       );
@@ -1061,10 +1101,54 @@ export class OrdersService {
    * Flux : validation → commande AWAITING_PAYMENT → SasPay → redirect
    * En cas d'échec SasPay, la commande et la transaction sont nettoyées.
    */
+  async createGuestDelivery(dto: GuestDeliveryDto) {
+    const keyHash = createHash('sha256').update(dto.checkoutKey).digest('hex');
+    const where = { guestCheckoutKeyHash: keyHash };
+    let order = await this.orderRepository.findOne({ where });
+    if (!order) {
+      try {
+        const created = await this.createP2POrder(null, {
+          orderType: OrderType.P2P_DELIVERY,
+          pickupLocation: dto.pickupLocation,
+          dropoffLocation: dto.dropoffLocation,
+          packageDetails: dto.packageDetails,
+        }, { keyHash, name: dto.name.trim(), phone: dto.phone, email: dto.email.trim() });
+        return {
+          orderId: created.order.id,
+          trackingReference: created.order.trackingReference,
+          trackingToken: created.trackingToken,
+          checkoutUrl: created.checkoutUrl,
+        };
+      } catch (error) {
+        // Deux requêtes de la même session peuvent arriver en parallèle.
+        if (error?.code !== '23505') throw error;
+        order = await this.orderRepository.findOne({ where });
+        if (!order) throw error;
+      }
+    }
+
+    if ([OrderStatus.FAILED, OrderStatus.CANCELLED, OrderStatus.REFUNDED].includes(order.status)) {
+      throw new GoneException('Ce paiement a expiré. Vous pouvez relancer le paiement.');
+    }
+    const transaction = await this.transactionRepository.findOne({ where: { orderId: order.id } });
+    if (order.status === OrderStatus.AWAITING_PAYMENT && !transaction?.gatewayCheckoutUrl) {
+      throw new ConflictException('Le paiement se prépare. Réessayez dans un instant.');
+    }
+
+    return {
+      orderId: order.id,
+      trackingReference: order.trackingReference,
+      trackingToken: this.createPublicTrackingToken(order.id),
+      checkoutUrl: order.status === OrderStatus.AWAITING_PAYMENT ? transaction?.gatewayCheckoutUrl : null,
+    };
+  }
+
+
   private async createP2POrder(
-    clientId: string,
+    clientId: string | null,
     dto: CreateOrderDto,
-  ): Promise<{ order: Order; checkoutUrl: string }> {
+    guest?: { keyHash: string; name: string; phone: string; email: string },
+  ): Promise<{ order: Order; checkoutUrl: string; trackingToken: string }> {
     const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
       dto;
 
@@ -1075,19 +1159,13 @@ export class OrdersService {
       );
     }
 
-    // Vérifier et normaliser le téléphone du client
-    const client = await this.usersService.findById(clientId);
-    if (!client?.phone) {
-      throw new BadRequestException(
-        'Un numéro de téléphone est obligatoire pour le paiement. Ajoutez un numéro dans votre profil.',
-      );
+    const client = clientId ? await this.usersService.findById(clientId) : null;
+    const payer = guest ?? client;
+    const normalizedPhone = payer?.phone ? this.normalizePhone(payer.phone) : null;
+    if (!normalizedPhone || !payer?.email) {
+      throw new BadRequestException('Renseignez un e-mail et un numéro burkinabè valides pour le paiement.');
     }
-    const normalizedPhone = this.normalizePhone(client.phone);
-    if (!normalizedPhone) {
-      throw new BadRequestException(
-        `Le numéro de téléphone "${client.phone}" n'est pas valide. Utilisez le format +226 XX XX XX XX.`,
-      );
-    }
+    const payerName = guest?.name || client?.fullName || 'Client Koliwa';
 
     // ─── 2. CALCUL DU PRIX ────────────────────────────────────────────────
     const deliveryCalculation =
@@ -1103,7 +1181,7 @@ export class OrdersService {
     const financials = await this.pricingService.calculateFinancials(
       0,
       deliveryCalculation.price,
-      { clientId, orderType: OrderType.P2P_DELIVERY },
+      { clientId: clientId ?? undefined, orderType: OrderType.P2P_DELIVERY },
     );
     const totalAmount = financials.totalAmount;
 
@@ -1114,8 +1192,10 @@ export class OrdersService {
     // ─── 3. CRÉER COMMANDE + TRANSACTION ──────────────────────────────────
     const order = this.orderRepository.create({
       clientId,
+      guestCheckoutKeyHash: guest?.keyHash,
       businessId: undefined,
       orderType: OrderType.P2P_DELIVERY,
+      trackingReference: randomBytes(10).toString('hex').toUpperCase(),
       fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
       fulfillmentDetails: { notes: packageDetails?.description },
       productsSubtotal: 0,
@@ -1136,24 +1216,25 @@ export class OrdersService {
         longitude: dropoffLocation.longitude,
       },
       status: OrderStatus.AWAITING_PAYMENT,
-      deliveryPinCode: null,
+      deliveryPinCode: this.generateDeliveryPin(),
       driverId: null,
       driverValidatedAt: null,
       clientValidatedAt: null,
     });
 
-    const savedOrder = await this.orderRepository.save(order);
-    savedOrder.deliveryPinCode = this.generateDeliveryPin();
-    await this.orderRepository.save(savedOrder);
-
-    const transaction = this.transactionRepository.create({
-      orderId: savedOrder.id,
-      reference: this.generateTransactionReference(savedOrder.id),
-      amount: totalAmount,
-      commissionAmount: financials.platformCommission,
-      status: TransactionStatus.PENDING,
+    const { savedOrder, transaction } = await this.dataSource.transaction(async manager => {
+      const savedOrder = await manager.save(Order, order);
+      const transaction = manager.create(Transaction, {
+        orderId: savedOrder.id,
+        reference: this.generateTransactionReference(savedOrder.id),
+        amount: totalAmount,
+        commissionAmount: financials.platformCommission,
+        status: TransactionStatus.PENDING,
+      });
+      return { savedOrder, transaction: await manager.save(Transaction, transaction) };
     });
-    await this.transactionRepository.save(transaction);
+    const trackingToken = this.createPublicTrackingToken(savedOrder.id);
+
 
     this.logger.log(
       `[P2P Order] #${savedOrder.id} créée (AWAITING_PAYMENT) — Total: ${totalAmount} FCFA`,
@@ -1163,19 +1244,25 @@ export class OrdersService {
     // Le client choisit son opérateur sur la page SasPay : aucun moyen n'est
     // demandé à l'avance pour une livraison P2P.
     try {
-      const successUrl =
+      const configuredSuccessUrl =
         this.configService.get<string>('P2P_SUCCESS_URL') ||
         'https://fasofree.site/p2p/success';
+      const successUrl = new URL(configuredSuccessUrl);
+      successUrl.searchParams.set('orderId', savedOrder.id);
+      successUrl.searchParams.set('trackingToken', trackingToken);
+      if (savedOrder.trackingReference) {
+        successUrl.searchParams.set('reference', savedOrder.trackingReference);
+      }
       const session = await this.sasPayService.createCheckoutSession({
         amount: totalAmount,
         description: `Livraison FasoColis #${savedOrder.id.slice(0, 8)}`,
-        customerEmail: client.email,
-        customerName: client.fullName || 'Client FasoFree',
+        customerEmail: payer.email,
+        customerName: payerName,
         customerPhone: normalizedPhone ?? undefined,
-        returnUrl: successUrl,
+        returnUrl: successUrl.toString(),
         metadata: {
           order_id: savedOrder.id,
-          user_id: clientId,
+          ...(clientId ? { user_id: clientId } : {}),
           order_type: OrderType.P2P_DELIVERY,
         },
       });
@@ -1195,7 +1282,7 @@ export class OrdersService {
         `[P2P Order] #${savedOrder.id} — session SasPay créée, redirect vers checkout`,
       );
 
-      return { order: savedOrder, checkoutUrl };
+      return { order: { ...savedOrder, deliveryPinCode: null }, checkoutUrl, trackingToken };
     } catch (payError) {
       // ╔══════════════════════════════════════════════════════════════════╗
       // ║ CLEANUP : si SasPay échoue, la commande et la transaction passent║
@@ -1215,6 +1302,7 @@ export class OrdersService {
         status: OrderStatus.FAILED,
       });
 
+      if (guest) throw new ServiceUnavailableException('Le paiement est momentanément indisponible. Réessayez.');
       throw new BadRequestException(
         `Le paiement SasPay a échoué: ${payError instanceof Error ? payError.message : 'Erreur inconnue'}. La commande a été annulée.`,
       );
@@ -1433,7 +1521,7 @@ export class OrdersService {
         clients.map((c: any) => [c.id, c]),
       );
       return orders.map((o) => {
-        const client = clientMap.get(o.clientId);
+        const client = clientMap.get(o.clientId ?? '');
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
         return {
@@ -1513,7 +1601,7 @@ export class OrdersService {
         clients.map((c: any) => [c.id, c]),
       );
       return orders.map((o) => {
-        const client = clientMap.get(o.clientId);
+        const client = clientMap.get(o.clientId ?? '');
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
         return {
@@ -1579,7 +1667,7 @@ export class OrdersService {
         clients.map((c: any) => [c.id, c]),
       );
       return orders.map((o) => {
-        const client = clientMap.get(o.clientId);
+        const client = clientMap.get(o.clientId ?? '');
         const name = client?.fullName || 'Client inconnu';
         const phone = client?.phone || 'Non disponible';
         return {
@@ -1806,6 +1894,11 @@ export class OrdersService {
     role: UserRole,
   ): Promise<OrderTrackingPayload> {
     const order = await this.findOneForUser(id, userId, role);
+    return this.buildOrderTracking(order);
+  }
+
+  private async buildOrderTracking(order: Order): Promise<OrderTrackingPayload> {
+    const id = order.id;
 
     // 🏢 Lot 1 : la société de livraison est identifiée, jamais anonymisée.
     const agency = await this.getOrderAgencyBadge(order);
@@ -1866,19 +1959,176 @@ export class OrdersService {
     return {
       orderId: order.id,
       orderType: order.orderType,
+      trackingReference: order.trackingReference ?? null,
       status: order.status,
-      trackingActive: order.status === OrderStatus.PROCESSING,
+      trackingActive: order.orderType === OrderType.P2P_DELIVERY
+        ? isDriverOnRoute(order.status)
+        : order.status === OrderStatus.PROCESSING,
       driverId: order.driverId ?? null,
-      driverLocation,
+      driverLocation: order.orderType === OrderType.P2P_DELIVERY
+        ? latestSharedDriverPosition(order.status, driverLocation)
+        : driverLocation,
       trace,
       businessLocation,
       pickupLocation: order.pickupLocation ?? null,
+      dropoffLocation: order.dropoffLocation ?? null,
       deliveryLocation: order.deliveryLocation ?? null,
       deliveryProvider: order.deliveryProvider ?? null,
       deliveryProviderStatus: order.deliveryProviderStatus ?? null,
       agency,
       eta,
     };
+  }
+
+  /**
+   * Génère un lien de suivi partageable avec le destinataire.
+   * Le token est signé, ne contient aucune donnée personnelle et expire
+   * automatiquement. Il n'est jamais nécessaire de créer un compte receveur.
+   */
+  createPublicTrackingToken(orderId: string, ttlDays = 30): string {
+    const expiresAt = Date.now() + ttlDays * 24 * 60 * 60 * 1000;
+    const payload = `${orderId}.${expiresAt}`;
+    const signature = createHmac('sha256', this.publicTrackingSecret())
+      .update(payload)
+      .digest('base64url');
+    return Buffer.from(`${payload}.${signature}`).toString('base64url');
+  }
+
+  /**
+   * Retourne le suivi public strictement nécessaire au destinataire.
+   * Le contrôle de signature et d'expiration est effectué avant toute lecture.
+   */
+  async getPublicTracking(token: string) {
+    const orderId = this.resolvePublicTrackingOrderId(token);
+    const order = await this.orderRepository.findOne({ where: { id: orderId } });
+    if (!order) {
+      throw new NotFoundException('Livraison introuvable');
+    }
+
+    const tracking = order.clientId
+      ? await this.getOrderTracking(order.id, order.clientId, UserRole.CLIENT)
+      : await this.buildOrderTracking(order);
+    const driverLocation = latestSharedDriverPosition(tracking.status, tracking.driverLocation);
+    const pickupLocation = mapPoint(tracking.pickupLocation, 6);
+    const destination = tracking.dropoffLocation ?? tracking.deliveryLocation;
+    const dropoffLocation = mapPoint(destination, 6);
+
+    return {
+      orderId: tracking.orderId,
+      trackingReference: tracking.trackingReference,
+      status: tracking.status,
+      pickupLocation: pickupLocation && { ...pickupLocation, address: tracking.pickupLocation?.address },
+      dropoffLocation: dropoffLocation && { ...dropoffLocation, address: tracking.dropoffLocation?.address },
+      driverLocation,
+      eta: driverLocation && dropoffLocation ? { totalMinutes: tracking.eta.totalMinutes } : null,
+    };
+  }
+
+  async getActiveTrackingByReference(input: unknown) {
+    const reference = typeof input === 'string' && input.length <= 40
+      ? input.trim().toUpperCase().replace(/[\s-]+/g, '').replace(/^KW/, '')
+      : '';
+    if (!/^[0-9A-F]{20}$/.test(reference)) {
+      throw new BadRequestException('Vérifiez le numéro de suivi Koliwa.');
+    }
+
+    const order = await this.orderRepository.findOne({
+      where: {
+        trackingReference: reference,
+        orderType: OrderType.P2P_DELIVERY,
+        status: In(REFERENCE_TRACKING_STATUSES),
+      },
+    });
+    if (!order) {
+      throw new NotFoundException('Aucune livraison active pour ce numéro.');
+    }
+
+    // La référence sert à lire le trajet, le lien signé garde la remise par PIN.
+    const tracking = order.clientId
+      ? await this.getOrderTracking(order.id, order.clientId, UserRole.CLIENT)
+      : await this.buildOrderTracking(order);
+    if (!REFERENCE_TRACKING_STATUSES.includes(tracking.status)) {
+      throw new NotFoundException('Aucune livraison active pour ce numéro.');
+    }
+
+    const pickupLocation = mapPoint(tracking.pickupLocation, 3);
+    const dropoffLocation = mapPoint(tracking.dropoffLocation ?? tracking.deliveryLocation, 3);
+    const livePosition = latestSharedDriverPosition(tracking.status, tracking.driverLocation);
+    const driverPoint = mapPoint(livePosition, 4);
+
+    return {
+      trackingReference: reference,
+      status: tracking.status,
+      pickupLocation,
+      dropoffLocation,
+      driverLocation: livePosition && driverPoint ? { ...driverPoint, updatedAt: livePosition.updatedAt } : null,
+      eta: driverPoint && dropoffLocation ? { totalMinutes: tracking.eta.totalMinutes } : null,
+    };
+  }
+
+  /** Validation publique : le receveur confirme avec le PIN, sans compte. */
+  async confirmPublicTracking(token: string, pinCode: string) {
+    const orderId = this.resolvePublicTrackingOrderId(token);
+    const order = await this.clientValidateWithPin(orderId, null, pinCode);
+    return { status: order.status };
+  }
+
+  async resendPublicDeliveryPin(token: string) {
+    const id = this.resolvePublicTrackingOrderId(token);
+    const order = await this.orderRepository.findOne({
+      where: { id, orderType: OrderType.P2P_DELIVERY, status: OrderStatus.DELIVERED_PENDING_CONFIRMATION },
+      select: { id: true, deliveryPinCode: true, dropoffLocation: true },
+    });
+    if (!order) throw new BadRequestException('La course doit être en attente de remise.');
+    if (!await this.sendRecipientPin(order)) {
+      throw new ServiceUnavailableException('Le SMS est indisponible. Réessayez ou contactez le support.');
+    }
+    return { sent: true };
+  }
+
+  private async sendRecipientPin(order: Order) {
+    const phone = order.dropoffLocation?.contactPhone;
+    if (!phone || !order.deliveryPinCode) return false;
+    return this.smsService.sendSms(phone, 'Koliwa — Code de réception : ' + order.deliveryPinCode + '. À utiliser lors de la remise du colis.');
+  }
+
+  private resolvePublicTrackingOrderId(token: string): string {
+    try {
+      const decoded = Buffer.from(token, 'base64url').toString('utf8');
+      const parts = decoded.split('.');
+      if (parts.length !== 3) {
+        throw new Error('invalid token');
+      }
+
+      const [orderId, expiresAtText, signature] = parts;
+      const expiresAt = Number(expiresAtText);
+      if (!orderId || !Number.isFinite(expiresAt) || expiresAt < Date.now()) {
+        throw new Error('expired token');
+      }
+
+      const expected = createHmac('sha256', this.publicTrackingSecret())
+        .update(`${orderId}.${expiresAtText}`)
+        .digest('base64url');
+      const actualBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expected);
+      if (
+        actualBuffer.length !== expectedBuffer.length ||
+        !timingSafeEqual(actualBuffer, expectedBuffer)
+      ) {
+        throw new Error('invalid signature');
+      }
+      return orderId;
+    } catch {
+      throw new NotFoundException('Lien de suivi invalide ou expiré');
+    }
+  }
+
+  private publicTrackingSecret(): string {
+    const secret = this.configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error('JWT_SECRET est requis pour signer les liens de suivi');
+    }
+    return secret;
   }
 
   /**
@@ -2458,6 +2708,7 @@ export class OrdersService {
       await this.orderRepository.update(ride.id, {
         status: OrderStatus.FAILED,
       });
+      if (!ride.clientId) continue;
       await this.walletService.creditWallet(
         ride.clientId,
         WalletUserRole.CUSTOMER,
@@ -2494,7 +2745,7 @@ export class OrdersService {
       throw new NotFoundException(`La commande #${orderId} est introuvable.`);
     }
 
-    if (order.driverId && order.driverId !== driverId) {
+    if (order.driverId !== driverId) {
       throw new ForbiddenException(
         "Vous n'êtes pas le livreur assigné à cette commande",
       );
@@ -2548,6 +2799,13 @@ export class OrdersService {
       `[Driver Validated] Commande #${orderId} marquée livrée par le livreur ${driverId}. En attente de confirmation du client.`,
     );
 
+    if (saved.orderType === OrderType.P2P_DELIVERY) {
+      // Le destinataire reçoit le code. Les abonnés du suivi voient seulement le statut.
+      void this.sendRecipientPin(saved).catch(() => {
+        this.logger.warn(`SMS de remise indisponible pour la livraison ${saved.id}`);
+      });
+    }
+
     // Notifier le client en temps réel
     try {
       this.dispatchGateway.server
@@ -2557,13 +2815,13 @@ export class OrdersService {
             ? 'Le livreur a marqué votre commande comme livrée. Confirmez la réception avec votre code de commande.'
             : 'Le livreur a marqué votre commande comme livrée. Vous pouvez confirmer la réception.',
           orderId,
-          orderCode: saved.deliveryPinCode ?? undefined,
+          orderCode: saved.orderType === OrderType.P2P_DELIVERY ? undefined : saved.deliveryPinCode ?? undefined,
         });
     } catch (e) {
       this.logger.warn(`Notification WebSocket échouée: ${e?.message}`);
     }
 
-    return saved;
+    return saved.orderType === OrderType.P2P_DELIVERY ? { ...saved, deliveryPinCode: null } : saved;
   }
 
   // ========================================================================
@@ -2572,7 +2830,7 @@ export class OrdersService {
   // ========================================================================
   async clientValidateWithPin(
     orderId: string,
-    clientId: string,
+    clientId: string | null,
     pinCode: string,
   ): Promise<Order> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -2591,7 +2849,7 @@ export class OrdersService {
         throw new NotFoundException(`Commande #${orderId} introuvable`);
       }
 
-      if (order.clientId !== clientId) {
+      if (clientId && order.clientId !== clientId) {
         throw new ForbiddenException('Cette commande ne vous appartient pas');
       }
 
@@ -2833,6 +3091,7 @@ export class OrdersService {
     order: Order,
     previousStatus: OrderStatus,
   ): Promise<void> {
+    if (!order.clientId) return;
     try {
       // 📨 Notifications in-app + push FCM uniquement (jamais d'e-mail /
       // SMS / WhatsApp) : `notificationStore.create` dépose la notification
@@ -2840,7 +3099,7 @@ export class OrdersService {
       //
       // 🏢 Lot 1 : quand une société de livraison a pris la course, on la
       // NOMME dans les messages. Sans cela le client ne saurait jamais que
-      // c'est « Transport X » qui a livré, et FasoFree en récolterait le mérite.
+      // c'est « Transport X » qui a livré, et Koliwa en récolterait le mérite.
       const agency = await this.getOrderAgencyBadge(order);
       const agencySuffix = agency ? ` de ${agency.name}` : '';
 
@@ -3045,6 +3304,7 @@ export class OrdersService {
       .where('o.status = :status', {
         status: OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       })
+      .andWhere('o.orderType <> :p2pType', { p2pType: OrderType.P2P_DELIVERY })
       .andWhere('o.driverValidatedAt < :cutoff', {
         cutoff: twentyFourHoursAgo,
       })

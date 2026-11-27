@@ -1,17 +1,13 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { AssistantController } from './assistant.controller';
 import { AssistantService } from './assistant.service';
-import { Product } from '../products/entities/product.entity';
-import { Business } from '../businesses/entities/business.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, Business])],
   controllers: [AssistantController],
   providers: [AssistantService],
 })
