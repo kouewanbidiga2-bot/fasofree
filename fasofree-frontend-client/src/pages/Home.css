@@ -7,7 +7,7 @@
 }
 
 .client-shell.client-shell--landing {
-  --kw-home-paper: #f0f2ed;
+  --kw-home-paper: #eaf6c8;
   --kw-home-type: 'Bricolage Grotesque', 'Arial Narrow', system-ui, sans-serif;
   --kw-home-clay: #df5527;
   --kw-home-bar-inset: clamp(12px, 1.6vw, 24px);

@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -85,11 +85,11 @@ export default function AssistantWidget({ hideLauncher = false } = {}) {
       openPanel();
       startVoice();
     };
-    window.addEventListener('fasofree:open-assistant', openPanel);
-    window.addEventListener('fasofree:voice-command', openAndListen);
+    window.addEventListener('koliwa:open-assistant', openPanel);
+    window.addEventListener('koliwa:voice-command', openAndListen);
     return () => {
-      window.removeEventListener('fasofree:open-assistant', openPanel);
-      window.removeEventListener('fasofree:voice-command', openAndListen);
+      window.removeEventListener('koliwa:open-assistant', openPanel);
+      window.removeEventListener('koliwa:voice-command', openAndListen);
     };
   }, [openPanel, startVoice]);
 

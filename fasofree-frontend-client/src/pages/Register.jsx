@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 BIDIGA Imrane - FasoFree. All rights reserved.
+ * Copyright (c) 2026 BIDIGA Imrane - Koliwa. All rights reserved.
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
@@ -438,7 +438,7 @@ const Register = () => {
             type="button"
             className="client-tool"
             aria-label="Aide Koliwa"
-            onClick={() => window.dispatchEvent(new Event('fasofree:open-assistant'))}
+            onClick={() => window.dispatchEvent(new Event('koliwa:open-assistant'))}
           >
             <DeliveryGlyph kind="help" />
           </button>

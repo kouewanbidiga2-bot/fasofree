@@ -58,7 +58,7 @@ export default function LandingMasthead({ isAuthenticated, unreadCount, onOpenNo
               )}
               <button type="button" onClick={() => {
                 close();
-                window.dispatchEvent(new Event('fasofree:open-assistant'));
+                window.dispatchEvent(new Event('koliwa:open-assistant'));
               }}>Aide Koliwa</button>
               <PWAInstallButton />
             </div>
