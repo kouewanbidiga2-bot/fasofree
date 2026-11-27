@@ -92,7 +92,7 @@ export default function UserMenu() {
           {(currentRole === 'DRIVER' || currentRole === 'COURIER') && (
             <DropdownMenu.Item asChild>
               <a
-                href="https://admin.fasofree.site/livreur"
+                href="https://admin.fasofree.site"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={itemClass}
