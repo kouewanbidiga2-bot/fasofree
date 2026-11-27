@@ -7,7 +7,7 @@ mecanisme: renvoi-cgu-contrats
 audience: tous
 ---
 
-# POLITIQUE ANTI-FRAUDE FASOFREE
+# POLITIQUE ANTI-FRAUDE Koliwa
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**

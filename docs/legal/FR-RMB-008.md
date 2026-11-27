@@ -7,7 +7,7 @@ mecanisme: rattachement-litiges
 audience: client
 ---
 
-# POLITIQUE DE REMBOURSEMENT ET D'ANNULATION FASOFREE
+# POLITIQUE DE REMBOURSEMENT ET D'ANNULATION Koliwa
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**

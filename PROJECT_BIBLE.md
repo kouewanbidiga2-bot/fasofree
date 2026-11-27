@@ -95,7 +95,7 @@
 - Mode mock (simulation)
 - Portefeuille (wallet) par rôle : CLIENT, DRIVER, BUSINESS_ADMIN
 - Top-up portefeuille
-- Taux de commission FasoFree : 0.85%
+- Taux de commission Koliwa : 0.85%
 
 ### Notifications Multi-canaux
 - **Email** (Resend) : approbation/rejet candidature
@@ -116,7 +116,7 @@
 - Approbation/rejet remboursement
 - Révision client
 
-### Abonnements (FasoFree Pass VIP)
+### Abonnements (Koliwa Pass VIP)
 - Plans d'abonnement (PRO, VIP)
 - Souscription client et marchand
 - Renouvellement automatique
@@ -419,7 +419,7 @@ FIREBASE_SERVICE_ACCOUNT_JSON=...
 
 ### Frontend
 - Un service par domaine (authService, orderService, etc.)
-- État global via Zustand stores (authStore, cartStore)
+- État global via Zustand stores (authStore, notificationStore)
 - Appels API centralisés (api.js)
 - CSS utility-first (className dynamiques)
 - PWA : manifest.json + service worker

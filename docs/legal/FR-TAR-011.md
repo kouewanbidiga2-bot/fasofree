@@ -7,7 +7,7 @@ mecanisme: acceptation-grille
 audience: commercant-livreur
 ---
 
-# ANNEXES TARIFAIRES FASOFREE (MATRICE)
+# ANNEXES TARIFAIRES Koliwa (MATRICE)
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**

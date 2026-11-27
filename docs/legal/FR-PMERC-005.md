@@ -7,13 +7,13 @@ mecanisme: signature-otp
 audience: commercant
 ---
 
-# FASOFREE
+# Koliwa
 
 # CONTRAT-CADRE DE PARTENARIAT COMMERCIAL
 
 **Entre les soussignés :**
 
-**FASOFREE / [DÉNOMINATION SOCIALE]**, [forme juridique], immatriculée au RCCM sous le numéro [●], IFU [●], dont le siège est situé à [●], représentée par [●], dûment habilité(e),
+**Koliwa / [DÉNOMINATION SOCIALE]**, [forme juridique], immatriculée au RCCM sous le numéro [●], IFU [●], dont le siège est situé à [●], représentée par [●], dûment habilité(e),
 
 Ci-après « Koliwa »,
 
@@ -180,7 +180,7 @@ Le Commerçant doit prendre des mesures raisonnables pour empêcher toute contam
 
 ---
 
-## ARTICLE 10 — COMMISSION FASOFREE
+## ARTICLE 10 — COMMISSION Koliwa
 
 En contrepartie des services fournis, Koliwa peut percevoir une commission selon les conditions commerciales applicables au compte du Commerçant.
 

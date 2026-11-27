@@ -1,376 +1,180 @@
 ---
 doc: FR-CGU-001
-version: 1.0
+version: 1.1
 statut: a-relire-avocat
-date: 2026-09-27
+date: 2026-11-25
 mecanisme: case-a-cocher
 audience: client
 ---
+# CONDITIONS GÉNÉRALES D'UTILISATION DE KOLIWA
 
-# CONDITIONS GÉNÉRALES D'UTILISATION DE FASOFREE
+**Version : 1.1**
+**Date d'entrée en vigueur : 25 novembre 2026**
 
-**Version : 1.0**
-**Date d'entrée en vigueur : [DATE]**
+## ARTICLE 1 — ÉDITEUR ET OBJET
 
-## ARTICLE 1 — IDENTIFICATION DE FASOFREE
+Koliwa est un service de livraison urbaine et de mise en relation exploité par Koliwa à Ouagadougou, au Burkina Faso.
 
-La plateforme FasoFree est exploitée par :
+Contact : fasofree2@gmail.com
 
-**[DÉNOMINATION SOCIALE]**
-[FORME JURIDIQUE]
-[RCCM]
-[IFU]
-[SIÈGE SOCIAL]
-[CONTACT]
-[E-MAIL]
+Les présentes Conditions Générales d'Utilisation (« CGU ») définissent les règles d'accès et d'utilisation de l'application mobile, du site internet et des services Koliwa (ensemble « la Plateforme »). Elles s'appliquent à toute personne qui crée un compte, consulte la Plateforme ou passe une commande.
 
-Ci-après dénommée « FasoFree ».
+Les CGU complètent les [Conditions générales de vente](FR-CGV-004.md), la [Politique de confidentialité](FR-PRIV-002.md) et la [Politique de cookies et traceurs](FR-COOK-003.md). En cas de contradiction sur une commande, les CGV prévalent sur les CGU.
 
 ## ARTICLE 2 — DÉFINITIONS
 
-Dans les présentes :
+**Plateforme** : l'application Koliwa, son site web, ses interfaces et ses systèmes.
 
-**Plateforme** désigne l'ensemble des applications, sites, interfaces et systèmes FasoFree.
+**Client** : toute personne physique ou morale qui utilise la Plateforme pour envoyer, faire livrer ou suivre un colis.
 
-**Client** désigne toute personne utilisant FasoFree pour commander, réserver ou utiliser un service.
+**Coursier ou Livreur** : le prestataire indépendant qui exécute une mission de livraison pour le compte du Client.
 
-**Commerçant** désigne tout restaurant, magasin, commerce ou professionnel proposant ses produits ou services sur FasoFree.
+**Commerçant** : le commerce, restaurant ou professionnel partenaire qui confie ses livraisons à Koliwa.
 
-**Livreur** désigne le prestataire ou opérateur autorisé à effectuer des livraisons via la plateforme.
+**Commande** : toute demande de livraison, de retrait ou de course enregistrée sur la Plateforme.
 
-**Commande** désigne toute demande d'achat ou de livraison enregistrée via FasoFree.
+**Compte** : l'espace personnel du Client, identifié par un numéro de téléphone ou une adresse e-mail.
 
-**Course** désigne une mission de livraison attribuée à un livreur.
-
-**Compte** désigne l'espace personnel créé par un utilisateur.
+**Contenu** : textes, images, données et informations publiés ou transmis via la Plateforme.
 
 ## ARTICLE 3 — ACCEPTATION
 
-L'accès ou l'utilisation de FasoFree implique l'acceptation des présentes CGU.
+L'utilisation de la Plateforme vaut acceptation pleine et entière des CGU.
 
-Lorsqu'une fonctionnalité l'exige, l'utilisateur devra confirmer expressément son acceptation.
+Lors de la création d'un compte, le Client coche expressément la case d'acceptation des CGU et de la Politique de confidentialité. Cette acceptation est enregistrée avec la date, l'heure, la version du document accepté et l'identifiant technique du compte.
 
-L'acceptation électronique peut être enregistrée avec :
-
-* date et heure ;
-* identifiant du compte ;
-* adresse IP ou identifiant technique lorsque disponible ;
-* version du document accepté ;
-* preuve du clic ou de l'action d'acceptation.
-
-Cette preuve pourra être conservée conformément aux règles applicables.
+Le Client qui n'accepte pas les CGU ne peut pas utiliser les services nécessitant un compte. Il peut néanmoins utiliser les fonctionnalités de suivi public proposées sans compte.
 
 ## ARTICLE 4 — CONDITIONS D'ACCÈS
 
-L'utilisateur doit fournir des informations exactes, complètes et actualisées.
+Le Client doit être âgé de dix-huit ans au moins et disposer de la capacité juridique de contracter.
+
+Il s'engage à fournir des informations exactes, complètes et à jour : nom, numéro de téléphone joignable, adresse de livraison et, le cas échéant, adresse e-mail.
 
 Il est interdit :
 
-* de créer un compte sous une fausse identité ;
-* d'utiliser l'identité d'une autre personne ;
-* de fournir de faux documents ;
-* de créer plusieurs comptes afin de contourner une restriction ;
-* de vendre, louer ou transférer un compte ;
-* d'utiliser un compte à des fins frauduleuses.
+* de créer un compte sous une fausse identité ou avec les informations d'un tiers ;
+* de fournir de faux documents ou de fausses preuves de paiement ;
+* de créer plusieurs comptes pour contourner une suspension ou une limitation ;
+* de vendre, louer ou transférer son compte ;
+* d'utiliser la Plateforme à des fins illicites ou contraires à l'ordre public.
 
-FasoFree peut suspendre un compte lorsque des informations essentielles sont manifestement fausses, incohérentes ou frauduleuses.
+Koliwa peut demander une vérification du numéro de téléphone par code à usage unique (OTP) ou tout autre moyen raisonnable de vérification.
 
-## ARTICLE 5 — SÉCURITÉ DU COMPTE
+## ARTICLE 5 — DESCRIPTION DES SERVICES
 
-L'utilisateur est responsable de la confidentialité de ses identifiants et de son téléphone.
+Koliwa met en relation des Clients, des Commerçants et des Coursiers afin de permettre :
 
-Il doit immédiatement signaler toute utilisation non autorisée.
+* l'envoi d'un colis d'un point à un autre à Ouagadougou et dans les zones desservies ;
+* le retrait en boutique d'un achat déjà payé, puis sa livraison à l'adresse indiquée ;
+* le suivi de l'avancement d'une livraison en temps réel ;
+* la gestion de l'historique des livraisons et des réclamations.
 
-Toute opération effectuée depuis un compte peut être présumée avoir été effectuée par son titulaire, sauf preuve contraire ou compromission signalée dans des conditions permettant une vérification.
+Koliwa agit comme opérateur de coordination et fournisseur de la Plateforme. Sauf mention contraire, le Commerçant demeure le vendeur des produits qu'il propose et le Coursier exécute la mission de transport dans le cadre de son activité indépendante.
 
-## ARTICLE 6 — SERVICES PROPOSÉS
+Les délais affichés sont des estimations raisonnables. Ils peuvent varier selon la circulation, la météo, la disponibilité des coursiers ou les conditions d'accès à l'adresse.
 
-FasoFree peut notamment permettre :
+## ARTICLE 6 — OBLIGATIONS DU CLIENT
 
-1. la livraison immédiate ;
-2. les commandes planifiées ;
-3. les commandes de groupe ;
-4. les réservations de table ;
-5. le paiement de commandes ;
-6. le suivi d'une livraison ;
-7. la mise en relation entre clients, commerçants et livreurs.
+Le Client s'engage à :
 
-Les fonctionnalités effectivement disponibles peuvent varier selon la zone géographique, les partenaires et les capacités techniques.
+* emballer correctement ses colis et en garantir la conformité au transport ;
+* ne pas confier de produits illicites, dangereux, inflammables, explosifs, stupéfiants, armes ou objets interdits par la réglementation burkinabè ;
+* déclarer avec exactitude la nature, le poids et la valeur du colis lorsqu'ils sont demandés ;
+* fournir une adresse précise, accessible et un numéro de téléphone joignable pendant toute la durée de la livraison ;
+* être présent ou représenté à l'adresse indiquée au moment de la remise ;
+* régler le montant dû selon le mode de paiement choisi.
 
-## ARTICLE 7 — RÔLE DE FASOFREE
+Le Client demeure responsable du contenu de son colis. Koliwa et le Coursier peuvent refuser ou interrompre une livraison en cas de doute légitime sur la nature du contenu ou sur les conditions de sécurité.
 
-Sauf stipulation contraire, FasoFree fournit une infrastructure technologique permettant la mise en relation et la coordination des utilisateurs.
+## ARTICLE 7 — COMMANDES ET PRIX
 
-Le commerçant demeure responsable :
+Le prix affiché avant validation comprend, selon le cas, les frais de livraison, les frais de service et les éventuels suppléments (poids, distance, urgence, zone).
 
-* de ses produits ;
-* de la préparation ;
-* de l'exactitude du menu ;
-* des prix affichés ;
-* de la disponibilité ;
-* de la conformité réglementaire de son activité.
+Le Client vérifie le récapitulatif (adresses, nature du colis, montant) avant de confirmer sa commande. La validation vaut acceptation du prix affiché.
 
-Le livreur demeure responsable de l'exécution de la livraison qui lui est confiée, conformément à son contrat et aux règles applicables.
+Les tarifs applicables sont ceux en vigueur au moment de la validation. Ils peuvent évoluer pour les commandes futures, sans effet sur une commande déjà confirmée.
 
-## ARTICLE 8 — COMMANDE
+## ARTICLE 8 — PAIEMENT
 
-Lorsqu'un client valide une commande, il reconnaît avoir vérifié :
+Les moyens de paiement disponibles sont affichés dans l'application, notamment le Mobile Money et le paiement en espèces à la livraison lorsque cette option est proposée.
 
-* les produits ;
-* les quantités ;
-* l'adresse ;
-* les frais ;
-* le mode de paiement ;
-* le montant total ;
-* les conditions particulières affichées.
+Le Client garantit disposer des fonds nécessaires. En cas d'échec de paiement, la commande peut être suspendue ou annulée.
 
-Une commande peut être refusée ou annulée lorsqu'un produit est indisponible, qu'un partenaire ne peut l'exécuter, qu'une anomalie technique survient ou pour toute autre cause légitime.
+Toute preuve de paiement falsifiée constitue un manquement grave et peut entraîner la suspension du compte.
 
-## ARTICLE 9 — COMMANDES PLANIFIÉES
+## ARTICLE 9 — SUIVI ET GÉOLOCALISATION
 
-Pour une commande planifiée, l'heure affichée constitue une estimation ou une fenêtre d'exécution lorsque cela est précisé.
+Pendant une livraison active, la Plateforme peut afficher la position du Coursier et l'état d'avancement de la mission.
 
-Les délais peuvent être affectés notamment par :
+Le Client autorise la collecte des données strictement nécessaires au suivi de sa commande, dans les conditions décrites par la [Politique de confidentialité](FR-PRIV-002.md). L'accès à la position de l'appareil du Client n'est demandé que lorsqu'une fonctionnalité le nécessite et peut être refusé, avec les conséquences fonctionnelles correspondantes.
 
-* circulation ;
-* météo ;
-* disponibilité du commerçant ;
-* disponibilité des livreurs ;
-* panne réseau ;
-* incident technique ;
-* force majeure.
+## ARTICLE 10 — ANNULATION, RETARD ET RÉCLAMATION
 
-## ARTICLE 10 — RÉSERVATIONS
+Les règles d'annulation et de remboursement figurent dans la [Politique de remboursement et d'annulation](FR-RMB-008.md).
 
-Les réservations de table sont soumises aux disponibilités du restaurant partenaire.
+En cas de retard, de colis endommagé, de produit manquant ou de livraison contestée, le Client ouvre une réclamation depuis l'application dans un délai de vingt-quatre (24) heures après la livraison ou la date prévue. Ce délai permet la conservation des preuves techniques (statuts, horodatages, échanges, photos). Il ne prive pas le Client des droits impératifs que la loi lui reconnaît.
 
-FasoFree peut appliquer des règles particulières concernant :
+Koliwa accuse réception de la réclamation et l'instruit sur la base des éléments enregistrés dans ses systèmes.
 
-* les retards ;
-* les absences ;
-* les annulations ;
-* les acomptes éventuels ;
-* les capacités maximales.
-
-## ARTICLE 11 — PRIX
-
-Le prix présenté avant validation peut comprendre :
-
-* prix des produits ;
-* frais de livraison ;
-* frais de service ;
-* frais liés au paiement lorsque légalement applicables ;
-* promotions ;
-* taxes lorsque applicables.
-
-Le détail du montant doit être présenté avant validation lorsque cela est techniquement possible.
-
-## ARTICLE 12 — PAIEMENTS
-
-Les moyens de paiement disponibles peuvent inclure :
-
-* espèces ;
-* Mobile Money ;
-* autres moyens de paiement proposés par FasoFree.
-
-Le client doit disposer de fonds suffisants.
-
-Toute tentative de fraude, rétrofacturation abusive, fausse preuve de paiement ou manipulation d'une transaction peut entraîner une suspension et, lorsque les conditions sont réunies, des poursuites.
-
-## ARTICLE 13 — PAIEMENT EN ESPÈCES
-
-Lorsqu'une commande est payée en espèces :
-
-* le client doit remettre le montant indiqué ;
-* le livreur doit enregistrer le montant conformément au système ;
-* toute différence doit être signalée ;
-* les espèces encaissées appartiennent au bénéficiaire désigné de la transaction et ne peuvent être utilisées à des fins personnelles par le livreur.
-
-FasoFree peut appliquer des plafonds de détention de liquidités aux livreurs.
-
-## ARTICLE 14 — FRAUDE ET ABUS
+## ARTICLE 11 — COMPORTEMENTS INTERDITS
 
 Sont notamment interdits :
 
-* commandes fictives ;
-* fausses annulations ;
-* utilisation abusive de promotions ;
-* faux comptes ;
-* manipulation GPS ;
-* usurpation d'identité ;
-* fausses preuves de paiement ;
-* détournement de commandes ;
-* détournement de fonds ;
-* collusion entre utilisateurs ;
-* contournement volontaire des frais ;
-* utilisation de logiciels ou dispositifs destinés à manipuler la plateforme.
+* les commandes fictives, les fausses annulations répétées et l'usage abusif de promotions ;
+* l'usurpation d'identité ou l'utilisation frauduleuse d'un compte ;
+* la falsification de localisation, de document ou de preuve de livraison ;
+* les menaces, insultes, propos haineux ou comportements violents envers un Coursier, un Commerçant ou le support ;
+* la tentative d'accès non autorisé aux systèmes de la Plateforme ;
+* le contournement des frais ou de la Plateforme pour une prestation obtenue par son intermédiaire.
 
-FasoFree peut prendre des mesures conservatoires raisonnables afin de protéger ses utilisateurs, ses partenaires et ses systèmes.
+## ARTICLE 12 — SUSPENSION ET RÉSILIATION
 
-## ARTICLE 15 — SUSPENSION ET FERMETURE
+Koliwa peut suspendre ou résilier un compte, sans préavis en cas d'urgence ou de manquement grave, notamment en cas de fraude, de danger pour un Coursier, de non-paiement ou de violation répétée des CGU.
 
-FasoFree peut suspendre temporairement ou fermer un compte en cas notamment :
+Sauf urgence, le Client est informé du motif de la mesure et peut présenter ses observations via le support.
 
-* de fraude ;
-* de risque de sécurité ;
-* de violation grave des CGU ;
-* de fourniture de documents falsifiés ;
-* de comportement violent ou menaçant ;
-* de détournement de fonds ;
-* d'atteinte à la vie privée ;
-* d'utilisation illégale de la plateforme ;
-* de tentative de contournement des systèmes de sécurité.
+Le Client peut supprimer son compte à tout moment depuis l'application ou en écrivant à fasofree2@gmail.com. La suppression du compte ne fait pas obstacle à la conservation des données nécessaires au respect d'une obligation légale ou à la constatation d'un droit.
 
-Lorsque cela est possible et compatible avec la sécurité et la loi, FasoFree peut informer l'utilisateur du motif de la mesure.
+## ARTICLE 13 — RESPONSABILITÉ
 
-## ARTICLE 16 — COMPORTEMENT INTERDIT
+Koliwa met en œuvre les moyens raisonnables pour assurer la disponibilité et la sécurité de la Plateforme. Le service peut être interrompu pour maintenance, mise à jour ou cause extérieure.
 
-Il est interdit d'utiliser FasoFree pour :
+Koliwa ne peut être tenu responsable :
 
-* commettre une infraction ;
-* transporter des marchandises interdites ;
-* vendre des produits illicites ;
-* harceler une personne ;
-* menacer un utilisateur ;
-* collecter illicitement des données ;
-* diffuser des contenus illégaux ;
-* perturber volontairement les systèmes ;
-* introduire des logiciels malveillants ;
-* effectuer du scraping ou de l'extraction automatisée non autorisée ;
-* contourner les mécanismes de sécurité ;
-* tenter d'obtenir un accès à des comptes ou systèmes tiers.
+* des informations inexactes fournies par le Client ;
+* du contenu illicite confié à un Coursier ;
+* des dommages résultant d'une cause étrangère, d'un cas de force majeure ou du fait d'un tiers ;
+* d'un dommage indirect ou d'une perte d'exploitation.
 
-## ARTICLE 17 — PROPRIÉTÉ INTELLECTUELLE
+La responsabilité de Koliwa pour un colis perdu ou endommagé est limitée à la valeur déclarée ou, à défaut, au plafond indiqué dans les conditions de vente, sauf faute lourde ou dolosive et sous réserve des dispositions légales impératives.
 
-La marque FasoFree, ses logos, interfaces, logiciels, bases de données, éléments graphiques, textes, algorithmes et composants techniques appartiennent à FasoFree ou à ses concédants.
+## ARTICLE 14 — PROPRIÉTÉ INTELLECTUELLE
 
-Aucun droit de propriété n'est transféré à l'utilisateur.
+La marque Koliwa, les éléments graphiques, les textes, les logiciels et les bases de données de la Plateforme sont protégés. Toute reproduction, adaptation ou exploitation non autorisée est interdite.
 
-Il est interdit notamment de :
+Le Client concède à Koliwa une licence limitée pour utiliser les contenus qu'il transmet, uniquement aux fins d'exécution du service.
 
-* copier ;
-* reproduire ;
-* décompiler ;
-* désassembler ;
-* revendre ;
-* louer ;
-* distribuer ;
-* modifier ;
-* créer une œuvre dérivée ;
-* extraire massivement les données ;
+## ARTICLE 15 — DONNÉES PERSONNELLES
 
-sans autorisation préalable lorsque celle-ci est requise.
+Le traitement des données personnelles est décrit dans la [Politique de confidentialité](FR-PRIV-002.md). Le Client dispose notamment de droits d'accès, de rectification, d'opposition et de suppression, qu'il peut exercer à l'adresse fasofree2@gmail.com.
 
-## ARTICLE 18 — CONTENUS FOURNIS PAR LES UTILISATEURS
+## ARTICLE 16 — MODIFICATION DES CGU
 
-L'utilisateur demeure responsable des contenus qu'il fournit.
+Koliwa peut modifier les CGU pour tenir compte d'une évolution du service ou de la réglementation. La nouvelle version est publiée avec sa date d'entrée en vigueur.
 
-Il garantit disposer des droits nécessaires sur les photos, menus, logos, descriptions et autres contenus transmis à FasoFree.
+En cas de modification substantielle, le Client est informé dans l'application et invité à accepter la nouvelle version avant de poursuivre l'usage des fonctionnalités concernées.
 
-Il accorde à FasoFree, dans la mesure nécessaire au fonctionnement du service, une licence non exclusive permettant de stocker, reproduire, adapter techniquement et afficher ces contenus.
+## ARTICLE 17 — PREUVE ET CONSERVATION
 
-## ARTICLE 19 — AVIS ET ÉVALUATIONS
+Les enregistrements électroniques conservés par Koliwa (horodatages, statuts de commande, acceptations de documents, échanges avec le support) constituent des éléments de preuve recevables, sauf preuve contraire.
 
-Les utilisateurs peuvent être invités à évaluer les services.
+## ARTICLE 18 — DROIT APPLICABLE ET LITIGES
 
-Les avis doivent être :
+Les présentes CGU sont soumises au droit burkinabè.
 
-* authentiques ;
-* pertinents ;
-* non diffamatoires ;
-* exempts de menaces ;
-* exempts de données personnelles injustifiées.
+En cas de différend, les parties recherchent d'abord une solution amiable via le support Koliwa. À défaut d'accord dans un délai de trente (30) jours, le litige peut être porté devant la juridiction compétente de Ouagadougou.
 
-FasoFree peut retirer un contenu manifestement illicite ou contraire aux présentes conditions.
+## ARTICLE 19 — CONTACT
 
-## ARTICLE 20 — GÉOLOCALISATION
-
-Certaines fonctionnalités nécessitent l'utilisation de la localisation.
-
-L'utilisateur peut désactiver certaines autorisations depuis son appareil, mais cette désactivation peut empêcher certaines fonctionnalités de fonctionner.
-
-Pour les livreurs, la localisation peut être nécessaire pendant l'exécution d'une course.
-
-Les modalités détaillées figurent dans la Politique de confidentialité.
-
-## ARTICLE 21 — DISPONIBILITÉ DU SERVICE
-
-FasoFree met en œuvre des efforts raisonnables afin de maintenir ses services.
-
-Cependant, la plateforme peut être temporairement indisponible en raison notamment :
-
-* de maintenance ;
-* de panne ;
-* de défaillance d'un prestataire ;
-* de coupure Internet ;
-* de problème de télécommunication ;
-* de cyberattaque ;
-* de force majeure.
-
-## ARTICLE 22 — LIMITATION DE RESPONSABILITÉ
-
-Dans les limites autorisées par la loi, FasoFree ne saurait être responsable des dommages indirects résultant notamment d'une indisponibilité temporaire de la plateforme ou d'un événement échappant raisonnablement à son contrôle.
-
-Aucune disposition des présentes ne vise à exclure une responsabilité qui ne peut légalement être exclue.
-
-## ARTICLE 23 — RELATION ENTRE UTILISATEURS
-
-Les utilisateurs reconnaissent que certaines prestations sont exécutées par des partenaires indépendants.
-
-Chaque catégorie de partenaire demeure responsable de ses obligations contractuelles, réglementaires et professionnelles.
-
-## ARTICLE 24 — DONNÉES PERSONNELLES
-
-Les traitements de données personnelles sont régis par la Politique de confidentialité de FasoFree ([FR-PRIV-002](FR-PRIV-002.md)).
-
-Cette Politique fait partie intégrante des présentes CGU.
-
-## ARTICLE 25 — PREUVE ÉLECTRONIQUE
-
-Les enregistrements électroniques conservés par FasoFree, notamment :
-
-* journaux techniques ;
-* horodatages ;
-* historiques de commandes ;
-* preuves d'acceptation ;
-* historiques de paiement ;
-* notifications ;
-* enregistrements d'opérations ;
-
-peuvent être utilisés comme éléments de preuve, sous réserve des règles légales applicables et de leur valeur probante.
-
-## ARTICLE 26 — MODIFICATION DES CGU
-
-FasoFree peut modifier les présentes CGU.
-
-Pour les modifications substantielles, FasoFree peut demander une nouvelle acceptation lorsque cela est nécessaire.
-
-La poursuite de l'utilisation de certains services après entrée en vigueur d'une modification peut constituer une acceptation lorsque la réglementation applicable le permet.
-
-## ARTICLE 27 — RÉCLAMATIONS
-
-Toute réclamation doit être adressée au service client :
-
-**E-mail :** [support@fasofree.com](mailto:support@fasofree.com)
-**Téléphone :** [+226 XX XX XX XX]
-**Adresse :** [ADRESSE]
-
-## ARTICLE 28 — DROIT APPLICABLE
-
-Les présentes CGU sont régies par le droit burkinabè, sous réserve des règles impératives applicables.
-
-## ARTICLE 29 — RÈGLEMENT DES LITIGES
-
-Les parties rechercheront en priorité une solution amiable.
-
-À défaut d'accord, le litige sera soumis à la juridiction compétente conformément au droit applicable.
-
-## ARTICLE 30 — NULLITÉ PARTIELLE
-
-Si une disposition des présentes est déclarée nulle ou inapplicable, les autres dispositions demeurent en vigueur dans la mesure permise par la loi.
-
-## ARTICLE 31 — INTÉGRALITÉ
-
-Les présentes CGU, la Politique de confidentialité et, selon la catégorie d'utilisateur, le contrat professionnel applicable constituent l'ensemble des documents contractuels applicables à l'utilisation de FasoFree.
-
-**Fin des Conditions générales d'utilisation.**
+Support Koliwa : fasofree2@gmail.com

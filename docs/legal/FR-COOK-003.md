@@ -7,7 +7,7 @@ mecanisme: consentement-traceurs
 audience: tous
 ---
 
-# POLITIQUE COOKIES & TRACEURS FASOFREE
+# POLITIQUE COOKIES & TRACEURS Koliwa
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**

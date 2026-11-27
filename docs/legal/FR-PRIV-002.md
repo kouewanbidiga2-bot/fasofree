@@ -1,389 +1,145 @@
 ---
 doc: FR-PRIV-002
-version: 1.0
+version: 1.1
 statut: a-relire-avocat
-date: 2026-09-27
+date: 2026-11-25
 mecanisme: rattache-cgu-contrats
 audience: tous
 ---
+# POLITIQUE DE CONFIDENTIALITÉ KOLIWA
 
-# POLITIQUE DE CONFIDENTIALITÉ ET DE PROTECTION DES DONNÉES PERSONNELLES
+**Version : 1.1**
+**Date d'entrée en vigueur : 25 novembre 2026**
 
-**Version : 1.0**
-**Date d'entrée en vigueur : [DATE]**
-**Dernière mise à jour : [DATE]**
+## 1. RESPONSABLE DU TRAITEMENT
 
-## 1. IDENTITÉ DU RESPONSABLE DU TRAITEMENT
+Koliwa est un service de livraison urbaine exploité par Koliwa à Ouagadougou, au Burkina Faso.
 
-La présente Politique de confidentialité régit la collecte, l'utilisation, la conservation, la communication et la protection des données à caractère personnel traitées dans le cadre de la plateforme **FasoFree**.
+Responsable du traitement : Koliwa, éditeur de Koliwa.
+Contact pour toute question relative aux données personnelles : fasofree2@gmail.com
 
-Le responsable du traitement est :
-
-**Dénomination sociale :** [NOM COMPLET DE LA SOCIÉTÉ]
-**Forme juridique :** [FORME JURIDIQUE]
-**Capital social :** [MONTANT] FCFA
-**RCCM :** [NUMÉRO RCCM]
-**IFU :** [NUMÉRO IFU]
-**Siège social :** [ADRESSE COMPLÈTE]
-**Pays :** Burkina Faso
-**E-mail relatif aux données personnelles :** [privacy@fasofree.com](mailto:privacy@fasofree.com)
-**Téléphone :** [+226 XX XX XX XX]
-
-FasoFree agit conformément à la législation burkinabè applicable, notamment à la loi n°001-2021/AN du 30 mars 2021 portant protection des personnes à l'égard du traitement des données à caractère personnel, ainsi qu'aux textes réglementaires applicables.
+La présente Politique décrit la manière dont Koliwa collecte, utilise, conserve et protège les données à caractère personnel, conformément à la loi n°001-2021/AN du 30 mars 2021 portant protection des personnes à l'égard du traitement des données à caractère personnel et aux recommandations de la Commission de l'Informatique et des Libertés (CIL).
 
 ## 2. CHAMP D'APPLICATION
 
-La présente Politique s'applique aux données collectées par FasoFree auprès :
-
-* des clients ;
-* des commerçants et restaurateurs ;
-* des livreurs ;
-* des visiteurs du site internet ;
-* des utilisateurs des applications mobiles ;
-* des représentants, employés ou mandataires des partenaires professionnels ;
-* des personnes qui contactent le service client ;
-* des personnes participant aux opérations commerciales ou programmes de FasoFree.
-
-Elle s'applique notamment aux applications mobiles, sites internet, tableaux de bord professionnels, interfaces administratives, systèmes de livraison et autres services numériques exploités par FasoFree.
-
-## 3. DONNÉES QUE NOUS COLLECTONS
-
-Selon votre relation avec FasoFree, nous pouvons collecter les catégories suivantes.
-
-### 3.1. Données d'identification
-
-Notamment :
-
-* nom et prénom ;
-* date de naissance lorsque nécessaire ;
-* photo de profil ;
-* numéro de téléphone ;
-* adresse électronique ;
-* adresse de livraison ;
-* informations relatives au compte.
-
-### 3.2. Données de localisation
-
-Lorsque cela est nécessaire au fonctionnement du service :
-
-* position GPS ;
-* position approximative ou précise ;
-* itinéraire ;
-* zones de prise en charge ;
-* zones de livraison ;
-* historique de déplacement associé à une course ;
-* localisation du véhicule ou du dispositif utilisé par un livreur.
-
-La localisation d'un livreur peut notamment être traitée pendant l'exécution d'une mission afin de permettre l'attribution, le suivi, la sécurité et la preuve de livraison.
-
-### 3.3. Données relatives aux commandes
-
-Nous pouvons traiter :
-
-* produits commandés ;
-* restaurant ou commerçant choisi ;
-* montant de la commande ;
-* frais de livraison ;
-* adresse de livraison ;
-* instructions données au livreur ;
-* historique des commandes ;
-* réservations ;
-* annulations ;
-* réclamations ;
-* remboursements ;
-* évaluations et commentaires.
-
-### 3.4. Données financières et de paiement
-
-FasoFree peut traiter certaines informations relatives :
-
-* aux paiements Mobile Money ;
-* aux paiements par carte lorsque disponibles ;
-* aux paiements en espèces ;
-* aux remboursements ;
-* aux commissions ;
-* aux soldes professionnels ;
-* aux montants encaissés par les livreurs ;
-* aux opérations de régularisation.
-
-FasoFree ne demande jamais à un utilisateur de communiquer son code secret Mobile Money, son PIN ou son mot de passe bancaire.
-
-Lorsque le paiement est effectué par l'intermédiaire d'un prestataire de paiement, certaines données peuvent être traitées directement par ce prestataire conformément à ses propres conditions et politiques.
-
-### 3.5. Données des commerçants
-
-Pour les professionnels, FasoFree peut collecter :
-
-* raison sociale ;
-* nom commercial ;
-* RCCM ;
-* IFU ;
-* identité du représentant ;
-* téléphone ;
-* e-mail ;
-* coordonnées bancaires ou Mobile Money ;
-* adresse professionnelle ;
-* licences ou autorisations lorsqu'elles sont nécessaires ;
-* menus ;
-* catalogues ;
-* photos ;
-* documents commerciaux ;
-* informations fiscales ou comptables nécessaires ;
-* historique des ventes et commandes.
-
-### 3.6. Données des livreurs
-
-Pour l'inscription et la sécurité de la plateforme, FasoFree peut collecter :
-
-* identité ;
-* téléphone ;
-* adresse ;
-* photographie ;
-* informations relatives au permis de conduire lorsque nécessaire ;
-* informations relatives au véhicule ;
-* documents d'assurance lorsque requis ;
-* informations administratives nécessaires ;
-* données de localisation ;
-* historique des courses ;
-* montant des espèces encaissées ;
-* incidents et réclamations ;
-* informations relatives aux paiements effectués par FasoFree.
-
-Toute collecte de données biométriques éventuellement envisagée fera l'objet des formalités et autorisations requises par la réglementation applicable.
-
-## 4. FINALITÉS DES TRAITEMENTS
-
-Les données peuvent être utilisées pour :
-
-1. créer et gérer les comptes ;
-2. authentifier les utilisateurs ;
-3. traiter les commandes ;
-4. organiser les livraisons ;
-5. attribuer les courses aux livreurs ;
-6. suivre les livraisons ;
-7. gérer les réservations ;
-8. effectuer les paiements et remboursements ;
-9. calculer les commissions ;
-10. contrôler les flux de liquidités ;
-11. prévenir les fraudes ;
-12. assurer la sécurité des utilisateurs ;
-13. traiter les réclamations ;
-14. assurer le support client ;
-15. améliorer les performances de la plateforme ;
-16. effectuer des analyses statistiques ;
-17. respecter les obligations légales et réglementaires ;
-18. établir, exercer ou défendre des droits en justice ;
-19. envoyer des communications opérationnelles ;
-20. envoyer des communications commerciales lorsque les conditions légales applicables sont réunies.
+Cette Politique s'applique aux données traitées via l'application mobile Koliwa, le site internet, les interfaces professionnelles et le service client, pour :
 
-## 5. BASES JURIDIQUES
+* les clients qui commandent une livraison ;
+* les commerçants et partenaires professionnels ;
+* les coursiers et livreurs partenaires ;
+* les visiteurs du site et les utilisateurs du suivi public ;
+* les personnes qui contactent le support.
 
-FasoFree traite les données sur les fondements prévus par la législation applicable, notamment lorsque le traitement est :
+## 3. DONNÉES COLLECTÉES
 
-* nécessaire à l'exécution d'un contrat ;
-* nécessaire à l'exécution de mesures précontractuelles ;
-* fondé sur le consentement de la personne concernée lorsque celui-ci est requis ;
-* nécessaire au respect d'une obligation légale ;
-* nécessaire à la sauvegarde des intérêts vitaux ;
-* nécessaire à la constatation, l'exercice ou la défense de droits ;
-* autorisé ou imposé par une disposition légale ou réglementaire applicable.
+Selon votre usage, nous pouvons traiter :
 
-Lorsqu'un traitement repose sur le consentement, celui-ci peut être retiré conformément aux modalités applicables, sans que ce retrait rende nécessairement illicites les traitements réalisés antérieurement.
+**Identification et compte** : nom, prénom, numéro de téléphone, adresse e-mail, photographie de profil le cas échéant, langue préférée.
 
-## 6. COMMUNICATION DES DONNÉES
-
-FasoFree peut communiquer les données strictement nécessaires aux catégories suivantes de destinataires :
-
-* commerçants partenaires ;
-* restaurants partenaires ;
-* livreurs affectés à une commande ;
-* prestataires de paiement ;
-* fournisseurs d'hébergement informatique ;
-* fournisseurs de services cloud ;
-* fournisseurs de notifications ;
-* fournisseurs de SMS ;
-* fournisseurs de messagerie ;
-* fournisseurs de services cartographiques et de géolocalisation ;
-* fournisseurs d'outils d'analyse et de sécurité ;
-* prestataires techniques agissant pour le compte de FasoFree ;
-* autorités administratives, judiciaires ou réglementaires lorsque la loi l'exige.
+**Livraison** : adresses d'enlèvement et de livraison, repères et instructions d'accès, nom et téléphone du destinataire, contenu déclaré et valeur du colis.
 
-FasoFree ne vend pas les données personnelles de ses utilisateurs.
+**Paiement** : moyen de paiement choisi, montant, statut et référence de transaction. Koliwa ne conserve pas les numéros complets de carte bancaire ni les codes secrets Mobile Money.
 
-Les données communiquées à un partenaire sont limitées à ce qui est nécessaire à l'exécution du service concerné.
+**Localisation** : position de l'appareil lorsque vous l'autorisez, position du coursier pendant une mission active, horodatages et étapes de la livraison.
 
-## 7. DONNÉES TRANSMISES AUX COMMERÇANTS
+**Support et preuve** : messages échangés avec le support, réclamations, photographies de preuve de livraison, historique des commandes.
 
-Pour permettre l'exécution d'une commande, certaines informations peuvent être communiquées au commerçant, notamment :
+**Données techniques** : type d'appareil, système, version de l'application, adresse IP, journaux de connexion et de sécurité.
 
-* prénom ou nom affiché ;
-* numéro de commande ;
-* contenu de la commande ;
-* instructions utiles ;
-* informations nécessaires à la préparation et à la remise de la commande.
+Les champs obligatoires sont signalés dans les formulaires. Un champ non renseigné peut empêcher l'exécution du service concerné.
 
-## 8. DONNÉES TRANSMISES AUX LIVREURS
+## 4. FINALITÉS ET BASES JURIDIQUES
 
-Lorsqu'une livraison est attribuée à un livreur, celui-ci peut recevoir les informations strictement nécessaires à l'exécution de la mission, notamment :
+Vos données sont utilisées pour :
 
-* lieu de retrait ;
-* lieu de livraison ;
-* informations nécessaires à la remise de la commande ;
-* informations de contact nécessaires à la livraison.
+| Finalité | Base juridique |
+|---|---|
+| Créer et sécuriser votre compte | Exécution du contrat |
+| Exécuter et suivre une livraison | Exécution du contrat |
+| Gérer les paiements et les reçus | Exécution du contrat, obligations comptables |
+| Répondre aux réclamations et litiges | Exécution du contrat, intérêt légitime |
+| Prévenir la fraude et les abus | Intérêt légitime, obligations légales |
+| Vous informer sur l'état de votre commande | Exécution du contrat |
+| Améliorer le service et mesurer l'usage | Consentement ou intérêt légitime selon le traceur |
+| Respecter nos obligations légales | Obligation légale |
 
-Le livreur ne doit utiliser ces informations à aucune autre fin.
+Nous n'utilisons pas vos données pour de la publicité de tiers sans votre consentement.
 
-## 9. SOUS-TRAITANTS ET PRESTATAIRES TECHNOLOGIQUES
+## 5. COOKIES ET TRACEURS
 
-FasoFree peut utiliser des fournisseurs technologiques tels que des services :
+Les cookies, identifiants et technologies similaires nécessaires au fonctionnement et à la sécurité du service sont utilisés sans consentement préalable. Les traceurs de mesure d'audience ou de personnalisation non nécessaires sont soumis à votre consentement, que vous pouvez retirer à tout moment.
 
-* d'hébergement cloud ;
-* de bases de données ;
-* de notifications push ;
-* de messagerie ;
-* de SMS ;
-* de cartographie ;
-* d'intelligence artificielle ;
-* de paiement ;
-* de sécurité ;
-* d'analyse technique.
+Le détail figure dans la [Politique de cookies et traceurs](FR-COOK-003.md).
 
-Ces prestataires peuvent traiter certaines données pour le compte de FasoFree et uniquement dans le cadre des services qui leur sont confiés.
+## 6. DESTINATAIRES
 
-FasoFree sélectionne ses prestataires en tenant compte de leurs garanties techniques, contractuelles et organisationnelles.
+Vos données peuvent être communiquées, dans la limite de ce qui est nécessaire :
 
-## 10. TRANSFERTS INTERNATIONAUX
+* au coursier chargé de votre livraison (nom, téléphone et adresse de livraison) ;
+* au commerçant concerné lorsque la commande porte sur ses produits ;
+* à nos prestataires techniques : hébergement, envoi de messages, paiement, support ;
+* aux autorités compétentes lorsque la loi l'exige.
 
-Certains prestataires techniques de FasoFree peuvent être établis ou héberger des données en dehors du Burkina Faso.
+Ces destinataires sont tenus à la confidentialité et ne peuvent utiliser vos données que pour la finalité concernée. Vos données ne sont jamais vendues.
 
-Lorsque des données sont transférées ou rendues accessibles depuis un autre État, FasoFree met en œuvre les mesures requises par la législation burkinabè applicable et informe les personnes concernées lorsque cette information est légalement requise.
+## 7. TRANSFERTS HORS DU BURKINA FASO
 
-## 11. INTELLIGENCE ARTIFICIELLE
+Lorsque nos prestataires hébergent ou traitent des données en dehors du Burkina Faso, nous veillons à ce que des garanties appropriées soient en place, conformément à la réglementation applicable et aux exigences de la CIL.
 
-FasoFree peut utiliser des systèmes d'intelligence artificielle pour certaines fonctions, notamment :
+## 8. DURÉES DE CONSERVATION
 
-* extraction d'informations à partir de menus ;
-* classification de produits ;
-* assistance à l'administration des catalogues ;
-* détection de comportements frauduleux ;
-* optimisation opérationnelle.
+Les données sont conservées pour la durée nécessaire aux finalités décrites :
 
-Les systèmes d'IA ne doivent pas être utilisés pour prendre une décision juridiquement significative concernant une personne exclusivement sur la base d'un traitement automatisé lorsque la législation applicable l'interdit.
+* données de compte : pendant la vie du compte, puis suppression ou anonymisation ;
+* données de commande et de livraison : durée nécessaire à la preuve et aux obligations comptables ;
+* données de localisation liées à une mission : durée limitée au suivi et à la sécurité de la mission ;
+* documents d'identité des partenaires : pendant la relation contractuelle et la durée légale de conservation ;
+* journaux techniques et de sécurité : durée limitée à la détection et à la preuve des incidents ;
+* preuves d'acceptation des documents légaux : pendant la durée de la relation et la durée de prescription applicable.
 
-Lorsqu'un traitement automatisé produit un effet important sur un utilisateur, FasoFree peut mettre en place un mécanisme de vérification ou d'intervention humaine lorsque cela est requis.
+À l'expiration de ces durées, les données sont supprimées ou anonymisées.
 
-## 12. SÉCURITÉ
+## 9. SÉCURITÉ
 
-FasoFree met en œuvre des mesures techniques et organisationnelles destinées à protéger les données contre :
+Koliwa met en œuvre des mesures techniques et organisationnelles raisonnables : contrôle d'accès, chiffrement des échanges, séparation des environnements, journalisation des opérations sensibles, limitation des accès au besoin d'en connaître et sensibilisation des équipes.
 
-* l'accès non autorisé ;
-* la modification non autorisée ;
-* la destruction ;
-* la perte ;
-* la divulgation ;
-* l'utilisation frauduleuse.
+En cas d'incident affectant vos données, nous prenons les mesures de limitation et, lorsque la réglementation l'exige, informons les personnes concernées et la CIL.
 
-Ces mesures peuvent comprendre notamment :
+## 10. VOS DROITS
 
-* chiffrement des communications ;
-* contrôle des accès ;
-* authentification ;
-* journalisation ;
-* sauvegardes ;
-* segmentation des privilèges ;
-* surveillance des systèmes ;
-* procédures de réponse aux incidents.
+Vous disposez des droits suivants :
 
-Aucune infrastructure connectée à Internet ne peut toutefois garantir une sécurité absolue.
+* droit d'accès à vos données ;
+* droit de rectification des données inexactes ;
+* droit d'opposition à certains traitements ;
+* droit à l'effacement lorsque la conservation n'est plus justifiée ;
+* droit à la limitation du traitement ;
+* droit de retirer votre consentement à tout moment pour les traitements fondés sur celui-ci ;
+* droit de définir des directives relatives à la conservation de vos données.
 
-## 13. CONSERVATION
+Pour exercer ces droits, écrivez à fasofree2@gmail.com en précisant votre demande. Une vérification d'identité peut être demandée pour éviter toute divulgation à un tiers. Nous répondons dans les délais prévus par la réglementation.
 
-FasoFree conserve les données uniquement pendant la durée nécessaire aux finalités pour lesquelles elles sont traitées, sauf lorsque la conservation est nécessaire pour :
+Vous pouvez également saisir la Commission de l'Informatique et des Libertés (CIL) si vous estimez que vos droits ne sont pas respectés.
 
-* satisfaire une obligation légale ;
-* établir une preuve ;
-* prévenir la fraude ;
-* résoudre un litige ;
-* défendre les droits de FasoFree ;
-* satisfaire aux obligations comptables, fiscales ou réglementaires.
+## 11. GÉOLOCALISATION
 
-Les durées exactes de conservation peuvent varier selon la catégorie de données (cf. [FR-DPI-010](FR-DPI-010.md)).
+La localisation de votre appareil n'est demandée que lorsqu'une fonctionnalité la requiert (adresse de livraison, suivi d'une course). Vous pouvez la refuser ou la désactiver depuis les réglages de votre téléphone ; certaines fonctionnalités peuvent alors ne pas fonctionner.
 
-## 14. DROITS DES PERSONNES
+La position du coursier est traitée pendant la mission active afin de permettre le suivi, la sécurité des personnes et la preuve de la livraison.
 
-Sous réserve des conditions et exceptions prévues par la loi applicable, toute personne concernée peut notamment exercer les droits qui lui sont reconnus, notamment :
+## 12. MINEURS
 
-* droit d'accès ;
-* droit de rectification ;
-* droit d'opposition ;
-* droit à l'effacement lorsque celui-ci est applicable ;
-* droit de retrait du consentement lorsque le traitement repose sur celui-ci ;
-* droit de contester certains traitements automatisés dans les conditions prévues par la loi.
+Les services Koliwa sont destinés aux personnes majeures. Nous ne collectons pas sciemment de données concernant des mineurs sans le consentement du titulaire de l'autorité parentale. Si une telle collecte est portée à notre connaissance, nous procédons à la suppression appropriée.
 
-Toute demande peut être adressée à :
+## 13. MODIFICATION DE LA POLITIQUE
 
-**E-mail :** [privacy@fasofree.com](mailto:privacy@fasofree.com)
+Cette Politique peut être mise à jour pour tenir compte d'une évolution du service ou de la réglementation. La version applicable est celle publiée dans l'application, avec sa date d'entrée en vigueur.
 
-FasoFree peut demander des informations raisonnables permettant de vérifier l'identité du demandeur avant de traiter une demande.
+En cas de modification substantielle, une information vous est adressée et, lorsque la loi l'exige, votre consentement est recueilli à nouveau.
 
-Le détail des procédures figure dans [FR-DPI-010](FR-DPI-010.md).
+## 14. CONTACT
 
-## 15. PROSPECTION COMMERCIALE
+Koliwa — Koliwa, Ouagadougou, Burkina Faso
+E-mail : fasofree2@gmail.com
 
-Les communications commerciales sont réalisées conformément aux règles applicables à la prospection directe.
-
-Lorsque le consentement est requis, l'utilisateur peut le retirer conformément aux mécanismes proposés.
-
-Les messages strictement nécessaires au fonctionnement du service, tels que les confirmations de commande, alertes de sécurité ou informations relatives à une livraison, ne constituent pas nécessairement des communications commerciales.
-
-## 16. COOKIES ET TECHNOLOGIES SIMILAIRES
-
-FasoFree peut utiliser des cookies, identifiants techniques, SDK mobiles et technologies similaires afin :
-
-* d'assurer le fonctionnement des services ;
-* de sécuriser les comptes ;
-* de mémoriser certaines préférences ;
-* de mesurer les performances ;
-* d'améliorer l'expérience utilisateur ;
-* de réaliser certaines analyses lorsque celles-ci sont autorisées.
-
-Les technologies non nécessaires peuvent être soumises aux mécanismes de consentement applicables.
-
-Le détail figure dans la [Politique cookies & traceurs](FR-COOK-003.md).
-
-## 17. DONNÉES DES MINEURS
-
-Les services professionnels et de livraison de FasoFree ne sont pas destinés à permettre à des mineurs de s'inscrire comme commerçants ou livreurs.
-
-Lorsqu'un traitement concerne les données d'un mineur, FasoFree applique les règles spécifiques prévues par la législation applicable.
-
-## 18. VIOLATIONS DE DONNÉES
-
-En cas d'incident de sécurité susceptible de compromettre des données personnelles, FasoFree applique une procédure interne de gestion des incidents et accomplit les notifications requises par la réglementation applicable (cf. [FR-DPI-010](FR-DPI-010.md)).
-
-## 19. MODIFICATION DE LA POLITIQUE
-
-FasoFree peut modifier la présente Politique afin de tenir compte :
-
-* de l'évolution de ses services ;
-* des évolutions technologiques ;
-* des évolutions réglementaires ;
-* des recommandations des autorités compétentes.
-
-Toute modification substantielle sera portée à la connaissance des utilisateurs par un moyen approprié et donnera lieu à une nouvelle acceptation dans les conditions prévues.
-
-## 20. CONTACT ET RÉCLAMATIONS
-
-Pour toute question relative à la protection des données :
-
-**Responsable :** [DPO / Responsable Protection des données]
-**E-mail :** [privacy@fasofree.com](mailto:privacy@fasofree.com)
-**Adresse :** [ADRESSE]
-
-La personne concernée conserve également la possibilité d'exercer les recours prévus par la législation applicable auprès de l'autorité compétente, notamment la Commission de l'Informatique et des Libertés (CIL) lorsque celle-ci est compétente.
-
-## 21. DROIT APPLICABLE
-
-La présente Politique est interprétée conformément au droit burkinabè, sous réserve des dispositions impératives éventuellement applicables.
-
-**Fin de la Politique de confidentialité.**
+Voir aussi : [Conditions générales d'utilisation](FR-CGU-001.md) et [Conditions générales de vente](FR-CGV-004.md).

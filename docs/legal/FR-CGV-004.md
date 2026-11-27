@@ -1,94 +1,134 @@
 ---
 doc: FR-CGV-004
-version: 0.9
-statut: brouillon-avocat
-date: 2026-09-27
+version: 1.0
+statut: a-relire-avocat
+date: 2026-11-25
 mecanisme: validation-commande
 audience: client
 ---
+# CONDITIONS GÉNÉRALES DE VENTE ET DE COMMANDE KOLIWA
 
-# CONDITIONS DE VENTE ET DE COMMANDE FASOFREE
+**Version : 1.0**
+**Date d'entrée en vigueur : 25 novembre 2026**
 
-**Version : 0.9 (brouillon à faire relire)**
-**Date d'entrée en vigueur : [DATE]**
+## ARTICLE 1 — OBJET ET CHAMP D'APPLICATION
 
-## ARTICLE 1 — OBJET
+Les présentes Conditions Générales de Vente et de Commande (« CGV ») régissent les commandes de livraison, de retrait en boutique et de course passées par un Client via la Plateforme Koliwa, à Ouagadougou et dans les zones desservies.
 
-Les présentes Conditions de vente et de commande (« CGV ») encadrent la conclusion et l'exécution des commandes passées par les clients auprès des commerçants et restaurants partenaires via la plateforme FasoFree. Elles complètent les [Conditions Générales d'Utilisation](FR-CGU-001.md), la [Politique de confidentialité](FR-PRIV-002.md) et la [Politique de remboursement et d'annulation](FR-RMB-008.md).
+Elles complètent les [Conditions générales d'utilisation](FR-CGU-001.md), la [Politique de confidentialité](FR-PRIV-002.md) et la [Politique de remboursement et d'annulation](FR-RMB-008.md).
 
-## ARTICLE 2 — RÔLE DES PARTIES
+Toute commande implique l'acceptation sans réserve des présentes CGV par le Client.
 
-FasoFree met à disposition des clients une infrastructure technologique permettant de commander des produits auprès de commerçants partenaires et d'organiser leur livraison par des livreurs partenaires.
+## ARTICLE 2 — RÔLE DE KOLIWA
 
-Le commerçant demeure le vendeur des produits commandés. Il reste responsable de ses produits, de leur préparation, de leur conformité et des prix affichés. FasoFree agit comme intermédiaire technique, sauf stipulation contraire.
+Koliwa fournit une infrastructure technologique de commande, de coordination et de suivi. Koliwa organise la mise en relation entre le Client, le Commerçant et le Coursier.
 
-## ARTICLE 3 — COMMANDE
+Pour la livraison d'un achat effectué en boutique, le Commerçant demeure le vendeur du produit : il répond de sa conformité, de sa qualité et de son prix. Koliwa répond de l'exécution de la prestation de livraison qu'il organise.
 
-Une commande est formée lorsque le client a :
+Pour l'envoi d'un colis personnel, le Client est l'expéditeur et demeure responsable du contenu et de l'emballage.
 
-* sélectionné ses produits ou services ;
-* renseigné ou confirmé son adresse de livraison ;
-* choisi son mode de paiement ;
-* validé le récapitulatif (produits, quantités, frais, montant total) ;
-* confirmé la commande via le mécanisme prévu par l'application.
+## ARTICLE 3 — FORMATION DE LA COMMANDE
 
-Le client reconnaît avoir vérifié le contenu et le montant de sa commande avant validation.
+La commande est formée lorsque le Client a :
 
-Une commande peut être refusée ou annulée par le commerçant ou FasoFree lorsqu'un produit est indisponible, qu'un partenaire ne peut l'exécuter, qu'une anomalie technique survient ou pour toute autre cause légitime.
+1. choisi le service (envoi de colis, retrait en boutique, course) ;
+2. renseigné ou confirmé les adresses d'enlèvement et de livraison ;
+3. indiqué les informations utiles sur le colis (nature, poids approximatif, précautions) ;
+4. choisi son mode de paiement ;
+5. vérifié le récapitulatif et le montant total ;
+6. confirmé la commande via le bouton prévu à cet effet.
+
+La confirmation déclenche la recherche d'un Coursier. La commande peut rester en attente tant qu'aucun Coursier n'a accepté la mission.
+
+Koliwa ou le Coursier peut refuser une mission en cas d'indisponibilité, de zone non desservie, de contenu suspect ou de risque pour la sécurité.
 
 ## ARTICLE 4 — PRIX ET FACTURATION
 
-Le prix présenté avant validation peut comprendre :
+Le montant affiché avant validation peut comprendre :
 
-* le prix des produits ;
-* les frais de livraison ;
-* les frais de service ;
-* les frais liés au paiement lorsque légalement applicables ;
-* les promotions applicables ;
-* les taxes lorsque applicables.
+* les frais de livraison calculés selon la distance et la zone ;
+* les frais de service de la Plateforme ;
+* les suppléments éventuels (poids, urgence, attente, retour) ;
+* le prix des produits lorsqu'il s'agit d'un achat en boutique ;
+* les taxes applicables.
 
-Le détail du montant est présenté au client avant validation lorsque cela est techniquement possible. Sauf erreur manifeste, le montant validé par le client est celui qui lui est facturé.
+Le prix affiché au moment de la validation est celui qui est dû. Aucun frais supplémentaire ne peut être exigé sans l'accord du Client, sauf modification demandée par le Client après validation (changement d'adresse, attente prolongée, retour du colis).
 
-## ARTICLE 5 — PAIEMENT
+Une facture ou un justificatif peut être demandé au support.
 
-Les moyens de paiement disponibles peuvent inclure :
+## ARTICLE 5 — MODES DE PAIEMENT
 
-* les espèces (remises au livreur à la livraison, sous réserve des plafonds applicables) ;
+Les modes de paiement proposés dans l'application sont notamment :
+
 * le Mobile Money ;
-* tout autre moyen de paiement proposé par FasoFree.
+* le paiement en espèces à la livraison, lorsque l'option est disponible et dans la limite des plafonds affichés ;
+* tout autre moyen ajouté ultérieurement par Koliwa.
 
-Le client doit disposer des fonds suffisants. Toute tentative de fraude ou de manipulation d'une transaction peut entraîner la suspension du compte et, lorsque les conditions sont réunies, des poursuites.
+Le Client s'assure de l'exactitude du numéro de paiement et de la disponibilité des fonds. En cas d'échec ou de paiement incomplet, la commande peut être suspendue, reportée ou annulée.
 
-Lors d'un paiement en espèces, le montant remis doit correspondre au montant indiqué ; toute différence doit être signalée immédiatement.
+Les paiements en espèces sont remis au Coursier contre confirmation de livraison. Le Client peut exiger un reçu dans l'application.
 
-## ARTICLE 6 — LIVRAISON
+## ARTICLE 6 — EXÉCUTION DE LA LIVRAISON
 
-La livraison est exécutée par un livreur partenaire selon les modalités affichées par la plateforme.
+Le Coursier se rend à l'adresse d'enlèvement, récupère le colis ou l'achat, puis le transporte à l'adresse de livraison indiquée.
 
-Les délais de livraison sont des estimations. Ils peuvent être affectés notamment par la circulation, la météo, la disponibilité du commerçant ou des livreurs, une panne réseau, un incident technique ou un cas de force majeure.
+Le Client veille à ce que l'adresse soit identifiable et accessible (indications, repère, numéro de téléphone joignable). En cas d'impossibilité de contact ou d'accès, le Coursier peut attendre un temps raisonnable puis appliquer les règles de retour ou d'annulation prévues par la [Politique de remboursement et d'annulation](FR-RMB-008.md).
 
-Le client doit être joignable aux coordonnées renseignées et se tenir disponible pour recevoir la commande à l'adresse indiquée.
+La remise est réputée effectuée lorsque le colis est remis au Client, à un membre de son entourage présent à l'adresse, ou à toute personne désignée par le Client. La preuve de livraison peut être constituée par la validation dans l'application, un code de remise ou une photographie.
 
-## ARTICLE 7 — RÉCEPTION
+## ARTICLE 7 — DÉLAIS
 
-Le client est invité à vérifier la commande à la réception et à signaler immédiatement toute anomalie (produit manquant, erreur de contenu, produit endommagé).
+Les délais communiqués sont estimatifs et exprimés en minutes ou en heures. Ils courent à compter de l'acceptation de la mission par un Coursier.
 
-La confirmation de réception et l'évaluation post-livraison sont enregistrées dans les systèmes FasoFree et peuvent servir d'éléments de preuve conformément aux règles applicables.
+Un retard raisonnable ne donne pas droit à annulation automatique. Le Client peut toutefois demander l'annulation selon les règles en vigueur et signaler le retard au support.
 
-## ARTICLE 8 — DROIT DE RÉTRACTATION
+## ARTICLE 8 — ANNULATION ET REMBOURSEMENT
 
-S'agissant de produits alimentaires, périssables ou livrés rapidement, le droit de rétractation peut ne pas s'appliquer lorsque la réglementation applicable le prévoit expressément.
+Les conditions d'annulation par le Client, par le Commerçant ou par Koliwa, ainsi que les règles de remboursement, sont fixées par la [Politique de remboursement et d'annulation](FR-RMB-008.md).
 
-Les demandes de remboursement et les annulations sont traitées conformément à la [Politique de remboursement et d'annulation](FR-RMB-008.md).
+Les frais éventuellement retenus correspondent à une prestation réellement engagée (déplacement du Coursier, préparation de la commande, attente). Ils sont indiqués avant confirmation lorsqu'ils sont connus.
 
-## ARTICLE 9 — RÉCLAMATIONS
+## ARTICLE 9 — CONFORMITÉ ET RÉCLAMATIONS
 
-Toute réclamation doit être adressée au service client : [support@fasofree.com](mailto:support@fasofree.com).
+Pour un achat en boutique, le Client vérifie le produit à la remise. En cas de produit manquant, endommagé ou non conforme, il ouvre une réclamation depuis l'application dans les vingt-quatre (24) heures.
 
-Le client peut exercer les recours prévus par la réglementation applicable.
+La réclamation précise le numéro de commande, la description du problème et, si possible, des photographies.
 
-## ARTICLE 10 — DROIT APPLICABLE
+Koliwa analyse la réclamation sur la base des éléments enregistrés : récapitulatif de commande, statuts, horodatages, échanges, preuves de livraison. Lorsque le litige relève de la responsabilité du Commerçant, Koliwa transmet la réclamation et accompagne la résolution.
 
-Les présentes CGV sont régies par le droit burkinabè. Les parties rechercheront en priorité un règlement amiable ; à défaut, le litige sera soumis à la juridiction compétente conformément au droit applicable.
+## ARTICLE 10 — COLIS INTERDITS ET SÉCURITÉ
 
-**Fin des Conditions de vente et de commande.**
+Le Client ne peut confier notamment :
+
+* des stupéfiants, armes, munitions ou explosifs ;
+* des produits inflammables, corrosifs ou toxiques ;
+* des espèces animales protégées ou des biens illicites ;
+* des objets dont le transport est interdit par la réglementation burkinabè.
+
+Le Coursier peut refuser d'emporter un colis dont le contenu paraît dangereux, illégal ou manifestement différent de la déclaration. Aucun remboursement n'est dû en cas de refus fondé sur ce motif.
+
+## ARTICLE 11 — RESPONSABILITÉ ET LIMITES
+
+Koliwa répond des dommages directs résultant d'une faute dans l'organisation de la livraison.
+
+La responsabilité pour perte ou détérioration d'un colis est limitée à la valeur déclarée par le Client, justificatifs à l'appui, ou à défaut au plafond affiché dans l'application au moment de la commande.
+
+Sont exclus les dommages indirects, la perte de chance, la perte d'exploitation et les dommages résultant d'un emballage insuffisant, d'une déclaration inexacte ou d'un contenu interdit.
+
+Ces limites ne s'appliquent pas en cas de faute lourde ou dolosive de Koliwa ni lorsqu'une disposition légale impérative en dispose autrement.
+
+## ARTICLE 12 — FORCE MAJEURE
+
+Aucune partie n'est responsable d'un manquement résultant d'un événement imprévisible, irrésistible et extérieur, notamment une intempérie majeure, une obstruction des voies, une panne générale de réseau ou une décision des autorités.
+
+Les parties mettent alors en œuvre les moyens raisonnables pour limiter les conséquences de l'événement.
+
+## ARTICLE 13 — PREUVE
+
+Les données enregistrées par la Plateforme (validation de commande, statuts successifs, horodatages, preuves de remise, échanges avec le support) constituent la référence pour l'exécution et le règlement des litiges, sauf preuve contraire.
+
+## ARTICLE 14 — SERVICE CLIENT ET DROIT APPLICABLE
+
+Support : fasofree2@gmail.com
+
+Les présentes CGV sont soumises au droit burkinabè. Les parties privilégient une solution amiable avant toute action devant la juridiction compétente de Ouagadougou.

@@ -1,4 +1,4 @@
-# FasoFree — Carte du projet (digest d'immersion)
+# Koliwa — Carte du projet (digest d'immersion)
 
 > Digest produit après lecture complète du dépôt (clone GitHub `origin/main`, HEAD `7640a691`).
 > Représente l'état **committé** sur GitHub, pas les modifications locales non commitées.
@@ -81,15 +81,14 @@ Paiement : **GeniusPay uniquement** (Wave, Orange Money, Moov Money, Telecel). N
 ## 4. App client (`fasofree-frontend-client`)
 
 - **Bilingue FR/EN** (`contexts/LanguageContext.jsx` ~1022 l.) + dark mode (`DarkModeContext`).
-- Store Zustand : `authStore` (loginOtp, token, premium, `needsVerification`), `cartStore` (panier mono-restaurant), `notificationStore` (optimistic read/unread).
+- Store Zustand : `authStore` (loginOtp, token, premium, `needsVerification`), `notificationStore` (optimistic read/unread).
 - Pages clés :
   - **`Register.jsx`** (704 l.) : 3 onglets Client/Marchand/Livreur, candidature pro (marchand avec business + géoloc, livreur avec véhicule + KYC), parrainage.
-  - **`OrderTracking.jsx`** (736 l.) : stepper statuts (food vs ride), map Leaflet temps réel, PIN de livraison, chat, dispute modal.
-  - **`Checkout.jsx`** (600 l.) : fulfillment DELIVERY/PICKUP/DINE_IN, devis (`fetchQuote`), paiement GeniusPay.
-  - **`Restaurant.jsx`** (510 l.) : menu par catégorie, favoris, **commande vocale** (Web Speech → ajout auto au panier), marques multi-agences (sélecteur de branches).
-  - `P2PDelivery` (colis), `RideBooking` (rides ECON/COMFORT/PREMIUM), `Merchant*` (dashboard marchand dans l'app client : produits, commandes, wallet, settings), `VipPass` (abonnement), `Receipt`, `Disputes`, `Addresses`, `Orders`, `Profile`, `Auth`, `VerifyAccount`, `Search`, `Terms`/`Privacy`.
+  - **`OrderTracking.jsx`** (736 l.) : suivi de livraison, map Leaflet temps réel, PIN de réception, chat, dispute modal.
+  - **`P2PDelivery`** : création d'une livraison de colis ou récupération d'une commande déjà passée chez un commerçant.
+  - `RideBooking` (rides ECON/COMFORT/PREMIUM), `VipPass` (abonnement), `Disputes`, `Addresses`, `Orders`, `Profile`, `Auth`, `VerifyAccount`, `Terms`/`Privacy`.
 - `services/firebase.js` + `public/firebase-messaging-sw.js` : FCM foreground + background push avec deep-link `/order-tracking?id=…`.
-- `services/pricingService.js` : quote frais livraison (min 800 FCFA, VIP = 0 service fee).
+- Le calcul du devis de livraison est porté par le flux P2P et le service de tarification du backend.
 
 ---
 

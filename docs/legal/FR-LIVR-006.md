@@ -7,13 +7,13 @@ mecanisme: signature-otp
 audience: livreur
 ---
 
-# FASOFREE
+# Koliwa
 
 # CONTRAT-CADRE LIVREUR
 
 **Entre :**
 
-**[DÉNOMINATION SOCIALE FASOFREE]**, ci-après « Koliwa »,
+**[DÉNOMINATION SOCIALE Koliwa]**, ci-après « Koliwa »,
 
 **Et :**
 

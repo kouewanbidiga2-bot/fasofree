@@ -7,7 +7,7 @@ mecanisme: procedure-interne
 audience: interne-cil
 ---
 
-# PROCÉDURE DE GESTION DES DONNÉES PERSONNELLES ET DES INCIDENTS FASOFREE
+# PROCÉDURE DE GESTION DES DONNÉES PERSONNELLES ET DES INCIDENTS Koliwa
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**

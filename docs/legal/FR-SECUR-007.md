@@ -7,7 +7,7 @@ mecanisme: case-signature-entree
 audience: livreur
 ---
 
-# CHARTE DE SÉCURITÉ DU LIVREUR FASOFREE
+# CHARTE DE SÉCURITÉ DU LIVREUR Koliwa
 
 **Version : 0.9 (brouillon à faire relire)**
 **Date d'entrée en vigueur : [DATE]**
