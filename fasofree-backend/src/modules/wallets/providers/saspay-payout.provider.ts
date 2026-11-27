@@ -6,7 +6,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { resolveSasPayBaseUrl } from '../../../config/payment.config';
+import { resolveSasPayBaseUrl, resolveSasPayCountry } from '../../../config/payment.config';
 import { toSasPayNetwork } from '../../payments/providers/saspay.service';
 
 export interface PayoutTransferResult {
@@ -31,8 +31,8 @@ export class SasPayPayoutProvider {
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = resolveSasPayBaseUrl(this.configService);
-    this.apiKey = this.configService.get<string>('SASPAY_API_KEY', '');
-    this.country = this.configService.get<string>('SASPAY_COUNTRY', 'BF');
+    this.apiKey = this.configService.get<string>('SASPAY_API_KEY', '').trim();
+    this.country = resolveSasPayCountry(this.configService);
   }
 
   async sendTransfer(

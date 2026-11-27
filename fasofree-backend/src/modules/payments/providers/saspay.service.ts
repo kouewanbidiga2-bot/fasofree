@@ -7,7 +7,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import * as crypto from 'crypto';
-import { resolveSasPayBaseUrl } from '../../../config/payment.config';
+import { resolveSasPayBaseUrl, resolveSasPayCountry } from '../../../config/payment.config';
 
 export type SasPayPaymentStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
@@ -49,8 +49,8 @@ export class SasPayService {
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = resolveSasPayBaseUrl(this.configService);
-    this.apiKey = this.configService.get<string>('SASPAY_API_KEY', '');
-    this.country = this.configService.get<string>('SASPAY_COUNTRY', 'BF');
+    this.apiKey = this.configService.get<string>('SASPAY_API_KEY', '').trim();
+    this.country = resolveSasPayCountry(this.configService);
 
     if (!this.apiKey) {
       this.logger.warn('⚠️ SasPay non configuré (SASPAY_API_KEY manquant)');
