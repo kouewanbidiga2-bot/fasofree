@@ -5,43 +5,12 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowUpRight, LocateFixed, MapPin, Search } from 'lucide-react';
+import { ArrowUpRight, LocateFixed, MapPin } from 'lucide-react';
 import { formatBurkinaPhone } from '../../utils/phone';
 import api from '../../services/api';
 import useAuthStore from '../../store/authStore';
-import { createPlaceIndex, findPlaces, placeDistance } from './placeSearch';
 import DeliveryMap from './DeliveryMap';
 import { mapsSearchUrl, readMapLocation } from './mapsLocation';
-
-const extendedSearchUrl = import.meta.env.VITE_PHOTON_SEARCH_URL;
-
-async function searchMetroPlaces(query, signal) {
-  const url = new URL(extendedSearchUrl);
-  url.searchParams.set('q', query);
-  url.searchParams.set('lang', 'fr');
-  url.searchParams.set('limit', '8');
-  url.searchParams.set('lat', '12.3714');
-  url.searchParams.set('lon', '-1.5197');
-  url.searchParams.set('bbox', '-1.77,12.16,-1.29,12.62');
-  const response = await fetch(url, { signal, referrerPolicy: 'no-referrer' });
-  if (!response.ok) throw new Error('Recherche indisponible');
-  const data = await response.json();
-  return (Array.isArray(data?.features) ? data.features : []).flatMap((feature, index) => {
-    const [lng, lat] = feature?.geometry?.coordinates || [];
-    const properties = feature?.properties;
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)
-      || lat < 12.16 || lat > 12.62 || lng < -1.77 || lng > -1.29
-      || (properties?.countrycode && properties.countrycode.toLowerCase() !== 'bf')) return [];
-    return [{
-      id: `osm-remote-${index}`,
-      name: properties?.name || properties?.street || 'Repère sur la carte',
-      kind: properties?.osm_key === 'highway' ? 'Rue' : properties?.osm_key === 'place' ? 'Quartier' : 'Lieu OSM',
-      area: [...new Set([properties?.district, properties?.city].filter(Boolean))].join(', '),
-      lat, lng,
-    }];
-  });
-}
-
 
 export default function LocationStep({
   title,
@@ -55,20 +24,10 @@ export default function LocationStep({
   isMerchantPickup = false,
 }) {
   const id = useId();
-  const mapPickerRef = useRef(null);
   const mapsImportRef = useRef(null);
-  const [mapOpen, setMapOpen] = useState(false);
-  const [highlightedPlace, setHighlightedPlace] = useState(-1);
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [gateChoice, setGateChoice] = useState(null);
-
-  useEffect(() => {
-    if (!mapOpen) return;
-    mapPickerRef.current?.focus({ preventScroll: true });
-    mapPickerRef.current?.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-  }, [mapOpen]);
+  const [mapOpen, setMapOpen] = useState(true);
+  const [choosingPoint, setChoosingPoint] = useState(false);
   const [mapsLink, setMapsLink] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const gpsRequest = useRef(0);
   useEffect(() => () => { gpsRequest.current += 1; }, []);
   const [previewPoint, setPreviewPoint] = useState(null);
@@ -86,37 +45,12 @@ export default function LocationStep({
     enabled: Boolean(userId),
     staleTime: 20_000,
   });
-  const showPlaces = searchOpen && value.address.trim().length >= 3;
-  const { data: placeDirectory, isError: placesUnavailable } = useQuery({
-    queryKey: ['ouagadougou-place-index'],
-    queryFn: async () => createPlaceIndex((await import('./ouagadougou-places.json')).default),
-    enabled: showPlaces,
-    staleTime: Infinity,
-    retry: false,
-  });
-  const localPlaces = showPlaces && placeDirectory ? findPlaces(placeDirectory, value.address) : [];
-  const [requestedSearch, setRequestedSearch] = useState('');
-  const query = value.address.trim();
-  const { data: osmResults = [], isFetching: osmLoading, isError: osmError, isSuccess: osmDone } = useQuery({
-    queryKey: ['ouaga-extended-places', requestedSearch],
-    queryFn: ({ signal }) => searchMetroPlaces(requestedSearch, signal),
-    enabled: Boolean(extendedSearchUrl && showPlaces && query === requestedSearch),
-    staleTime: 5 * 60_000,
-    retry: false,
-  });
-  const places = requestedSearch === query && osmDone && localPlaces.length === 0 ? osmResults : localPlaces;
-  const listOpen = showPlaces && places.length > 0;
-  const activePlace = listOpen ? places[highlightedPlace] : null;
-  const mapped = value.locationSource !== 'approximate';
-  const gates = selectedPlace?.gates || [];
-  const choosingGate = gateChoice === 'choose-gate';
-  const choosingPoint = gateChoice === 'place-point';
+  const mapped = ['map', 'gps'].includes(value.locationSource);
   const storedPoint = useMemo(() => ({ lat: value.latitude, lng: value.longitude }), [value.latitude, value.longitude]);
   const anchor = previewPoint ?? storedPoint;
-  const selectedPoint = manualPoint ?? (choosingGate || choosingPoint ? null : previewPoint ?? (mapped ? storedPoint : null));
+  const selectedPoint = manualPoint ?? (choosingPoint ? null : mapped ? storedPoint : null);
   const zoom = previewPoint?.zoom ?? (mapped ? 17 : 14);
   const mapsPoint = selectedPoint ? mapsSearchUrl(`${selectedPoint.lat},${selectedPoint.lng}`) : null;
-  const searchUrl = query ? mapsSearchUrl(`${query}, Ouagadougou, Burkina Faso`) : null;
   const mapsImport = mapsLink.trim() ? readMapLocation(mapsLink) : null;
 
   function cancelLocationRequest() {
@@ -124,39 +58,13 @@ export default function LocationStep({
     setLocating(false);
   }
 
-  function clearPlaceSelection() {
-    setSelectedPlace(null);
-    setGateChoice(null);
+  function clearPoint() {
+    setChoosingPoint(false);
     setManualPoint(null);
-  }
-
-  function previewPlace(place) {
-    cancelLocationRequest();
-    const defaultGate = place.gates?.length === 1 ? place.gates[0] : null;
-    const needsGate = (place.gates?.length ?? 0) > 1;
-    const isArea = place.kind === 'Rue' || place.kind === 'Quartier';
-    const area = place.area || (place.nearby && `près de ${place.nearby}`);
-    onUpdate('address', [place.name, area].filter(Boolean).join(', '));
-    onUpdate('locationSource', 'approximate');
-    setSelectedPlace(place);
-    setManualPoint(null);
-    setGateChoice(needsGate ? 'choose-gate' : isArea ? 'place-point' : defaultGate?.id ?? null);
-    const { lat, lng } = defaultGate || place;
-    setPreviewPoint({ lat, lng, zoom: place.gates?.length ? 19 : place.kind === 'Quartier' ? 15 : 17 });
-    setSearchOpen(false);
-    setHighlightedPlace(-1);
-    setLocationFeedback('');
-    setMapOpen(true);
-  }
-
-  function selectGate(gate) {
-    setGateChoice(gate.id);
-    setManualPoint(null);
-    setPreviewPoint({ lat: gate.lat, lng: gate.lng, zoom: 19 });
   }
 
   function placePoint(point) {
-    setGateChoice(null);
+    setChoosingPoint(false);
     setManualPoint(point);
     onUpdate('locationSource', 'approximate');
   }
@@ -164,40 +72,17 @@ export default function LocationStep({
   function confirmPoint() {
     if (!selectedPoint) return;
     cancelLocationRequest();
-    const confirmedGate = gates.find(gate => placeDistance(selectedPoint, gate) <= 12);
-    if (confirmedGate) onUpdate('address', `${value.address} — ${confirmedGate.name}`);
-    else if (!value.address.trim()) onUpdate('address', 'Point indiqué sur la carte');
+    if (!value.address.trim()) onUpdate('address', 'Point indiqué sur la carte');
     onSelectPoint(selectedPoint);
-    clearPlaceSelection();
+    clearPoint();
     setLocationFeedback('');
     setPreviewPoint(null);
     setMapOpen(false);
   }
 
-  function handleSearchKeys(event) {
-    if (event.key === 'Escape') {
-      setSearchOpen(false);
-      setHighlightedPlace(-1);
-    }
-    if (!listOpen) return;
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      event.preventDefault();
-      const next = highlightedPlace < 0
-        ? event.key === 'ArrowDown' ? 0 : places.length - 1
-        : Math.max(0, Math.min(places.length - 1, highlightedPlace + (event.key === 'ArrowDown' ? 1 : -1)));
-      setHighlightedPlace(next);
-      document.getElementById(`${id}-place-${next}`)?.scrollIntoView({ block: 'nearest' });
-    }
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      if (activePlace) previewPlace(activePlace);
-    }
-  }
-
   function locatePickup() {
     const request = ++gpsRequest.current;
-    setSearchOpen(false);
-    clearPlaceSelection();
+    clearPoint();
     setPreviewPoint(null);
 
     function fallback(message) {
@@ -227,7 +112,9 @@ export default function LocationStep({
       if (request !== gpsRequest.current) return;
       setLocating(false);
       onUpdate('locationSource', 'approximate');
-      setPreviewPoint({ lat: coords.latitude, lng: coords.longitude, zoom: 17 });
+      const position = { lat: coords.latitude, lng: coords.longitude };
+      setPreviewPoint({ ...position, zoom: 17 });
+      setManualPoint(position);
       setLocationFeedback(coords.accuracy > 75
         ? 'La position est approximative. Glissez la carte jusqu’à l’entrée exacte.'
         : 'Vérifiez que le repère pointe sur l’entrée.');
@@ -260,12 +147,11 @@ export default function LocationStep({
       return;
     }
     cancelLocationRequest();
-    clearPlaceSelection();
-    setSearchOpen(false);
+    clearPoint();
     if (location.name) onUpdate('address', location.name);
     onUpdate('locationSource', 'approximate');
     setPreviewPoint({ ...location.point, zoom: location.zoom ?? 18 });
-    if (location.overview) setGateChoice('place-point');
+    if (!location.overview) setManualPoint(location.point);
     setLocationFeedback(location.overview ? 'Le lien ouvre une vue de la carte. Touchez l’entrée pour y placer le repère.' : '');
     setLinkError('');
     setMapsLink('');
@@ -281,7 +167,6 @@ export default function LocationStep({
     event.preventDefault();
     if (location.shortUrl) {
       setMapsLink(pasted);
-      setSearchOpen(false);
       setLinkError('');
       if (mapsImportRef.current) {
         mapsImportRef.current.open = true;
@@ -300,12 +185,11 @@ export default function LocationStep({
         <div>
           {savedAddresses.map((address) => (
             <button type="button" key={address.id} onClick={() => {
-              clearPlaceSelection();
+              clearPoint();
               setPreviewPoint(null);
               setLocationFeedback('');
               setMapOpen(false);
               cancelLocationRequest();
-              setSearchOpen(false);
               onSavedAddress(address);
             }}>
               <MapPin size={14} aria-hidden="true" /> {address.label || address.address}
@@ -317,115 +201,27 @@ export default function LocationStep({
     <section className="app-panel p2p-location p-4 sm:p-6 mb-6 fade-in" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="mb-4 text-lg font-display font-bold">{title}</h2>
       <div className="p2p-fields">
-        <div className="p2p-place-search" onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) {
-            setSearchOpen(false);
-            setHighlightedPlace(-1);
-          }
-        }}>
-          <label htmlFor={`${id}-address`}>
-            {isMerchantPickup ? 'Nom et adresse du commerce' : 'Quartier, adresse ou lieu connu'}
-          </label>
-          <div className="p2p-place-input">
-            <Search size={18} aria-hidden="true" />
-            <input
-              id={`${id}-address`}
-              className="app-input"
-              required
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded={listOpen}
-              aria-controls={listOpen ? `${id}-places` : undefined}
-              aria-activedescendant={activePlace ? `${id}-place-${highlightedPlace}` : undefined}
-              autoComplete="off"
-              value={value.address}
-              placeholder={isMerchantPickup ? 'Ex. Boutique Wend Raabo, Patte d’Oie' : 'Ex. rue de la Science, 2iE ou Zogona'}
-              onPaste={pasteMapLocation}
-              onChange={(event) => {
-                cancelLocationRequest();
-                clearPlaceSelection();
-                if (mapOpen) setGateChoice('place-point');
-                else setPreviewPoint(null);
-                setLocationFeedback('');
-                setHighlightedPlace(-1);
-                setSearchOpen(true);
-                onUpdate('address', event.target.value);
-              }}
-              onFocus={() => {
-                if (!mapOpen && !mapped) setSearchOpen(true);
-              }}
-              onKeyDown={handleSearchKeys}
-            />
-          </div>
-          {showPlaces && (
-            <div className="p2p-place-results">
-              {listOpen ? (
-                <ul id={`${id}-places`} role="listbox" aria-label="Suggestions de lieux">
-                  {places.map((place, index) => (
-                    <li role="presentation" key={place.id}>
-                      <button type="button" id={`${id}-place-${index}`} tabIndex={-1}
-                        role="option" aria-selected={index === highlightedPlace}
-                        onMouseDown={event => event.preventDefault()} onClick={() => previewPlace(place)}
-                      >
-                        <MapPin size={18} aria-hidden="true" />
-                        <span>
-                          <strong>{place.name}</strong>
-                          <small>{[
-                            place.area || place.context,
-                            place.landmark ? `Repère près de ${place.landmark}` : place.kind === 'Rue' ? 'Voie' : place.kind,
-                          ].filter(Boolean).join(' · ')}</small>
-                        </span>
-                        {place.gates?.length > 0 && <span className="p2p-place-gates">{place.gates.length} {place.gates.length > 1 ? 'portails' : 'portail'}</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p role="status">
-                  {osmLoading ? 'Recherche étendue…'
-                    : requestedSearch === query && osmError ? 'La recherche étendue est indisponible. Vous pouvez placer l’entrée sur la carte.'
-                      : placeDirectory || placesUnavailable ? 'Lieu introuvable ici ? Indiquez son entrée sur la carte ou cherchez dans Google Maps.'
-                        : 'Recherche dans le répertoire de Ouaga…'}
-                </p>
-              )}
-              {(placeDirectory || placesUnavailable) && (
-                <div className="p2p-place-links">
-                  {!listOpen && (
-                    <button type="button" className="p2p-maps-search" onClick={() => {
-                      setSearchOpen(false);
-                      setGateChoice('place-point');
-                      setMapOpen(true);
-                    }}>
-                      <MapPin size={16} aria-hidden="true" /> Placer l’entrée sur la carte
-                    </button>
-                  )}
-                  {!listOpen && extendedSearchUrl && requestedSearch !== query && (
-                    <button type="button" className="p2p-maps-search" onClick={() => setRequestedSearch(query)}>
-                      <Search size={16} aria-hidden="true" /> Étendre la recherche OSM
-                    </button>
-                  )}
-                  <a className="p2p-maps-search" href={searchUrl} target="_blank" rel="noopener noreferrer">
-                    <ArrowUpRight size={16} aria-hidden="true" /> Chercher dans Google Maps
-                  </a>
-                  {listOpen && (
-                    <a className="p2p-place-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-                      © OpenStreetMap
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <label htmlFor={`${id}-address`}>
+          <span>{isMerchantPickup ? 'Nom et adresse du commerce' : 'Adresse à transmettre au livreur'}</span>
+          <input
+            id={`${id}-address`}
+            className="app-input"
+            required
+            autoComplete="off"
+            value={value.address}
+            placeholder={isMerchantPickup ? 'Ex. Boutique Wend Raabo, Patte d’Oie' : 'Ex. Rue de la Science, Zogona'}
+            onPaste={pasteMapLocation}
+            onChange={(event) => onUpdate('address', event.target.value)}
+          />
+        </label>
 
         <div className="p2p-map-options">
           <button type="button" className="app-action-secondary" aria-expanded={mapOpen} onClick={() => {
             cancelLocationRequest();
-            setSearchOpen(false);
             if (mapOpen) setLocationFeedback('');
             setMapOpen(!mapOpen);
           }}>
-            <MapPin size={16} aria-hidden="true" /> {mapOpen ? 'Fermer la carte' : mapped ? 'Revoir sur la carte' : 'Choisir sur la carte'}
+            <MapPin size={16} aria-hidden="true" /> {mapOpen ? 'Fermer la carte' : mapped ? 'Revoir dans Google Maps' : 'Choisir dans Google Maps'}
           </button>
           {allowCurrentLocation && (
             <button type="button" className="app-action-secondary" disabled={locating} onClick={locatePickup}>
@@ -440,18 +236,14 @@ export default function LocationStep({
           </a>
         )}
         {mapOpen && (
-          <section className="p2p-map-picker" ref={mapPickerRef} tabIndex={-1} aria-label="Choisir le point exact">
+          <section className="p2p-map-picker" aria-label="Choisir le point exact">
             <DeliveryMap
               anchor={anchor} zoom={zoom} point={selectedPoint}
-              title={title} label={selectedPlace?.name || value.address} mapsUrl={mapsPoint}
-              showArea={!selectedPoint && (selectedPlace?.kind === 'Rue' || selectedPlace?.kind === 'Quartier')}
-              instruction={choosingGate
-                ? 'Choisissez un portail ou touchez un point sur la carte.'
-                : selectedPoint
-                  ? 'Le repère reste en place pendant que vous explorez. Touchez la carte pour le déplacer.'
-                  : 'Touchez l’entrée sur la carte ou déplacez la carte puis placez le repère au centre.'}
-              gates={gates} gateChoice={gateChoice} onGate={selectGate}
-              onManual={() => { setManualPoint(null); setGateChoice('place-point'); }}
+              title={title} label={value.address} mapsUrl={mapsPoint}
+              instruction={selectedPoint
+                ? 'Touchez la carte pour déplacer le repère, puis confirmez.'
+                : 'Touchez l’entrée sur la carte ou placez le repère au centre.'}
+              onSearch={() => { setManualPoint(null); setChoosingPoint(true); }}
               onPick={placePoint} onConfirm={confirmPoint}
             />
           </section>

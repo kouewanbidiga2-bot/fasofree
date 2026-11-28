@@ -1,45 +1,53 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { LocateFixed, Map, Maximize2, Minus, Plus } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { fetchCourierRoute } from '../services/courier';
+import { hasGoogleMapsKey, loadGoogleMaps } from '../services/googleMaps';
 
-const CITY = [12.3714, -1.5197];
-const tiles = import.meta.env.VITE_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const CITY = { lat: 12.3714, lng: -1.5197 };
+
+function fitPositions(map, maps, positions, zoom = 16) {
+  if (!positions.length) return;
+  const bounds = new maps.LatLngBounds();
+  positions.forEach(point => bounds.extend(point));
+  if (bounds.getNorthEast().equals(bounds.getSouthWest())) {
+    map.setCenter(bounds.getCenter());
+    map.setZoom(zoom);
+  } else map.fitBounds(bounds, 44);
+}
+
+function movedEnough(previous, current) {
+  const latitude = (current.latitude - previous.latitude) * 111_000;
+  const longitude = (current.longitude - previous.longitude) * 111_000 * Math.cos(current.latitude * Math.PI / 180);
+  return Math.hypot(latitude, longitude) >= 55;
+}
 
 export function locationPoint(location) {
   if (location?.latitude == null || location?.longitude == null) return null;
   const lat = Number(location.latitude);
   const lng = Number(location.longitude);
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 85 || Math.abs(lng) > 180
-      || (lat === CITY[0] && lng === CITY[1])) return null;
-  return [lat, lng];
+      || (lat === CITY.lat && lng === CITY.lng)) return null;
+  return { lat, lng };
 }
 
 export function navigationUrl(location) {
   const point = locationPoint(location);
   if (!point) return null;
-  const params = new URLSearchParams({ api: '1', destination: point.join(','), travelmode: 'driving', dir_action: 'navigate' });
+  const params = new URLSearchParams({ api: '1', destination: `${point.lat},${point.lng}`, travelmode: 'driving', dir_action: 'navigate' });
   return `https://www.google.com/maps/dir/?${params}`;
 }
 
-const pin = (kind, label) => L.divIcon({
-  className: `mission-marker mission-marker--${kind}`,
-  html: label,
-  iconSize: [30, 30],
-  iconAnchor: [15, 15],
-});
-
-export default function MissionMap({ orderId, pickup, destination, coords, toDestination, active }) {
+export default function MissionMap({ orderId, pickup, destination, coords, toDestination, active, eta }) {
   const targetRef = useRef(null);
-  const mapRef = useRef(null);
-  const pins = useRef(null);
   const latest = useRef(coords);
-  const [route, setRoute] = useState(undefined);
-  const [tileIssue, setTileIssue] = useState(false);
+  const [instance, setInstance] = useState(null);
+  const [route, setRoute] = useState(null);
+  const [mapIssue, setMapIssue] = useState(false);
+  const [geoIssue, setGeoIssue] = useState(false);
+  const [localPosition, setLocalPosition] = useState(null);
   const [follow, setFollow] = useState(false);
   latest.current = coords;
+  const driver = locationPoint(coords) ?? localPosition;
 
   const pickupLat = pickup?.latitude;
   const pickupLng = pickup?.longitude;
@@ -51,55 +59,58 @@ export default function MissionMap({ orderId, pickup, destination, coords, toDes
   ], [pickupLat, pickupLng, destinationLat, destinationLng]);
   const nextStop = stops[toDestination ? 1 : 0];
   const hasPosition = Boolean(coords);
+  const mapLabel = orderId ? 'Carte interactive de la course' : 'Carte de Ouagadougou';
 
   useEffect(() => {
-    const map = L.map(targetRef.current, { zoomControl: false, scrollWheelZoom: false, maxZoom: 20 }).setView(CITY, 13);
-    mapRef.current = map;
-    const tileLayer = L.tileLayer(tiles, { maxNativeZoom: 19, attribution });
-    tileLayer.on('tileerror', () => setTileIssue(true));
-    tileLayer.on('load', () => {
-      if (targetRef.current?.querySelector('.leaflet-tile-loaded')) setTileIssue(false);
-    });
-    tileLayer.addTo(map);
-    const stopLayer = L.layerGroup().addTo(map);
-    const driverLayer = L.layerGroup().addTo(map);
-    const routeLayer = L.polyline([], { color: '#29465b', weight: 6, opacity: 0.92, interactive: false }).addTo(map);
-    pins.current = { stopLayer, driverLayer, routeLayer };
-    map.on('dragstart', () => setFollow(false));
+    if (!hasGoogleMapsKey) return;
+    let current = true;
+    let drag;
+    const fail = () => { if (current) setMapIssue(true); };
+    window.addEventListener('koliwa-maps-auth-failure', fail);
+    loadGoogleMaps().then(async (maps) => {
+      const [{ Map, Circle, Polyline }, { Marker }] = await Promise.all([
+        maps.importLibrary('maps'), maps.importLibrary('marker'),
+      ]);
+      if (!current) return;
+      const map = new Map(targetRef.current, {
+        center: CITY, zoom: 13, gestureHandling: 'greedy', zoomControl: false,
+        streetViewControl: false, mapTypeControl: false, fullscreenControl: false,
+        clickableIcons: false,
+      });
+      drag = map.addListener('dragstart', () => setFollow(false));
+      setInstance({ map, maps, Circle, Marker, Polyline });
+    }).catch(fail);
     return () => {
-      map.remove();
-      mapRef.current = null;
-      pins.current = null;
+      current = false;
+      drag?.remove();
+      window.removeEventListener('koliwa-maps-auth-failure', fail);
     };
   }, []);
 
   useEffect(() => {
-    const map = mapRef.current;
-    const { stopLayer } = pins.current;
-    stopLayer.clearLayers();
-    const labels = ['Retrait', 'Remise'];
-    stops.forEach((point, index) => {
-      if (!point) return;
-      L.marker(point, { icon: pin(index ? 'destination' : 'pickup', index ? 'B' : 'A'), title: labels[index], alt: labels[index] })
-        .bindTooltip(labels[index]).addTo(stopLayer);
-    });
-    const points = stops.filter(Boolean);
-    if (points.length > 1) map.fitBounds(points, { padding: [35, 38], maxZoom: 16, animate: false });
-    else if (points[0]) map.setView(points[0], 16, { animate: false });
-  }, [stops]);
+    if (!instance) return;
+    const { map, maps, Marker } = instance;
+    const markers = stops.flatMap((position, index) => position ? [new Marker({
+      position, map, label: index ? 'B' : 'A', title: index ? 'Remise' : 'Retrait', clickable: false,
+    })] : []);
+    fitPositions(map, maps, stops.filter(Boolean));
+    return () => markers.forEach(marker => marker.setMap(null));
+  }, [instance, stops]);
 
   useEffect(() => {
-    const { driverLayer } = pins.current;
-    driverLayer.clearLayers();
-    if (!coords) return;
-    const point = [coords.latitude, coords.longitude];
-    if (Number.isFinite(coords.accuracy) && coords.accuracy <= 150) {
-      L.circle(point, { radius: coords.accuracy, color: '#29465b', fillOpacity: 0.14, weight: 1, interactive: false })
-        .addTo(driverLayer);
-    }
-    L.marker(point, { icon: pin('gps', '●'), title: 'Votre position', alt: 'Votre position' }).addTo(driverLayer);
-    if (follow) mapRef.current.panTo(point, { animate: false });
-  }, [coords, follow]);
+    if (!instance || !driver) return;
+    const { map, maps, Marker, Circle } = instance;
+    const marker = new Marker({
+      map, position: driver, title: 'Votre position', clickable: false,
+      icon: { path: maps.SymbolPath.CIRCLE, scale: 8, fillColor: '#29465b', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+    });
+    const accuracy = coords?.accuracy;
+    const circle = Number.isFinite(accuracy) && accuracy <= 150 ? new Circle({
+      map, center: driver, radius: accuracy, fillColor: '#29465b', fillOpacity: 0.14, strokeWeight: 1, clickable: false,
+    }) : null;
+    if (follow) map.panTo(driver);
+    return () => { marker.setMap(null); circle?.setMap(null); };
+  }, [instance, driver?.lat, driver?.lng, coords?.accuracy, follow]);
 
   useEffect(() => {
     setRoute(undefined);
@@ -110,7 +121,7 @@ export default function MissionMap({ orderId, pickup, destination, coords, toDes
     const refresh = async () => {
       const point = latest.current;
       if (!point || Date.now() - point.observedAt > 30_000) return;
-      if (lastRoute && lastPoint && L.latLng(lastPoint.latitude, lastPoint.longitude).distanceTo([point.latitude, point.longitude]) < 55) return;
+      if (lastRoute && lastPoint && !movedEnough(lastPoint, point)) return;
       controller?.abort();
       controller = new AbortController();
       const { signal } = controller;
@@ -130,41 +141,59 @@ export default function MissionMap({ orderId, pickup, destination, coords, toDes
   }, [orderId, active, hasPosition, nextStop]);
 
   useEffect(() => {
-    pins.current.routeLayer.setLatLngs(route?.points ?? []);
-  }, [route]);
+    if (!instance || !route?.points?.length) return;
+    const line = new instance.Polyline({
+      map: instance.map, path: route.points.map(([lat, lng]) => ({ lat, lng })),
+      strokeColor: '#29465b', strokeWeight: 6, clickable: false,
+    });
+    return () => line.setMap(null);
+  }, [instance, route]);
 
   const fitAll = () => {
-    const points = [...stops.filter(Boolean), ...(route?.points ?? [])];
-    if (coords) points.push([coords.latitude, coords.longitude]);
-    if (!points.length) return;
+    if (!instance) return;
+    const points = [...stops.filter(Boolean), ...(route?.points ?? []).map(([lat, lng]) => ({ lat, lng }))];
+    if (driver) points.push(driver);
     setFollow(false);
-    mapRef.current?.fitBounds(points, { padding: [42, 44], maxZoom: 17, animate: false });
+    fitPositions(instance.map, instance.maps, points, 17);
   };
 
   const center = () => {
-    const map = mapRef.current;
-    if (coords) {
-      setFollow(true);
-      map.setView([coords.latitude, coords.longitude], Math.max(map.getZoom(), 16), { animate: false });
+    if (!instance) return;
+    const { map } = instance;
+    if (driver) {
+      setFollow(Boolean(coords));
+      map.setCenter(driver);
+      map.setZoom(Math.max(map.getZoom(), 16));
     } else if (nextStop) {
-      map.setView(nextStop, 16, { animate: false });
-    }
+      map.setCenter(nextStop);
+      map.setZoom(16);
+    } else if (!orderId && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(({ coords: position }) => {
+        const point = locationPoint(position);
+        if (!point) return;
+        setGeoIssue(false);
+        setLocalPosition(point);
+        map.setCenter(point);
+        map.setZoom(16);
+      }, () => setGeoIssue(true), { timeout: 8000, maximumAge: 10_000 });
+    } else setGeoIssue(true);
   };
 
+  const mapReady = Boolean(instance) && !mapIssue;
   return (
     <div className="mission-map">
-      <div ref={targetRef} className="mission-map-canvas" aria-label="Carte interactive de la course" />
+      <div ref={targetRef} className="mission-map-canvas" aria-label={mapLabel} />
       <div className="mission-map-controls" role="group" aria-label="Commandes de la carte">
-        <button type="button" onClick={() => mapRef.current?.zoomIn()} aria-label="Zoom avant"><Plus size={20} /></button>
-        <button type="button" onClick={() => mapRef.current?.zoomOut()} aria-label="Zoom arrière"><Minus size={20} /></button>
-        <button type="button" onClick={center} disabled={!coords && !nextStop} aria-label="Recentrer la carte"><LocateFixed size={20} /></button>
-        <button type="button" onClick={fitAll} disabled={!coords && !stops.some(Boolean)} aria-label="Voir tous les repères"><Maximize2 size={19} /></button>
+        <button type="button" disabled={!mapReady} onClick={() => instance.map.setZoom(instance.map.getZoom() + 1)} aria-label="Zoom avant"><Plus size={20} /></button>
+        <button type="button" disabled={!mapReady} onClick={() => instance.map.setZoom(instance.map.getZoom() - 1)} aria-label="Zoom arrière"><Minus size={20} /></button>
+        <button type="button" onClick={center} disabled={!mapReady || (Boolean(orderId) && !driver && !nextStop)} aria-label={orderId ? 'Recentrer la carte' : 'Voir ma position'}><LocateFixed size={20} /></button>
+        <button type="button" onClick={fitAll} disabled={!mapReady || (!driver && !stops.some(Boolean))} aria-label="Voir tous les repères"><Maximize2 size={19} /></button>
       </div>
       <div className="mission-map-caption" role="status">
         <Map size={15} aria-hidden="true" />
-        {tileIssue ? 'Fond de carte indisponible' : route
-          ? `${(route.distanceMeters / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km · env. ${Math.max(1, Math.round(route.durationSeconds / 60))} min`
-          : active && !hasPosition ? 'En attente du GPS' : 'A · Retrait   B · Remise'}
+        {geoIssue ? 'Vérifiez l’autorisation de localisation' : !hasGoogleMapsKey ? 'Google Maps en cours de configuration' : mapIssue ? 'Google Maps indisponible' : !mapReady ? 'Chargement de Google Maps…' : eta
+          ? `${eta.stop === 'pickup' ? 'Retrait' : 'Remise'} · ${eta.source === 'approximate' ? 'env. ' : ''}${eta.totalMinutes} min`
+          : active && !hasPosition ? 'En attente du GPS' : orderId ? 'A · Retrait   B · Remise' : 'Ouagadougou'}
       </div>
     </div>
   );

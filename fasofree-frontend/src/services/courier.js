@@ -16,7 +16,8 @@
 import api from './api';
 
 /** Statuts où la course est encore entre les mains du livreur. */
-export const ACTIVE_STATUSES = ['DRIVER_ASSIGNED', 'IN_DELIVERY', 'DELIVERED_PENDING_CONFIRMATION'];
+export const ON_ROUTE_STATUSES = ['DRIVER_ASSIGNED', 'PROCESSING', 'IN_DELIVERY'];
+export const ACTIVE_STATUSES = [...ON_ROUTE_STATUSES, 'DELIVERED_PENDING_CONFIRMATION'];
 
 export const fetchAvailableCourses = async () => {
   const { data } = await api.get('/dispatch/available');
@@ -24,7 +25,9 @@ export const fetchAvailableCourses = async () => {
 };
 
 export const fetchMyOrders = async () => {
-  const { data } = await api.get('/orders/my-orders', { params: { limit: 30 } });
+  const { data } = await api.get('/orders/my-orders', {
+    params: { limit: 30, status: ACTIVE_STATUSES.join(',') },
+  });
   const rows = Array.isArray(data) ? data : (data?.orders ?? data?.items ?? []);
   return rows;
 };
@@ -32,6 +35,16 @@ export const fetchMyOrders = async () => {
 export const fetchOrder = async (orderId) => {
   const { data } = await api.get(`/orders/${orderId}`);
   return data?.order ?? data;
+};
+
+export const fetchOrderTracking = async (orderId) => {
+  const { data } = await api.get(`/orders/${orderId}/tracking`);
+  return data;
+};
+
+export const recordArrival = async (orderId, stop) => {
+  const { data } = await api.post(`/orders/${orderId}/courier-arrival`, { stop });
+  return data;
 };
 
 export const fetchCourierRoute = async (orderId, { latitude, longitude }, signal) => {

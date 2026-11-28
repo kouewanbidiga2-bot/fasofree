@@ -3,13 +3,11 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Clock3, LocateFixed, MapPin, Package, Truck } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, Marker, TileLayer, useMap } from 'react-leaflet';
+import GoogleMapCanvas from '../components/GoogleMapCanvas';
 import api from '../services/api';
 import KoliwaHandoffBadge from '../components/KoliwaHandoffBadge';
 import TrackingLookup from '../components/TrackingLookup';
@@ -48,46 +46,18 @@ const TRACKING_PROGRESS = {
 
 const TRACKING_STEPS = ['Confirmé', 'Livreur assigné', 'En route', 'Arrivé à destination', 'Remise confirmée'];
 
-const marker = (kind, label) => L.divIcon({
-  className: '',
-  html: `<div class="tracking-pin tracking-pin--${kind}" aria-hidden="true">${label}</div>`,
-  iconSize: [28, 28],
-  iconAnchor: [14, 14],
-});
-
-const pickupIcon = marker('pickup', 'D');
-const dropoffIcon = marker('destination', 'A');
-const driverIcon = marker('courier', 'L');
-const OUAGADOUGOU = [12.3714, -1.5197];
 const DRIVER_ACTIVE_STATUSES = ['DRIVER_ASSIGNED', 'PROCESSING', 'IN_DELIVERY'];
 const CLOSED_STATUSES = ['DELIVERED', 'COMPLETED', 'CANCELLED', 'FAILED', 'REFUNDED', 'DISPUTED'];
-
-function FitBounds({ points }) {
-  const map = useMap();
-  React.useEffect(() => {
-    if (points.length > 1) map.fitBounds(points, { padding: [32, 32] });
-    else if (points.length === 1) map.setView(points[0], 14);
-  }, [map, points]);
-  return null;
-}
-
-function CenterOnCourier({ latitude, longitude }) {
-  const map = useMap();
-  return (
-    <button type="button" className="tracking-center-courier" onClick={() => map.setView([latitude, longitude], Math.max(map.getZoom(), 15))}>
-      <LocateFixed size={17} aria-hidden="true" /> Voir le livreur
-    </button>
-  );
-}
 
 function formatEta(eta) {
   if (!eta || !Number.isFinite(Number(eta.totalMinutes))) return 'Calcul en cours';
   const minutes = Number(eta.totalMinutes);
-  return minutes <= 1 ? 'Moins d’une minute' : `Environ ${minutes} min`;
+  return `Environ ${minutes} min`;
 }
 
 export default function PublicTracking({ byReference = false }) {
   const { token } = useParams();
+  const [map, setMap] = useState(null);
   const requestedReference = useLocation().state?.reference;
   const reference = typeof requestedReference === 'string' ? normalizeTrackingReference(requestedReference) : null;
   const lookupKey = byReference ? reference : token;
@@ -131,7 +101,10 @@ export default function PublicTracking({ byReference = false }) {
     return result;
   }, [pickupLat, pickupLng, dropoffLat, dropoffLng]);
 
-  const statusLabel = STATUS_LABELS[data?.status] || data?.status;
+  const arrivedAt = data?.courierArrival?.stop;
+  const statusLabel = arrivedAt === 'pickup' ? 'Le livreur est au point de retrait'
+    : arrivedAt === 'dropoff' ? 'Le livreur est arrivé pour la remise'
+      : STATUS_LABELS[data?.status] || data?.status;
   const isClosed = CLOSED_STATUSES.includes(data?.status);
   const driverActive = DRIVER_ACTIVE_STATUSES.includes(data?.status);
   const location = data?.driverLocation;
@@ -189,15 +162,22 @@ export default function PublicTracking({ byReference = false }) {
             </header>
             <div className="tracking-map" role="region" aria-label="Carte de la livraison">
               {points.length || driver ? (
-                <MapContainer center={points[0] || (driver ? [driver.latitude, driver.longitude] : OUAGADOUGOU)} zoom={13} scrollWheelZoom={false} className="tracking-map-canvas">
-                  <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" referrerPolicy="origin" />
-                  <FitBounds points={points} />
-                  {driver && <CenterOnCourier latitude={driver.latitude} longitude={driver.longitude} />}
-                  {pickup?.latitude != null && <Marker position={[pickup.latitude, pickup.longitude]} icon={pickupIcon} />}
-                  {dropoff?.latitude != null && <Marker position={[dropoff.latitude, dropoff.longitude]} icon={dropoffIcon} />}
-                  {driver?.latitude != null && <Marker position={[driver.latitude, driver.longitude]} icon={driverIcon} alt="Position du livreur" title="Position du livreur" />}
-                </MapContainer>
+                <GoogleMapCanvas className="tracking-map-canvas" onReady={setMap}
+                  fitKey={data.trackingReference || token || 'suivi'}
+                  pins={[
+                    { position: pickup, label: 'D', title: 'Point de retrait' },
+                    { position: dropoff, label: 'A', title: 'Point de remise' },
+                    { position: driver, label: 'L', title: 'Position du livreur' },
+                  ]}>
+                  {driver && map && (
+                    <button type="button" className="tracking-center-courier" onClick={() => {
+                      map.setCenter({ lat: driver.latitude, lng: driver.longitude });
+                      map.setZoom(Math.max(map.getZoom(), 15));
+                    }}>
+                      <LocateFixed size={17} aria-hidden="true" /> Voir le livreur
+                    </button>
+                  )}
+                </GoogleMapCanvas>
               ) : (
                 <div className="tracking-feedback">Les repères de la livraison s’afficheront ici.</div>
               )}
@@ -222,7 +202,15 @@ export default function PublicTracking({ byReference = false }) {
                 <div className="flex gap-3"><Package size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Destination</p><p className="text-sm">{dropoff?.address || (dropoff ? 'Point d’arrivée sur la carte' : 'Point GPS indisponible')}</p></div></div>
                 {!isClosed && <div className="flex gap-3"><Truck size={18} className="mt-0.5 text-accent-primary" /><div><p className="text-xs text-text-muted">Livreur</p><p className="text-sm">{driverLive ? `Position récente · ${driverUpdateTime}` : driver ? `Dernière position reçue à ${driverUpdateTime}` : driverActive ? 'En attente de la position du livreur' : 'La position s’affiche quand le livreur prend la route.'}</p></div></div>}
               </div>
-              {data.status === 'IN_DELIVERY' && driverLive && data.eta && <div className="mt-6 border-t border-border-light pt-4 flex items-center gap-3"><Clock3 size={18} className="text-text-muted" /><div><p className="text-xs text-text-muted">Arrivée estimée</p><p className="text-sm font-medium">{formatEta(data.eta)}</p></div></div>}
+              {driverLive && data.eta && (
+                <div className="mt-6 border-t border-border-light pt-4 flex items-center gap-3">
+                  <Clock3 size={18} className="text-text-muted" />
+                  <div>
+                    <p className="text-xs text-text-muted">{data.eta.stop === 'pickup' ? 'Arrivée au retrait estimée' : 'Arrivée pour la remise estimée'}</p>
+                    <p className="text-sm font-medium">{formatEta(data.eta)}</p>
+                  </div>
+                </div>
+              )}
               {data.status === 'DELIVERED_PENDING_CONFIRMATION' && <div className="mt-5 rounded-xl bg-status-warning/10 p-4 text-xs leading-5 text-text-secondary">Le livreur est arrivé. Le receveur doit confirmer la réception avec le code transmis par Koliwa.</div>}
               {!byReference && data.status === 'DELIVERED_PENDING_CONFIRMATION' && (
                 <form

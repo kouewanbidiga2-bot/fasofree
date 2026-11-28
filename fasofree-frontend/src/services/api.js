@@ -10,18 +10,13 @@
  */
 import axios from 'axios';
 
-const RAW_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3100/api/v1';
+const defaultBase = import.meta.env.DEV ? 'http://localhost:3100/api/v1' : 'https://api.fasofree.site/api/v1';
+const RAW_BASE = import.meta.env.VITE_API_URL?.trim() || defaultBase;
 
 export const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
 /** Origine du serveur, nécessaire pour ouvrir le namespace socket `/dispatch`. */
-export const SOCKET_BASE = (() => {
-  try {
-    return new URL(API_BASE).origin;
-  } catch {
-    return 'http://localhost:3100';
-  }
-})();
+export const SOCKET_BASE = new URL(API_BASE, window.location.origin).origin;
 
 export const TOKEN_KEY = 'koliwa_courier_token';
 export const USER_KEY = 'koliwa_courier_user';

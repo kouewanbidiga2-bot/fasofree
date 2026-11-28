@@ -276,6 +276,7 @@ export class OrdersController {
   }
 
   // 🗺️ Suivi live GPS + estimateur de temps
+  @Header('Cache-Control', 'no-store')
   @Get(':id/tracking')
   @ApiOperation({
     summary:
@@ -454,6 +455,23 @@ export class OrdersController {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
     return this.ordersService.updateDriverLocation(id, userId, body.latitude, body.longitude);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.DRIVER, UserRole.COURIER)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post(':id/courier-arrival')
+  courierArrival(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body('stop') stop: unknown,
+    @NestRequest() req: RequestWithUser,
+  ) {
+    const driverId = req.user?.userId;
+    if (!driverId) throw new UnauthorizedException();
+    if (stop !== 'pickup' && stop !== 'dropoff') {
+      throw new BadRequestException('Point d’arrivée invalide.');
+    }
+    return this.ordersService.recordCourierArrival(id, driverId, stop);
   }
 
   @UseGuards(RolesGuard)

@@ -20,6 +20,7 @@ import { Loading } from './components/ui';
 import Login from './pages/Login';
 import Missions from './pages/Missions';
 import MissionDetail from './pages/MissionDetail';
+import CourierMap from './pages/CourierMap';
 import Earnings from './pages/Earnings';
 import Account from './pages/Account';
 import Contract from './pages/Contract';
@@ -105,6 +106,7 @@ const App = () => {
           </RequireCourier>
         }
       />
+      <Route path="/carte" element={<RequireCourier><CourierMap /></RequireCourier>} />
       <Route
         path="/gains"
         element={

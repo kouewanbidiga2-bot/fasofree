@@ -5,11 +5,12 @@
 
 /** Coquille commune : en-tête de marque + navigation basse (une main, pouce). */
 import { NavLink } from 'react-router-dom';
-import { Package, Wallet, UserRound } from 'lucide-react';
+import { Map, Package, Wallet, UserRound } from 'lucide-react';
 import { KoliwaParcel } from './brand';
 
 const TABS = [
   { to: '/missions', label: 'Courses', icon: Package },
+  { to: '/carte', label: 'Carte', icon: Map },
   { to: '/gains', label: 'Gains', icon: Wallet },
   { to: '/compte', label: 'Compte', icon: UserRound },
 ];

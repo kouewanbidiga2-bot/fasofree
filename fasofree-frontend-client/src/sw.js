@@ -38,14 +38,14 @@ self.addEventListener('activate', (event) => {
 });
 
 // 2) Repli de navigation vers index.html (SPA), SAUF sur les appels réseau :
-//    API, WebSocket (socket.io) et tuiles OpenStreetMap. Un cache agressif
+//    API, WebSocket (socket.io) et requêtes cartographiques. Un cache agressif
 //    casserait le temps réel et renverrait des données périmées au client.
 //    Workbox associe index.html à la révision mise en cache lors du build.
 registerRoute(
   new NavigationRoute(
     createHandlerBoundToURL('index.html'),
     {
-      denylist: [/^\/api/, /^\/socket\.io/, /tile\.openstreetmap\.org/],
+      denylist: [/^\/api/, /^\/socket\.io/],
     },
   ),
 );

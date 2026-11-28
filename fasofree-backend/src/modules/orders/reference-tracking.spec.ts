@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { OrderStatus, OrderType } from './entities/order.entity';
 import { OrdersService } from './orders.service';
+import { GeoDispatchService } from './dispatch.service';
 import { UserRole } from '../users/entities/user-role.enum';
 
 describe('Suivi par numéro', () => {
@@ -109,11 +110,130 @@ describe('Publication GPS d’une course', () => {
           { ...position, latitude: 12.398, driverId: 'other-fixture' },
         ]),
       },
-      computeEta: jest.fn().mockReturnValue({ totalMinutes: 5 }),
+      computeCourierEta: jest.fn().mockResolvedValue({ totalMinutes: 5 }),
       getOrderAgencyBadge: jest.fn().mockResolvedValue(null),
     });
     const result = await service.getOrderTracking(orderId, driverId, UserRole.DRIVER);
     expect(result.driverLocation).toMatchObject({ latitude, longitude, driverId });
+  });
+});
+
+describe('Délai et arrivée partagés', () => {
+  const driverId = 'fixture-driver';
+  const reference = '1A2B3C4D5E6F7A8B9C0D';
+  const order = {
+    id: 'fixture-order', driverId, trackingReference: reference, orderType: OrderType.P2P_DELIVERY,
+    status: OrderStatus.DRIVER_ASSIGNED,
+    pickupLocation: { latitude: 12.386, longitude: -1.521 },
+    dropoffLocation: { latitude: 12.344, longitude: -1.504 },
+  };
+
+  it('sert le même délai au coursier et au destinataire, puis recalcule vers la remise', async () => {
+    const cache = new Map<string, string>();
+    const geoDispatchService = Object.assign(Object.create(GeoDispatchService.prototype), {
+      redis: {
+        get: jest.fn((key: string) => cache.get(key)),
+        set: jest.fn((key: string, value: string) => cache.set(key, value)),
+      },
+      getOrderTrace: jest.fn().mockResolvedValue([
+        { driverId, latitude: 12.35, longitude: -1.51, timestamp: new Date().toISOString() },
+      ]),
+    });
+    const liveOrder = { ...order, pickupArrival: null as { driverId: string; at: string } | null };
+    const getRoadRoute = jest.fn()
+      .mockResolvedValueOnce({ duration: 299, distance: 2500 })
+      .mockResolvedValueOnce({ duration: 121, distance: 1000 });
+    const service: OrdersService = Object.assign(Object.create(OrdersService.prototype), {
+      geoDispatchService, getRoadRoute,
+      orderRepository: { findOne: jest.fn().mockResolvedValue(liveOrder) },
+      findOneForUser: jest.fn().mockResolvedValue(liveOrder),
+      configService: { get: jest.fn((_, fallback) => fallback) },
+      distanceCalculatorService: { calculateDistance: jest.fn().mockReturnValue(2) },
+      getOrderAgencyBadge: jest.fn().mockResolvedValue(null),
+    });
+
+    const pro = await service.getOrderTracking(order.id, driverId, UserRole.DRIVER);
+    const client = await service.getActiveTrackingByReference(reference);
+    expect(pro.eta).toMatchObject({ totalMinutes: 5, stop: 'pickup' });
+    expect(client.eta).toEqual({ totalMinutes: 5, stop: 'pickup', source: 'road' });
+    expect(getRoadRoute).toHaveBeenCalledTimes(1);
+
+    liveOrder.pickupArrival = { driverId, at: new Date().toISOString() };
+    const arrived = await service.getActiveTrackingByReference(reference);
+    expect(arrived.eta).toBeNull();
+    expect(arrived.courierArrival).toEqual({ stop: 'pickup', at: liveOrder.pickupArrival.at });
+
+    liveOrder.status = OrderStatus.IN_DELIVERY;
+    const outbound = await service.getActiveTrackingByReference(reference);
+    expect(outbound.eta).toEqual({ totalMinutes: 3, stop: 'dropoff', source: 'road' });
+    expect(outbound.courierArrival).toBeUndefined();
+    expect(getRoadRoute).toHaveBeenLastCalledWith(expect.any(Object), order.dropoffLocation, false);
+
+    liveOrder.status = OrderStatus.DELIVERED_PENDING_CONFIRMATION;
+    const handedOff = await service.getActiveTrackingByReference(reference);
+    expect(handedOff.eta).toBeNull();
+    expect(handedOff.driverLocation).toBeNull();
+  });
+
+  it('contrôle le coursier et l’étape lors d’une arrivée, sans changer le statut de la commande', async () => {
+    const builder = {
+      update: jest.fn().mockReturnThis(), set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(), andWhere: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValueOnce({ affected: 1 }).mockResolvedValue({ affected: 0 }),
+    };
+    const findOne = jest.fn().mockResolvedValue(null);
+    const service: OrdersService = Object.assign(Object.create(OrdersService.prototype), {
+      orderRepository: { createQueryBuilder: () => builder, findOne },
+    });
+
+    const result = await service.recordCourierArrival(order.id, driverId, 'dropoff');
+    expect(builder.where).toHaveBeenCalledWith(expect.stringContaining('"driverId" = :driverId'), {
+      orderId: order.id, driverId, statuses: [OrderStatus.IN_DELIVERY],
+    });
+    expect(builder.set).toHaveBeenCalledWith({ dropoffArrival: { at: result.at, driverId } });
+    findOne.mockResolvedValueOnce({ dropoffArrival: { at: result.at, driverId } });
+    await expect(service.recordCourierArrival(order.id, driverId, 'dropoff')).resolves.toEqual(result);
+    await expect(service.recordCourierArrival(order.id, 'other-driver', 'dropoff')).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe('Tracé Google Maps du coursier', () => {
+  it('demande un itinéraire pour le prochain arrêt et convertit les coordonnées Google', async () => {
+    const pickup = { latitude: 12.386, longitude: -1.521 };
+    const dropoff = { latitude: 12.344, longitude: -1.504 };
+    const origin = { latitude: 12.35, longitude: -1.51 };
+    const order = { id: 'order', driverId: 'driver', status: OrderStatus.DRIVER_ASSIGNED,
+      pickupLocation: pickup, dropoffLocation: dropoff };
+    const service: OrdersService = Object.assign(Object.create(OrdersService.prototype), {
+      orderRepository: { findOne: jest.fn().mockResolvedValue(order) },
+      configService: { get: jest.fn().mockReturnValue('test-server-key') },
+    });
+    const google = jest.spyOn(global, 'fetch').mockImplementation(async (_, options) => {
+      const request = JSON.parse(String(options?.body));
+      const target = request.destination.location.latLng;
+      return new Response(JSON.stringify({ routes: [{
+        distanceMeters: 1500,
+        duration: '180.5s',
+        polyline: { geoJsonLinestring: { type: 'LineString', coordinates: [
+          [origin.longitude, origin.latitude], [target.longitude, target.latitude],
+        ] } },
+      }] }));
+    });
+    try {
+      expect(await service.getCourierRoute(order.id, order.driverId, origin.latitude, origin.longitude)).toEqual({
+        points: [[origin.latitude, origin.longitude], [pickup.latitude, pickup.longitude]],
+        distanceMeters: 1500, durationSeconds: 180.5,
+      });
+      order.status = OrderStatus.IN_DELIVERY;
+      const result = await service.getCourierRoute(order.id, order.driverId, origin.latitude, origin.longitude);
+      expect(result?.points.at(-1)).toEqual([dropoff.latitude, dropoff.longitude]);
+      expect(google).toHaveBeenLastCalledWith('https://routes.googleapis.com/directions/v2:computeRoutes',
+        expect.objectContaining({ method: 'POST', redirect: 'error' }));
+      const requests = google.mock.calls.map(([, options]) => JSON.parse(String(options?.body)));
+      expect(requests.map(({ travelMode }) => travelMode)).toEqual(['DRIVE', 'DRIVE']);
+    } finally {
+      google.mockRestore();
+    }
   });
 });
 

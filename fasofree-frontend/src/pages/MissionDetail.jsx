@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, LocateFixed, MapPin, Navigation, Package, Phone } from 'lucide-react';
+import { ArrowLeft, Headphones, LocateFixed, Map, MapPin, Navigation, Package, Phone } from 'lucide-react';
 import Shell from '../components/Shell';
 import MissionMap, { navigationUrl } from '../components/MissionMap';
 import { Amount, ErrorNote, GoodNote, Loading, StatusPill, statusTone } from '../components/ui';
 import useLiveLocation from '../hooks/useLiveLocation';
-import { earningOf, fetchOrder, markDelivered, markPickedUp, statusLabel } from '../services/courier';
-
-const movingStatuses = ['DRIVER_ASSIGNED', 'PROCESSING', 'IN_DELIVERY'];
+import { earningOf, fetchOrder, fetchOrderTracking, markDelivered, markPickedUp, ON_ROUTE_STATUSES, recordArrival, statusLabel } from '../services/courier';
 const atHandoff = 'DELIVERED_PENDING_CONFIRMATION';
 
 function phoneLink(phone) {
@@ -31,13 +29,14 @@ export default function MissionDetail() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tracking, setTracking] = useState(null);
   const [error, setError] = useState(null);
   const [done, setDone] = useState(null);
   const [busy, setBusy] = useState(false);
   const version = useRef(0);
   const view = order?.id === id ? order : null;
   const status = view?.status;
-  const active = movingStatuses.includes(status);
+  const active = ON_ROUTE_STATUSES.includes(status);
   const { coords, error: gpsError, sharedAt, sharingUnavailable } = useLiveLocation({ orderId: id, enabled: active });
 
   const load = useCallback(async () => {
@@ -47,6 +46,13 @@ export default function MissionDetail() {
       if (request !== version.current) return;
       setOrder(result);
       setError(null);
+      setLoading(false);
+      if (!ON_ROUTE_STATUSES.includes(result.status)) {
+        setTracking(null);
+        return;
+      }
+      const live = await fetchOrderTracking(id).catch(() => null);
+      if (request === version.current) setTracking(live);
     } catch (failure) {
       if (request === version.current) setError(failure.message);
     } finally {
@@ -57,6 +63,7 @@ export default function MissionDetail() {
   useEffect(() => {
     setLoading(true);
     setDone(null);
+    setTracking(null);
     void load();
     const timer = setInterval(load, 20_000);
     return () => { version.current += 1; clearInterval(timer); };
@@ -91,7 +98,13 @@ export default function MissionDetail() {
   const toDestination = status === 'IN_DELIVERY' || status === atHandoff;
   const next = toDestination ? destination : pickup;
   const nextLabel = toDestination ? 'Remettre le colis' : 'Récupérer le colis';
+  const stop = toDestination ? 'dropoff' : 'pickup';
+  const arrival = toDestination ? view.dropoffArrival : view.pickupArrival;
+  const arrived = Boolean(arrival && arrival.driverId === view.driverId);
+  const eta = active && !arrived && tracking?.orderId === id && tracking?.eta?.stop === stop ? tracking.eta : null;
   const contactPhone = (active || status === atHandoff) && phoneLink(next?.contactPhone);
+  const supportPhone = phoneLink(import.meta.env.VITE_SUPPORT_PHONE);
+  const mapAction = () => document.getElementById('carte-course')?.scrollIntoView({ block: 'start' });
   const directions = active ? navigationUrl(next) : null;
   const showContact = active || status === atHandoff;
   const locationMessage = gpsError || (sharingUnavailable ? 'Partage en pause. Nouvelle tentative automatique.'
@@ -99,12 +112,14 @@ export default function MissionDetail() {
 
   return (
     <Shell title="Ma course" kicker={view.trackingReference || 'Détail de la course'} right={back} hideNav>
-      <MissionMap orderId={id} pickup={pickup} destination={destination} coords={coords}
-        toDestination={toDestination} active={active} />
+      <div id="carte-course" className="mission-map-anchor">
+        <MissionMap orderId={id} pickup={pickup} destination={destination} coords={coords}
+          toDestination={toDestination} active={active} eta={eta} />
+      </div>
       <section className="card mission-panel" aria-label={showContact ? nextLabel : 'Détails de la course'}>
         <div className="mission-stage">
           {showContact && <span>{toDestination ? 'B · Remise' : 'A · Retrait'}</span>}
-          <StatusPill tone={statusTone(status)}>{statusLabel(status)}</StatusPill>
+          <StatusPill tone={statusTone(status)}>{active && arrived ? 'Sur place' : statusLabel(status)}</StatusPill>
         </div>
 
         {showContact && (
@@ -129,6 +144,11 @@ export default function MissionDetail() {
             )}
           </>
         )}
+        {active && supportPhone && (
+          <a className="btn btn-ghost mission-support" href={supportPhone}>
+            <Headphones size={17} aria-hidden="true" /> Un problème sur cette course ?
+          </a>
+        )}
         {active && <p className="mission-signal" role="status"><LocateFixed size={16} aria-hidden="true" />{locationMessage}</p>}
         <details className="mission-stops">
           <summary>Détails de la course</summary>
@@ -142,8 +162,16 @@ export default function MissionDetail() {
       </section>
       <ErrorNote>{error}</ErrorNote>
       <GoodNote>{done}</GoodNote>
-      <div className="actionbar">
-        {status === 'DRIVER_ASSIGNED' ? (
+      <div className="actionbar mission-actions">
+        <button type="button" className="btn btn-ghost mission-map-shortcut" onClick={mapAction}>
+          <Map size={18} aria-hidden="true" /> Carte
+        </button>
+        {active && !arrived ? (
+          <button type="button" className="btn btn-accent btn-block" disabled={busy}
+            onClick={() => update((orderId) => recordArrival(orderId, stop), 'Arrivée enregistrée.')}>
+            {busy ? 'Enregistrement…' : 'Je suis sur place'}
+          </button>
+        ) : active && !toDestination ? (
           <button type="button" className="btn btn-accent btn-block" disabled={busy}
             onClick={() => update(markPickedUp, 'Retrait confirmé.')}>
             {busy ? 'Enregistrement…' : 'J’ai récupéré le colis'}

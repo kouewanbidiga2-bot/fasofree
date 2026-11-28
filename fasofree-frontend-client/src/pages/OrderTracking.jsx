@@ -23,9 +23,7 @@ import {
   Navigation,
   Send,
 } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import GoogleMapCanvas from '../components/GoogleMapCanvas';
 import api from '../services/api';
 import Skeleton from '../components/ui/Skeleton';
 import { getAbsoluteImageUrl } from '../utils/images';
@@ -85,32 +83,6 @@ const STATUS_LABELS = {
   REFUNDED: 'Remboursée',
 };
 
-const makeIcon = (color, label) =>
-  L.divIcon({
-    className: '',
-    html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${label}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
-  });
-
-const ORIGIN_ICON = makeIcon('#6B7280', 'D');
-const PICKUP_ICON = makeIcon('#3B82F6', 'P');
-const DELIVERY_ICON = makeIcon('#5C6B3C', 'D');
-const DRIVER_ICON = makeIcon('#7f9425', 'L');
-
-function FitBounds({ points }) {
-  const map = useMap();
-  useEffect(() => {
-    if (points.length > 1) {
-      map.fitBounds(points, { padding: [50, 50] });
-    } else if (points.length === 1) {
-      map.setView(points[0], 15);
-    }
-  }, [map, points]);
-  return null;
-}
-
-const OUAGA = [12.3714, -1.5197];
 
 // Statuts pour lesquels plus rien ne bouge : ni polling, ni badge « hors ligne ».
 const TERMINAL_STATUSES = [
@@ -498,30 +470,11 @@ const OrderTracking = () => {
     }
   };
 
-  const mapPoints = useMemo(() => {
-    const pts = [];
-    if (isRide) {
-      if (tracking?.pickupLocation?.latitude != null) {
-        pts.push([
-          tracking.pickupLocation.latitude,
-          tracking.pickupLocation.longitude,
-        ]);
-      }
-    } else if (tracking?.businessLocation) {
-      pts.push([
-        tracking.businessLocation.latitude,
-        tracking.businessLocation.longitude,
-      ]);
-    }
-    if (tracking?.deliveryLocation) {
-      pts.push([
-        tracking.deliveryLocation.latitude,
-        tracking.deliveryLocation.longitude,
-      ]);
-    }
-    if (driverPos) pts.push(driverPos);
-    return pts;
-  }, [tracking, driverPos, isRide]);
+  const trackingPins = useMemo(() => [
+    { position: tracking?.pickupLocation ?? tracking?.businessLocation, label: 'D', title: 'Départ' },
+    { position: tracking?.dropoffLocation ?? tracking?.deliveryLocation, label: 'A', title: 'Destination' },
+    { position: driverPos, label: 'L', title: 'Position du livreur' },
+  ], [tracking, driverPos]);
 
   const tracePath = useMemo(
     () => (liveTrace.length > 1 ? liveTrace : []),
@@ -529,6 +482,7 @@ const OrderTracking = () => {
   );
 
   const eta = tracking?.eta;
+  const reachedStop = tracking?.courierArrival?.stop;
 
   return (
     <div className="app-page">
@@ -590,7 +544,7 @@ const OrderTracking = () => {
                   <KoliwaHandoffBadge />
                 ) : (
                   <span className="px-3 py-1 bg-background-secondary text-xs font-medium text-text-secondary">
-                    {STATUS_LABELS[status] || status}
+                    {reachedStop === 'pickup' ? 'Livreur au point de retrait' : reachedStop === 'dropoff' ? 'Livreur arrivé pour la remise' : STATUS_LABELS[status] || status}
                   </span>
                 )}
               </div>
@@ -709,9 +663,9 @@ const OrderTracking = () => {
                   />
                   <div className="flex-1">
                     <p className="text-text-secondary text-xs">
-                      {isRide
-                        ? 'Temps de trajet estimé'
-                        : 'Temps estimé (préparation + trajet)'}
+                      {eta.stop === 'pickup' ? 'Arrivée au retrait estimée'
+                        : eta.stop === 'dropoff' ? 'Arrivée pour la remise estimée'
+                          : isRide ? 'Temps de trajet estimé' : 'Temps estimé (préparation + trajet)'}
                     </p>
                     <p className="text-text-primary font-medium text-xl">
                       {eta.totalMinutes} min
@@ -724,7 +678,7 @@ const OrderTracking = () => {
                       </span>
                     </p>
                     <p className="text-xs text-text-secondary mt-1">
-                      {!isRide && (
+                      {!isRide && !eta.stop && (
                         <>
                           Préparation {eta.remainingPreparationMinutes} min ·{' '}
                         </>
@@ -771,59 +725,7 @@ const OrderTracking = () => {
                 className="w-full"
                 style={{ height: 320, borderRadius: 18, overflow: 'hidden' }}
               >
-                <MapContainer
-                  center={mapPoints[0] || OUAGA}
-                  zoom={13}
-                  style={{ height: '100%', width: '100%' }}
-                  scrollWheelZoom={false}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <FitBounds points={mapPoints} />
-                  {tracePath.length > 0 && (
-                    <Polyline
-                      positions={tracePath}
-                      pathOptions={{
-                        color: '#7f9425',
-                        weight: 4,
-                        opacity: 0.7,
-                      }}
-                    />
-                  )}
-                  {isRide ? (
-                    tracking?.pickupLocation?.latitude != null && (
-                      <Marker
-                        position={[
-                          tracking.pickupLocation.latitude,
-                          tracking.pickupLocation.longitude,
-                        ]}
-                        icon={PICKUP_ICON}
-                      />
-                    )
-                  ) : (
-                    tracking?.businessLocation && (
-                      <Marker
-                        position={[
-                          tracking.businessLocation.latitude,
-                          tracking.businessLocation.longitude,
-                        ]}
-                        icon={ORIGIN_ICON}
-                      />
-                    )
-                  )}
-                  {driverPos && <Marker position={driverPos} icon={DRIVER_ICON} />}
-                  {tracking?.deliveryLocation && (
-                    <Marker
-                      position={[
-                        tracking.deliveryLocation.latitude,
-                        tracking.deliveryLocation.longitude,
-                      ]}
-                      icon={DELIVERY_ICON}
-                    />
-                  )}
-                </MapContainer>
+                <GoogleMapCanvas pins={trackingPins} path={tracePath} fitKey={orderId} />
               </div>
               <div className="flex items-center gap-4 mt-3 text-xs text-text-secondary">
                 <span className="flex items-center gap-1.5">

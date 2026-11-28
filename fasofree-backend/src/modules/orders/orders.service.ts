@@ -60,11 +60,13 @@ import { SmsService } from '../notifications/sms.service';
 import { UsersService } from '../users/users.service';
 import { QrCodeService } from './qr-code.service';
 import { DistanceCalculatorService } from './services/distance-calculator.service';
+import { getGoogleCourierRoute } from './services/google-courier-route';
 import { DeliveryPricingService } from './delivery-pricing.service';
 import {
   GeoDispatchService,
   DriverLocation,
   OrderTracePoint,
+  SharedTravelEstimate,
 } from './dispatch.service';
 import {
   MIN_DELIVERY_FEE,
@@ -274,6 +276,28 @@ const REFERENCE_TRACKING_STATUSES = [
 ];
 
 type Coordinates = { latitude: number; longitude: number };
+type CourierStop = 'pickup' | 'dropoff';
+
+function courierStop(status: OrderStatus): CourierStop {
+  return status === OrderStatus.IN_DELIVERY ? 'dropoff' : 'pickup';
+}
+
+function pickupOrDropoff(order: Order, stop: CourierStop) {
+  return stop === 'pickup' ? order.pickupLocation : order.dropoffLocation ?? order.deliveryLocation;
+}
+
+function courierArrival(order: Order) {
+  if (!isDriverOnRoute(order.status) || !order.driverId) return null;
+  const stop = courierStop(order.status);
+  const arrival = stop === 'pickup' ? order.pickupArrival : order.dropoffArrival;
+  return arrival?.driverId === order.driverId ? { stop, at: arrival.at } : null;
+}
+
+function publicEta(tracking: OrderTrackingPayload, hasPosition: boolean) {
+  if (!hasPosition || !tracking.eta) return null;
+  const { totalMinutes, stop, source } = tracking.eta;
+  return stop ? { totalMinutes, stop, source } : { totalMinutes };
+}
 
 function mapPoint(point: Coordinates | null | undefined, decimals: number) {
   if (!point || !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) return null;
@@ -305,6 +329,7 @@ export interface OrderTrackingPayload {
   driverId: string | null;
   driverLocation: DriverLocation | null;
   trace: OrderTracePoint[];
+  courierArrival?: { stop: CourierStop; at: string } | null;
   businessLocation: { latitude: number; longitude: number } | null;
   pickupLocation: Order['pickupLocation'] | null;
   dropoffLocation: Order['dropoffLocation'] | null;
@@ -321,7 +346,9 @@ export interface OrderTrackingPayload {
     totalMinutes: number;
     distanceKm: number;
     arrivalAt: string;
-  };
+    stop?: CourierStop;
+    source?: SharedTravelEstimate['source'];
+  } | null;
 }
 
 @Injectable()
@@ -1954,16 +1981,12 @@ export class OrdersService {
       }
     }
 
-    let eta: OrderTrackingPayload['eta'] = {
-      preparationMinutes: 0,
-      remainingPreparationMinutes: 0,
-      travelMinutes: 0,
-      totalMinutes: 0,
-      distanceKm: 0,
-      arrivalAt: new Date().toISOString(),
-    };
+    const arrival = courierArrival(order);
+    let eta: OrderTrackingPayload['eta'] = null;
     try {
-      eta = this.computeEta(order, driverLocation, businessLocation);
+      eta = order.orderType === OrderType.P2P_DELIVERY
+        ? driverLocation && !arrival ? await this.computeCourierEta(order, driverLocation) : null
+        : this.computeEta(order, driverLocation, businessLocation);
     } catch {
       this.logger.warn(`Impossible de calculer l'ETA pour la commande ${id}`);
     }
@@ -1981,6 +2004,7 @@ export class OrdersService {
         ? latestSharedDriverPosition(order.status, driverLocation)
         : driverLocation,
       trace,
+      courierArrival: arrival,
       businessLocation,
       pickupLocation: order.pickupLocation ?? null,
       dropoffLocation: order.dropoffLocation ?? null,
@@ -2034,7 +2058,8 @@ export class OrdersService {
       driverLocation: driverLocation ? {
         latitude: driverLocation.latitude, longitude: driverLocation.longitude, updatedAt: driverLocation.updatedAt,
       } : null,
-      eta: driverLocation && dropoffLocation ? { totalMinutes: tracking.eta.totalMinutes } : null,
+      ...(tracking.courierArrival && { courierArrival: tracking.courierArrival }),
+      eta: publicEta(tracking, Boolean(driverLocation && (tracking.eta?.stop === 'pickup' ? pickupLocation : dropoffLocation))),
     };
   }
 
@@ -2076,7 +2101,8 @@ export class OrdersService {
       pickupLocation,
       dropoffLocation,
       driverLocation: livePosition && driverPoint ? { ...driverPoint, updatedAt: livePosition.updatedAt } : null,
-      eta: driverPoint && dropoffLocation ? { totalMinutes: tracking.eta.totalMinutes } : null,
+      ...(tracking.courierArrival && { courierArrival: tracking.courierArrival }),
+      eta: publicEta(tracking, Boolean(driverPoint && (tracking.eta?.stop === 'pickup' ? pickupLocation : dropoffLocation))),
     };
   }
 
@@ -2143,6 +2169,32 @@ export class OrdersService {
       throw new Error('JWT_SECRET est requis pour signer les liens de suivi');
     }
     return secret;
+  }
+
+  private async computeCourierEta(order: Order, driver: DriverLocation): Promise<OrderTrackingPayload['eta']> {
+    const stop = courierStop(order.status);
+    const target = mapPoint(pickupOrDropoff(order, stop), 6);
+    if (!target || Date.now() - driver.updatedAt > 60_000) return null;
+
+    const estimate = await this.geoDispatchService.sharedTravelEstimate(
+      order.id, driver.driverId, stop, `${target.latitude},${target.longitude}`, async () => {
+        const route = await this.getRoadRoute(driver, target, false);
+        const directKm = this.distanceCalculatorService.calculateDistance(
+          driver.latitude, driver.longitude, target.latitude, target.longitude,
+        );
+        const avgSpeedKmh = Number(this.configService.get('DELIVERY_AVG_SPEED_KMH', 25));
+        const speed = Number.isFinite(avgSpeedKmh) && avgSpeedKmh > 0 ? avgSpeedKmh : 25;
+        const travelMinutes = route ? route.duration / 60 : (directKm * 1.25 / speed) * 60;
+        const totalMinutes = Math.max(1, Math.ceil(travelMinutes));
+        return {
+          totalMinutes,
+          arrivalAt: new Date(Date.now() + totalMinutes * 60_000).toISOString(),
+          distanceKm: Math.round((route ? route.distance / 1000 : directKm * 1.25) * 100) / 100,
+          source: route ? 'road' : 'approximate',
+        };
+      },
+    );
+    return { ...estimate, stop, preparationMinutes: 0, remainingPreparationMinutes: 0, travelMinutes: estimate.totalMinutes };
   }
 
   /**
@@ -3084,6 +3136,28 @@ export class OrdersService {
     return { success: true };
   }
 
+  async recordCourierArrival(orderId: string, driverId: string, stop: CourierStop) {
+    const column = stop === 'pickup' ? 'pickupArrival' : 'dropoffArrival';
+    const statuses = stop === 'pickup'
+      ? [OrderStatus.DRIVER_ASSIGNED, OrderStatus.PROCESSING]
+      : [OrderStatus.IN_DELIVERY];
+    const arrival = { driverId, at: new Date().toISOString() };
+    const result = await this.orderRepository.createQueryBuilder()
+      .update(Order)
+      .set({ [column]: arrival })
+      .where('"id" = :orderId AND "driverId" = :driverId AND "status" IN (:...statuses)', { orderId, driverId, statuses })
+      .andWhere(`COALESCE("${column}"->>'driverId', '') <> :driverId`)
+      .execute();
+    if (result.affected) return { stop, at: arrival.at };
+
+    // Un nouvel envoi du même appui renvoie la première heure enregistrée.
+    const order = await this.orderRepository.findOne({ where: { id: orderId, driverId } });
+    if (!order) throw new ForbiddenException('Cette course ne vous est pas attribuée.');
+    const recorded = order[column];
+    if (recorded?.driverId === driverId) return { stop, at: recorded.at };
+    throw new ConflictException("Cette étape n’est plus disponible pour la course.");
+  }
+
   private async requireCourierOnRoute(orderId: string, driverId: string) {
     const order = await this.orderRepository.findOne({ where: { id: orderId, driverId } });
     if (!order || !isDriverOnRoute(order.status)) {
@@ -3102,26 +3176,41 @@ export class OrdersService {
   async getCourierRoute(orderId: string, driverId: string, latitude: number, longitude: number) {
     const order = await this.requireCourierOnRoute(orderId, driverId);
     this.assertRouteCoordinates(latitude, longitude);
-    const router = this.configService.get<string>('COURIER_OSRM_URL');
-    const target = mapPoint(order.status === OrderStatus.IN_DELIVERY
-      ? order.dropoffLocation ?? order.deliveryLocation : order.pickupLocation, 6);
-    if (!router || !target) return null;
+    const target = mapPoint(pickupOrDropoff(order, courierStop(order.status)), 6);
+    if (!target) return null;
+    const origin = { latitude, longitude };
+    const googleKey = this.configService.get<string>('GOOGLE_ROUTES_API_KEY')?.trim();
+    if (googleKey) return getGoogleCourierRoute(googleKey, origin, target);
 
+    const route = await this.getRoadRoute(origin, target, true);
+    if (!Array.isArray(route?.geometry?.coordinates)) return null;
+    const points = route.geometry.coordinates.slice(0, 2000)
+      .filter((point: unknown): point is [number, number] => Array.isArray(point)
+        && Number.isFinite(point[0]) && Math.abs(point[0]) <= 180
+        && Number.isFinite(point[1]) && Math.abs(point[1]) <= 85)
+      .map(([lng, lat]) => [lat, lng]);
+    return points.length >= 2 ? { points, distanceMeters: route.distance, durationSeconds: route.duration } : null;
+  }
+
+  private async getRoadRoute(origin: Coordinates, target: Coordinates, includeShape: boolean): Promise<{
+    distance: number;
+    duration: number;
+    geometry?: { coordinates?: unknown[] };
+  } | null> {
+    const router = this.configService.get<string>('COURIER_OSRM_URL');
+    if (!router) return null;
     try {
       const base = router.replace(/\/+$/, '');
-      const url = new URL(`${base}/route/v1/driving/${longitude},${latitude};${target.longitude},${target.latitude}`);
-      url.search = new URLSearchParams({ overview: 'simplified', geometries: 'geojson', steps: 'false' }).toString();
-      const response = await fetch(url, { signal: AbortSignal.timeout(6500), redirect: 'error' });
+      const url = new URL(`${base}/route/v1/driving/${origin.longitude},${origin.latitude};${target.longitude},${target.latitude}`);
+      url.search = new URLSearchParams({
+        overview: includeShape ? 'simplified' : 'false', geometries: 'geojson', steps: 'false',
+      }).toString();
+      const response = await fetch(url, { signal: AbortSignal.timeout(3500), redirect: 'error' });
       if (!response.ok) return null;
       const route = (await response.json())?.routes?.[0];
-      if (!Array.isArray(route?.geometry?.coordinates) || !Number.isFinite(route.distance)
-        || !Number.isFinite(route.duration)) return null;
-      const points = route.geometry.coordinates.slice(0, 2000)
-        .filter((point: unknown): point is [number, number] => Array.isArray(point)
-          && Number.isFinite(point[0]) && Math.abs(point[0]) <= 180
-          && Number.isFinite(point[1]) && Math.abs(point[1]) <= 85)
-        .map(([lng, lat]: [number, number]) => [lat, lng]);
-      return points.length >= 2 ? { points, distanceMeters: route.distance, durationSeconds: route.duration } : null;
+      if (!Number.isFinite(route?.distance) || route.distance < 0
+        || !Number.isFinite(route?.duration) || route.duration < 0) return null;
+      return route;
     } catch {
       return null;
     }

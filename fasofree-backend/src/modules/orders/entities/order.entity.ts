@@ -294,6 +294,12 @@ export class Order {
   @Index()
   driverId: string | null;
 
+  @Column({ type: 'jsonb', nullable: true })
+  pickupArrival: { driverId: string; at: string } | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  dropoffArrival: { driverId: string; at: string } | null;
+
   // --- 📨 TRACKING DISPATCH ---
   @Column({ type: 'jsonb', nullable: true })
   dispatchCandidates?: Array<{

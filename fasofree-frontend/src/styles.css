@@ -1156,6 +1156,28 @@ textarea {
 .mission-stop > div { display: grid; min-width: 0; overflow-wrap: anywhere; }
 .mission-stop svg { flex: none; margin-top: 0.08rem; }
 .actionbar .note { margin: 0; }
+.mission-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+.mission-map-anchor { scroll-margin-top: 5rem; }
+.mission-map-shortcut { min-height: 48px; }
+.mission-support { justify-self: start; }
+.map-course-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--ink);
+}
+.map-course-link > span {
+  display: grid;
+  gap: 0.18rem;
+}
+.map-course-link .muted { font-size: 0.83rem; }
+.map-course-link svg { flex: none; }
 .app-detail .actionbar .btn-accent, .app:not(.app-detail) .btn-accent {
   background: var(--lime);
   color: var(--lime-ink);

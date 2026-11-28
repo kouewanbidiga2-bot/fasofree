@@ -20,6 +20,13 @@ export interface DriverLocation {
   updatedAt: number;
 }
 
+export interface SharedTravelEstimate {
+  arrivalAt: string;
+  totalMinutes: number;
+  distanceKm: number;
+  source: 'road' | 'approximate';
+}
+
 export interface CandidateDriverMatch {
   driverId: string;
   distanceKm: number;
@@ -145,6 +152,35 @@ export class GeoDispatchService {
       this.logger.warn(`Lecture tracé ${orderId} impossible: ${err.message}`);
       return [];
     }
+  }
+
+  async sharedTravelEstimate(
+    orderId: string,
+    driverId: string,
+    stop: 'pickup' | 'dropoff',
+    destinationKey: string,
+    compute: () => Promise<SharedTravelEstimate>,
+  ): Promise<SharedTravelEstimate> {
+    const key = `order:eta:${orderId}:${driverId}:${stop}:${destinationKey}`;
+    try {
+      const existing = await this.redis.get(key);
+      if (existing) return JSON.parse(existing) as SharedTravelEstimate;
+    } catch {
+      return compute();
+    }
+
+    const estimate = await compute();
+    try {
+      // Les deux applications gardent le premier calcul de la fenêtre.
+      const written = await this.redis.set(key, JSON.stringify(estimate), 'EX', 30, 'NX');
+      if (!written) {
+        const existing = await this.redis.get(key);
+        if (existing) return JSON.parse(existing) as SharedTravelEstimate;
+      }
+    } catch {
+      // Le suivi doit rester utilisable si le cache est temporairement indisponible.
+    }
+    return estimate;
   }
 
   /**
