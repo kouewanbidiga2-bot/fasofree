@@ -3,7 +3,7 @@
  * Proprietary and confidential. Unauthorized copying, modification or use is strictly prohibited.
  */
 
-import { Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +15,7 @@ import { Business } from '../businesses/entities/business.entity';
 import {
   Order,
   OrderStatus,
+  OrderType,
   FulfillmentType,
 } from '../orders/entities/order.entity';
 import { DispatchGateway } from './dispatch.gateway';
@@ -31,7 +32,9 @@ import { NotificationStoreService } from '../notifications/notification-store.se
 import { NotificationType } from '../notifications/entities/notification.entity';
 import {
   ACTIVE_DELIVERY_STATUSES,
+  activeP2pOffer,
   isCompatibleDeliveryZone,
+  isOpenP2pOrder,
   MAX_ACTIVE_DELIVERIES_PER_DRIVER,
 } from './delivery-rules';
 
@@ -104,6 +107,8 @@ export class DispatchService {
       this.logger.error(`[Auto-Dispatch] Commande #${orderId} introuvable`);
       return;
     }
+
+    if (order.orderType === OrderType.P2P_DELIVERY) return;
 
     // 2. Vérifier si le dispatch est nécessaire
     // Skip dispatch pour PICKUP ou DINE_IN
@@ -430,6 +435,7 @@ export class DispatchService {
       const pendingOrders = await this.orderRepository
         .createQueryBuilder('o')
         .where('o.status = :status', { status: OrderStatus.READY_FOR_PICKUP })
+        .andWhere('o."orderType" <> :p2p', { p2p: OrderType.P2P_DELIVERY })
         .andWhere('o."dispatchedAt" < :timeout', { timeout })
         .andWhere('o."driverId" IS NULL')
         .getMany();
@@ -592,6 +598,7 @@ export class DispatchService {
         // READY_FOR_PICKUP ferait expirer la fenêtre avant même que la
         // commande y arrive, et la chaîne sauterait directement à T+10.
         .where('o."driverId" IS NULL')
+        .andWhere('o."orderType" <> :p2p', { p2p: OrderType.P2P_DELIVERY })
         .andWhere('o."deliveryProviderId" IS NULL')
         .andWhere('o."dispatchOfferExpiresAt" IS NOT NULL')
         .andWhere('o."dispatchOfferExpiresAt" <= :now', { now })
@@ -786,7 +793,27 @@ export class DispatchService {
     const order = await this.orderRepository.findOne({
       where: { id: orderId },
     });
-    if (!order) throw new Error(`Commande #${orderId} introuvable`);
+    if (!order) throw new NotFoundException('Livraison introuvable.');
+
+    if (order.orderType === OrderType.P2P_DELIVERY) {
+      await this.orderRepository.manager.transaction(async manager => {
+        const current = await manager.findOne(Order, {
+          where: { id: orderId }, lock: { mode: 'pessimistic_write' },
+        });
+        const offer = current && activeP2pOffer(current, driverId);
+        if (!current || !isOpenP2pOrder(current) || !offer) {
+          throw new ForbiddenException('Cette offre n’est plus disponible.');
+        }
+        offer.refused = true;
+        offer.refusedAt = new Date().toISOString();
+        const othersWaiting = current.dispatchCandidates?.some(candidate => activeP2pOffer(current, candidate.driverId));
+        await manager.update(Order, orderId, {
+          dispatchCandidates: current.dispatchCandidates,
+          nextP2pDispatchAt: current.nextP2pDispatchAt && !othersWaiting ? new Date() : current.nextP2pDispatchAt,
+        });
+      });
+      return;
+    }
 
     if (order.driverId === driverId) {
       throw new Error(`Vous etes deja assigne a cette commande`);
@@ -875,62 +902,41 @@ export class DispatchService {
   /**
    * 🎯 Assigner manuellement une commande à un livreur spécifique
    */
-  async assignDriverToOrder(orderId: string, driverId: string): Promise<Order> {
-    this.logger.log(
-      `[Manual Assign] Assignation de la commande #${orderId} au livreur ${driverId}`,
-    );
+  async assignDriverToOrder(orderId: string, driverId: string, agencyId?: string, merchantId?: string): Promise<Order> {
+    const { updatedOrder, previousStatus } = await this.orderRepository.manager.transaction(async manager => {
+      const order = await manager.findOne(Order, { where: { id: orderId }, lock: { mode: 'pessimistic_write' } });
+      if (!order) throw new NotFoundException('Livraison introuvable.');
+      if (merchantId && (!order.businessId || !await manager.existsBy(Business, { id: order.businessId, ownerId: merchantId }))) {
+        throw new ForbiddenException('Cette livraison ne relève pas de votre commerce.');
+      }
+      if (order.driverId || order.fulfillmentType !== FulfillmentType.DELIVERY
+        || ![OrderStatus.PAID, OrderStatus.READY_FOR_PICKUP].includes(order.status)
+        || (order.deliveryProviderId ?? null) !== (agencyId ?? null)
+        || (order.orderType === OrderType.P2P_DELIVERY && !order.paymentTransactionRef)) {
+        throw new ForbiddenException('Cette livraison ne peut plus être attribuée.');
+      }
 
-    const order = await this.orderRepository.findOne({
-      where: { id: orderId },
+      const driver = await manager.findOne(User, { where: { id: driverId }, lock: { mode: 'pessimistic_write' } });
+      if (!driver?.isActive || ![UserRole.DRIVER, UserRole.COURIER].includes(driver.role)
+        || (agencyId && driver.agencyId !== agencyId)) {
+        throw new ForbiddenException('Coursier non admissible à cette mission.');
+      }
+      const activeOrders = await manager.find(Order, {
+        where: { driverId, status: In([...ACTIVE_DELIVERY_STATUSES]) },
+      });
+      if (activeOrders.length >= MAX_ACTIVE_DELIVERIES_PER_DRIVER || !isCompatibleDeliveryZone(order, activeOrders)) {
+        throw new ForbiddenException('Capacité ou zone de cumul du coursier incompatible.');
+      }
+
+      const previousStatus = order.status;
+      order.driverId = driverId;
+      order.status = OrderStatus.DRIVER_ASSIGNED;
+      order.nextP2pDispatchAt = null;
+      if (agencyId) order.deliveryProviderStatus = 'ACCEPTED';
+      const updatedOrder = await manager.save(order);
+      return { updatedOrder, previousStatus };
     });
-    if (!order) {
-      throw new Error(`Commande #${orderId} introuvable`);
-    }
-
-    const assignableStatuses = [
-      OrderStatus.PAID,
-      OrderStatus.READY_FOR_PICKUP,
-    ];
-    if (!assignableStatuses.includes(order.status)) {
-      throw new Error(
-        `Impossible d'assigner un livreur : commande au statut "${order.status}". Statuts acceptés : ${assignableStatuses.join(', ')}`,
-      );
-    }
-
-    const driver = await this.userRepository.findOne({
-      where: { id: driverId, role: In([UserRole.DRIVER, UserRole.COURIER]) },
-    });
-    if (!driver) {
-      throw new Error(`Livreur ${driverId} introuvable`);
-    }
-
-    const activeOrders = await this.orderRepository.find({
-      where: {
-        driverId,
-        status: In([...ACTIVE_DELIVERY_STATUSES]),
-      },
-    });
-    const activeDeliveryCount = activeOrders.length;
-    if (activeDeliveryCount >= MAX_ACTIVE_DELIVERIES_PER_DRIVER) {
-      throw new Error(
-        `Ce livreur a déjà atteint la limite de ${MAX_ACTIVE_DELIVERIES_PER_DRIVER} livraisons actives.`,
-      );
-    }
-    if (!isCompatibleDeliveryZone(order, activeOrders)) {
-      throw new Error(
-        'Cette commande est hors de la zone de cumul du livreur (2 km).',
-      );
-    }
-
-    const previousStatus = order.status;
-    order.driverId = driverId;
-    order.status = OrderStatus.DRIVER_ASSIGNED;
-    const updatedOrder = await this.orderRepository.save(order);
-
-    await this.userRepository.update(driverId, {
-      isAvailable:
-        activeDeliveryCount + 1 < MAX_ACTIVE_DELIVERIES_PER_DRIVER,
-    });
+    if (updatedOrder.orderType === OrderType.P2P_DELIVERY) this.dispatchGateway.notifyP2pOfferClosed(updatedOrder);
 
     // 📱 Notifications push / in-app (client + livreur)
     try {
@@ -942,7 +948,7 @@ export class DispatchService {
     // Notifier le livreur
     this.dispatchGateway.notifyCandidateDrivers([driverId], {
       type: 'order_assigned',
-      orderId: order.id,
+      orderId: updatedOrder.id,
       message: 'Vous avez été assigné à cette commande',
     });
 

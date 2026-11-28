@@ -20,11 +20,9 @@ import {
   CardSkeleton,
   Empty,
   ErrorNote,
-  RouteLine,
   StatusPill,
   Toggle,
   formatFcfa,
-  isToday,
   statusTone,
 } from '../components/ui';
 import useAuthStore from '../store/authStore';
@@ -35,22 +33,41 @@ import {
   earningOf,
   fetchAvailableCourses,
   fetchMyOrders,
+  fetchTodayEarnings,
+  refuseCourse,
   setDriverStatus,
   statusLabel,
 } from '../services/courier';
 import { connectDispatch } from '../services/realtime';
 
-const REFRESH_MS = 20000;
-const DONE_STATUSES = ['DELIVERED', 'COMPLETED'];
+const REFRESH_MS = 10000;
+
+function TicketRoute({ order }) {
+  return (
+    <div className="mission-ticket-route">
+      <span>
+        <small>Retrait</small>
+        <strong>{order.pickupLocation?.address || 'Point de retrait'}</strong>
+      </span>
+      <ArrowRight size={17} aria-hidden="true" />
+      <span>
+        <small>Remise</small>
+        <strong>{order.dropoffLocation?.address || order.deliveryLocation?.address || 'Point de remise'}</strong>
+      </span>
+    </div>
+  );
+}
 
 const Missions = () => {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const updateAvailability = useAuthStore((s) => s.updateAvailability);
-  const online = user?.isOnline === true && user?.isAvailable === true;
+  const online = user?.isOnline === true;
   const [changingAvailability, setChangingAvailability] = useState(false);
   const [mine, setMine] = useState([]);
   const [available, setAvailable] = useState([]);
+  const [today, setToday] = useState(null);
+  const [clock, setClock] = useState(Date.now);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -66,17 +83,16 @@ const Missions = () => {
     const request = ++requestVersion.current;
     const isCurrent = () => mounted.current && request === requestVersion.current;
     try {
-      const rows = await fetchMyOrders();
+      const [rows, summary, list] = await Promise.all([
+        fetchMyOrders(),
+        fetchTodayEarnings().catch(() => null),
+        onlineRef.current ? fetchAvailableCourses() : Promise.resolve([]),
+      ]);
       if (!isCurrent()) return;
       setMine(Array.isArray(rows) ? rows : []);
-
-      if (onlineRef.current) {
-        const list = await fetchAvailableCourses();
-        if (!isCurrent()) return;
-        setAvailable(list);
-      } else {
-        setAvailable([]);
-      }
+      setToday(summary);
+      setAvailable(onlineRef.current ? list : []);
+      setClock(Date.now());
       setError(null);
     } catch (err) {
       if (isCurrent()) setError(err.message);
@@ -104,11 +120,10 @@ const Missions = () => {
   useEffect(() => {
     const socket = connectDispatch();
     const onOpportunity = () => load({ silent: true });
-    socket.on('delivery_opportunity', onOpportunity);
-    socket.on('newOrderAlert', onOpportunity);
+    const events = ['delivery_opportunity', 'targeted_order_offer', 'p2p_offer_closed', 'orderStatusChanged', 'newOrderAlert'];
+    events.forEach(event => socket.on(event, onOpportunity));
     return () => {
-      socket.off('delivery_opportunity', onOpportunity);
-      socket.off('newOrderAlert', onOpportunity);
+      events.forEach(event => socket.off(event, onOpportunity));
     };
   }, [load]);
 
@@ -117,18 +132,25 @@ const Missions = () => {
     [mine],
   );
 
-  /** Activité du jour, déduite des courses déjà livrées (liste serveur, pas de calcul local du solde). */
-  const today = useMemo(() => {
-    const rows = mine.filter(
-      (order) =>
-        DONE_STATUSES.includes(order.status) &&
-        isToday(order.deliveredAt || order.updatedAt || order.createdAt),
-    );
-    return {
-      count: rows.length,
-      net: rows.reduce((sum, order) => sum + earningOf(order).net, 0),
-    };
-  }, [mine]);
+  const currentOffers = available.filter(order => !order.expiresAt || Date.parse(order.expiresAt) > clock);
+  const hasExpiringOffers = currentOffers.some(order => order.expiresAt);
+  useEffect(() => {
+    if (!hasExpiringOffers) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [hasExpiringOffers]);
+
+  const onRefuse = async (orderId) => {
+    setBusyId(orderId);
+    try {
+      await refuseCourse(orderId);
+      await load({ silent: true });
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const toggleOnline = async () => {
     const next = !online;
@@ -190,7 +212,7 @@ const Missions = () => {
           <span className="muted">
             {online ? 'Vous recevez les courses autour de vous.' : 'Passez en ligne pour recevoir des courses.'}
           </span>
-          {today.count > 0 ? (
+          {today ? (
             <span className="amount" style={{ fontSize: 18 }}>
               {formatFcfa(today.net)}
               <small>{today.count} course{today.count > 1 ? 's' : ''} aujourd'hui</small>
@@ -219,16 +241,16 @@ const Missions = () => {
         active.map((order) => {
           const money = earningOf(order);
           return (
-            <Link key={order.id} to={`/missions/${order.id}`} className="card card-link mission-active">
-              <div className="row">
+            <Link key={order.id} to={`/missions/${order.id}`} className="card card-link mission-ticket">
+              <div className="mission-ticket-head">
+                <span className="mission-ticket-reference">{order.trackingReference || order.id.slice(0, 8)}</span>
                 <StatusPill tone={statusTone(order.status)}>{statusLabel(order.status)}</StatusPill>
-                <Amount value={money.net} caption="à percevoir" />
               </div>
-              <RouteLine pickup={order.pickupLocation} dropoff={order.dropoffLocation} compact />
-              <div className="row">
-                <span className="muted">{order.trackingReference || order.id.slice(0, 8)}</span>
-                <span className="strong" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13.5 }}>
-                  Ouvrir <ArrowRight size={15} />
+              <TicketRoute order={order} />
+              <div className="mission-ticket-foot">
+                <Amount value={money.net} caption="à percevoir" />
+                <span className="mission-ticket-open">
+                  Voir la course <ArrowRight size={16} aria-hidden="true" />
                 </span>
               </div>
             </Link>
@@ -244,36 +266,41 @@ const Missions = () => {
             Activez votre disponibilité pour voir les courses publiées à Ouagadougou.
           </p>
         </div>
-      ) : loading && available.length === 0 ? (
+      ) : loading && currentOffers.length === 0 ? (
         <>
           <CardSkeleton lines={4} />
           <CardSkeleton lines={4} />
         </>
-      ) : available.length === 0 ? (
-        <Empty title="Aucune course pour le moment" hint="Restez en ligne : nous vous prévenons dès qu'une course est publiée." />
+      ) : currentOffers.length === 0 ? (
+        <Empty title={active.length >= 3 ? 'Trois courses en cours' : 'Aucune offre à proximité'}
+          hint={active.length >= 3 ? 'Terminez une course pour recevoir de nouvelles offres.' : 'Gardez le GPS actif pour recevoir les offres proches du ramassage.'} />
       ) : (
-        available.map((order) => {
+        currentOffers.map((order) => {
           const money = earningOf(order);
+          const remaining = order.expiresAt ? Math.ceil((Date.parse(order.expiresAt) - clock) / 1000) : null;
           return (
-            <article key={order.id} className="card">
-              <div className="row">
-                <StatusPill tone="accent">{statusLabel(order.status)}</StatusPill>
-                <Amount value={money.net} />
+            <article key={order.id} className="card mission-ticket">
+              <div className="mission-ticket-head">
+                <span className="mission-ticket-reference">{order.trackingReference || order.id.slice(0, 8)}</span>
+                <StatusPill tone="accent">{remaining == null ? statusLabel(order.status) : `${remaining} s pour répondre`}</StatusPill>
               </div>
 
-              <RouteLine pickup={order.pickupLocation} dropoff={order.dropoffLocation} />
+              <TicketRoute order={order} />
 
               <div className="meta">
-                {order.distanceKm ? (
+                {Number.isFinite(order.pickupDistanceKm) ? (
                   <span className="pill">
-                    <Timer size={12} /> {order.distanceKm} km
+                    <Timer size={12} /> {order.pickupDistanceKm.toLocaleString('fr-FR')} km jusqu’au retrait
                   </span>
                 ) : null}
                 {money.fee ? <span className="pill">commission {formatFcfa(money.fee)}</span> : null}
                 {order.packageDetails?.isFragile ? <span className="pill pill-warn">Fragile</span> : null}
               </div>
 
-              <div className="btn-row">
+              <div className="mission-ticket-foot">
+                <Amount value={money.net} caption="gain net" />
+                {order.expiresAt && <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)}
+                  onClick={() => onRefuse(order.id)}>Refuser</button>}
                 <button
                   type="button"
                   className="btn btn-accent"

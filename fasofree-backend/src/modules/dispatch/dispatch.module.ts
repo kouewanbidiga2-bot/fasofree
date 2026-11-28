@@ -11,6 +11,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DispatchGateway } from './dispatch.gateway';
 import { DispatchService } from './dispatch.service';
 import { DispatchController } from './dispatch.controller';
+import { P2pDispatchService } from './p2p-dispatch.service';
 import { LocationHandler } from './handlers/location.handler';
 import { RoomHandler } from './handlers/room.handler';
 import { OrdersModule } from '../orders/orders.module';
@@ -65,6 +66,7 @@ import { resolveJwtSecret } from '../../config/jwt.config';
   providers: [
     DispatchGateway,
     DispatchService,
+    P2pDispatchService,
     LocationHandler,
     RoomHandler,
     // 🧭 Dispatch multi-niveaux (Delivery Providers / Fallback)

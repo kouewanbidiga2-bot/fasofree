@@ -1176,8 +1176,7 @@ export class OrdersService {
     dto: CreateOrderDto,
     guest?: { keyHash: string; name: string; phone: string; email: string },
   ): Promise<{ order: Order; checkoutUrl: string; trackingToken: string }> {
-    const { pickupLocation, dropoffLocation, packageDetails, fulfillmentType } =
-      dto;
+    const { pickupLocation, dropoffLocation, packageDetails } = dto;
 
     // ─── 1. VALIDATIONS PRÉALABLES (avant création en base) ───────────────
     if (!pickupLocation || !dropoffLocation) {
@@ -1223,7 +1222,7 @@ export class OrdersService {
       businessId: undefined,
       orderType: OrderType.P2P_DELIVERY,
       trackingReference: randomBytes(10).toString('hex').toUpperCase(),
-      fulfillmentType: fulfillmentType || FulfillmentType.DELIVERY,
+      fulfillmentType: FulfillmentType.DELIVERY,
       fulfillmentDetails: { notes: packageDetails?.description },
       productsSubtotal: 0,
       itemsTotal: 0,
@@ -1381,6 +1380,10 @@ export class OrdersService {
         throw new NotFoundException(`Commande #${orderId} introuvable`);
       }
 
+      if (order.orderType === OrderType.P2P_DELIVERY) {
+        throw new ForbiddenException('Acceptez le colis depuis son offre de livraison.');
+      }
+
       if (order.driverId && order.driverId !== driverId) {
         throw new ForbiddenException(
           'Cette course a déjà été acceptée par un autre livreur',
@@ -1456,8 +1459,8 @@ export class OrdersService {
    * 🎯 Assignation manuelle d'un livreur à une commande (admin/support).
    * Délègue au DispatchService qui notifie le livreur via WebSocket.
    */
-  async assignDriverToOrder(orderId: string, driverId: string): Promise<Order> {
-    return this.dispatchService.assignDriverToOrder(orderId, driverId);
+  async assignDriverToOrder(orderId: string, driverId: string, merchantId?: string): Promise<Order> {
+    return this.dispatchService.assignDriverToOrder(orderId, driverId, undefined, merchantId);
   }
 
   public formatClientInvoiceResponse(order: Order): ClientInvoiceResponse {
@@ -2280,7 +2283,7 @@ export class OrdersService {
   async markAsPaidAndDispatch(
     orderId: string,
     transactionId: string,
-  ): Promise<void> {
+  ): Promise<OrderStatus> {
     this.logger.log(
       `[Order Paid] Validation de la commande ${orderId} (Tx: ${transactionId})`,
     );
@@ -2302,6 +2305,7 @@ export class OrdersService {
       // 🔒 Idempotence : ignorer si déjà payée ou avancée
       const terminalPaidStatuses: OrderStatus[] = [
         OrderStatus.PAID,
+        OrderStatus.SCHEDULED,
         OrderStatus.IN_PREPARATION,
         OrderStatus.READY_FOR_PICKUP,
         OrderStatus.DRIVER_ASSIGNED,
@@ -2316,7 +2320,7 @@ export class OrdersService {
           `La commande ${orderId} est déjà au statut ${order.status} — ignoré.`,
         );
         await queryRunner.rollbackTransaction();
-        return;
+        return order.status;
       }
 
       // 🔒 Refuser un paiement sur une commande FAILED/CANCELLED/REFUNDED
@@ -2330,7 +2334,15 @@ export class OrdersService {
           `[Order Paid] Commande ${orderId} au statut ${order.status} — paiement SasPay ignoré (commande morte)`,
         );
         await queryRunner.rollbackTransaction();
-        return;
+        return order.status;
+      }
+
+      const transaction = await queryRunner.manager.findOne(Transaction, {
+        where: { orderId, reference: transactionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!transaction?.paymentGatewayId) {
+        throw new BadRequestException('Tentative de paiement introuvable.');
       }
 
       // 📅 Bloc H — commande à l'avance : payée mais pas encore due.
@@ -2345,17 +2357,20 @@ export class OrdersService {
             `[Order Scheduled] Transition invalide: ${order.status} → SCHEDULED pour la commande ${orderId}`,
           );
           await queryRunner.rollbackTransaction();
-          return;
+          return order.status;
         }
 
         order.status = OrderStatus.SCHEDULED;
+        order.paymentTransactionRef = transaction.reference;
+        transaction.status = TransactionStatus.SUCCESS;
+        await queryRunner.manager.save(transaction);
         await queryRunner.manager.save(order);
         await queryRunner.commitTransaction();
 
         this.logger.log(
           `[Order Scheduled] ${orderId} → libération prévue à ${order.scheduledFor.toISOString()}`,
         );
-        return;
+        return order.status;
       }
 
       // Valider la transition FSM
@@ -2365,29 +2380,22 @@ export class OrdersService {
           `[Order Paid] Transition invalide: ${order.status} → PAID pour la commande ${orderId}`,
         );
         await queryRunner.rollbackTransaction();
-        return;
+        return order.status;
       }
 
       order.status = OrderStatus.PAID;
-      order.paymentTransactionRef = transactionId; // CORRIGÉ : Correspond au nom dans l'entité
+      order.paymentTransactionRef = transaction.reference;
+      if (order.orderType === OrderType.P2P_DELIVERY) order.nextP2pDispatchAt = new Date();
+      transaction.status = TransactionStatus.SUCCESS;
       await queryRunner.manager.save(order);
-
-      const transaction = await queryRunner.manager.findOne(Transaction, {
-        where: { orderId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (transaction) {
-        transaction.status = TransactionStatus.SUCCESS;
-        transaction.paymentGatewayId = transactionId;
-        await queryRunner.manager.save(transaction);
-      }
+      await queryRunner.manager.save(transaction);
 
       await queryRunner.commitTransaction();
 
       this.logger.log(
         `[Dispatch] Recherche d'un livreur pour la commande ${orderId}`,
       );
-      this.dispatchGateway.dispatchOrderToDrivers(order); // Ajout manquant
+      if (order.orderType !== OrderType.P2P_DELIVERY) this.dispatchGateway.dispatchOrderToDrivers(order);
 
       // 🧾 Reçu client automatique (ne bloque jamais le flux en cas d'échec)
       try {
@@ -2397,8 +2405,9 @@ export class OrdersService {
           `[Receipt] Échec reçu client pour ${orderId}: ${receiptError.message}`,
         );
       }
+      return order.status;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) await queryRunner.rollbackTransaction();
       this.logger.error(
         `Erreur lors de la validation de la commande ${orderId}: ${error.message}`,
       );
@@ -2408,7 +2417,7 @@ export class OrdersService {
     }
   }
 
-  async markAsPaymentFailed(orderId: string): Promise<void> {
+  async markAsPaymentFailed(orderId: string, transactionRef: string): Promise<void> {
     this.logger.warn(
       `[Payment Failed] Annulation de la commande ${orderId} pour échec de paiement`,
     );
@@ -2430,6 +2439,7 @@ export class OrdersService {
       // 🔒 Ne JAMAIS écraser une commande déjà payée ou en cours de livraison
       const nonOverridableStatuses: OrderStatus[] = [
         OrderStatus.PAID,
+        OrderStatus.SCHEDULED,
         OrderStatus.IN_PREPARATION,
         OrderStatus.READY_FOR_PICKUP,
         OrderStatus.DRIVER_ASSIGNED,
@@ -2457,6 +2467,16 @@ export class OrdersService {
         OrderStatus.FAILED,
       ];
       if (cancellableStatuses.includes(order.status)) {
+        const transaction = await queryRunner.manager.findOne(Transaction, {
+          where: { orderId, reference: transactionRef },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!transaction || transaction.status === TransactionStatus.SUCCESS) {
+          await queryRunner.rollbackTransaction();
+          return;
+        }
+        transaction.status = TransactionStatus.FAILED;
+        await queryRunner.manager.save(transaction);
         const previousStatus = order.status;
         const result = await queryRunner.manager.update(
           Order,
@@ -2534,7 +2554,7 @@ export class OrdersService {
       }
 
       if (role === UserRole.DRIVER || role === UserRole.COURIER) {
-        if (order.driverId && order.driverId !== userId) {
+        if (order.driverId !== userId) {
           throw new ForbiddenException(
             "Vous n'êtes pas le livreur assigné à cette commande",
           );
@@ -2599,6 +2619,18 @@ export class OrdersService {
 
       const isDriver = role === UserRole.DRIVER || role === UserRole.COURIER;
       const isMerchant = role === UserRole.BUSINESS_ADMIN;
+
+      if (isDriver && !isDriverTransition) {
+        throw new ForbiddenException('Transition indisponible pour un coursier.');
+      }
+      if (isDriver && order.orderType === OrderType.P2P_DELIVERY
+        && status === OrderStatus.DELIVERED_PENDING_CONFIRMATION) {
+        throw new ForbiddenException('Signalez la remise depuis l’action dédiée à la livraison.');
+      }
+      if (isDriver && order.orderType === OrderType.P2P_DELIVERY
+        && status === OrderStatus.IN_DELIVERY && order.pickupArrival?.driverId !== userId) {
+        throw new BadRequestException('Indiquez votre arrivée au ramassage avant de récupérer le colis.');
+      }
 
       if (isDriverTransition) {
         if (isDriver) {
@@ -2823,6 +2855,11 @@ export class OrdersService {
       );
     }
 
+    const isParcel = order.orderType === OrderType.P2P_DELIVERY;
+    if (isParcel && (order.status !== OrderStatus.IN_DELIVERY || order.dropoffArrival?.driverId !== driverId)) {
+      throw new BadRequestException('Indiquez votre arrivée chez le destinataire avant de signaler la remise.');
+    }
+
     if (
       order.status !== OrderStatus.DRIVER_ASSIGNED &&
       order.status !== OrderStatus.IN_DELIVERY &&
@@ -2843,7 +2880,24 @@ export class OrdersService {
     // le retard soient persistés dans le même UPDATE que le statut.
     this.stampDeliveredAt(order);
 
-    const saved = await this.orderRepository.save(order);
+    let saved = order;
+    if (isParcel) {
+      const result = await this.orderRepository.update(
+        { id: orderId, driverId, status: previousStatus, driverValidatedAt: IsNull() },
+        {
+          status: order.status,
+          driverValidatedAt: order.driverValidatedAt,
+          deliveredAt: order.deliveredAt,
+          deliveryDurationMinutes: order.deliveryDurationMinutes,
+          deliveryLate: order.deliveryLate,
+        },
+      );
+      if (!result.affected) {
+        throw new ConflictException('La remise a déjà été signalée ou la course a changé.');
+      }
+    } else {
+      saved = await this.orderRepository.save(order);
+    }
 
     // 📡 Broadcast temps réel : admin + marchand voient le changement sans reconnexion
     this.dispatchGateway.broadcastOrderStatusChanged({
@@ -3058,8 +3112,16 @@ export class OrdersService {
   async confirmDeliveryByAdmin(
     orderId: string,
     userId: string,
+    role: UserRole,
   ): Promise<Order> {
     const order = await this.findOne(orderId);
+
+    if (role === UserRole.BUSINESS_ADMIN) {
+      if (!order.businessId || order.orderType === OrderType.P2P_DELIVERY) {
+        throw new ForbiddenException('Cette livraison ne relève pas de votre commerce.');
+      }
+      await this.businessesService.assertManagedBy(order.businessId, userId, role);
+    }
 
     if (
       order.status !== OrderStatus.DELIVERED_PENDING_CONFIRMATION &&
@@ -3522,12 +3584,13 @@ export class OrdersService {
 
     for (const order of dueOrders) {
       try {
+        const release = await this.orderRepository.update({ id: order.id, status: OrderStatus.SCHEDULED }, {
+          status: OrderStatus.PAID,
+          nextP2pDispatchAt: order.orderType === OrderType.P2P_DELIVERY ? now : null,
+        });
+        if (!release.affected) continue;
         order.status = OrderStatus.PAID;
-        // `scheduledFor` est conservé : il trace que cette commande était
-        // à l'avance, ce qui explique un dispatch tardif dans les stats.
-        await this.orderRepository.save(order);
-
-        this.dispatchGateway.dispatchOrderToDrivers(order);
+        if (order.orderType !== OrderType.P2P_DELIVERY) this.dispatchGateway.dispatchOrderToDrivers(order);
         this.logger.log(
           `[Scheduled] Commande #${order.id} libérée et dispatchée`,
         );

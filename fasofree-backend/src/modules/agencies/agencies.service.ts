@@ -286,12 +286,7 @@ export class AgenciesService {
       throw new Error('Chauffeur introuvable dans votre agence');
     }
 
-    const updated = await this.dispatchService.assignDriverToOrder(
-      orderId,
-      driverId,
-    );
-    updated.deliveryProviderStatus = 'ACCEPTED';
-    await this.orderRepository.save(updated);
+    const updated = await this.dispatchService.assignDriverToOrder(orderId, driverId, agencyId);
 
     this.logger.log(
       `[Agencies] Course #${orderId} assignée par l'agence ${agencyId} au chauffeur ${driverId}`,

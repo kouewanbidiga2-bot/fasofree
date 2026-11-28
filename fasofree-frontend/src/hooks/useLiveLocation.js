@@ -25,6 +25,8 @@ export default function useLiveLocation({ orderId, enabled = true } = {}) {
     let sentAt = 0;
     let inFlight = false;
     let cancelled = false;
+    let refreshing = false;
+    let permissionDenied = false;
 
     async function send() {
       if (cancelled || inFlight || !latest || Date.now() - latest.observedAt > 30_000
@@ -43,34 +45,52 @@ export default function useLiveLocation({ orderId, enabled = true } = {}) {
       if (shared) setSharedAt(Date.now());
     }
 
-    const watchId = navigator.geolocation.watchPosition(
-      ({ coords: position, timestamp }) => {
-        if (cancelled) return;
-        latest = {
-          latitude: position.latitude,
-          longitude: position.longitude,
-          accuracy: position.accuracy,
-          heading: position.heading ?? undefined,
-          observedAt: timestamp,
-        };
-        setCoords(latest);
-        setError(null);
-        void send();
-      },
-      (failure) => {
-        if (cancelled) return;
+    const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20_000 };
+    const onPosition = ({ coords: position, timestamp }) => {
+      if (cancelled || (latest && latest.observedAt > timestamp)) return;
+      permissionDenied = false;
+      latest = {
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        heading: position.heading ?? undefined,
+        observedAt: timestamp,
+      };
+      setCoords(latest);
+      setError(null);
+      void send();
+    };
+    const onFailure = (failure) => {
+      if (cancelled) return;
+      permissionDenied = failure.code === 1;
+      if (permissionDenied || !latest || Date.now() - latest.observedAt > 30_000) {
         latest = null;
-        setError(failure.code === 1
+        setCoords(null);
+        setError(permissionDenied
           ? 'Autorisez la position dans les réglages du navigateur.'
           : 'La position GPS est momentanément indisponible.');
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20_000 },
-    );
-    const timer = window.setInterval(send, SEND_INTERVAL_MS);
+      }
+    };
+    const watchId = navigator.geolocation.watchPosition(onPosition, onFailure, options);
+    const refresh = () => {
+      if (cancelled || document.visibilityState === 'hidden') return;
+      void send();
+      // Certains mobiles ne rappellent pas watchPosition lors d’un arrêt.
+      if (refreshing || permissionDenied || (latest && Date.now() - latest.observedAt <= 20_000)) return;
+      refreshing = true;
+      navigator.geolocation.getCurrentPosition(
+        position => { refreshing = false; onPosition(position); },
+        failure => { refreshing = false; onFailure(failure); },
+        options,
+      );
+    };
+    const timer = window.setInterval(refresh, SEND_INTERVAL_MS);
+    document.addEventListener('visibilitychange', refresh);
     return () => {
       cancelled = true;
       navigator.geolocation.clearWatch(watchId);
       window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [enabled, orderId]);
 

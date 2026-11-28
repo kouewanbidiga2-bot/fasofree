@@ -24,6 +24,16 @@ export const fetchAvailableCourses = async () => {
   return Array.isArray(data) ? data : (data?.orders ?? []);
 };
 
+export const fetchTodayEarnings = async () => {
+  const { data } = await api.get('/dispatch/my-earnings-today');
+  return data;
+};
+
+export const contactMissionSupport = async (orderId, reason, details) => {
+  const { data } = await api.post(`/dispatch/support/${orderId}`, { reason, details });
+  return data;
+};
+
 export const fetchMyOrders = async () => {
   const { data } = await api.get('/orders/my-orders', {
     params: { limit: 30, status: ACTIVE_STATUSES.join(',') },

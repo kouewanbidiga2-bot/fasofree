@@ -161,50 +161,35 @@ export class PaymentsController {
     const providerId = String(data.id);
 
     // ── Encaissements (paiements) ────────────────────────────────────────
-    if (data.type === 'PAIEMENT' && event === 'transaction.success') {
-      if (await this.paymentsService.settleTopupFromSasPay(providerId, 'SUCCESS')) {
+    if (data.type === 'PAIEMENT') {
+      // L’en-tête événement ne décide pas de l’encaissement. La vérification
+      // serveur auprès du fournisseur porte sur la tentative identifiée.
+      const verified = await this.sasPayService.verifyPayment(providerId);
+      if (verified.id !== providerId || (verified.currency != null && verified.currency !== 'XOF')) {
+        throw new BadRequestException('Paiement fournisseur incohérent.');
+      }
+      if (verified.status !== 'SUCCESS' && verified.status !== 'FAILED') return { success: true };
+      if (await this.paymentsService.settleTopupFromSasPay(providerId, verified.status, verified)) {
         return { success: true };
       }
-      // Réconciliation par l'id du paiement SasPay (notre référence FF-PAY n'est pas
-      // renvoyée par SasPay ; elle est enregistrée dans paymentGatewayId à l'initiation).
-      const transaction = await this.transactionRepository.findOne({
-        where: { paymentGatewayId: providerId },
-      });
-      if (!transaction) {
-        this.logger.warn(`[SasPay Webhook] Aucune commande pour le paiement ${providerId}`);
+      const transaction = await this.transactionRepository.findOne({ where: { paymentGatewayId: providerId } });
+      if (!transaction) return { success: true };
+      if (verified.status === 'FAILED') {
+        await this.ordersService.markAsPaymentFailed(transaction.orderId, transaction.reference);
         return { success: true };
       }
-      const receivedAmount = Number(data.net_amount ?? data.amount);
-      const amountValid = await this.paymentsService.validatePaymentAmount(transaction.orderId, receivedAmount);
-      if (!amountValid) {
-        await this.transactionRepository.update(transaction.id, { status: TransactionStatus.FAILED });
-        await this.ordersService.markAsPaymentFailed(transaction.orderId);
-        this.logger.error(`❌ Montant SasPay invalide pour commande ${transaction.orderId}: ${receivedAmount}`);
-        throw new BadRequestException('Amount mismatch');
+      if (!await this.paymentsService.validatePaymentAmount(transaction.orderId, verified.amount)) {
+        throw new BadRequestException('Montant du paiement fournisseur incohérent.');
       }
       await this.paymentsService.processSuccessfulPayment(transaction.orderId, transaction.reference, 'SASPAY');
       return { success: true };
     }
 
-    if (data.type === 'PAIEMENT' && event === 'transaction.failed') {
-      if (await this.paymentsService.settleTopupFromSasPay(providerId, 'FAILED')) {
-        return { success: true };
-      }
-      const transaction = await this.transactionRepository.findOne({
-        where: { paymentGatewayId: providerId },
-      });
-      if (transaction) {
-        await this.transactionRepository.update(transaction.id, { status: TransactionStatus.FAILED });
-        await this.ordersService.markAsPaymentFailed(transaction.orderId);
-      }
-      return { success: true };
-    }
-
     // ── Retraits (virements sortants, type RETRAIT) ──────────────────────
-    if (data.type === 'RETRAIT' && (event === 'transaction.success' || event === 'transaction.failed')) {
+    if (data.type === 'RETRAIT' && (data.status === 'SUCCESS' || data.status === 'FAILED')) {
       const payout = await this.walletPayoutsService.findPayoutByIdentifier(providerId);
       if (payout) {
-        if (event === 'transaction.success') {
+        if (data.status === 'SUCCESS') {
           await this.walletPayoutsService.confirmProviderPayout(payout.id, providerId);
         } else {
           await this.walletPayoutsService.failPayout(payout.id, 'Virement refusé par SasPay');

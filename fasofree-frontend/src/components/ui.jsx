@@ -84,30 +84,6 @@ export const Amount = ({ value, caption = 'net' }) => (
   </span>
 );
 
-/**
- * Trajet retrait → livraison.
- * Les deux points sont reliés par un trait vertical : le livreur lit le sens
- * de la course d'un coup d'œil, sans lire une seule ligne de texte.
- */
-export const RouteLine = ({ pickup, dropoff, compact = false }) => (
-  <div className={`route ${compact ? 'route-compact' : ''}`}>
-    <div className="route-row">
-      <span className="route-dot route-dot-pickup" aria-hidden="true" />
-      <div className="route-text">
-        <span className="route-kicker">Retrait</span>
-        <span className="route-address">{pickup?.address || 'Point de retrait'}</span>
-      </div>
-    </div>
-    <div className="route-row">
-      <span className="route-dot route-dot-dropoff" aria-hidden="true" />
-      <div className="route-text">
-        <span className="route-kicker">Livraison</span>
-        <span className="route-address">{dropoff?.address || 'Point de livraison'}</span>
-      </div>
-    </div>
-  </div>
-);
-
 /** Interrupteur de disponibilité (cible tactile large). */
 export const Toggle = ({ checked, onChange, label, disabled = false }) => (
   <button

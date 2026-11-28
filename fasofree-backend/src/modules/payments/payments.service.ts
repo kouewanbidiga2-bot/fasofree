@@ -303,8 +303,10 @@ export class PaymentsService {
     orderId: string,
     order: Order,
   ): Promise<{ status: string; paid: boolean; reference: string | null }> {
-    const alreadyPaid = [
+    const paidStatuses = [
       OrderStatus.PAID,
+      OrderStatus.SCHEDULED,
+      OrderStatus.PROCESSING,
       OrderStatus.IN_PREPARATION,
       OrderStatus.READY_FOR_PICKUP,
       OrderStatus.DRIVER_ASSIGNED,
@@ -312,8 +314,8 @@ export class PaymentsService {
       OrderStatus.DELIVERED_PENDING_CONFIRMATION,
       OrderStatus.DELIVERED,
       OrderStatus.COMPLETED,
-    ].includes(order.status);
-    if (alreadyPaid) {
+    ];
+    if (paidStatuses.includes(order.status)) {
       return { status: order.status, paid: true, reference: order.paymentTransactionRef ?? null };
     }
 
@@ -323,14 +325,11 @@ export class PaymentsService {
     if (!transaction || !transaction.paymentGatewayId) {
       return { status: order.status, paid: false, reference: transaction?.reference ?? null };
     }
-    if (transaction.status === TransactionStatus.SUCCESS) {
-      return { status: order.status, paid: true, reference: transaction.reference };
-    }
-
     // Interroge l'agrégateur — une erreur réseau ne doit pas faire mentir
     // l'interface : on renvoie alors l'état local, jamais « payé ».
     let gatewayStatus: string;
     let gatewayAmount: number | undefined;
+    let gatewayCurrency: string | undefined;
     try {
       const remote = await this.sasPayService.verifyPayment(
         transaction.paymentGatewayId,
@@ -338,7 +337,11 @@ export class PaymentsService {
       gatewayStatus = remote.status === 'SUCCESS' ? 'completed'
         : remote.status === 'FAILED' ? 'failed'
         : 'pending';
+      if (remote.id !== transaction.paymentGatewayId) {
+        return { status: order.status, paid: false, reference: transaction.reference };
+      }
       gatewayAmount = remote.amount;
+      gatewayCurrency = remote.currency;
     } catch (err) {
       this.logger.warn(
         `[Reconcile] Impossible de joindre SasPay pour ${orderId}: ${(err as Error).message}`,
@@ -355,7 +358,7 @@ export class PaymentsService {
       gatewayAmount !== undefined &&
       Number.isFinite(gatewayAmount) &&
       Number.isFinite(expectedAmount) &&
-      Math.abs(expectedAmount - gatewayAmount) <= 1;
+      (gatewayCurrency == null || gatewayCurrency === 'XOF') && expectedAmount === gatewayAmount;
 
     if (gatewayStatus === 'completed' && !amountMatches) {
       this.logger.warn(
@@ -364,24 +367,15 @@ export class PaymentsService {
     }
 
     if (gatewayStatus === 'completed' && amountMatches) {
-      await this.transactionRepository.update(
-        { id: transaction.id },
-        { status: TransactionStatus.SUCCESS },
-      );
-      await this.ordersService.markAsPaidAndDispatch(orderId, transaction.reference);
-      this.logger.log(`[Reconcile] Commande ${orderId} confirmée payée via Jeko`);
-      return { status: OrderStatus.PAID, paid: true, reference: transaction.reference };
+      const status = await this.ordersService.markAsPaidAndDispatch(orderId, transaction.reference);
+      return { status, paid: paidStatuses.includes(status), reference: transaction.reference };
     }
 
-    if (gatewayStatus === 'failed' || gatewayStatus === 'cancelled' || gatewayStatus === 'expired') {
-      if (transaction.status === TransactionStatus.PENDING) {
-        await this.transactionRepository.update(
-          { id: transaction.id },
-          { status: TransactionStatus.FAILED },
-        );
-        await this.ordersService.markAsPaymentFailed(orderId).catch(() => undefined);
-      }
-      return { status: gatewayStatus, paid: false, reference: transaction.reference };
+    if (gatewayStatus === 'failed') {
+      await this.ordersService.markAsPaymentFailed(orderId, transaction.reference);
+      const current = await this.orderRepository.findOne({ where: { id: orderId } });
+      const status = current?.status ?? order.status;
+      return { status, paid: paidStatuses.includes(status), reference: transaction.reference };
     }
 
     // pending / processing → toujours en cours, jamais « payé ».
@@ -405,7 +399,7 @@ export class PaymentsService {
     }
     const expected = Number(order.totalAmount);
     const received = Number(receivedAmount);
-    return Math.abs(expected - received) <= 1;
+    return Number.isFinite(received) && Number.isFinite(expected) && expected > 0 && expected === received;
   }
 
   async processSuccessfulPayment(
@@ -523,9 +517,16 @@ export class PaymentsService {
    * rejoué ne crédite donc jamais deux fois. Le montant crédité est celui de la
    * demande enregistrée, jamais celui annoncé par le webhook.
    */
-  async settleTopupFromSasPay(providerPaymentId: string, outcome: 'SUCCESS' | 'FAILED'): Promise<boolean> {
+  async settleTopupFromSasPay(
+    providerPaymentId: string,
+    outcome: 'SUCCESS' | 'FAILED',
+    verification?: { amount?: number },
+  ): Promise<boolean> {
     const topup = await this.topupRepository.findOne({ where: { providerPaymentId } });
     if (!topup) return false;
+    if (outcome === 'SUCCESS' && verification && verification.amount !== Number(topup.amount)) {
+      throw new BadRequestException('Montant de recharge fournisseur incohérent.');
+    }
 
     if (outcome === 'FAILED') {
       await this.topupRepository.update(

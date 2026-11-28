@@ -434,80 +434,61 @@ textarea {
 
 /* ── Trajet ────────────────────────────────────────────────────────── */
 
-.route {
-  display: flex;
-  flex-direction: column;
+.mission-ticket.card {
   gap: 0;
-  position: relative;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
 }
-
-.route-row {
+.mission-ticket-head, .mission-ticket-foot {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 8px 0;
-  position: relative;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
 }
-
-.route-row + .route-row {
-  border-top: 1px dashed var(--line);
-}
-
-.route-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  flex: none;
-  margin-top: 5px;
-  position: relative;
-  z-index: 1;
-}
-
-.route-dot-pickup {
-  border: 3px solid var(--ink);
-  background: var(--surface);
-}
-
-.route-dot-dropoff {
-  background: var(--ink);
-  box-shadow: 0 0 0 4px var(--bg-sunken);
-}
-
-.route-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.route-kicker {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.mission-ticket-reference {
   color: var(--ink-3);
+  font: 600 0.75rem/1.2 ui-monospace, monospace;
 }
-
-.route-address {
-  font-size: 14.5px;
-  font-weight: 600;
-  letter-spacing: -0.012em;
-  line-height: 1.35;
-  color: var(--ink);
-  overflow-wrap: anywhere;
+.mission-ticket-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  padding: 0.15rem 1rem 0.85rem;
 }
-
-.route-compact .route-row {
-  padding: 5px 0;
+.mission-ticket-route span { display: grid; gap: 0.2rem; min-width: 0; }
+.mission-ticket-route small {
+  color: var(--ink-3);
+  font-size: 0.75rem;
 }
-
-.route-compact .route-address {
-  font-size: 13.5px;
-  font-weight: 600;
+.mission-ticket-route strong { font-size: 0.94rem; line-height: 1.32; overflow-wrap: anywhere; }
+.mission-ticket-route svg { margin-top: 1.15rem; color: var(--ink-3); }
+.mission-ticket > .meta { padding: 0 1rem 0.75rem; }
+.mission-ticket-foot {
+  position: relative;
+  border-top: 1px dashed var(--line-strong);
+  background: var(--surface-2);
 }
+.mission-ticket-foot::before, .mission-ticket-foot::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  width: 11px;
+  height: 11px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.mission-ticket-foot::before { left: -6px; }
+.mission-ticket-foot::after { right: -6px; }
+.mission-ticket-foot .amount { text-align: start; }
+.mission-ticket-open { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 700; }
 
-/* ── Interrupteur ──────────────────────────────────────────────────── */
-
+/* Interrupteur */
 .switch {
   display: inline-flex;
   align-items: center;
@@ -1031,7 +1012,6 @@ textarea {
   background: var(--lime);
   border: 1px solid #667936;
 }
-.mission-active { border-inline-start: 3px solid var(--ink); }
 
 .mission-map {
   position: relative;
@@ -1163,7 +1143,11 @@ textarea {
 }
 .mission-map-anchor { scroll-margin-top: 5rem; }
 .mission-map-shortcut { min-height: 48px; }
-.mission-support { justify-self: start; }
+.mission-support { border-block-start: 1px solid var(--line); }
+.mission-support summary { display: flex; align-items: center; gap: 0.45rem; padding-block: 0.65rem; min-height: 44px; cursor: pointer; font-weight: 700; }
+.mission-support form { display: grid; gap: 0.55rem; padding-block-end: 0.6rem; }
+.mission-support label { display: grid; gap: 0.3rem; font-size: 0.85rem; }
+.mission-support textarea { resize: vertical; }
 .map-course-link {
   display: flex;
   align-items: center;

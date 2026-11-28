@@ -24,7 +24,7 @@ import { JoinBusinessRoomDto, JoinOrderTrackingDto } from './dto/room.dto';
 import { WsEvents, WsRooms } from './constants/dispatch-events.enum';
 import { LocationHandler } from './handlers/location.handler';
 import { RoomHandler } from './handlers/room.handler';
-import { Order } from '../orders/entities/order.entity';
+import { Order, OrderType } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 import { Brand } from '../brands/entities/brand.entity';
 import { Business } from '../businesses/entities/business.entity';
@@ -78,7 +78,6 @@ export class DispatchGateway
     try {
       const token =
         client.handshake.headers.authorization?.split(' ')[1] ||
-        (client.handshake.query.token as string) ||
         (client.handshake.auth?.token as string);
 
       if (!token) {
@@ -93,14 +92,14 @@ export class DispatchGateway
       const payload = this.jwtService.verify(token, { secret });
 
       const userId = payload.sub;
-      const role = payload.role;
+      let role: UserRole;
 
       // 🔒 Comptes désactivés/bannis : pas d'accès au tracking temps réel.
       // Contrôle isolé : une panne DB est loggée distinctement (fail-closed).
       try {
         const dbUser = await this.userRepository.findOne({
           where: { id: userId },
-          select: { id: true, isActive: true },
+          select: { id: true, isActive: true, role: true },
         });
         if (!dbUser || !dbUser.isActive) {
           this.logger.warn(
@@ -109,6 +108,7 @@ export class DispatchGateway
           client.disconnect();
           return;
         }
+        role = dbUser.role;
       } catch (dbErr) {
         this.logger.error(
           `[WS Auth] Contrôle isActive impossible (DB) pour ${userId} : ${dbErr instanceof Error ? dbErr.message : String(dbErr)}`,
@@ -117,7 +117,11 @@ export class DispatchGateway
         return;
       }
 
-      client.data.user = payload;
+      client.data.user = { sub: userId, exp: payload.exp, role };
+      if (typeof payload.exp === 'number') {
+        client.data.expiryTimer = setTimeout(() => client.disconnect(), Math.max(0, payload.exp * 1000 - Date.now()));
+        client.data.expiryTimer.unref();
+      }
 
       this.logger.log(
         `[WS Authenticated] Socket: ${client.id} | User: ${userId} | Role: ${role}`,
@@ -132,11 +136,7 @@ export class DispatchGateway
       ) {
         // Rejoindre la room de toutes les agences du marchand
         let businessIds: string[] = [];
-        if (payload.businessId) {
-          businessIds.push(payload.businessId);
-        }
-        // Fallback: reconstruire businessId depuis la DB si absent du JWT
-        if (businessIds.length === 0) {
+        {
           try {
             const brands = await this.brandRepository.find({
               where: { ownerId: userId },
@@ -151,6 +151,7 @@ export class DispatchGateway
             this.logger.warn(`[WS] Impossible de reconstruire businessId pour ${userId}: ${e.message}`);
           }
         }
+        client.data.user.businessIds = businessIds;
         businessIds.forEach(bid => {
           client.join(`${WsRooms.BUSINESS_PREFIX}${bid}`);
         });
@@ -165,6 +166,7 @@ export class DispatchGateway
   }
 
   handleDisconnect(client: Socket) {
+    clearTimeout(client.data?.expiryTimer);
     const userId = client.data?.user?.sub || 'Inconnu';
     this.logger.log(`[WS Disconnected] Socket: ${client.id} | User: ${userId}`);
   }
@@ -178,10 +180,10 @@ export class DispatchGateway
     @MessageBody() dto: JoinBusinessRoomDto,
   ) {
     const userRole = client.data?.user?.role;
-    const userBusinessId = client.data?.user?.businessId;
+    const businessIds: string[] = client.data?.user?.businessIds ?? [];
 
     if (userRole !== UserRole.SUPER_ADMIN && userRole !== UserRole.ADMIN) {
-      if (!userBusinessId || userBusinessId !== dto.businessId) {
+      if (!businessIds.includes(dto.businessId)) {
         this.logger.warn(
           `[WS Auth] Socket ${client.id} tenté de rejoindre business ${dto.businessId} sans autorisation`,
         );
@@ -272,6 +274,14 @@ export class DispatchGateway
       || (typeof user.exp === 'number' && user.exp * 1000 <= Date.now())) {
       return { status: 'error', live: false };
     }
+    const current = await this.userRepository.findOne({
+      where: { id: driverId },
+      select: { id: true, role: true, isActive: true },
+    });
+    if (!current?.isActive || current.role !== user.role) {
+      client.disconnect();
+      return { status: 'error', live: false };
+    }
     return this.locationHandler.handleDriverLocationUpdate(
       this.server,
       driverId,
@@ -359,6 +369,7 @@ export class DispatchGateway
   }
 
   dispatchOrderToDrivers(order: Order): void {
+    if (!this.server || order.orderType === OrderType.P2P_DELIVERY) return;
     this.server
       .to(WsRooms.AVAILABLE_DRIVERS)
       .emit('delivery_opportunity', {
@@ -380,11 +391,20 @@ export class DispatchGateway
     driverIds: string[],
     payload: Record<string, any>,
   ): void {
+    if (!this.server) return;
     driverIds.forEach((driverId) => {
       this.server
         .to(`${WsRooms.DRIVER_PREFIX}${driverId}`)
         .emit('targeted_order_offer', payload);
     });
+  }
+
+  notifyP2pOfferClosed(order: Order): void {
+    if (!this.server) return;
+    for (const candidate of order.dispatchCandidates ?? []) {
+      this.server.to(`${WsRooms.DRIVER_PREFIX}${candidate.driverId}`)
+        .emit('p2p_offer_closed', { orderId: order.id });
+    }
   }
 
   notifyOrderDisputed(orderId: string, disputeId: string): void {

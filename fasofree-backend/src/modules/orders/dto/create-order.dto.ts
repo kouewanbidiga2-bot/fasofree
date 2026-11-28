@@ -8,6 +8,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEnum,
+  IsInt,
   IsLatitude,
   IsLongitude,
   IsOptional,
@@ -42,7 +43,8 @@ export class OrderItemDto {
 
   @ApiProperty({ description: 'Quantité commandée', example: 2, minimum: 1 })
   @Type(() => Number)
-  @IsPositive()
+  @IsInt()
+  @Min(1)
   quantity: number;
 
   @ApiProperty({ description: 'Prix unitaire en FCFA', example: 2500 })

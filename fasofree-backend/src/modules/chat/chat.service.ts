@@ -138,8 +138,11 @@ export class ChatService {
    * 📋 Commandes ayant des messages de chat (pour inbox admin/support).
    * Retourne les 50 commandes les plus récentes avec au moins un message.
    */
-  async getActiveConversations(): Promise<{ orderId: string; lastMessage: string; lastAt: Date; channel: string; messageCount: number }[]> {
-    const result = await this.chatRepository
+  async getActiveConversations(merchantId?: string): Promise<{ orderId: string; lastMessage: string; lastAt: Date; channel: string; messageCount: number }[]> {
+    const allowedBusinessIds = merchantId
+      ? (await this.businessesService.findAllByOwner(merchantId)).map(business => business.id) : null;
+    if (allowedBusinessIds?.length === 0) return [];
+    const query = this.chatRepository
       .createQueryBuilder('msg')
       .select('msg.orderId', 'orderId')
       .addSelect('MAX(msg.createdAt)', 'lastAt')
@@ -154,8 +157,12 @@ export class ChatService {
       )
       .groupBy('msg.orderId')
       .orderBy('MAX(msg.createdAt)', 'DESC')
-      .limit(50)
-      .getRawMany();
+      .limit(50);
+    if (allowedBusinessIds) {
+      query.innerJoin(Order, 'o', 'o.id = msg."orderId"')
+        .andWhere('o."businessId" IN (:...allowedBusinessIds)', { allowedBusinessIds });
+    }
+    const result = await query.getRawMany();
 
     return result.map((r) => ({
       orderId: r.orderId,

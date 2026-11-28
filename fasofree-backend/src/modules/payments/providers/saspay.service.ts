@@ -17,6 +17,7 @@ export interface SasPayPaymentResult {
   checkoutUrl: string | null;
   message: string;
   amount?: number;
+  currency?: string;
 }
 
 export interface SasPayMerchantBalance {
@@ -195,7 +196,8 @@ export class SasPayService {
         status: d.status ?? 'PENDING',
         checkoutUrl: null,
         message: d.message ?? '',
-        amount: d.net_amount !== undefined ? Number(d.net_amount) : undefined,
+        amount: d.net_amount != null ? Number(d.net_amount) : d.amount != null ? Number(d.amount) : undefined,
+        currency: typeof d.currency === 'string' ? d.currency.trim().toUpperCase() : undefined,
       };
     } catch (error: any) {
       this.logger.error(`❌ SasPay verifyPayment ${paymentId}: ${error.message}`);

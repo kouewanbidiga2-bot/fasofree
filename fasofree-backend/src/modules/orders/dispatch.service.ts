@@ -198,6 +198,7 @@ export class GeoDispatchService {
     longitude: number,
     radiusInKm: number = 5.0,
     limit: number = 10,
+    maxAgeMs = this.DRIVER_TTL_SECONDS * 1000,
   ): Promise<CandidateDriverMatch[]> {
     const nearbyDriverIds = (await this.redis.geosearch(
       this.DRIVERS_GEO_KEY,
@@ -236,6 +237,7 @@ export class GeoDispatchService {
 
       if (!err && typeof metaDataStr === 'string') {
         const meta = JSON.parse(metaDataStr);
+        if (!Number.isFinite(meta.updatedAt) || Date.now() - meta.updatedAt > maxAgeMs) return;
         const distanceKm = this.calculateHaversineDistance(
           latitude,
           longitude,

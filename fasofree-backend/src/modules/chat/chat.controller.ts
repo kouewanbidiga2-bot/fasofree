@@ -49,8 +49,10 @@ export class ChatController {
   @UseGuards(RolesGuard)
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.SUPPORT, UserRole.BUSINESS_ADMIN)
   @ApiOperation({ summary: 'Liste des conversations actives (Admin/Support/Merchant)' })
-  async getActiveConversations() {
-    return this.chatService.getActiveConversations();
+  async getActiveConversations(@NestRequest() req: RequestWithUser) {
+    const { userId, role } = req.user ?? {};
+    if (!userId) throw new UnauthorizedException();
+    return this.chatService.getActiveConversations(role === UserRole.BUSINESS_ADMIN ? userId : undefined);
   }
 
   /**

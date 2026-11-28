@@ -308,7 +308,15 @@ export class Order {
     notifiedAt?: Date;
     refused?: boolean;
     refusedAt?: string;
+    offerExpiresAt?: string;
+    pickupDistanceKm?: number;
   }>;
+
+  @Column({ type: 'integer', default: 0 })
+  p2pDispatchWave: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  nextP2pDispatchAt: Date | null;
 
   @Column({ type: 'timestamp', nullable: true })
   dispatchedAt: Date | null;

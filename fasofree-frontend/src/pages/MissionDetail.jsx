@@ -5,8 +5,9 @@ import Shell from '../components/Shell';
 import MissionMap, { navigationUrl } from '../components/MissionMap';
 import { Amount, ErrorNote, GoodNote, Loading, StatusPill, statusTone } from '../components/ui';
 import useLiveLocation from '../hooks/useLiveLocation';
-import { earningOf, fetchOrder, fetchOrderTracking, markDelivered, markPickedUp, ON_ROUTE_STATUSES, recordArrival, statusLabel } from '../services/courier';
+import { contactMissionSupport, earningOf, fetchOrder, fetchOrderTracking, markDelivered, markPickedUp, ON_ROUTE_STATUSES, recordArrival, statusLabel } from '../services/courier';
 const atHandoff = 'DELIVERED_PENDING_CONFIRMATION';
+const supportReasons = ['Adresse introuvable', 'Contact injoignable', 'Problème avec le colis', 'Autre problème'];
 
 function phoneLink(phone) {
   const number = typeof phone === 'string' ? phone.replace(/[\s().-]/g, '') : '';
@@ -22,6 +23,51 @@ function Stop({ label, point }) {
         <strong>{point?.address || 'Voir le repère sur la carte'}</strong>
       </div>
     </div>
+  );
+}
+
+function MissionSupport({ orderId, phone }) {
+  const [reason, setReason] = useState(supportReasons[0]);
+  const [details, setDetails] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState(false);
+
+  const submit = async (event) => {
+    event.preventDefault();
+    setSending(true);
+    setError('');
+    try {
+      await contactMissionSupport(orderId, reason, details.trim());
+      setSent(true);
+    } catch (failure) {
+      setError(failure.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <details className="mission-support">
+      <summary><Headphones size={17} aria-hidden="true" /> Assistance sur cette course</summary>
+      {sent ? <GoodNote>Message transmis à l’assistance.</GoodNote> : (
+        <form onSubmit={submit}>
+          <label>
+            Motif
+            <select className="input" value={reason} onChange={event => setReason(event.target.value)}>
+              {supportReasons.map(option => <option key={option}>{option}</option>)}
+            </select>
+          </label>
+          <label>
+            Précisions (facultatif)
+            <textarea className="input" value={details} maxLength={300} rows={2} onChange={event => setDetails(event.target.value)} />
+          </label>
+          <ErrorNote>{error}</ErrorNote>
+          <button type="submit" className="btn btn-primary" disabled={sending}>{sending ? 'Envoi…' : 'Envoyer au support'}</button>
+        </form>
+      )}
+      {phone && <a className="btn btn-ghost" href={phone}><Phone size={16} aria-hidden="true" /> Appeler le support</a>}
+    </details>
   );
 }
 
@@ -144,11 +190,7 @@ export default function MissionDetail() {
             )}
           </>
         )}
-        {active && supportPhone && (
-          <a className="btn btn-ghost mission-support" href={supportPhone}>
-            <Headphones size={17} aria-hidden="true" /> Un problème sur cette course ?
-          </a>
-        )}
+        {showContact && <MissionSupport key={id} orderId={id} phone={supportPhone} />}
         {active && <p className="mission-signal" role="status"><LocateFixed size={16} aria-hidden="true" />{locationMessage}</p>}
         <details className="mission-stops">
           <summary>Détails de la course</summary>

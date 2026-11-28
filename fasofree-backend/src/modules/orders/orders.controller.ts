@@ -14,6 +14,7 @@ import {
   UseGuards,
   Request as NestRequest,
   UnauthorizedException,
+  ForbiddenException,
   BadRequestException,
   Header,
   ParseUUIDPipe,
@@ -427,10 +428,11 @@ export class OrdersController {
     @NestRequest() req: RequestWithUser,
   ) {
     const userId = req.user?.userId;
-    if (!userId) {
+    const role = req.user?.role;
+    if (!userId || !role) {
       throw new UnauthorizedException('Utilisateur non authentifié');
     }
-    return this.ordersService.confirmDeliveryByAdmin(id, userId);
+    return this.ordersService.confirmDeliveryByAdmin(id, userId, role);
   }
 
   // ========================================================================
@@ -524,11 +526,13 @@ export class OrdersController {
       const userId = req.user?.userId;
       if (!userId) throw new UnauthorizedException('Utilisateur non authentifié');
       const order = await this.ordersService.findOne(orderId);
-      if (order.businessId) {
-        await this.businessesService.assertManagedBy(order.businessId, userId, role);
+      if (!order.businessId) {
+        throw new ForbiddenException('Cette commande ne dépend pas de votre commerce.');
       }
+      await this.businessesService.assertManagedBy(order.businessId, userId, role);
     }
-    return this.ordersService.assignDriverToOrder(orderId, driverId);
+    return this.ordersService.assignDriverToOrder(orderId, driverId,
+      role === UserRole.BUSINESS_ADMIN ? req.user?.userId : undefined);
   }
 
   // ========================================================================
